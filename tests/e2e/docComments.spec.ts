@@ -12,7 +12,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, selectBarTab, chooseCloudAiSource, showDocPane } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -50,6 +50,11 @@ test('add a comment on selected text, see the thread + highlight, and it persist
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
+  // Clear the first-run local-AI cards. local-ai-intro is fixed bottom-centre at
+  // z-225 and swallows clicks on whatever is under it — with the comments pane
+  // on the right its Add button lands in that band, and the click then never
+  // arrives while the button reports visible, enabled and stable throughout.
+  await chooseCloudAiSource(window)
 
   await openDocumentsHub(window)
   await startBlankDoc(window)
@@ -64,7 +69,8 @@ test('add a comment on selected text, see the thread + highlight, and it persist
   await selectAllInEditor(window)
 
   // Open the Comments panel.
-  await window.locator('[data-testid="doc-comments-toggle"]').click()
+  await selectBarTab(window, 'doc-toolbar', 'review')
+  await showDocPane(window, 'comments')
   await expect(window.locator('[data-testid="doc-comments-tab"]')).toBeVisible({ timeout: 5_000 })
   await expect(window.locator('[data-testid="doc-comments-empty"]')).toBeVisible()
 
@@ -89,11 +95,21 @@ test('add a comment on selected text, see the thread + highlight, and it persist
 
   // ── Persistence: close and reopen the document, comment survives. ───────
   await window.locator('button[title="Back to Documents"]').click()
-  await expect(window.locator('text=Untitled document').first()).toBeVisible({ timeout: 5_000 })
-  await window.locator('text=Untitled document').first().click()
+  // The Recent card carries the name the document gave ITSELF: titleBackfill
+  // derives one from the content (shared/titles.ts takes the heading or the
+  // first real line), so it is the typed sentence, not "Untitled document".
+  // Without the full stop — cleanTitle strips a trailing colon or full stop,
+  // because it "reads oddly as a name".
+  // Scoped to the card because the save also raises a toast with the same name.
+  const recent = window
+    .locator('[data-testid="doc-recent-card"]')
+    .filter({ hasText: 'This passage needs review before we ship it' })
+  await expect(recent.first()).toBeVisible({ timeout: 5_000 })
+  await recent.first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 8_000 })
 
-  await window.locator('[data-testid="doc-comments-toggle"]').click()
+  await selectBarTab(window, 'doc-toolbar', 'review')
+  await showDocPane(window, 'comments')
   await expect(window.locator('[data-testid="doc-comments-list"]')).toContainText(
     'Please double-check the numbers here.',
     { timeout: 5_000 }
@@ -104,6 +120,11 @@ test('reply with an @mention: the autocomplete offers a real participant and the
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
+  // Clear the first-run local-AI cards. local-ai-intro is fixed bottom-centre at
+  // z-225 and swallows clicks on whatever is under it — with the comments pane
+  // on the right its Add button lands in that band, and the click then never
+  // arrives while the button reports visible, enabled and stable throughout.
+  await chooseCloudAiSource(window)
 
   await openDocumentsHub(window)
   await startBlankDoc(window)
@@ -114,7 +135,8 @@ test('reply with an @mention: the autocomplete offers a real participant and the
   await window.waitForTimeout(300)
   await selectAllInEditor(window)
 
-  await window.locator('[data-testid="doc-comments-toggle"]').click()
+  await selectBarTab(window, 'doc-toolbar', 'review')
+  await showDocPane(window, 'comments')
   await expect(window.locator('[data-testid="doc-comments-tab"]')).toBeVisible({ timeout: 5_000 })
 
   // Seed a comment so its author becomes a real @mention candidate.

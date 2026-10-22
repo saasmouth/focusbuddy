@@ -26,7 +26,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab, showDocStyles } from './_helpers'
 
 // ── Shared navigation helpers ─────────────────────────────────────────────────
 
@@ -137,7 +137,7 @@ test('DE-1 — blank doc opens with editor surface and toolbar', async () => {
     await expect(window.getByRole('button', { name: /Redo/i })).toBeVisible()
 
     // Find & replace toolbar button present
-    await expect(window.getByTitle('Find & replace')).toBeVisible()
+    await expect(window.getByRole('button', { name: /Find & replace/i })).toBeVisible()
   } finally {
     await dispose()
   }
@@ -184,15 +184,13 @@ test('DE-2 — toolbar formatting: bold, italic, underline, heading, bullet list
     await expect(surface).toContainText('Format me')
 
     // Heading 2 via the Styles panel (row-2 = "Heading 1" which maps to h2).
-    await window.locator('[data-testid="doc-styles-btn"]').click()
-    await expect(window.locator('[data-testid="doc-styles-panel"]')).toBeVisible({ timeout: 3_000 })
+    await showDocStyles(window)
     await window.locator('[data-testid="doc-styles-panel"] [data-testid="doc-style-row-2"] button').first().click()
     await window.waitForTimeout(300)
     await expect(surface.locator('h2').first()).toContainText('Format me')
 
     // Back to Normal text via the Styles panel.
-    await window.locator('[data-testid="doc-styles-btn"]').click()
-    await expect(window.locator('[data-testid="doc-styles-panel"]')).toBeVisible({ timeout: 3_000 })
+    await showDocStyles(window)
     await window.locator('[data-testid="doc-styles-panel"] [data-testid="doc-style-row-0"]').click()
     await window.waitForTimeout(300)
     await expect(surface.locator('p').first()).toContainText('Format me')
@@ -487,7 +485,7 @@ test('DE-8a — Office import: stubbed IPC importDocx inserts content into edito
     await stubIpcImportDocx(app, '<h2>Imported Heading</h2><p>Word paragraph content</p>')
 
     // Open Office menu via the folder-open toolbar button
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Import Word (.docx)')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Import Word (.docx)').click()
 
@@ -520,7 +518,7 @@ test('DE-8b — Office export: stubbed IPC exportDocx + exportPdf show saved pat
     await stubIpcExportOffice(app, fakePath)
 
     // Export Word — open Office menu and click Export Word
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export Word (.docx)')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export Word (.docx)').click()
 
@@ -538,7 +536,7 @@ test('DE-8b — Office export: stubbed IPC exportDocx + exportPdf show saved pat
     const fakePdfPath = '/tmp/MyDoc.pdf'
     await stubIpcExportOffice(app, fakePdfPath)
 
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export PDF')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export PDF').click()
 
@@ -676,6 +674,7 @@ test('DE-13 — outline: shows headings after they are typed; empty hint before 
     await openDocumentsHub(window)
     await startBlankDoc(window)
 
+    await selectBarTab(window, 'doc-toolbar', 'review')
     const outlineToggle = window.locator('[data-testid="doc-outline-toggle"]')
     await expect(outlineToggle).toBeVisible({ timeout: 5_000 })
 
@@ -817,8 +816,14 @@ test('DE-10 — persistence: edit flows to saveBody and survives re-open', async
     })
 
     // Re-open via Recent
-    await expect(window.locator('text=Untitled document').first()).toBeVisible({ timeout: 5_000 })
-    await window.locator('text=Untitled document').first().click()
+    // The Recent card shows the name the document derived from its own content
+    // (titleBackfill + shared/titles.ts), not "Untitled document". Scoped to the
+    // card, because the save also raises a toast carrying the same name.
+    const recent = window
+      .locator('[data-testid="doc-recent-card"]')
+      .filter({ hasText: 'Persisted content for reload test' })
+    await expect(recent.first()).toBeVisible({ timeout: 5_000 })
+    await recent.first().click()
 
     const reloadedSurface = window.locator('[data-testid="doc-editor-surface"]')
     await reloadedSurface.waitFor({ state: 'visible', timeout: 8_000 })
@@ -905,6 +910,7 @@ test('DE-17 — page view: continuous is default; Page btn shows portrait sheet;
     await expect(window.locator('[data-testid="doc-page"]')).not.toBeVisible({ timeout: 3_000 })
 
     // 2. Switch to Page view.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     const page = window.locator('[data-testid="doc-page"]')
     await expect(page).toBeVisible({ timeout: 3_000 })
@@ -919,6 +925,7 @@ test('DE-17 — page view: continuous is default; Page btn shows portrait sheet;
     // comparison is skipped because the headless viewport (< 816 px) clamps both
     // orientations to the same rendered width — that is a harness geometry
     // limitation, not a product defect.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-orientation-btn"]').click()
     await expect(page).toHaveAttribute('data-orientation', 'landscape', { timeout: 3_000 })
     // The inline style width is set directly by the component (style={{ width: geom.w }}).
@@ -932,6 +939,7 @@ test('DE-17 — page view: continuous is default; Page btn shows portrait sheet;
     expect(Number.parseInt(landscapeW, 10), `landscape inline width (${landscapeW}) must be > 816`).toBeGreaterThan(816)
 
     // 4. Return to Continuous — the sheet must disappear.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-layout-toggle"] button').filter({ hasText: 'Continuous' }).click()
     await expect(page).not.toBeVisible({ timeout: 3_000 })
   } finally {

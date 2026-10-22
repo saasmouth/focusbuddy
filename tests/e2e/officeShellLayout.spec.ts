@@ -62,6 +62,21 @@ const APPS: AppCase[] = [
     panelOpener: 'draw-rail-layers',
     panel: 'draw-panel-layers',
     undo: 'draw-undo'
+  },
+  {
+    name: 'PlexiiWrite',
+    docType: 'doc',
+    shell: 'doc-shell',
+    bar: 'doc-toolbar',
+    rail: 'doc-rail',
+    canvas: 'doc-editor-surface',
+    panelOpener: 'doc-toggle-styles',
+    panel: 'doc-panel-styles',
+    undo: 'doc-undo',
+    // No `corner`: that assertion exists to prove a BOTTOM-RIGHT control is not
+    // under the Plexii pill, and Write's bottom strip holds only the reading
+    // meta, on the left. Naming it here would pass without testing anything.
+    sidePane: { toggle: 'doc-sidepane-toggle', pane: 'doc-side-panel', content: 'doc-comments-tab' }
   }
 ]
 

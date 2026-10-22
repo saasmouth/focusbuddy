@@ -684,3 +684,65 @@ export async function suppressFeatureSpotlights(window: Page): Promise<void> {
     localStorage.setItem('fb.onboarding.v2', JSON.stringify(p))
   }, ids)
 }
+
+/**
+ * Select an office-shell ContextBar tab, so the controls on it are rendered.
+ *
+ * On the shared shell a tab's controls are only in the DOM while that tab is
+ * active (SPEC §2.2) — unlike the single always-visible toolbar each app had
+ * before. So a spec that reaches for a control which now lives on Insert,
+ * Layout, Data, Review or Tools has to select its tab first, or it will wait
+ * out its timeout on an element that was never rendered. Home is the default
+ * tab, so controls there need no call.
+ *
+ * `bar` is the ContextBar testid (doc-toolbar, sheet-toolbar, diagram-toolbar…)
+ * and `tab` the tab id, giving `${bar}-tab-${tab}`.
+ */
+export async function selectBarTab(window: Page, bar: string, tab: string): Promise<void> {
+  const t = window.locator(`[data-testid="${bar}-tab-${tab}"]`)
+  await expect(t).toBeVisible({ timeout: 5_000 })
+  // Idempotent on purpose: clicking the ALREADY-active tab a second time is a
+  // double-click, which collapses row 2 (owner ruling D5) and hides the very
+  // controls the caller is reaching for. So selecting the current tab is a
+  // no-op rather than a click.
+  if ((await t.getAttribute('aria-selected')) === 'true') return
+  await t.click()
+  await expect(t).toHaveAttribute('aria-selected', 'true', { timeout: 3_000 })
+}
+
+/**
+ * Show one of Write's right-hand content panes (outline / comments / ai).
+ *
+ * `doc-comments-toggle` and `doc-outline-toggle` are TOGGLES: pressing one while
+ * that pane is already showing collapses the side pane. A spec that presses it
+ * blind therefore depends on whatever the pane happened to be doing — which
+ * differs between a fresh document and one reopened later in the same run. This
+ * makes it deterministic: open the pane if it is collapsed, then select the tab
+ * if it is not already the active one.
+ */
+export async function showDocPane(window: Page, pane: 'outline' | 'comments' | 'ai'): Promise<void> {
+  const panel = window.locator('[data-testid="doc-side-panel"]')
+  if (!(await panel.isVisible().catch(() => false))) {
+    const expand = window.locator('[data-testid="doc-side-panel-expand"]')
+    if (await expand.isVisible().catch(() => false)) await expand.click()
+    else await window.locator(`[data-testid="doc-${pane}-toggle"]`).click()
+    await expect(panel).toBeVisible({ timeout: 8_000 })
+  }
+  const tab = window.locator(`[data-testid="doc-tab-${pane}"]`)
+  if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click()
+}
+
+/**
+ * Show Write's Styles panel, whatever state it is in.
+ *
+ * `doc-styles-btn` toggles the panel, so pressing it blind depends on whether
+ * the panel was already open — and picking a style from it does not close it,
+ * so a spec that opens it, picks a row, then presses the button again to "open"
+ * it is actually closing it. This opens only when it is closed.
+ */
+export async function showDocStyles(window: Page): Promise<void> {
+  const panel = window.locator('[data-testid="doc-styles-panel"]')
+  if (await panel.isVisible().catch(() => false)) return
+  await window.locator('[data-testid="doc-styles-btn"]').click()
+  await expect(panel).toBeVisible({ timeout: 5_000 })
+}

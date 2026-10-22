@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { openDocHistory } from '../DocHistoryPanel'
 import { confirmDialog, promptText } from '../../plexi/PromptDialog'
 import type { Editor } from '@tiptap/react'
@@ -8,23 +8,18 @@ import { launchMeeting } from '../../../lib/startMeeting'
 import type { FbDocument } from '@shared/types'
 import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
+import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
 // Insert / Format / Tools / Help, each a dropdown of real actions. Every item is
 // wired to a genuine capability — Tiptap editor commands, the documents store, or
 // the office export IPC. Nothing here is a decorative no-op; an action that the
 // editor cannot do is simply not listed.
-
-type Item =
-  | { kind: 'item'; label: string; shortcut?: string; icon?: string; run: () => void; disabled?: boolean; active?: boolean }
-  | { kind: 'sep' }
-  | { kind: 'submenu'; label: string; icon?: string; items: Item[] }
-
-interface MenuDef {
-  id: string
-  label: string
-  build: () => Item[]
-}
+//
+// This file declares the menus; menuBarKit renders them, as it does for every
+// other office app. The bar's testid is `doc-menubar` while its menus are
+// `doc-menu-<id>` and `doc-menu-<id>-list`, so the kit is given an explicit
+// `itemTestid` — the two prefixes predate the shared kit and specs rely on both.
 
 interface Props {
   editor: Editor
@@ -64,28 +59,9 @@ export default function DocMenuBar({
   const goDocument = useViewStore((s) => s.goDocument)
   const goDocuments = useViewStore((s) => s.goDocuments)
 
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [wordCountOpen, setWordCountOpen] = useState(false)
   const [a11yOpen, setA11yOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const barRef = useRef<HTMLDivElement>(null)
-
-  // Close the open dropdown on an outside click or Escape.
-  useEffect(() => {
-    if (!openMenu) return
-    function onDoc(e: MouseEvent): void {
-      if (barRef.current && !barRef.current.contains(e.target as Node)) setOpenMenu(null)
-    }
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') setOpenMenu(null)
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [openMenu])
 
   const chain = (): ReturnType<Editor['chain']> => editor.chain().focus()
 
@@ -287,116 +263,13 @@ export default function DocMenuBar({
     }
   ]
 
-  function runItem(run: () => void): void {
-    setOpenMenu(null)
-    run()
-  }
-
   return (
-    <div ref={barRef} className="relative flex items-center gap-0.5 select-none" data-testid="doc-menubar">
-      {MENUS.map((menu) => (
-        <div key={menu.id} className="relative">
-          <button
-            onClick={() => setOpenMenu((cur) => (cur === menu.id ? null : menu.id))}
-            onMouseEnter={() => setOpenMenu((cur) => (cur ? menu.id : cur))}
-            data-testid={`doc-menu-${menu.id}`}
-            className={`px-2 py-0.5 rounded text-[13px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] ${
-              openMenu === menu.id ? 'bg-[var(--surface-sunken)]' : ''
-            }`}
-          >
-            {menu.label}
-          </button>
-          {openMenu === menu.id && (
-            <MenuDropdown items={menu.build()} onRun={runItem} testid={`doc-menu-${menu.id}-list`} />
-          )}
-        </div>
-      ))}
-
+    <>
+      <MenuBarShell menus={MENUS} testid="doc-menubar" itemTestid="doc-menu" />
       {wordCountOpen && <WordCountModal editor={editor} onClose={() => setWordCountOpen(false)} />}
       {a11yOpen && <A11yModal editor={editor} onClose={() => setA11yOpen(false)} />}
       {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
-    </div>
-  )
-}
-
-function MenuDropdown({
-  items,
-  onRun,
-  testid
-}: {
-  items: Item[]
-  onRun: (run: () => void) => void
-  testid?: string
-}): JSX.Element {
-  return (
-    <div
-      className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-0 top-full mt-0.5 z-40 min-w-[220px] py-1"
-      data-testid={testid}
-    >
-      {items.map((it, i) => {
-        if (it.kind === 'sep') return <div key={i} className="my-1 border-t border-[var(--edge-soft)]" />
-        if (it.kind === 'submenu') return <SubmenuRow key={i} label={it.label} icon={it.icon} items={it.items} onRun={onRun} />
-        return (
-          <button
-            key={i}
-            onClick={() => !it.disabled && onRun(it.run)}
-            disabled={it.disabled}
-            className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-left ${
-              it.disabled
-                ? 'text-[var(--ink-30)] cursor-default'
-                : 'text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]'
-            }`}
-          >
-            <span className="w-4 shrink-0 text-[var(--ink-50)]">
-              {it.active ? <Icon name="check" size={15} /> : it.icon ? <Icon name={it.icon} size={15} /> : null}
-            </span>
-            <span className="flex-1 min-w-0 truncate">{it.label}</span>
-            {it.shortcut && <span className="text-[11px] text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function SubmenuRow({
-  label,
-  icon,
-  items,
-  onRun
-}: {
-  label: string
-  icon?: string
-  items: Item[]
-  onRun: (run: () => void) => void
-}): JSX.Element {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button className="flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-left text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]">
-        <span className="w-4 shrink-0 text-[var(--ink-50)]">{icon ? <Icon name={icon} size={15} /> : null}</span>
-        <span className="flex-1 min-w-0 truncate">{label}</span>
-        <Icon name="chevron_right" size={15} className="text-[var(--ink-40)] shrink-0" />
-      </button>
-      {open && (
-        <div className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-full top-0 -mt-1 ml-0.5 z-50 min-w-[210px] py-1">
-          {items.map((it, i) => {
-            if (it.kind !== 'item') return null
-            return (
-              <button
-                key={i}
-                onClick={() => onRun(it.run)}
-                className="flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-left text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
-              >
-                <span className="w-4 shrink-0 text-[var(--ink-50)]">{it.active ? <Icon name="check" size={15} /> : null}</span>
-                <span className="flex-1 min-w-0 truncate">{it.label}</span>
-                {it.shortcut && <span className="text-[11px] text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
@@ -411,7 +284,7 @@ function WordCountModal({ editor, onClose }: { editor: Editor; onClose: () => vo
     ['Characters excluding spaces', charactersNoSpaces]
   ]
   return (
-    <Modal title="Word count" onClose={onClose}>
+    <MenuModal width={320} title="Word count" onClose={onClose}>
       <div className="space-y-1.5">
         {rows.map(([label, n]) => (
           <div key={label} className="flex items-center justify-between text-[13px]">
@@ -420,14 +293,14 @@ function WordCountModal({ editor, onClose }: { editor: Editor; onClose: () => vo
           </div>
         ))}
       </div>
-    </Modal>
+    </MenuModal>
   )
 }
 
 function A11yModal({ editor, onClose }: { editor: Editor; onClose: () => void }): JSX.Element {
   const issues = checkDocA11y(editor.getJSON())
   return (
-    <Modal title="Accessibility check" onClose={onClose}>
+    <MenuModal width={320} title="Accessibility check" onClose={onClose}>
       {issues.length === 0 ? (
         <div className="flex items-center gap-2 text-[13px] text-emerald-600" data-testid="doc-a11y-clean">
           <Icon name="check_circle" size={16} />
@@ -447,7 +320,7 @@ function A11yModal({ editor, onClose }: { editor: Editor; onClose: () => void })
           ))}
         </div>
       )}
-    </Modal>
+    </MenuModal>
   )
 }
 
@@ -463,7 +336,7 @@ function ShortcutsModal({ onClose }: { onClose: () => void }): JSX.Element {
     ['Clear formatting', '⌘\\']
   ]
   return (
-    <Modal title="Keyboard shortcuts" onClose={onClose}>
+    <MenuModal width={320} title="Keyboard shortcuts" onClose={onClose}>
       <div className="space-y-1.5">
         {rows.map(([label, keys]) => (
           <div key={label} className="flex items-center justify-between text-[13px]">
@@ -472,25 +345,6 @@ function ShortcutsModal({ onClose }: { onClose: () => void }): JSX.Element {
           </div>
         ))}
       </div>
-    </Modal>
-  )
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }): JSX.Element {
-  return (
-    <div className="fb-scrim fixed inset-0 z-[60] flex items-center justify-center" onMouseDown={onClose}>
-      <div
-        className="fb-card w-[320px] p-4"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[14px] font-semibold text-[var(--ink-90)]">{title}</h3>
-          <button onClick={onClose} className="icon-btn" title="Close">
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    </MenuModal>
   )
 }

@@ -14,7 +14,7 @@
 // block's own box legitimately spans a spacer when a break lands inside it, so
 // element boxes report false violations.
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, selectBarTab } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => { if (launched) { await launched.dispose(); launched = null } })
@@ -118,6 +118,7 @@ test('pasted content stays inside the margins and the sheet', async () => {
   await window.locator('text=Paste Margin Probe').first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
   // Page view: sheets with real margins.
+  await selectBarTab(window, 'doc-toolbar', 'layout')
   const btn = window.locator('[data-testid="doc-pageview-btn"]')
   if (await btn.count()) await btn.click()
   await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 8_000 })
@@ -177,6 +178,7 @@ test('pasted markdown spanning several pages stays inside each page band', async
   await window.waitForTimeout(600)
   await window.locator('text=Multipage Paste Probe').first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
+  await selectBarTab(window, 'doc-toolbar', 'layout')
   const btn = window.locator('[data-testid="doc-pageview-btn"]')
   if (await btn.count()) await btn.click()
   await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 8_000 })
@@ -257,6 +259,7 @@ test('pasted markdown with a long table or code block vs the page band', async (
   await window.waitForTimeout(600)
   await window.locator('text=Atomic Paste Probe').first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
+  await selectBarTab(window, 'doc-toolbar', 'layout')
   const btn = window.locator('[data-testid="doc-pageview-btn"]')
   if (await btn.count()) await btn.click()
   await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 8_000 })
@@ -352,6 +355,7 @@ test('table header repeat: right-click toggle, repeated headers, persistence', a
   await window.waitForTimeout(600)
   await window.locator('text=Header Repeat Probe').first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
+  await selectBarTab(window, 'doc-toolbar', 'layout')
   const btn = window.locator('[data-testid="doc-pageview-btn"]')
   if (await btn.count()) await btn.click()
   await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 8_000 })
@@ -456,6 +460,7 @@ test('an image taller than the page is capped to the content band, not overflowe
   await window.waitForTimeout(600)
   await window.locator('text=Tall Image Probe').first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
+  await selectBarTab(window, 'doc-toolbar', 'layout')
   const btn = window.locator('[data-testid="doc-pageview-btn"]')
   if (await btn.count()) await btn.click()
   await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 8_000 })

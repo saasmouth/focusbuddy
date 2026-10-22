@@ -5,7 +5,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 async function openDocumentsHub(window: Page): Promise<void> {
   await gotoView(window, 'goDocuments')
@@ -21,6 +21,7 @@ async function startBlankDoc(window: Page): Promise<void> {
 async function enterPageView(window: Page): Promise<void> {
   const visible = await window.locator('[data-testid="doc-page"]').isVisible().catch(() => false)
   if (!visible) {
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 4_000 })
   }
@@ -45,6 +46,7 @@ test('DHF-1 — set a header + footer with page number; renders and persists', a
     await startBlankDoc(window)
     await enterPageView(window)
 
+    await selectBarTab(window, 'doc-toolbar', 'insert')
     await window.locator('[data-testid="doc-headerfooter-btn"]').click()
     await expect(window.locator('[data-testid="doc-headerfooter-menu"]')).toBeVisible({ timeout: 4_000 })
 

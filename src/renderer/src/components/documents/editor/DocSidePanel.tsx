@@ -8,6 +8,7 @@ import { applyMention, filterMentionCandidates, matchMentionQuery } from '../../
 import MentionText from '../../views/chat/MentionText'
 import type { DocAi } from './useDocAi'
 import AnsweredBy from '../../ai/AnsweredBy'
+import type { SidePane } from '../../office/shell'
 
 // The persistent right-side panel for PlexiDocs. Three tabs share one column:
 //   AI Assistant - a greeting plus quick actions over the real AI hook
@@ -579,6 +580,62 @@ export default function DocSidePanel({
 
 // An inline outline for the panel. DocOutline is a floating overlay; this is the
 // same live heading list rendered as a plain column inside the panel body.
+// ── The same three bodies, as shell side panes ───────────────────────────────
+
+/**
+ * Write's three content panes for the shared ShellSidePane. Same bodies as the
+ * panel above; the shell supplies the column, the pane switcher and the
+ * collapse control, so the <aside> and tab strip are not repeated here.
+ *
+ * Every id the doc specs address is preserved: the switcher tabs keep
+ * `doc-tab-ai` / `doc-tab-comments` / `doc-tab-outline` through `tabTestid`,
+ * and each body keeps its own testid (doc-comments-tab, doc-outline-panel).
+ * ShellSidePane's root carries `doc-side-panel`, which is where it was before.
+ */
+export function docSidePanes(p: Omit<Props, 'tab' | 'onTab' | 'onCollapse'>): SidePane[] {
+  const openCount = p.comments.filter((c) => !c.resolved).length
+  const panes: SidePane[] = []
+  if (p.showAiTab ?? true) {
+    panes.push({
+      id: 'ai',
+      title: 'PlexiiAssist',
+      icon: 'auto_awesome',
+      tabTestid: 'doc-tab-ai',
+      render: () => (
+        <div className="h-full overflow-auto">
+          <AiTab ai={p.ai} userName={p.userName} editor={p.editor} />
+        </div>
+      )
+    })
+  }
+  panes.push({
+    id: 'comments',
+    title: 'Comments',
+    icon: 'comment',
+    tabTestid: 'doc-tab-comments',
+    badge: openCount > 0 ? String(openCount) : undefined,
+    render: () => (
+      <CommentsTab
+        comments={p.comments}
+        canComment={p.canComment}
+        onAddComment={p.onAddComment}
+        onReply={p.onReply}
+        onJumpComment={p.onJumpComment}
+        mentionHandles={p.mentionHandles ?? []}
+        myHandle={p.myHandle}
+      />
+    )
+  })
+  panes.push({
+    id: 'outline',
+    title: 'Outline',
+    icon: 'toc',
+    tabTestid: 'doc-tab-outline',
+    render: () => <PanelOutline editor={p.editor} />
+  })
+  return panes
+}
+
 function PanelOutline({ editor }: { editor: Editor }): JSX.Element {
   return (
     <div className="h-full overflow-auto py-1" data-testid="doc-outline-tab">

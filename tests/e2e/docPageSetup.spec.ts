@@ -26,7 +26,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 // ── Navigation helpers ────────────────────────────────────────────────────────
 
@@ -52,6 +52,7 @@ async function enterPageView(window: Page): Promise<void> {
   // Only click if not already in page view (idempotent).
   const alreadyVisible = await window.locator('[data-testid="doc-page"]').isVisible().catch(() => false)
   if (!alreadyVisible) {
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     await expect(window.locator('[data-testid="doc-page"]')).toBeVisible({ timeout: 4_000 })
   }
@@ -81,6 +82,7 @@ test('DPS-1 — doc-layout-toggle Continuous/Page; Page view reveals sheet and c
     await expect(window.locator('[data-testid="doc-page"]')).not.toBeVisible({ timeout: 3_000 })
 
     // The toggle group is present.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     const toggle = window.locator('[data-testid="doc-layout-toggle"]')
     await expect(toggle).toBeVisible({ timeout: 3_000 })
     // Both buttons are inside the toggle.
@@ -88,18 +90,23 @@ test('DPS-1 — doc-layout-toggle Continuous/Page; Page view reveals sheet and c
     await expect(toggle.locator('button', { hasText: 'Page' })).toBeVisible()
 
     // Click Page.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     const sheet = window.locator('[data-testid="doc-page"]')
     await expect(sheet).toBeVisible({ timeout: 4_000 })
 
     // Page controls appear once page view is active.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-orientation-btn"]')).toBeVisible({ timeout: 3_000 })
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-paper-btn"]')).toBeVisible({ timeout: 3_000 })
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-margins-btn"]')).toBeVisible({ timeout: 3_000 })
 
     // Return to Continuous — sheet disappears and controls disappear.
     await toggle.locator('button', { hasText: 'Continuous' }).click()
     await expect(sheet).not.toBeVisible({ timeout: 3_000 })
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-orientation-btn"]')).not.toBeVisible({ timeout: 2_000 })
   } finally {
     await dispose()
@@ -129,11 +136,14 @@ test('DPS-2 — orientation+size persist on body.page; second doc opens at defau
     await expect(sheet).toHaveAttribute('data-orientation', 'portrait')
 
     // Toggle to Landscape.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-orientation-btn"]').click()
     await expect(sheet).toHaveAttribute('data-orientation', 'landscape', { timeout: 3_000 })
 
     // Toggle paper to A4 (it starts as Letter; one click toggles to A4).
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-paper-btn"]').click()
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-paper-btn"]')).toContainText('A4', { timeout: 3_000 })
 
     // Confirm saved body carries the page setup.
@@ -158,6 +168,7 @@ test('DPS-2 — orientation+size persist on body.page; second doc opens at defau
     // Must open at portrait (default) — not landscape from doc 1.
     await expect(sheet2).toHaveAttribute('data-orientation', 'portrait', { timeout: 3_000 })
     // Paper must be Letter (default) — not A4 from doc 1.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-paper-btn"]')).toContainText('Letter', { timeout: 3_000 })
   } finally {
     await dispose()
@@ -181,6 +192,7 @@ test('DPS-3 — margins: preset Narrow sets 0.5 all sides; custom top=1.5 update
     await enterPageView(window)
 
     // Open the margins menu.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-margins-btn"]').click()
     const menu = window.locator('[data-testid="doc-margins-menu"]')
     await expect(menu).toBeVisible({ timeout: 3_000 })
@@ -199,14 +211,12 @@ test('DPS-3 — margins: preset Narrow sets 0.5 all sides; custom top=1.5 update
 
     // Apply Narrow preset (0.5" all sides).
     await menu.locator('[data-testid="doc-margin-preset-narrow"]').click()
-    // The preset click fires onPick but not onClose. The backdrop overlay
-    // (fixed inset-0 z-30) stays visible. Close it by clicking the backdrop
-    // itself (its onClick is onClose) via evaluate, bypassing the z-stack.
+    // Picking a preset applies it and leaves the panel open, so close it
+    // explicitly. The margins form is a ShellPanel on the office shell, which
+    // owns its own close control — it is no longer a popover over a
+    // `fixed inset-0 z-30` scrim, which is what this used to click.
     await window.waitForTimeout(300)
-    await window.evaluate(() => {
-      const backdrop = document.querySelector('.fixed.inset-0.z-30') as HTMLElement | null
-      backdrop?.click()
-    })
+    await window.locator('[data-testid="doc-panel-margins-close"]').click()
     await expect(menu).not.toBeVisible({ timeout: 3_000 })
 
     // Verify saved body has the narrow preset margins.
@@ -218,6 +228,7 @@ test('DPS-3 — margins: preset Narrow sets 0.5 all sides; custom top=1.5 update
     expect(margin1?.left, 'Narrow preset left').toBe(0.5)
 
     // ── Custom margin: set top to 1.5" and verify visual + persistence ─────────
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-margins-btn"]').click()
     await expect(menu).toBeVisible({ timeout: 3_000 })
 
@@ -227,11 +238,8 @@ test('DPS-3 — margins: preset Narrow sets 0.5 all sides; custom top=1.5 update
     await topInput.press('Tab')
     await window.waitForTimeout(400)
 
-    // Close the menu via the backdrop (same reason as above).
-    await window.evaluate(() => {
-      const backdrop = document.querySelector('.fixed.inset-0.z-30') as HTMLElement | null
-      backdrop?.click()
-    })
+    // Close the panel by its own control (same reason as above).
+    await window.locator('[data-testid="doc-panel-margins-close"]').click()
     await expect(menu).not.toBeVisible({ timeout: 3_000 })
 
     // Saved body.page.margin.top must be 1.5.
@@ -276,9 +284,12 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
     await enterPageView(window)
 
     // Set landscape + A4 so we can assert the non-default page is forwarded.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-orientation-btn"]').click()
     await expect(window.locator('[data-testid="doc-page"]')).toHaveAttribute('data-orientation', 'landscape', { timeout: 3_000 })
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-paper-btn"]').click()
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await expect(window.locator('[data-testid="doc-paper-btn"]')).toContainText('A4', { timeout: 3_000 })
     await window.waitForTimeout(300)
 
@@ -309,7 +320,7 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
     })
 
     // Trigger exportDocx via the toolbar Office menu.
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export Word (.docx)')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export Word (.docx)').click()
 
@@ -331,7 +342,7 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
     }
 
     // Trigger exportPdf.
-    await window.getByTitle('Open or export Office files').click()
+    await window.getByRole('button', { name: /Open or export Office files/i }).click()
     await expect(window.locator('text=Export PDF')).toBeVisible({ timeout: 3_000 })
     await window.locator('text=Export PDF').click()
 
@@ -383,6 +394,7 @@ test('DPS-5 — heading styles survive a page-setup change (metaRef integrity: n
     // Now change the page setup (orientation) — this calls updatePageSetup
     // which reads metaRef.current.headingStyles.
     await enterPageView(window)
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-orientation-btn"]').click()
     await expect(window.locator('[data-testid="doc-page"]')).toHaveAttribute('data-orientation', 'landscape', { timeout: 3_000 })
 

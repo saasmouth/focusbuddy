@@ -7,7 +7,7 @@
  * sheets. Also asserts the sheet is white paper.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, selectBarTab } from './_helpers'
 
 test.describe('pasted text paginates within the content zone', () => {
   let app: LaunchedApp
@@ -19,6 +19,7 @@ test.describe('pasted text paginates within the content zone', () => {
     await switchArea(window, 'office')
     await window.locator('[data-testid="office-app-docs"]').click()
     await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     await expect(window.locator('[data-testid="doc-page-canvas"]')).toBeVisible({ timeout: 6_000 })
 
