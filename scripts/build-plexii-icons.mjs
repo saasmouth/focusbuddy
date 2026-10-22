@@ -2,9 +2,13 @@
 // Builds the Plexii entity icon set the renderer ships (apps, work widgets,
 // tools, connected apps) from the owner-supplied source folder.
 //
-//   node scripts/build-plexii-icons.mjs [--source <dir>] [--strict-truncated] [--check]
+//   node scripts/build-plexii-icons.mjs [--source <dir>] [--check]
 //
 // Source: "Plexii-Icons-SVG-PNG" (Asset-Index.csv + <Category>/<Name>/<Name>--Icon|Logo.png|svg).
+// Categories built: the entity sets (Apps, Tools, Work-Widgets, Connected-Apps)
+// and the place/product/action sets from the 22 Oct 2026 delivery (Side-Menu,
+// Focus-Filters, Section-Headers, People, PlexiiBrain, Bring-In,
+// Areas-and-Hubs, Onboarding, Suite-Products, Home-Actions). See CATEGORY.
 // Default location is marketing/brand-assets/Plexii-Icons-SVG-PNG in the MAIN
 // checkout (found through git's common dir, so it also works from a worktree;
 // marketing/ is gitignored and lives only there). Override with --source <dir>
@@ -22,6 +26,8 @@
 //         by 2px so the tile's own anti-aliased edge survives, zero every other
 //         pixel, crop to the tile, centre it on a square, then downsample with
 //         lanczos3 (premultiplied), which is what anti-aliases the final edge.
+//   tile  also covers the 512px "Vector tile" exports (Suite-Products,
+//         Home-Actions, the newer Work-Widgets): same cleaning, from the PNG.
 //   glyph (true-vector SVG line/fill glyphs in the owner's #c4b5fd)
 //         Rendered from the SVG itself at each size, never from the 512px PNG.
 //         The renderer uses these as an alpha MASK coloured by a per-theme token,
@@ -31,12 +37,11 @@
 //         rounded tile look is a CSS mask in the component, not baked in.
 //
 // Unreadable PNGs (truncated exports): the matching SVG is used when it is a true
-// vector. When it is an "Embedded original PNG" SVG, the embedded PNG is used
-// ONLY if the truncated .png file is a byte-exact prefix of it — proof that it is
-// the very file the broken copy was cut from, not a look-alike — and it decodes.
-// Those are reported as "recovered" and still need a re-export of the .png.
-// --strict-truncated turns recovery off: the item is then omitted and the app
-// keeps its current icon for it. Nothing is ever approximated.
+// vector. Otherwise the item is omitted, listed in PLEXII_ICON_MISSING with the
+// reason, and the app keeps its declared fallback glyph for it. Nothing is ever
+// approximated. (Until 22 Oct 2026 five truncated tiles were recovered from the
+// copy embedded in their SVG; the owner's re-exports replaced them, and that
+// workaround is gone.)
 //
 // --check rebuilds into a temp dir and fails if the committed output differs
 // (stale assets or a hand-edited index).
@@ -67,7 +72,40 @@ const CATEGORY = {
   Apps: 'apps',
   Tools: 'tools',
   'Work-Widgets': 'widgets',
-  'Connected-Apps': 'connected'
+  'Connected-Apps': 'connected',
+  'Side-Menu': 'side-menu',
+  'Focus-Filters': 'focus-filters',
+  'Section-Headers': 'section-headers',
+  People: 'people',
+  PlexiiBrain: 'plexiibrain',
+  'Bring-In': 'bring-in',
+  'Areas-and-Hubs': 'areas',
+  Onboarding: 'onboarding',
+  'Suite-Products': 'suite',
+  'Home-Actions': 'home-actions'
+}
+
+/**
+ * The style each newer category was drawn in, decided by looking at every
+ * file (22 Oct 2026): the place sets are single-colour lavender line icons, so
+ * they are glyphs the renderer tints per theme; Suite-Products and Home-Actions
+ * are full-colour rounded tiles. The build fails if an item disagrees with its
+ * category (a line category with a non-vector SVG, a tile category with a
+ * true-vector glyph), so a mis-filed export cannot change how a menu looks.
+ * Apps, Tools, Work-Widgets and Connected-Apps are mixed and keep the per-item
+ * rule (svg_type "True vector" -> glyph, else tile; Connected-Apps -> logo).
+ */
+const CATEGORY_STYLE = {
+  'side-menu': 'glyph',
+  'focus-filters': 'glyph',
+  'section-headers': 'glyph',
+  people: 'glyph',
+  plexiibrain: 'glyph',
+  'bring-in': 'glyph',
+  areas: 'glyph',
+  onboarding: 'glyph',
+  suite: 'tile',
+  'home-actions': 'tile'
 }
 
 const args = process.argv.slice(2)
@@ -90,7 +128,6 @@ export function defaultSource() {
 }
 
 const SOURCE = resolve(opt('--source') ?? defaultSource())
-const STRICT = flag('--strict-truncated')
 const CHECK = flag('--check')
 
 // ── CSV ──────────────────────────────────────────────────────────────────────
@@ -311,26 +348,7 @@ async function loadSource(item) {
     return { kind: 'svg', buf: Buffer.from(svgText), note: 'true vector' }
   }
   if (png && (await decodes(png))) return { kind: 'png', buf: png, note: 'png' }
-
-  // The PNG is unreadable.
-  const problem = `PNG unreadable (${png ? png.length : 0} bytes, truncated)`
-  if (svgText && svgType !== 'True vector') {
-    const m = svgText.match(/xlink:href="data:image\/png;base64,([^"]+)"|href="data:image\/png;base64,([^"]+)"/)
-    const embedded = m ? Buffer.from(m[1] ?? m[2], 'base64') : null
-    const isPrefix = !!(embedded && png && png.length > 0 && embedded.length > png.length && embedded.subarray(0, png.length).equals(png))
-    if (embedded && isPrefix && (await decodes(embedded))) {
-      if (STRICT) return { kind: 'none', problem, recoverable: true }
-      return {
-        kind: 'png',
-        buf: embedded,
-        note: 'recovered from the SVG-embedded original (truncated .png is a byte-exact prefix of it)',
-        recovered: true,
-        problem
-      }
-    }
-    return { kind: 'none', problem: `${problem}; SVG is not a true vector and its embedded PNG is not provably the same file` }
-  }
-  return { kind: 'none', problem }
+  return { kind: 'none', problem: `PNG unreadable (${png ? png.length : 0} bytes, truncated); needs a re-export` }
 }
 
 // ── Build ────────────────────────────────────────────────────────────────────
@@ -343,9 +361,13 @@ async function encode(pipeline, style) {
 
 async function buildItem(item, outDir) {
   const src = await loadSource(item)
-  if (src.kind === 'none') return { ...item, missing: true, problem: src.problem, recoverable: !!src.recoverable }
+  if (src.kind === 'none') return { ...item, missing: true, problem: src.problem }
 
   const style = item.category === 'connected' ? 'logo' : src.kind === 'svg' ? 'glyph' : 'tile'
+  const declared = CATEGORY_STYLE[item.category]
+  if (declared && declared !== style) {
+    throw new Error(`${item.key}: category is ${declared} style but the source makes it ${style} (svg_type "${item.svgType}")`)
+  }
   let master // { input, raw?, srcSize }
   let cleanInfo = null
   if (style === 'glyph') {
@@ -413,7 +435,7 @@ async function buildItem(item, outDir) {
       checks[size] = strayPixels(data, info.width, info.height)
     }
   }
-  return { ...item, style, sizes, source: src.note, recovered: !!src.recovered, problem: src.problem, clean: cleanInfo, strays: checks }
+  return { ...item, style, sizes, source: src.note, clean: cleanInfo, strays: checks }
 }
 
 function svgViewBoxWidth(svgText) {
@@ -469,7 +491,7 @@ function writeIndex(results, indexPath, assetsDir) {
     }
   }
   lines.push('')
-  lines.push("export type PlexiiIconCategory = 'apps' | 'widgets' | 'tools' | 'connected'")
+  lines.push(`export type PlexiiIconCategory = ${Object.values(CATEGORY).map((c) => `'${c}'`).join(' | ')}`)
   lines.push('/** tile: full-colour rounded tile. glyph: single-colour mark used as a mask. logo: third-party brand mark. */')
   lines.push("export type PlexiiIconStyle = 'tile' | 'glyph' | 'logo'")
   lines.push('export interface PlexiiIconAsset {')
@@ -479,8 +501,6 @@ function writeIndex(results, indexPath, assetsDir) {
   lines.push('  style: PlexiiIconStyle')
   lines.push('  /** Pixel width -> URL. Sizes above the source resolution are not generated. */')
   lines.push('  src: Partial<Record<32 | 64 | 128, string>>')
-  lines.push('  /** Recovered from the SVG-embedded original because the supplied PNG is truncated. */')
-  lines.push('  recovered?: true')
   lines.push('}')
   lines.push('')
   lines.push('export const PLEXII_ICON_ASSETS: Readonly<Record<string, PlexiiIconAsset>> = {')
@@ -489,20 +509,15 @@ function writeIndex(results, indexPath, assetsDir) {
       .map((s) => `${s}: ${ident(r.key, s)}`)
       .join(', ')
     lines.push(
-      `  '${r.key}': { category: '${r.category}', slug: '${r.slug}', title: ${JSON.stringify(r.title)}, style: '${r.style}', src: { ${src} }${r.recovered ? ', recovered: true' : ''} },`
+      `  '${r.key}': { category: '${r.category}', slug: '${r.slug}', title: ${JSON.stringify(r.title)}, style: '${r.style}', src: { ${src} } },`
     )
   }
   lines.push('}')
   lines.push('')
-  lines.push('/** Items in the source set with no usable file, and why. They render their declared fallback. */')
+  lines.push('/** Items in the source set with no usable file, and why (a truncated PNG needs a re-export). They render their declared fallback. */')
   lines.push('export const PLEXII_ICON_MISSING: Readonly<Record<string, string>> = {')
   for (const r of missing) lines.push(`  '${r.key}': ${JSON.stringify(r.problem)},`)
   lines.push('}')
-  lines.push('')
-  lines.push('/** Items whose supplied PNG is truncated and needs re-exporting by the owner. */')
-  lines.push('export const PLEXII_ICON_NEEDS_REEXPORT: readonly string[] = [')
-  for (const r of results.filter((x) => x.recovered || x.missing)) lines.push(`  '${r.key}',`)
-  lines.push(']')
   lines.push('')
   writeFileSync(indexPath, lines.join('\n'))
 }
@@ -544,7 +559,7 @@ async function main() {
       .map(([s, n]) => `${s}:${n}`)
       .join(' ')
     strayTotal += Object.values(r.strays ?? {}).reduce((n, v) => n + v, 0)
-    const tag = r.recovered ? 'RECOVERED' : 'ok       '
+    const tag = 'ok       '
     console.log(
       `${tag} ${r.key.padEnd(30)} ${r.style.padEnd(5)} ${Object.keys(r.sizes).join('/').padEnd(10)} ${String(bytes).padStart(6)} B` +
         (r.clean ? `  tile ${r.clean.tileBox}, ${r.clean.zeroedPixels} stray px zeroed, strays after: ${strays}` : '')

@@ -117,6 +117,11 @@ body {
      where it reads as a hole. fb-tile-lit steps UP: dark ~26% on the 21.5%
      card; in light the mix degenerates to ~white and the shadows carry the
      separation, same as fb-btn-surface. Composes with fb-press. */
+  /* Forced-dark stages (the onboarding cards are dark in every theme): owner
+     line glyphs inside take the dark-theme violet, which reads on navy. */
+  .plexii-on-dark {
+    --plexii-glyph: var(--plexii-glyph-on-dark);
+  }
   .fb-tile-lit {
     background: color-mix(in oklab, var(--surface-raised) 94%, white 6%);
     border-radius: var(--radius-row);

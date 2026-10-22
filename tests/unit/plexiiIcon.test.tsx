@@ -72,7 +72,9 @@ describe('PlexiiIcon', () => {
   })
 
   it('keeps the declared glyph for an entity with no asset', () => {
-    render(<PlexiiIcon kind="widget" id="task-link" fallbackClassName="text-sky-500" />)
+    // Every declared entity has an asset since the 22 Oct 2026 delivery, so an
+    // id the map does not know stands in for "no asset".
+    render(<PlexiiIcon kind="widget" id="no-such-kind" fallback="link" fallbackClassName="text-sky-500" />)
     expect(host.querySelector('img')).toBeNull()
     const i = host.querySelector('i')!
     expect(i.getAttribute('data-icon')).toBe('link')
@@ -94,14 +96,15 @@ describe('PlexiiIcon', () => {
     expect(plexiiIconUrl('app', 'calendar', 48, 2)).toBe(PLEXII_ICON_ASSETS['apps/calendar'].src[128])
     // The Google Doc mark only exists up to 64px.
     expect(plexiiIconUrl('widget', 'gdoc', 48, 2)).toBe(PLEXII_ICON_ASSETS['widgets/google-doc'].src[64])
-    expect(plexiiIconUrl('widget', 'task-link')).toBeNull()
+    expect(plexiiIconUrl('widget', 'task-link')).toBe(PLEXII_ICON_ASSETS['widgets/task-link'].src[64])
+    expect(plexiiIconUrl('widget', 'no-such-kind')).toBeNull()
   })
 
   it('PlexiiTileIcon wears an asset bare and keeps the tinted chip otherwise', () => {
     render(<PlexiiTileIcon kind="app" id="files" fallback="folder" tone="text-sky-500" />)
     expect(host.querySelector('img')).toBeTruthy()
     expect(host.querySelector('.rounded-xl')).toBeNull()
-    render(<PlexiiTileIcon kind="widget" id="minimap" fallback="map" tone="text-sky-500" />)
+    render(<PlexiiTileIcon kind="widget" id="no-such-kind" fallback="map" tone="text-sky-500" />)
     expect(host.querySelector('img')).toBeNull()
     expect(host.querySelector('.rounded-xl.text-sky-500 i')!.getAttribute('data-icon')).toBe('map')
   })

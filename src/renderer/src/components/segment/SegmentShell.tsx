@@ -93,7 +93,8 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
           <div className="ml-auto flex items-center gap-1.5">
             <MenuMinimizeButton onClick={minimize} title={`Minimise the ${def.title} menu`} />
             <button onClick={goHome} className="text-[var(--ink-50)] hover:text-[var(--ink-90)]" title="Back to PlexiiDesk" data-testid="segment-exit">
-              <Icon name="apps" size={18} />
+              {/* The same PlexiiDesk tile the Office menu's way back wears. */}
+              <PlexiiIcon kind="app" id="plexidesk" size={20} label="Back to PlexiiDesk" fallback="apps" />
             </button>
           </div>
         </div>

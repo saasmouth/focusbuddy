@@ -153,6 +153,11 @@ for (const theme of ['light', 'dark'] as const) {
     const picker = await brokenImages(window, '[data-testid^="sidemenu-widget-"] img[data-plexii-icon^="widget:"]')
     expect(picker.count).toBeGreaterThanOrEqual(15)
     expect(picker.broken).toEqual([])
+    // The four kinds the 22 Oct 2026 delivery covered, where the menu offers them.
+    for (const kind of ['task-link', 'custom', 'minimap', 'local-app-launcher']) {
+      if ((await window.locator(`[data-testid="sidemenu-widget-${kind}"]`).count()) === 0) continue
+      await expect(window.locator(`[data-testid="sidemenu-widget-${kind}"] img[data-plexii-icon="widget:${kind}"]`), kind).toHaveCount(1)
+    }
     // Focus wears the Attention asset; the kind id is unchanged (DEC-144).
     const focus = window.locator('[data-testid="sidemenu-widget-attention"] [data-plexii-icon="widget:attention"]')
     if ((await window.locator('[data-testid="sidemenu-widget-attention"]').count()) > 0) await expect(focus).toHaveCount(1)

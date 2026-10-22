@@ -34,7 +34,11 @@ const ALLOWLIST_FILES = new Set([
   'components/views/DashboardWizardOverlay.tsx',
   'components/views/dashboardEmbeds.tsx',
   'components/documents/diagram/iconNames.ts',
-  'lib/changelog.ts'
+  'lib/changelog.ts',
+  // Asset titles are the owner's own file names from Asset-Index.csv (e.g. the
+  // Suite-Products "Widgets" tile), recorded by the build and shown nowhere;
+  // the labels the app uses come from lib/plexiiIconMap, which is checked.
+  'lib/plexiiIconAssets.generated.ts'
 ])
 
 /** A literal that is a code id, not prose: no spaces, or a known identifier shape. */

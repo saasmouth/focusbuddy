@@ -16,7 +16,10 @@ import type { PlexiiIconAsset } from '../lib/plexiiIconAssets.generated'
 //   into the file.
 // - glyph assets (single-colour marks) render as a CSS mask filled with
 //   --plexii-glyph, so the owner's violet is used on dark and a deeper violet on
-//   light, from one file and without recolouring it.
+//   light, from one file and without recolouring it. `glyphColor="currentColor"`
+//   fills it with the text colour instead, for the rare glyph that sits on a
+//   filled accent button (the side menu's "+ New desk"). Forced-dark stages
+//   (onboarding) put .plexii-on-dark on a wrapper to get the dark-theme violet.
 // - no asset (declared in lib/plexiiIconMap), or a file that fails to load:
 //   the entity's existing Material/Plexii glyph, so nothing is ever blank.
 //
@@ -38,6 +41,8 @@ interface Props {
   fallbackClassName?: string
   /** The fallback glyph's fill, as the call site drew it before (Icon's default when omitted). */
   fallbackFilled?: boolean
+  /** Fill for a glyph asset (default var(--plexii-glyph)). Tiles and logos ignore it. */
+  glyphColor?: string
   className?: string
   style?: CSSProperties
 }
@@ -69,6 +74,7 @@ export default function PlexiiIcon({
   fallback,
   fallbackClassName = '',
   fallbackFilled,
+  glyphColor,
   className = '',
   style
 }: Props): JSX.Element {
@@ -105,7 +111,7 @@ export default function PlexiiIcon({
         className={`plexii-icon plexii-icon-glyph ${className}`.trim()}
         style={{
           display: 'inline-block',
-          backgroundColor: 'var(--plexii-glyph)',
+          backgroundColor: glyphColor ?? 'var(--plexii-glyph)',
           WebkitMaskImage: set,
           maskImage: set,
           WebkitMaskSize: 'contain',

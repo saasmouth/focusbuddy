@@ -160,7 +160,10 @@
      Single-colour glyphs from the owner's icon set are drawn as a mask in this
      colour. The set ships them in violet-300 (#c4b5fd), chosen for a dark
      gallery: on a light surface that is under 2:1, so light takes violet-600
-     (5.7:1 on white) and .dark restores the owner's own violet. */
+     (5.7:1 on white) and .dark restores the owner's own violet. The
+     forced-dark onboarding stage takes the dark value in every theme through
+     .plexii-on-dark (globals.css). */
+  --plexii-glyph-on-dark: #c4b5fd;
   --plexii-glyph: #7c3aed;
   /* Connected-app logos are square brand marks; this rounds them into tiles
      without altering the files. Matches the corner of the app tiles. */
@@ -246,7 +249,7 @@
 
 /* ── Dark theme overrides ─────────────────────────────────────────────────── */
 .dark {
-  --plexii-glyph: #c4b5fd;
+  --plexii-glyph: var(--plexii-glyph-on-dark);
   --plexii-logo-ink: #ffffff;
   --ink-100: oklch(96% 0.005 264);
   --ink-90: oklch(86% 0.006 264);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Widget } from '@shared/types'
 import { useWidgetStore } from '../stores/widgets'
 import Icon from './Icon'
+import PlexiiIcon from './PlexiiIcon'
 
 // Every item on the desk, newest-touched first, each one a camera shortcut.
 //
@@ -158,11 +159,7 @@ export default function DeskJumpList({
             data-testid={`desk-jump-edit-${w.id}`}
             className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-[var(--radius-chip)] bg-[var(--surface-sunken)]"
           >
-            <Icon
-              name={ICON[w.kind] ?? 'widgets'}
-              size={13}
-              className="shrink-0 text-accent"
-            />
+            <PlexiiIcon kind="widget" id={w.kind} size={14} fallback={ICON[w.kind] ?? 'widgets'} fallbackClassName="text-accent" className="shrink-0" />
             <input
               ref={inputRef}
               autoFocus
@@ -206,10 +203,14 @@ export default function DeskJumpList({
             title={`${w.title || kindLabel(w.kind)} — ${w.pinned ? 'pinned to the screen' : 'click to centre the camera here'}; double-click or right-click to rename`}
             className="group w-full flex items-center gap-1.5 px-1.5 py-1 rounded-[var(--radius-chip)] text-left text-[11.5px] text-[var(--ink-80)] cursor-pointer transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)]"
           >
-            <Icon
-              name={ICON[w.kind] ?? 'widgets'}
-              size={13}
-              className="shrink-0 text-[var(--ink-50)] transition-colors group-hover:text-accent"
+            {/* The work widget kind's own icon from the owner's set. */}
+            <PlexiiIcon
+              kind="widget"
+              id={w.kind}
+              size={14}
+              fallback={ICON[w.kind] ?? 'widgets'}
+              fallbackClassName="text-[var(--ink-50)] transition-colors group-hover:text-accent"
+              className="shrink-0"
             />
             <span className="flex-1 min-w-0 truncate">{w.title || kindLabel(w.kind)}</span>
             {w.pinned && (

@@ -16,6 +16,7 @@
 
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import PlexiiIcon from '../PlexiiIcon'
+import type { EntityRef } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { SubHeading, Tile, TileGrid } from './menuParts'
@@ -254,6 +255,7 @@ export default function WidgetsSection(): JSX.Element {
       <div className="px-2 pb-1 flex flex-col">
         <FooterRow
           icon="upload_file"
+          entity={{ kind: 'place', id: 'import-widget-file' }}
           label="Import work widget file…"
           testid="sidemenu-widgets-import-widget-file"
           title="Open a .plexii-table, .plexii-tasks … file exported from Plexii"
@@ -268,6 +270,7 @@ export default function WidgetsSection(): JSX.Element {
           <>
             <FooterRow
               icon="description"
+              entity={{ kind: 'place', id: 'import-file' }}
               label="Import file to this desk…"
               testid="sidemenu-widgets-import-file"
               title=".txt / .md become a note, .csv / .json a table"
@@ -291,12 +294,15 @@ export default function WidgetsSection(): JSX.Element {
 
 function FooterRow({
   icon,
+  entity,
   label,
   title,
   testid,
   onClick
 }: {
   icon: string
+  /** The owner's line glyph for this action, when the set has one (lib/plexiiIconMap PLACE_ICONS). */
+  entity?: EntityRef
   label: string
   title: string
   testid: string
@@ -309,7 +315,11 @@ function FooterRow({
       data-testid={testid}
       className="flex items-center gap-2 w-full px-2 py-1 rounded-lg text-[12px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
     >
-      <Icon name={icon} size={15} className="text-[var(--ink-50)] shrink-0" />
+      {entity ? (
+        <PlexiiIcon kind={entity.kind} id={entity.id} size={16} fallback={icon} fallbackClassName="text-[var(--ink-50)]" className="shrink-0" />
+      ) : (
+        <Icon name={icon} size={15} className="text-[var(--ink-50)] shrink-0" />
+      )}
       <span className="truncate">{label}</span>
     </button>
   )

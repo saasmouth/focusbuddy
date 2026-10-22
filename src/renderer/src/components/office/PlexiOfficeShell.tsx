@@ -35,7 +35,7 @@ import VaultView from '../views/VaultView'
 import { useSharesStore } from '../../stores/shares'
 import AreaAccordion from '../nav/AreaAccordion'
 import PlexiiIcon, { PlexiiTileIcon, PlexiiDocIcon } from '../PlexiiIcon'
-import { docTypeEntity } from '../../lib/plexiiIconMap'
+import { docTypeEntity, OFFICE_LIBRARY_ENTITY } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
 import {
@@ -566,8 +566,15 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
                     : 'border-[var(--edge-soft)] text-[var(--ink-80)] hover:bg-[var(--surface-sunken)]'
                 }`}
               >
-                {n.id === 'shared' ? (
-                  <PlexiiIcon kind="tool" id="shared" size={16} fallback={n.icon} fallbackFilled />
+                {OFFICE_LIBRARY_ENTITY[n.id] ? (
+                  <PlexiiIcon
+                    kind={OFFICE_LIBRARY_ENTITY[n.id].kind}
+                    id={OFFICE_LIBRARY_ENTITY[n.id].id}
+                    size={16}
+                    fallback={n.icon}
+                    fallbackFilled
+                    fallbackClassName={page === n.id ? '' : n.tone}
+                  />
                 ) : (
                   <Icon name={n.icon} size={15} filled className={page === n.id ? '' : n.tone} />
                 )}
@@ -930,10 +937,18 @@ function timeBucket(ms: number): string {
   return 'Older'
 }
 
-function Empty({ icon, title, hint }: { icon: string; title: string; hint: string }): JSX.Element {
+/** A library page's empty state. `page` names the page so it wears that page's owner icon. */
+function Empty({ icon, page, title, hint }: { icon: string; page?: OfficePage; title: string; hint: string }): JSX.Element {
+  const ent = page ? OFFICE_LIBRARY_ENTITY[page] : undefined
   return (
     <div className="py-10 text-center" data-testid="library-empty">
-      <Icon name={icon} size={28} className="text-[var(--ink-30)] mb-2" />
+      {ent ? (
+        <span className="inline-flex mb-2">
+          <PlexiiIcon kind={ent.kind} id={ent.id} size={28} fallback={icon} fallbackClassName="text-[var(--ink-30)]" />
+        </span>
+      ) : (
+        <Icon name={icon} size={28} className="text-[var(--ink-30)] mb-2" />
+      )}
       <p className="text-[13px] text-[var(--ink-80)] font-medium">{title}</p>
       <p className="text-[12px] text-[var(--ink-50)] mt-1 max-w-sm mx-auto leading-snug">{hint}</p>
     </div>
@@ -1023,6 +1038,7 @@ function LibraryPage({
         <section className="fb-card p-4">
           <Empty
             icon="schedule"
+            page="recent"
             title="Nothing opened yet"
             hint="Documents you create or open will be listed here, newest first."
           />
@@ -1071,6 +1087,7 @@ function LibraryPage({
         {items.length === 0 ? (
           <Empty
             icon="star"
+            page="starred"
             title="Nothing starred"
             hint="Star a document from any list and it will be kept here, so the few you return to are never buried."
           />
@@ -1098,6 +1115,7 @@ function LibraryPage({
         {shareInbox.length === 0 ? (
           <Empty
             icon="group"
+            page="shared"
             title="Nothing shared with you yet"
             hint="When someone shares a desk or a folder with you, it appears here with who sent it. Document-level sharing is not available yet, so this lists shared desks rather than files."
           />
@@ -1163,6 +1181,7 @@ function LibraryPage({
       ) : trashed.length === 0 ? (
         <Empty
           icon="delete"
+          page="trash"
           title="Trash is empty"
           hint="Deleted documents rest here until you remove them for good."
         />

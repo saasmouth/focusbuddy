@@ -115,7 +115,7 @@ export default function WorkspaceSwitcher(): JSX.Element {
               data-testid="workspace-manage-org"
               className="w-full flex items-center gap-1.5 px-1.5 py-1 mt-0.5 rounded-[var(--radius-chip)] text-[11px] text-[var(--ink-60)] hover:bg-[var(--surface-sunken)]"
             >
-              <Icon name="settings" size={12} className="shrink-0" />
+              <PlexiiIcon kind="place" id="manage-organisation" size={13} fallback="settings" className="shrink-0" />
               <span className="flex-1 text-left">Manage organisation</span>
             </button>
           </div>

@@ -23,7 +23,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import AppLogo from '../AppLogo'
 import PlexiiIcon from '../PlexiiIcon'
-import { segmentAppEntity, viewKindEntity, type EntityRef } from '../../lib/plexiiIconMap'
+import { NAV_SECTION_ENTITY, segmentAppEntity, viewKindEntity, type EntityRef } from '../../lib/plexiiIconMap'
 import { SubHeading, Tile, TileGrid } from './menuParts'
 import { useViewStore } from '../../stores/view'
 
@@ -260,15 +260,23 @@ function Section({
 
 /**
  * A section head's icon. The two areas that are apps in their own right
- * (PlexiiDesk, PlexiiBrain) wear their Plexii tile; the rest are groupings,
- * not entities, and keep their glyph in the area's hue.
+ * (PlexiiDesk, PlexiiBrain) wear their Plexii tile; the groupings (Apps, Work
+ * widgets, Connected apps, People) wear the owner's section-head line glyphs
+ * (lib/plexiiIconMap NAV_SECTION_ENTITY). The area hue stays on the fallback.
  */
-const SECTION_ENTITY: Partial<Record<SectionId, string>> = { desk: 'plexidesk', brain: 'plexibrain' }
-
 function SectionIcon({ id, icon }: { id: SectionId; icon: string }): JSX.Element {
-  const app = SECTION_ENTITY[id]
-  if (app) return <PlexiiIcon kind="app" id={app} size={18} fallback={icon} fallbackFilled fallbackClassName={`shrink-0 ${SECTION_TONE[id]}`} />
-  return <Icon name={icon} size={17} filled className={`shrink-0 ${SECTION_TONE[id]}`} />
+  const ent = NAV_SECTION_ENTITY[id]
+  return (
+    <PlexiiIcon
+      kind={ent.kind}
+      id={ent.id}
+      size={18}
+      fallback={icon}
+      fallbackFilled
+      fallbackClassName={SECTION_TONE[id]}
+      className="shrink-0"
+    />
+  )
 }
 
 /**
@@ -477,6 +485,7 @@ export default function AreaAccordion({
           <Row
             label="Home"
             icon="plexii:home"
+            entity={viewKindEntity('home')}
             tone={AREA_TONES.home}
             active={activeArea === 'home' || isActive('plexidesk', 'home')}
             onClick={() => useViewStore.getState().goHome()}
