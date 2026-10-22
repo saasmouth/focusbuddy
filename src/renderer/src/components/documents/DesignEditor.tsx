@@ -1900,24 +1900,13 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           menuBar={menuBar}
           pinnedStart={
             <>
-              <button
-                onClick={undo}
-                disabled={past.length === 0}
-                data-testid="design-undo"
-                title="Undo (Cmd/Ctrl+Z)"
-                className="inline-flex items-center px-1.5 py-1 rounded hover:bg-[var(--surface-sunken)] disabled:opacity-30"
-              >
-                <Icon name="undo" size={15} />
-              </button>
-              <button
-                onClick={redo}
-                disabled={future.length === 0}
-                data-testid="design-redo"
-                title="Redo (Cmd/Ctrl+Shift+Z)"
-                className="inline-flex items-center px-1.5 py-1 rounded hover:bg-[var(--surface-sunken)] disabled:opacity-30"
-              >
-                <Icon name="redo" size={15} />
-              </button>
+              {/* The shared primitive, as Deck, Write, Cells and Diagrams all
+                  use for these two: hand-rolled buttons here were 27x23 against
+                  28x28 everywhere else, carried a `title` and no accessible
+                  name, and showed no shortcut. Found by d8's cross-app style
+                  report, where it was the only divergence across six apps. */}
+              <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={past.length === 0} onClick={undo} testid="design-undo" />
+              <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={future.length === 0} onClick={redo} testid="design-redo" />
             </>
           }
           rightSlot={
