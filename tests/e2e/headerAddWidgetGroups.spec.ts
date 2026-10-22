@@ -35,11 +35,17 @@ test('AW-1 — every widget is in the main list or under Other widgets, coloured
   await expect(other.first()).toBeVisible()
   expect(await other.count()).toBeGreaterThan(10)
 
-  // Coloured: the icon carries a hue class, not the grey ink of a bare icon.
+  // Coloured, not the grey ink of a bare icon. Since 4.3.41 a kind with an
+  // icon in the owner's Plexii set wears it (its own colour, <PlexiiIcon>);
+  // a kind without one keeps its glyph in its group's hue class.
   const tones = await window.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid^="sidemenu-widget-"] .material-symbols-rounded, [data-testid^="sidemenu-widget-"] svg, [data-testid^="sidemenu-widget-"] span'))
-      .map((n) => (n as HTMLElement).className?.toString() ?? '')
-      .filter((c) => /text-(amber|emerald|sky|orange|fuchsia|pink|indigo|violet|slate|lime)-/.test(c)).length
+    Array.from(document.querySelectorAll('[data-testid^="sidemenu-widget-"]')).filter(
+      (tile) =>
+        !!tile.querySelector('[data-plexii-icon]') ||
+        Array.from(tile.querySelectorAll('span, svg, i')).some((n) =>
+          /text-(amber|emerald|sky|orange|fuchsia|pink|indigo|violet|slate|lime)-/.test((n as HTMLElement).className?.toString() ?? '')
+        )
+    ).length
   )
   expect(tones).toBeGreaterThan(8)
 })
