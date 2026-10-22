@@ -18,7 +18,7 @@ function itemFor(ctx: EditorCtx, c: Command): MenuItem {
   const disabled = c.enabled ? !c.enabled(ctx) : false
   return {
     kind: 'item',
-    label: c.label,
+    label: c.menuLabel?.(ctx) ?? c.label,
     ...(c.icon ? { icon: c.icon } : {}),
     ...(shortcut ? { shortcut } : {}),
     run: () => ctx.run(c.id),

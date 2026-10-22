@@ -147,3 +147,52 @@ test('CA-1 Object › Artboards › Convert to Artboards: off with its reason fo
   await expect.poll(async () => ((await storedDoc(id)).artboards ?? []).length).toBe(1)
   expect((await storedDoc(id)).layers[0].objects!.map((o) => o.id)).toEqual(['a', 'b', 'oval'])
 })
+
+test('HA-1 View › Hide Artboards (⇧⌘H): the page fill and edges go so the art sits on the pasteboard, the drawing is untouched, and Show Artboards brings them back', async () => {
+  const body = {
+    schemaVersion: 2,
+    minWriterVersion: 2,
+    artboards: [
+      { id: 'artboard-1', name: 'Artboard 1', x: 0, y: 0, w: 800, h: 600, background: { type: 'solid', color: '#ffffff' } },
+      { id: 'b2', name: 'Artboard 2', x: 900, y: 0, w: 400, h: 600, background: { type: 'solid', color: '#ffffff' } }
+    ],
+    activeArtboardId: 'artboard-1',
+    layers: [{ id: 'L1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, opacity: 1, blend: 'normal', objects: [rectObject('r', 100, 100, 200, 100)] }],
+    activeLayerId: 'L1',
+    assets: {},
+    swatches: [],
+    guides: [],
+    settings: {}
+  }
+  const id = await seedDrawDoc(window, body, 'Hide artboards')
+  await openDocument(window, id)
+  await expect(t('draw-artboards')).toBeVisible()
+  const before = await readStored(window, id)
+
+  await t('draw-canvas-scroll').focus()
+  await window.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+Shift+H`)
+  await expect(t('draw-artboards')).toHaveCount(0)
+  await expect(t('draw-stage')).toHaveAttribute('data-artboards-hidden', '1')
+  // The art is still drawn.
+  await expect(window.locator('[data-testid="draw-vector-L1"] path')).toHaveCount(1)
+  // The View menu now offers Show Artboards, with the key.
+  await t('draw-studio-menubar-view').click()
+  const item = window.locator('[data-testid="draw-studio-menubar-view-list"] button').filter({ hasText: 'Show Artboards' }).first()
+  await expect(item).toBeVisible()
+  await expect(item).toContainText(process.platform === 'darwin' ? '⇧⌘H' : 'Shift+Ctrl+H')
+  await window.keyboard.press('Escape')
+
+  // A view setting, not an edit: the stored drawing did not change.
+  await window.waitForTimeout(1_200)
+  expect((await readStored(window, id)).body).toBe(before.body)
+
+  // It is the person's view preference: reopening the drawing keeps it hidden.
+  await openDocument(window, id)
+  await expect(t('draw-stage')).toHaveAttribute('data-artboards-hidden', '1')
+
+  // Show Artboards from the menu brings the pages back.
+  await t('draw-studio-menubar-view').click()
+  await window.locator('[data-testid="draw-studio-menubar-view-list"] button').filter({ hasText: 'Show Artboards' }).first().click()
+  await expect(t('draw-artboards')).toBeVisible()
+  await expect(t('draw-stage')).not.toHaveAttribute('data-artboards-hidden', '1')
+})

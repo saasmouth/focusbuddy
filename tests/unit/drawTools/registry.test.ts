@@ -306,6 +306,7 @@ describe('the menu bar is built from commands', () => {
         'Zoom to 100%|zoom_in|⌘1||',
         'Next Artboard|navigate_next||off|',
         'Previous Artboard|navigate_before||off|',
+        'Hide Artboards|select_all|⇧⌘H||',
         '---',
         "Grid|grid_4x4|⌘'||",
         'Snap to edges|straighten|⌘U||on',

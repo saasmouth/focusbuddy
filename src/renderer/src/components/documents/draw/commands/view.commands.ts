@@ -3,6 +3,8 @@
 import type { Box } from '@shared/drawGeometry'
 import { nodesWorldBounds } from '@shared/draw/ops'
 import { clampZoom, MAX_ZOOM } from '../viewport'
+import { setShellPrefs, shellPrefs } from '../editor/shellPrefs'
+import { commandShortcutLabel } from './keys'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 
 /** Screen margin Zoom to Selection keeps around the selection on every side. */
@@ -51,6 +53,23 @@ export const commands: Command[] = [
   { id: 'view.zoomIn', label: 'Zoom in', icon: 'zoom_in', run: (ctx) => ctx.set((s) => ({ zoom: Math.min(16, s.zoom * 1.25) })) },
   { id: 'view.zoomOut', label: 'Zoom out', icon: 'zoom_out', run: (ctx) => ctx.set((s) => ({ zoom: Math.max(0.05, s.zoom / 1.25) })) },
   { id: 'view.zoomTo', label: 'Zoom to', run: (ctx, z) => ctx.set({ zoom: clampZoom(z as number) }) },
+  {
+    // Illustrator's View › Hide Artboards / Show Artboards (⇧⌘H): the
+    // artboards' edges and fill are not drawn, so the art shows on the
+    // pasteboard. A view preference (editor/shellPrefs.ts): it never edits
+    // the drawing, and export is unaffected.
+    id: 'view.artboards',
+    label: 'Show/Hide Artboards',
+    menuLabel: () => (shellPrefs.getState().hideArtboards ? 'Show Artboards' : 'Hide Artboards'),
+    icon: 'select_all',
+    menu: { path: 'view', order: 190 },
+    run: (ctx) => {
+      const hide = !shellPrefs.getState().hideArtboards
+      setShellPrefs({ hideArtboards: hide })
+      const key = commandShortcutLabel('view.artboards')
+      ctx.status(hide ? `Artboards hidden — View › Show Artboards${key ? ` (${key})` : ''} brings them back. Export is unchanged.` : null)
+    }
+  },
   {
     id: 'view.grid',
     label: 'Grid',

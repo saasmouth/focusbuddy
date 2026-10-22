@@ -362,6 +362,8 @@ export interface Command {
   disabledReason?(ctx: EditorCtx): string | null
   /** Shows a check mark. */
   checked?(ctx: EditorCtx): boolean
+  /** The menu's wording now, when it changes with state (Hide Artboards / Show Artboards); `label` is the fixed name used elsewhere. Must be pure. */
+  menuLabel?(ctx: EditorCtx): string
   /** Whether a KEY binding should fire now; when false the key falls through (e.g. arrows with nothing selected). */
   keyWhen?(ctx: EditorCtx): boolean
   run(ctx: EditorCtx, args?: unknown): void | Promise<void>

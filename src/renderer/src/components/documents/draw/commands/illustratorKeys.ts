@@ -131,7 +131,7 @@ export const ILLUSTRATOR_SHORTCUTS: IllustratorShortcut[] = [
   { section: 'View artwork', action: 'Hide unselected artwork', win: 'Ctrl + Alt + Shift + 3', mac: 'Command + Option + Shift + 3', context: 'global', key: 'mod+alt+shift+3', target: 'res:object.hideOthers' },
   { section: 'View artwork', action: 'Convert between horizontal and vertical guide', win: 'Alt-drag guide', mac: 'Option-drag guide', context: 'gesture' },
   { section: 'View artwork', action: 'Release guide', win: 'Ctrl + Shift-double-click guide', mac: 'Command + Shift-double-click guide', context: 'gesture' },
-  { section: 'View artwork', action: 'Show/Hide artboards', win: 'Ctrl + Shift + H', mac: 'Command + Shift + H', context: 'global', key: 'mod+shift+h', target: 'res:view.artboards' },
+  { section: 'View artwork', action: 'Show/Hide artboards', win: 'Ctrl + Shift + H', mac: 'Command + Shift + H', context: 'global', key: 'mod+shift+h', target: 'cmd:view.artboards' },
   { section: 'View artwork', action: 'Show/Hide artboard rulers', win: 'Ctrl + R', mac: 'Command + Option + R', context: 'global', key: 'mod+alt+r', winKey: 'mod+r', target: 'res:view.rulers' },
   { section: 'View artwork', action: 'Show transparency grid', win: 'Shift + Ctrl + D', mac: 'Shift + Command + D', context: 'global', key: 'mod+shift+d', target: 'res:view.transparencyGrid' },
   { section: 'View artwork', action: 'View all artboards in window', win: 'Ctrl + Alt + 0 (zero)', mac: 'Command + Option + 0 (zero)', context: 'global', key: 'mod+alt+0', target: 'cmd:view.fitAll' },

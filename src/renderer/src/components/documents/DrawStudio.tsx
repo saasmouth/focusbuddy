@@ -481,6 +481,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // One artboard: the stage IS the page (its background). Several: the stage
   // is pasteboard, and each artboard draws its own page (ArtboardsView).
   const bgNone = !multi && board.background.type === 'none'
+  // View › Hide Artboards (⇧⌘H): no page fill, edge or shadow -- the art sits on the pasteboard.
+  const hideBoards = prefs.hideArtboards
 
   return (
     <div
@@ -630,22 +632,23 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
             onDoubleClick={(e) => editor.doubleClick(toolPointer(e).p)}
             onContextMenu={onContextMenu}
             data-testid="draw-stage"
-            className="relative mx-auto touch-none select-none shadow-lg"
+            data-artboards-hidden={hideBoards ? '1' : undefined}
+            className={`relative mx-auto touch-none select-none${multi || hideBoards ? '' : ' shadow-lg'}`}
             style={{
               width: stageW,
               height: stageH,
               cursor,
               // A checkerboard shows through a transparent artboard, so "no
               // background" reads as genuinely transparent rather than white.
-              backgroundImage: bgNone
+              backgroundImage: bgNone && !hideBoards
                 ? 'linear-gradient(45deg,#d6d3d1 25%,transparent 25%),linear-gradient(-45deg,#d6d3d1 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d6d3d1 75%),linear-gradient(-45deg,transparent 75%,#d6d3d1 75%)'
                 : undefined,
-              backgroundSize: bgNone ? '16px 16px' : undefined,
-              backgroundPosition: bgNone ? '0 0,0 8px,8px -8px,-8px 0' : undefined,
-              background: multi ? 'transparent' : bgNone ? undefined : docPaintToCss(doc, board.background)
+              backgroundSize: bgNone && !hideBoards ? '16px 16px' : undefined,
+              backgroundPosition: bgNone && !hideBoards ? '0 0,0 8px,8px -8px,-8px 0' : undefined,
+              background: multi || hideBoards ? 'transparent' : bgNone ? undefined : docPaintToCss(doc, board.background)
             }}
           >
-            {multi && <ArtboardsView doc={doc} frame={frame} zoom={zoom} />}
+            {multi && !hideBoards && <ArtboardsView doc={doc} frame={frame} zoom={zoom} />}
 
             {doc.layers.map((l) =>
               !l.visible ? null : l.kind === 'raster' ? (
