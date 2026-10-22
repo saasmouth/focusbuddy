@@ -697,6 +697,11 @@ export default function DocEditor({
   )
 
 
+  // This document is a snippet destination while it is open. Keyed by id, so
+  // two open documents are two distinct destinations in the picker. Above the
+  // early return (Rules of Hooks); the hook does nothing until there is an editor.
+  useDocSnippetTarget(editor, scopeClass, title)
+
   if (!editor) return <div />
 
   // Continuous flow keeps its comfortable reading measure; page view hands the
@@ -706,9 +711,6 @@ export default function DocEditor({
 
   // The persistent right panel sits next to the writing column in a flex row. It
   // is never shown in focus mode, which keeps its calm single-column feel.
-  // This document is a snippet destination while it is open. Keyed by id, so
-  // two open documents are two distinct destinations in the picker.
-  useDocSnippetTarget(editor, scopeClass, title)
 
   const showPanel = panelOpen && !focusMode
 

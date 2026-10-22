@@ -11,6 +11,7 @@
 // is better than a snippet that silently disappeared.
 
 import { randomUUID } from 'crypto'
+import type Database from 'better-sqlite3'
 import { getDb } from './database'
 import { getActiveOrgId, PERSONAL_ORG_ID } from './activeOrg'
 import {
@@ -48,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_snippets_org_scope ON fb_snippets (org_id, scope)
 `
 
 /** Create the table and indexes if they are not there. Safe to call repeatedly. */
-export function ensureSnippetSchema(db = getDb()): void {
+export function ensureSnippetSchema(db: Database.Database = getDb()): void {
   db.exec(SNIPPET_SCHEMA)
 }
 
