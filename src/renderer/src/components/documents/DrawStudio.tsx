@@ -22,6 +22,7 @@ import { createDomServices } from './draw/editor/domServices'
 import { dragHasFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
 import type { KeyInput, ToolPointer } from './draw/editor/types'
 import { dialogById } from './draw/dialogs/registry'
+import { useDrawSnippetTarget } from './draw/editor/drawSnippets'
 import { toolById } from './draw/tools/registry'
 import IsolationBar from './draw/render/IsolationBar'
 import Overlay from './draw/render/Overlay'
@@ -151,6 +152,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   }
   const editor = editorRef.current
   const { ctx, store } = editor
+  // A saved snippet can be inserted here while this studio is mounted (docs/saved-snippets.md).
+  useDrawSnippetTarget(ctx, title)
   const state = useStore(store)
   const { doc, zoom, tool } = state
   const board = primaryArtboard(doc)
@@ -795,7 +798,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
       {menuAt && <CanvasContextMenu ctx={ctx} at={menuAt} onClose={closeMenu} />}
 
-      {dialog && (
+      {dialog && dialog.frameless && <dialog.component ctx={ctx} props={state.dialog?.props} close={closeDialog} />}
+      {dialog && !dialog.frameless && (
         <MenuModal title={dialog.title} onClose={closeDialog} width={dialog.width}>
           <dialog.component ctx={ctx} props={state.dialog?.props} close={closeDialog} />
         </MenuModal>

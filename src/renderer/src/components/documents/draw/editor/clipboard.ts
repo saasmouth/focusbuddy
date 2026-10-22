@@ -208,6 +208,14 @@ export function parseClipboardPayload(text: string): ParsedClipboard | null {
   } catch {
     return null
   }
+  return parseClipboardValue(raw)
+}
+
+/**
+ * The same, for a payload already parsed from JSON (a saved snippet's body
+ * arrives as an object, not as text, and is no more trusted than the clipboard).
+ */
+export function parseClipboardValue(raw: unknown): ParsedClipboard | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   if (r.kind !== DRAW_CLIPBOARD_KIND || !Array.isArray(r.nodes)) return null

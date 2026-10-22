@@ -14,6 +14,7 @@ import type { EditorCtx } from '../editor/types'
 export const CANVAS_MENU: string[][] = [
   ['edit.undo', 'edit.redo'],
   ['edit.cut', 'edit.copy', 'edit.paste', 'edit.pasteInPlace', 'edit.copySvgCode'],
+  ['edit.saveAsSnippet', 'edit.insertSnippet'],
   ['object.group', 'object.ungroup', 'object.arrange.front', 'object.arrange.back'],
   ['artboard.new', 'artboard.fitToArtwork'],
   ['edit.duplicate', 'edit.delete'],

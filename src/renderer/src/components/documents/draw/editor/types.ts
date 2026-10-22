@@ -427,5 +427,11 @@ export interface DrawDialog {
   title: string
   /** Width in px (the default modal is 340). */
   width?: number
+  /**
+   * The component brings its own modal (an app-wide dialog such as the
+   * saved-snippets library), so the studio shows it as it is rather than
+   * inside its own titled modal, which would draw a modal within a modal.
+   */
+  frameless?: boolean
   component: FC<{ ctx: EditorCtx; props?: Record<string, unknown>; close: () => void }>
 }

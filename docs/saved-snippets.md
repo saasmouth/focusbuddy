@@ -141,7 +141,7 @@ that did not happen, which is why `usageCount` means something.
 | `slide` | slide elements | modelled, not wired |
 | `design` | canvas elements | modelled, not wired |
 | `diagram` | nodes + edges | modelled, not wired |
-| `draw` | PlexiiDraw objects | modelled, not wired |
+| `draw` | PlexiiDraw objects + the assets and swatches they use | **yes**: duplicate only, see below |
 
 The document surface is first because it is the one that needs both link modes
 and because the live-embed mechanism already existed there to build on. The
@@ -173,6 +173,50 @@ menu for exactly that reason.
 A widget snippet carries its SIZE but not its POSITION: shape is part of what
 makes a widget reusable, while where it sat on one desk is not. The destination
 desk decides where the new widget lands.
+
+### Why a drawing offers Duplicate only
+
+PlexiiDraw registers `supports: ['duplicate']`. A live Draw snippet would need
+a node type holding only `{ snippetId }`, resolved on every render, and that
+cannot be built honestly today:
+
+- **It breaks file compatibility.** An unknown node type opens the drawing
+  read-only in every build that predates it and has to raise
+  `minWriterVersion` (`shared/draw/compat.ts`, `documents/draw/README.md`);
+  4.3.33 and earlier have no guard at all and would drop it on save. Inserting
+  a snippet would quietly lock the drawing for anyone on an older version.
+- **Export cannot resolve it.** The serialiser (`shared/draw/svg.ts`) is pure
+  and synchronous over the document, and the same paint descriptions draw the
+  screen, the clipboard and PNG/SVG/PDF export. A reference to a row in the
+  library cannot be resolved there, so an exported file would carry a hole or a
+  stale copy, which is exactly what a live instance must never be.
+- **Draw already has a place for live reuse.** Illustrator's Symbols are
+  reserved (WP-SYMBOLS: F8 and ⇧⌘F11 in `commands/keymap.ts`). A symbol lives
+  inside the drawing, so it exports and syncs with it. A live snippet would be
+  a second, competing mechanism for the same want, the desk's reasoning again.
+
+So a Draw snippet is a reusable block of art: each insertion an independent
+copy from the moment it lands.
+
+**Capture** is Draw's Copy: `drawBodyFromSelection` takes what `copiedNodes`
+takes (a member picked out of a transformed group keeps that transform, objects
+a newer PlexiiDraw made are left out), moves it so the block's top-left is the
+origin, and carries **exactly** the assets and swatches those objects use. An
+image node holds only an asset id, so without its bytes it would land as a
+broken picture. Edit › Save selection as snippet… and the canvas context menu
+open the save dialog with it; with nothing selected the item is disabled and
+says why, as Draw's other selection commands do.
+
+**Insertion** is Draw's Paste: the body goes through the clipboard's own parser
+(`parseClipboardValue`, the stored-drawing normaliser), `landPayload` gives every
+node and group member a fresh id and merges assets and swatches, and
+`placeIncoming(…, 'paste')` puts it where Edit › Paste would: centred in the
+window, at the front of the active layer, selected, as one undo step ("Insert
+snippet"). Unlike a document, insertion does **not** replace the selection; it
+adds beside it and selects the copy, as a paste does in Draw. It declines (and
+says why on the status line) on a read-only drawing, a hidden target layer, a
+live request, a body of another kind, and v2-only art (a group) in a drawing a
+live session keeps in the older format.
 
 Adding a surface is a registration, not a change to the core:
 
@@ -306,15 +350,15 @@ SheetSnippetBody   { kind: 'sheet',   rows: string[][], formats?: Record<string,
 SlideSnippetBody   { kind: 'slide',   elements: unknown[] }
 DesignSnippetBody  { kind: 'design',  elements: unknown[] }
 DiagramSnippetBody { kind: 'diagram', nodes: unknown[], edges: unknown[] }
-DrawSnippetBody    { kind: 'draw',    objects: unknown[] }
+DrawSnippetBody    { kind: 'draw',    objects: unknown[], assets?, swatches? }
 ```
 
 `draw` is its own kind rather than `design`: PlexiiDraw's objects
-(`shared/draw.ts`) and PlexiiDesign's elements are different models, and the
+(`shared/draw/model.ts`) and PlexiiDesign's elements are different models, and the
 kind/body agreement check is what keeps one app's objects out of the other.
 
-`doc` and `widget` are wired. `sheet`, `slide`, `design` and `diagram` are
-typed and stored but register no target yet.
+`doc`, `widget` and `draw` are wired. `sheet`, `slide`, `design` and `diagram`
+are typed and stored but register no target yet.
 
 If a shape does not fit, change it in `shared/snippets.ts` and add its case to
 `snippetSummary` and `snippetBodyIsEmpty` — the compiler will name both, because
@@ -398,6 +442,9 @@ Each of these is a case where the plausible-looking behaviour is the wrong one.
 | `.../documents/embed/SnippetEmbed.tsx` | resolves a live instance; owns the missing state |
 | `.../documents/editor/docSnippets.ts` | the document as a snippet surface |
 | `.../desk/deskSnippets.ts` | the desk as a snippet surface (duplicate only) |
+| `.../documents/draw/editor/drawSnippets.ts` | PlexiiDraw as a snippet surface (duplicate only) |
+| `.../documents/draw/commands/snippets.commands.ts` | Edit › Save selection as snippet… and Insert snippet… (also on the canvas context menu) |
+| `.../documents/draw/dialogs/{saveSnippet,snippetLibrary}.dialog.tsx` | the app's dialogs, shown `frameless` by the studio |
 | `lib/contextMenu/` | `FrameCallbacks.onSaveAsSnippet`, beside `onSaveAsFile` |
 
 The DDL lives in its own module rather than in `schema.ts` for the reason
@@ -414,6 +461,14 @@ sync body.
   workspace, org isolation on list, revision bumped on a body change but not on
   a rename, refusing to empty a snippet, corrupt and wrong-kind bodies, usage
   counting, forking.
+- `tests/unit/drawTools/snippets.test.ts`: Draw: capture is pure and keeps
+  groups, masks, compound paths, text and image/swatch references; insertion
+  makes fresh ids where a paste lands, never touches the snippet, and declines
+  read-only, hidden-layer, live and older-format cases; the target claims
+  Duplicate only; the menu items.
+- `tests/e2e/snippetsDraw.spec.ts`: Draw in the real app: save a selection
+  from the Edit menu, insert it back as a duplicate, and read two copies with
+  distinct ids and identical geometry back from the stored drawing.
 - `tests/e2e/snippets.spec.ts` — the round trip in the real app: save a
   selection, insert a duplicate, insert a live instance, edit the master and
   prove the live instance changed while the duplicate did not, delete the master

@@ -445,6 +445,8 @@ describe('the keys, in the editor', () => {
       'Select all=Ctrl+A',
       'Deselect=Shift+Ctrl+A',
       'Select all on active artboard=Alt+Ctrl+A',
+      'Save selection as snippet…=',
+      'Insert snippet…=',
       'Keyboard shortcuts…=Alt+Shift+Ctrl+K'
     ])
     expect(toolShortcutLabel('eraser')).toBe('Shift+E')

@@ -94,14 +94,25 @@ export interface DiagramSnippetBody {
 }
 
 /**
- * PlexiiDraw objects (shared/draw.ts DrawObject), positioned relative to the
- * block's top-left. Its own kind, not 'design': Draw's objects and Design's
- * elements are different models, and the kind/body agreement check exists so a
- * surface is never handed an object another app wrote.
+ * PlexiiDraw objects (the editor's schema-2 nodes, shared/draw/model.ts
+ * DrawNode), positioned relative to the block's top-left. Its own kind, not
+ * 'design': Draw's objects and Design's elements are different models, and the
+ * kind/body agreement check exists so a surface is never handed an object
+ * another app wrote.
+ *
+ * `assets` and `swatches` travel with the objects for the same reason they
+ * travel on Draw's clipboard: an image node holds only an asset id, and a paint
+ * can name a swatch, so objects without them would land as broken pictures and
+ * unresolved colours. Both are exactly what the objects use, nothing more.
+ * Optional so a body written before they existed still reads.
  */
 export interface DrawSnippetBody {
   kind: 'draw'
   objects: unknown[]
+  /** Image bytes the objects reference, keyed by asset id (DrawDoc.assets). */
+  assets?: Record<string, unknown>
+  /** Swatches the objects' paints reference (DrawDoc.swatches). */
+  swatches?: unknown[]
 }
 
 export type SnippetBody =
