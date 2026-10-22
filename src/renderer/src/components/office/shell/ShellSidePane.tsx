@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import Icon from '../../Icon'
 import { useShellSize } from './OfficeShellLayout'
 import { SIDE_PANE_DOM_ID, SIDE_PANE_WIDTH } from './layout'
@@ -42,7 +42,7 @@ export default function ShellSidePane({ panes, activeId, onChange, width = SIDE_
   }, [active])
   // Opening (or switching) a pane brings the side pane to the front over any sheet panel.
   const activeKey = active?.id ?? null
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (activeKey) raise('side')
   }, [activeKey, raise])
   if (!panes.length) return null

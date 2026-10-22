@@ -645,6 +645,9 @@ for (const app of APPS) {
         await expect(window.locator(`[data-testid="${app.sidePane.content}"]`)).toBeVisible()
         await window.locator(`[data-testid="${app.panelOpener}"]`).click()
         await expect(window.locator(`[data-testid="${app.panel}"]`)).toBeVisible()
+        // Checked at once, not polled: the raise happens in the commit that shows the panel (a layout
+        // effect), so the first frame already has it on top. A polled check would pass the old
+        // passive-effect code, which drew the panel under the pane for a frame (longer under load).
         expect(await onTop(window, `[data-testid="${app.panel}-close"]`), 'a panel opened over the side pane: its close is on top').toBe(true)
         await window.locator(`[data-testid="${app.panel}-close"]`).click()
         await expect(window.locator(`[data-testid="${app.panel}"]`)).toHaveCount(0)
