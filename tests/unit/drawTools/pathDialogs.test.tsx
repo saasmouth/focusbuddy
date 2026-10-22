@@ -12,7 +12,7 @@ vi.mock('../../../src/renderer/src/components/Icon', () => ({
 
 import simplify from '../../../src/renderer/src/components/documents/draw/dialogs/simplify.dialog'
 import average from '../../../src/renderer/src/components/documents/draw/dialogs/average.dialog'
-import anchorsPanel from '../../../src/renderer/src/components/documents/draw/panels/anchors.panel'
+import anchorsPanel from '../../../src/renderer/src/components/documents/draw/bar/anchors.tab'
 import type { DrawPathNode } from '../../../src/shared/draw/model'
 import { blank, harness, rect } from './harness'
 
@@ -122,16 +122,21 @@ describe('Average dialog', () => {
   })
 })
 
-describe('Anchor points panel', () => {
+describe('Anchors tab (the top bar)', () => {
   it('shows with an anchor tool and a path; its buttons enable from the selection and run commands', () => {
     const h = harness(blank([rect('r', 100, 100, 100, 100)]))
     h.tool('direct')
     expect(anchorsPanel.when!(h.state())).toBe(false)
     h.click(200, 100)
     expect(anchorsPanel.when!(h.state())).toBe(true)
+    // Anchors picked out one by one keep the tab whatever tool is active;
+    // with the whole path selected and a non-anchor tool it goes.
     h.tool('rect')
+    expect(anchorsPanel.when!(h.state())).toBe(true)
+    h.ed.ctx.select(['r'])
     expect(anchorsPanel.when!(h.state())).toBe(false)
     h.tool('direct')
+    h.click(200, 100)
     const P = anchorsPanel.component
     act(() => root.render(<P ctx={h.ed.ctx} />))
     expect(q('draw-anchors-count').textContent).toBe('1 selected')
@@ -149,7 +154,11 @@ describe('Anchor points panel', () => {
     expect(anchorsPanel.when!(h.state())).toBe(true)
     const P = anchorsPanel.component
     act(() => root.render(<P ctx={h.ed.ctx} />))
+    // A bar number commits on Enter (one change, not one per keystroke).
     setInput(q('draw-smooth-fidelity') as HTMLInputElement, '80')
+    act(() => {
+      q('draw-smooth-fidelity').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
     expect(h.state().pathPrefs.smoothFidelity).toBe(80)
   })
 })

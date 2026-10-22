@@ -1,4 +1,4 @@
-// The Transform panel, the Align panel and the transform dialogs, mounted on
+// The Transform controls (the top bar's Object tab), the Align tab and the transform dialogs, mounted on
 // the real editor (the tool harness) and driven through the DOM: typing an
 // expression into a field, Preview, Cancel, OK and Copy.
 
@@ -12,8 +12,8 @@ vi.mock('../../src/renderer/src/components/Icon', () => ({
 
 import { nodeBounds } from '../../src/shared/draw/ops'
 import type { DrawDoc, DrawPathNode } from '../../src/shared/draw/model'
-import transformPanel from '../../src/renderer/src/components/documents/draw/panels/transform.panel'
-import alignPanel from '../../src/renderer/src/components/documents/draw/panels/align.panel'
+import transformPanel from '../../src/renderer/src/components/documents/draw/bar/object.tab'
+import alignPanel from '../../src/renderer/src/components/documents/draw/bar/align.tab'
 import { dialogById } from '../../src/renderer/src/components/documents/draw/dialogs/registry'
 import { resetTransformPrefs, setTransformPrefs } from '../../src/renderer/src/components/documents/draw/transform/prefs'
 import { blank, harness, rect, type Harness } from './drawTools/harness'

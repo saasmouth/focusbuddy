@@ -96,6 +96,12 @@ export interface EditorState {
   toolState: Record<string, unknown>
   /** Isolation mode: the isolated groups' ids, outermost first; [] when not isolated (see editor/isolation.ts). */
   isolation: string[]
+  /**
+   * The overlay panels (Layers, Artboards...) open now, by panel id. Editor UI
+   * state, never part of the document or of undo; a command (F7) or the rail
+   * toggles them, and the studio shows each as a ShellPanel.
+   */
+  openPanels: string[]
 }
 
 export interface PathPrefs {
@@ -221,6 +227,15 @@ export interface ExportOptions {
   artboardId?: string
 }
 
+/**
+ * The studio chrome a command may ask for (the office shell around the
+ * canvas). Absent in headless runs, so commands that need it are disabled there.
+ */
+export interface UiService {
+  /** Move keyboard focus to the next part of the window: canvas, then the top bar, then the tool rail. */
+  cycleFocus(): void
+}
+
 /** Where edits go, and the co-editing undo stack when there is one. */
 export interface HostService {
   /** Hand an edited document to the host for saving / co-editing (already in storage form). */
@@ -244,6 +259,8 @@ export interface EditorCtx {
   text: TextService
   viewport: ViewportService
   host: HostService
+  /** The studio chrome; absent in headless runs. */
+  ui?: UiService
   status(msg: string | null): void
   busy(msg: string | null): void
   select(ids: string[]): void
@@ -293,6 +310,13 @@ export interface DrawTool {
   overlayOrder?: number
   /** Works on anchors: the selection's bounding box (and its handles) is hidden while it is active. */
   anchorTool?: boolean
+  /**
+   * The rail flyout this tool belongs to ('pen', 'shapes'...): tools sharing a
+   * flyout show as ONE rail button (the last one used) with the others behind
+   * it, as Illustrator's toolbar groups them. Option/Alt-click the button, or
+   * run "Next tool in group", to step through them.
+   */
+  flyout?: string
 }
 
 export type MenuId = 'file' | 'edit' | 'object' | 'layer' | 'document' | 'view' | 'help' | (string & {})
@@ -344,14 +368,34 @@ export interface MenuSpec {
   order: number
 }
 
+/**
+ * An overlay panel (Layers, Artboards; later Swatches, Appearance, Symbols,
+ * History). It floats over the canvas beside the tool rail (the office
+ * shell's ShellPanel), opened from its button at the bottom of the rail or by
+ * its command, and can be pinned. There is no docked panel column.
+ */
 export interface DrawPanel {
   id: string
   title: string
-  dock: 'right'
+  /** Material Symbols name for its rail button and header. */
+  icon: string
+  /** Position among the panel buttons at the bottom of the rail. */
   order: number
-  /** Fixed height in px; absent = takes the remaining space. */
-  height?: number
-  /** Hidden when this returns false. */
+  /** The command that toggles it (its key and menu item come from there): 'window.layers'. */
+  command: string
+  component: FC<{ ctx: EditorCtx }>
+}
+
+/**
+ * A tab of the top bar (the office shell's ContextBar). Home and Object are
+ * always there; a contextual tab (Type, Shape, Path...) appears while `when`
+ * holds and never takes focus on its own. Every control runs a command.
+ */
+export interface DrawBarTab {
+  id: string
+  label: string
+  order: number
+  /** A contextual tab: shown only while this returns true, with the contextual marker. */
   when?(state: EditorState): boolean
   component: FC<{ ctx: EditorCtx }>
 }

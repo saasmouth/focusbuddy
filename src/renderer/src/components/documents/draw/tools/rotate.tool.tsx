@@ -12,6 +12,7 @@ export default transformTool({
   icon: 'rotate_left',
   key: 'R',
   order: 112,
+  flyout: 'rotate',
   dialog: 'rotate',
   undo: 'Rotate',
   matrix(o, start, p, shift) {

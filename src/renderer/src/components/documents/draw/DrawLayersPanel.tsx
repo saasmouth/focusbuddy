@@ -42,7 +42,7 @@ export default function DrawLayersPanel({
   return (
     <div className="flex flex-col h-full text-[12px]" data-testid="draw-layers-panel">
       <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-[var(--edge-soft)]">
-        <span className="text-[10px] uppercase tracking-wide text-[var(--ink-40)] flex-1">Layers</span>
+        <span className="flex-1 text-[11px] text-[var(--ink-50)]">{layers.length} {layers.length === 1 ? 'layer' : 'layers'}</span>
         <button onClick={() => onAdd('vector')} title="New vector layer" data-testid="draw-add-vector-layer" className="icon-btn !h-6 !w-6">
           <Icon name="shapes" size={14} />
         </button>

@@ -406,7 +406,7 @@ export const ILLUSTRATOR_SHORTCUTS: IllustratorShortcut[] = [
   { section: 'Function keys', action: 'Paste', win: 'F4', mac: 'F4', context: 'global', key: 'f4', target: 'cmd:edit.paste' },
   { section: 'Function keys', action: 'Show/hide Brushes panel', win: 'F5', mac: 'F5', context: 'global', key: 'f5', target: 'res:window.brushes' },
   { section: 'Function keys', action: 'Show/hide Color panel', win: 'F6', mac: 'F6', context: 'global', key: 'f6', target: 'res:window.color' },
-  { section: 'Function keys', action: 'Show/hide Layers panel', win: 'F7', mac: 'F7', context: 'global', key: 'f7', target: 'res:window.layers' },
+  { section: 'Function keys', action: 'Show/hide Layers panel', win: 'F7', mac: 'F7', context: 'global', key: 'f7', target: 'cmd:window.layers' },
   { section: 'Function keys', action: 'Create new symbol', win: 'F8', mac: 'F8', context: 'global', key: 'f8', target: 'res:object.newSymbol' },
   { section: 'Function keys', action: 'Show/hide Info panel', win: 'Ctrl + F8', mac: 'Command + F8', context: 'global', key: 'mod+f8', target: 'res:window.info' },
   { section: 'Function keys', action: 'Show/hide Gradient panel', win: 'Ctrl + F9', mac: 'Command + F9', context: 'global', key: 'mod+f9', target: 'res:window.gradient' },

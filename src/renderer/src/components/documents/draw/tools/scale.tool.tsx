@@ -15,6 +15,7 @@ export default transformTool({
   icon: 'open_in_full',
   key: 'S',
   order: 114,
+  flyout: 'scale',
   dialog: 'scale',
   undo: 'Scale',
   matrix(o, start, p, shift) {

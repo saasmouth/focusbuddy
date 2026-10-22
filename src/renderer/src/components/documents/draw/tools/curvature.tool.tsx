@@ -69,6 +69,7 @@ const curvature: DrawTool = {
   icon: 'timeline',
   group: 1,
   order: 31,
+  flyout: 'pen',
   key: 'Shift+`',
   cursor: 'crosshair',
   overlayOrder: 41,

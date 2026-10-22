@@ -9,7 +9,7 @@ import type { LiveUndo } from '../../../../lib/yjsKeyedJson'
 import { fontShorthand, layoutText } from '../textMeasure'
 import { createCanvasRaster } from './canvasRaster'
 import type { EditorServices } from './editor'
-import type { EditorState } from './types'
+import type { EditorState, UiService } from './types'
 
 export interface StudioRefs {
   canvases: Map<string, HTMLCanvasElement>
@@ -19,10 +19,16 @@ export interface StudioRefs {
   onChange: { current: (body: unknown) => void }
   title: { current: string }
   liveUndo: { current: LiveUndo | undefined }
+  /**
+   * How much of the viewport's left edge pinned overlay panels cover, in
+   * screen px. Fit and Paste work in the visible part, so ⌘0 centres the art
+   * beside a pinned Layers panel rather than under it.
+   */
+  inset: { current: number }
 }
 
 /** Services bound to a studio's refs; `store` is read lazily, once the editor exists. */
-export function createDomServices(refs: StudioRefs, store: () => { getState(): EditorState; setState(p: Partial<EditorState>): void }): EditorServices {
+export function createDomServices(refs: StudioRefs, store: () => { getState(): EditorState; setState(p: Partial<EditorState>): void }, ui?: UiService): EditorServices {
   const doc = (): EditorState['doc'] => store().getState().doc
 
   /**
@@ -33,7 +39,8 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
   function fitBox(box: Box): void {
     const el = refs.scroll.current
     if (!el || !(box.w > 0) || !(box.h > 0)) return
-    const z = Math.max(0.05, Math.min(4, Math.min((el.clientWidth - 48) / box.w, (el.clientHeight - 48) / box.h)))
+    const inset = Math.max(0, Math.min(refs.inset.current, el.clientWidth - 96))
+    const z = Math.max(0.05, Math.min(4, Math.min((el.clientWidth - inset - 48) / box.w, (el.clientHeight - 48) / box.h)))
     store().setState({ zoom: z })
     const centre = (): void => {
       const sc = refs.scroll.current
@@ -43,7 +50,8 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
       const zz = store().getState().zoom
       const sr = stage.getBoundingClientRect()
       const cr = sc.getBoundingClientRect()
-      const left = sc.scrollLeft + (sr.left - cr.left - sc.clientLeft) + (box.x - f.x) * zz - (sc.clientWidth - box.w * zz) / 2
+      // Centred in the part of the viewport no pinned panel covers.
+      const left = sc.scrollLeft + (sr.left - cr.left - sc.clientLeft) + (box.x - f.x) * zz - inset - (sc.clientWidth - inset - box.w * zz) / 2
       const top = sc.scrollTop + (sr.top - cr.top - sc.clientTop) + (box.y - f.y) * zz - (sc.clientHeight - box.h * zz) / 2
       sc.scrollLeft = Math.max(0, left)
       sc.scrollTop = Math.max(0, top)
@@ -89,9 +97,12 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
         const st = stage.getBoundingClientRect()
         const z = store().getState().zoom
         const b = artboardsBounds(doc())
-        return { x: (r.left + el.clientLeft - st.left) / z + b.x, y: (r.top + el.clientTop - st.top) / z + b.y, w: el.clientWidth / z, h: el.clientHeight / z }
+        // Less what a pinned panel covers on the left.
+        const inset = Math.max(0, Math.min(refs.inset.current, el.clientWidth - 96))
+        return { x: (r.left + el.clientLeft + inset - st.left) / z + b.x, y: (r.top + el.clientTop - st.top) / z + b.y, w: (el.clientWidth - inset) / z, h: el.clientHeight / z }
       }
     },
+    ui,
     host: {
       emit: (stored) => refs.onChange.current(stored),
       liveUndo: () => refs.liveUndo.current,

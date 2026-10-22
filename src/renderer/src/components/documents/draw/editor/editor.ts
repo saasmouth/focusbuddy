@@ -23,13 +23,15 @@ import { toolById } from '../tools/registry'
 import { createHistory } from './history'
 import { activateArtboardAt } from './artboards'
 import { adoptIntoIsolation, canvasDoubleClick, hitForSelection, hitLeaf } from './isolation'
-import type { EditorCtx, EditorState, History, HostService, KeyInput, RasterService, TextService, ToolPointer, ViewportService } from './types'
+import type { EditorCtx, EditorState, History, HostService, KeyInput, RasterService, TextService, ToolPointer, UiService, ViewportService } from './types'
 
 export interface EditorServices {
   raster: RasterService
   text: TextService
   viewport: ViewportService
   host: HostService
+  /** The studio chrome (focus cycling); absent in headless runs. */
+  ui?: UiService
 }
 
 export interface DrawEditor {
@@ -85,7 +87,8 @@ export function initialEditorState(content: unknown): EditorState {
     curvature: null,
     pathPrefs: { showHandles: true, smoothFidelity: 50, brushSize: 10 },
     toolState: {},
-    isolation: []
+    isolation: [],
+    openPanels: []
   }
 }
 
@@ -132,6 +135,7 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
     text: services.text,
     viewport: services.viewport,
     host: services.host,
+    ui: services.ui,
     status: (msg) => store.setState({ status: msg }),
     busy: (msg) => store.setState({ busy: msg }),
     // An object-level selection replaces any anchor-level one.
@@ -192,9 +196,9 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
 
-  /** Commands a key may run on a read-only drawing: they look, select, copy and help; none edits. */
+  /** Commands a key may run on a read-only drawing: they look, select, copy, show panels and help; none edits. */
   const READ_ONLY_KEYS = new Set(['edit.copy', 'edit.selectAll', 'edit.selectAllOnArtboard', 'edit.deselect', 'edit.escape', 'edit.keyboardShortcuts'])
-  const readOnlyKeyOk = (id: string): boolean => READ_ONLY_KEYS.has(id) || id.startsWith('view.') || id.startsWith('help.')
+  const readOnlyKeyOk = (id: string): boolean => READ_ONLY_KEYS.has(id) || id.startsWith('view.') || id.startsWith('help.') || id.startsWith('window.')
 
   function keyDown(e: KeyInput): void {
     if (e.code === 'Space' && !e.inField) {

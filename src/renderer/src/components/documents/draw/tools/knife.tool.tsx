@@ -25,6 +25,7 @@ const knife: DrawTool = {
   icon: 'carpenter',
   group: 1,
   order: 37,
+  flyout: 'scissors',
   cursor: 'crosshair',
   overlayOrder: 45,
   onPointerDown(ctx, e) {

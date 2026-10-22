@@ -19,6 +19,7 @@ const pencil: DrawTool = {
   icon: 'gesture',
   group: 1,
   order: 40,
+  flyout: 'pencil',
   key: 'N',
   cursor: 'crosshair',
   overlayOrder: 30,

@@ -59,6 +59,7 @@ const groupSelect: DrawTool = {
   icon: 'ads_click',
   group: 0,
   order: 15,
+  flyout: 'direct',
   cursor: 'default',
   overlayOrder: 1,
 

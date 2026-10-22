@@ -185,6 +185,7 @@ const pen: DrawTool = {
   icon: 'draw',
   group: 1,
   order: 30,
+  flyout: 'pen',
   key: 'P',
   cursor: 'crosshair',
   overlayOrder: 40,

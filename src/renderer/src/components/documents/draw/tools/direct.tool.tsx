@@ -276,6 +276,7 @@ const direct: DrawTool = {
   icon: 'near_me',
   group: 0,
   order: 20,
+  flyout: 'direct',
   key: 'A',
   cursor: 'default',
   overlayOrder: 50,

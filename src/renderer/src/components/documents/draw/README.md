@@ -1,10 +1,31 @@
-# PlexiiDraw: how to add a tool, a command, a panel or a dialog
+# PlexiiDraw: how to add a tool, a command, a bar tab, a panel or a dialog
 
-PlexiiDraw is built from registries. Every tool, command, panel and dialog is
-its own file, and the editor finds it on its own (Vite and Vitest expand
-`import.meta.glob` at build time). **Adding a feature means adding files.** You
-do not edit `DrawStudio.tsx`, the menu bar, the toolbox, the inspector or a
-shared list. The one shared file is `commands/keymap.ts`, and only when you add
+PlexiiDraw is built from registries. Every tool, command, top-bar tab, panel
+and dialog is its own file, and the editor finds it on its own (Vite and Vitest
+expand `import.meta.glob` at build time). **Adding a feature means adding
+files.** You do not edit `DrawStudio.tsx`, the menu bar, the tool rail, the top
+bar or a shared list.
+
+The studio sits on the shared office shell (`components/office/shell`, spec
+`/private/tmp/claude-501/office-shell/SPEC.md` §6.2), like every office app:
+
+- the **tool rail** on the left is the tool registry (`render/rail.tsx`):
+  the toolbox's sections and order, each tool's LIVE key, flyouts, the
+  overlay-panel buttons at the bottom and the fill/stroke chips under them;
+- the **top bar** (ContextBar): the menu bar and the tabs on one row; Undo and
+  Redo pinned left, the active tab's controls, and zoom, fit, grid, snap, the
+  artboard size and the status at the right (`render/RightSlot.tsx`). Tabs are
+  `bar/*.tab.tsx`: Home, Object and Align always, contextual ones (Type, Shape,
+  Brush, Anchors, Path, Group, Image, Artboard) while their context holds;
+- **overlay panels** (`panels/*.panel.tsx`: Layers F7, Artboards) float over
+  the canvas beside the rail and can be pinned. **There is no right-hand
+  inspector and no docked panel column** (owner ruling). A pinned panel insets
+  the viewport (`StudioRefs.inset`), so ⌘0 and Paste use the part it leaves.
+- Content panes (an AI or comments pane, anything read and typed in) would go
+  in the shell's right `ShellSidePane`; Draw has none today.
+- The shell adds **no key listener**: the editor's keymap is the only key
+  handler. Arrows, Enter and Space on a focused bar or rail control stay with
+  that control; tool letters and command chords still reach the keymap. The one shared file is `commands/keymap.ts`, and only when you add
 a keyboard shortcut. There, add one line per binding.
 
 ## Map
@@ -30,9 +51,12 @@ a keyboard shortcut. There, add one line per binding.
 | `commands/keymap.ts` | Key bindings (Illustrator's defaults): one sorted line each, plus the keys reserved for features still to come. |
 | `commands/illustratorKeys.ts` | Adobe's default-shortcut table, every row, and what each means here. |
 | `commands/keys.ts` | Reading key presses, platform labels, per-profile remapping. |
-| `panels/*.panel.tsx` | Right-dock panels, picked up automatically. |
+| `bar/*.tab.tsx` | Top-bar tabs (Home, Object, Align and the contextual ones), picked up automatically. `bar/controls.tsx`: command-driven bar buttons and the Fill/Stroke paint popover. |
+| `panels/*.panel.tsx` | Overlay panels (ShellPanel) with a rail button, picked up automatically. |
+| `editor/shellPrefs.ts` | The chrome per profile: the bar's tab and collapse, pinned panels, the last tool of each flyout. |
+| `tools/flyouts.ts` | Rail flyouts: a tool joins one with `flyout: '<id>'`. |
 | `dialogs/*.dialog.tsx` | Modal dialogs a command can open, picked up automatically. |
-| `render/*` | Rendering: `SceneView` (memoised per node), `Overlay`, `Toolbox`, `OptionsBar`, `TextEditor`. |
+| `render/*` | Rendering: `SceneView` (memoised per node), `Overlay`, `TextEditor`; the rail mapping (`rail.tsx`) and the bar's right slot (`RightSlot.tsx`). |
 | `src/shared/draw/import/*` | Import: `imageInfo.ts` (what a file is, its size and resolution) and `svg/` (the SVG importer, pure, with its import report). |
 | `editor/importFiles.ts`, `editor/place.ts`, `editor/fileDrop.ts` | Place, Open/Import SVG, Replace and file drops. Side effects come in through `ImportDeps`. |
 | `tests/unit/drawTools/harness.ts` | `ToolHarness`: drives the real editor headlessly. |
@@ -50,8 +74,9 @@ const measure: DrawTool = {
   id: 'measure',
   label: 'Measure',
   icon: 'straighten',
-  group: 5,             // toolbox section; a divider is drawn between sections
-  order: 170,           // position in the toolbox (existing tools use 10..160)
+  group: 5,             // rail section; a divider is drawn between sections
+  order: 170,           // position on the rail (existing tools use 10..160)
+  // flyout: 'measure',  // optional: tools sharing a flyout show as ONE rail button
   // key: 'Shift+W',    // optional: Illustrator's key for the tool ('M', 'Shift+W'); a unit test fails on a clash
   // onOptions(ctx) {},  // optional options dialog: Enter while active, or double-click the tool
   cursor: 'crosshair',
@@ -187,34 +212,81 @@ or a keymap that no longer matches Adobe's table. People can remap keys in
 Edit › Keyboard shortcuts…; that is stored per profile and never edits
 `keymap.ts`.
 
-## Add a panel: one new file
+## Add a top-bar tab: one new file
 
-Create `panels/<id>.panel.tsx` and default-export a `DrawPanel`:
+Settings of the selection or of the active tool go in a tab, never in a
+panel. Create `bar/<id>.tab.tsx` and default-export a `DrawBarTab`:
 
 ```tsx
-// panels/transform.panel.tsx
+// bar/gradient.tab.tsx
+import { BarGroup } from '../../../office/shell'
+import type { DrawBarTab, EditorCtx } from '../editor/types'
+import { CmdButton, useEditor } from './controls'
+
+function GradientTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
+  useEditor(ctx) // re-render with the editor
+  return (
+    <BarGroup label="Gradient">
+      <CmdButton ctx={ctx} id="paint.reverseGradient" icon="swap_horiz" reason="select a gradient fill" testid="draw-gradient-reverse" />
+    </BarGroup>
+  )
+}
+
+const gradient: DrawBarTab = {
+  id: 'gradient',
+  label: 'Gradient',
+  order: 125,                           // contextual tabs use 100+
+  when: (s) => s.tool === 'gradient',   // leave out for an always-there tab
+  component: GradientTab
+}
+
+export default gradient
+```
+
+- Use the shell's bar primitives (`BarButton`, `BarToggle`, `BarNumber`,
+  `BarSelect`, `BarColor`, `BarMenu`, `BarDialogButton`, `BarCustom`) or
+  `CmdButton` / `CmdToggle`, which take the command's label, its LIVE key for
+  the tooltip, and its `enabled` state with a `reason` to show when it is off.
+- A contextual tab appears while `when` holds and never switches to itself
+  (owner D3); when it vanishes while active, the bar falls back to Home.
+- A read-only drawing greys every control without `readOnlySafe` and says why
+  (the bar's `readOnly`); a `BarCustom` widget asks `useBarReadOnly()`.
+
+## Add a panel: one new file
+
+A panel is for things that are not settings of the selection: a list
+(Layers, Artboards, later Swatches, Symbols, History). Create
+`panels/<id>.panel.tsx`, default-export a `DrawPanel`, and add its toggle
+command (`window.<id>`) to `commands/window.commands.ts`'s pattern (a
+`panelCommand` line, plus its Illustrator key in `keymap.ts` if it has one):
+
+```tsx
+// panels/swatches.panel.tsx
 import { useStore } from 'zustand'
 import type { DrawPanel, EditorCtx } from '../editor/types'
 
-function TransformPanel({ ctx }: { ctx: EditorCtx }): JSX.Element {
-  const selection = useStore(ctx.store, (s) => s.selection) // subscribe to the slices you read
-  return <div data-testid="draw-transform-panel">{/* … calls ctx.run('…') … */}</div>
+function SwatchesPanel({ ctx }: { ctx: EditorCtx }): JSX.Element {
+  const swatches = useStore(ctx.store, (s) => s.doc.swatches)
+  return <div data-testid="draw-swatches-panel">{/* … calls ctx.run('…') … */}</div>
 }
 
-const transform: DrawPanel = {
-  id: 'transform',
-  title: 'Transform',
-  dock: 'right',
-  order: 15,        // inspector is 10, layers 20
-  height: 180,      // fixed height; leave out to take the remaining space
-  when: (s) => s.selection.length > 0, // optional: hide when irrelevant
-  component: TransformPanel
+const swatches: DrawPanel = {
+  id: 'swatches',
+  title: 'Swatches',
+  icon: 'palette',
+  order: 30,                  // Layers 10, Artboards 20
+  command: 'window.swatches', // toggles it; its key and menu item come from there
+  component: SwatchesPanel
 }
 
-export default transform
+export default swatches
 ```
 
-Panels sit inside the read-only `fieldset`, so a read-only drawing turns their
+It shows as a `ShellPanel` (testid `draw-panel-<id>`) beside the rail, opened
+from its rail button (`draw-rail-<id>`), its menu item or its key. Which are
+open is editor state (`openPanels`), so all three agree. It closes on Esc or
+an outside click unless pinned; pinned panels reopen with the editor. Panels
+sit inside a read-only `fieldset`, so a read-only drawing turns their
 controls off with no code of their own.
 
 ## Add a dialog: one new file
@@ -302,8 +374,9 @@ means.
   delete (the art stays), rename, patch, reorder, move (with the art on it),
   duplicate (with copies of that art), fit, Rearrange All. Commands are in
   `commands/artboards.commands.ts`; the tool is `tools/artboard.tool.tsx`
-  (⇧O); the panel `panels/artboards.panel.tsx` shows with several artboards
-  or while the tool is active.
+  (⇧O), with the contextual Artboard tab (`bar/artboard.tab.tsx`); the
+  overlay panel `panels/artboards.panel.tsx` opens from the rail, Window ›
+  Artboards or the tab's "Artboards…".
 - **The gate.** Several, moved or named artboards are v2-only: commands ask
   `artboardsEditable(state)` and refuse with `artboardsBlockedReason`.
 - **Export** with several artboards asks what to cover

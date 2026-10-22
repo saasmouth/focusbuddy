@@ -116,10 +116,15 @@ export function NumField({ label, prefix, value, kind, settings, onCommit, disab
   )
 }
 
-/** The 9-point reference point locator. */
-export function RefLocator({ value, onChange, testId = 'draw-transform-ref', disabled }: { value: RefPoint; onChange(r: RefPoint): void; testId?: string; disabled?: boolean }): JSX.Element {
+/** The 9-point reference point locator; `compact` fits it in a bar row (26px). */
+export function RefLocator({ value, onChange, testId = 'draw-transform-ref', disabled, compact }: { value: RefPoint; onChange(r: RefPoint): void; testId?: string; disabled?: boolean; compact?: boolean }): JSX.Element {
   return (
-    <div className="grid grid-cols-3 gap-[3px] p-1 rounded border border-[var(--edge-soft)] shrink-0" role="radiogroup" aria-label="Reference point" data-testid={testId}>
+    <div
+      className={`grid grid-cols-3 rounded border border-[var(--edge-soft)] shrink-0 ${compact ? 'gap-px p-[2px]' : 'gap-[3px] p-1'}`}
+      role="radiogroup"
+      aria-label="Reference point"
+      data-testid={testId}
+    >
       {REF_POINTS.map((r) => (
         <button
           key={r}
@@ -131,7 +136,7 @@ export function RefLocator({ value, onChange, testId = 'draw-transform-ref', dis
           data-testid={`${testId}-${r}`}
           disabled={disabled}
           onClick={() => onChange(r)}
-          className={`w-[9px] h-[9px] rounded-[2px] border ${value === r ? 'bg-accent border-accent' : 'border-[var(--edge-firm)] hover:bg-[var(--surface-sunken)]'}`}
+          className={`${compact ? 'w-[6px] h-[6px] rounded-[1px]' : 'w-[9px] h-[9px] rounded-[2px]'} border disabled:opacity-40 ${value === r ? 'bg-accent border-accent' : 'border-[var(--edge-firm)] hover:bg-[var(--surface-sunken)]'}`}
         />
       ))}
     </div>

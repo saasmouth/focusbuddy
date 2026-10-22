@@ -26,6 +26,7 @@ export function shapeTool(spec: { id: string; kind: DrawShapeKind; label: string
     group: 2,
     order: spec.order,
     key: spec.key,
+    flyout: 'shapes',
     cursor: 'crosshair',
     overlayOrder: 20,
 

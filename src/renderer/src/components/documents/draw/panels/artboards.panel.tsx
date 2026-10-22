@@ -2,8 +2,9 @@
 // Illustrator's -- click one to go to it, double-click its name to rename it,
 // move it up or down the list (the order PDF pages and Next Artboard follow),
 // add, duplicate or delete one, and set the active artboard's size, position
-// and preset. It shows once a drawing has several artboards, or while the
-// Artboard tool is active. Every change goes through a registered command.
+// and preset. An overlay panel beside the tool rail, opened from its rail
+// button, Window › Artboards or the Artboard tab's "Artboards…", and
+// pinnable. Every change goes through a registered command.
 
 import { useEffect, useState } from 'react'
 import { useStore } from 'zustand'
@@ -53,7 +54,7 @@ function ArtboardsPanel({ ctx }: { ctx: EditorCtx }): JSX.Element {
   return (
     <div className="h-full flex flex-col text-[12px]" data-testid="draw-artboards-panel">
       <div className="flex items-center gap-1 px-2 py-1 border-b border-[var(--edge-soft)]">
-        <span className="flex-1 text-[11px] uppercase tracking-wide text-[var(--ink-40)]">Artboards</span>
+        <span className="flex-1 text-[11px] text-[var(--ink-50)]">{n} {n === 1 ? 'artboard' : 'artboards'}</span>
         <button title="New artboard" aria-label="New artboard" disabled={!editable} onClick={() => ctx.run('artboard.new')} data-testid="draw-artboards-new" className="p-0.5 rounded hover:bg-[var(--surface-sunken)] disabled:opacity-40">
           <Icon name="add_box" size={15} />
         </button>
@@ -168,10 +169,9 @@ function ArtboardsPanel({ ctx }: { ctx: EditorCtx }): JSX.Element {
 const artboards: DrawPanel = {
   id: 'artboards',
   title: 'Artboards',
-  dock: 'right',
-  order: 18,
-  height: 250,
-  when: (s) => s.doc.artboards.length > 1 || s.tool === 'artboard',
+  icon: 'dashboard',
+  order: 20,
+  command: 'window.artboards',
   component: ArtboardsPanel
 }
 

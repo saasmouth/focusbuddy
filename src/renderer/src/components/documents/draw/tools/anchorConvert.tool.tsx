@@ -77,6 +77,7 @@ const anchorConvert: DrawTool = {
   icon: 'conversion_path',
   group: 1,
   order: 34,
+  flyout: 'pen',
   key: 'Shift+C',
   cursor: 'default',
   overlayOrder: 50,

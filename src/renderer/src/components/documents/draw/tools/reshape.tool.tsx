@@ -77,6 +77,7 @@ const reshape: DrawTool = {
   icon: 'gesture',
   group: 6,
   order: 116,
+  flyout: 'scale',
   cursor: 'crosshair',
   overlayOrder: 42,
 

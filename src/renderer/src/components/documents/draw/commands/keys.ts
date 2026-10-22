@@ -322,6 +322,9 @@ const FIELD_MOD_KEYS = new Set(['a', 'c', 'v', 'x', 'z', 'y', 'arrowleft', 'arro
  * swallowed them all, so a shortcut "did nothing" after touching a panel.
  */
 export function fieldKeepsKey(e: KeyEventLike): boolean {
+  // A function key never types into a field: F7 (Layers), ⌥F6 (focus) and the
+  // rest still work from a field in the top bar or a panel.
+  if (/^f\d+$/.test(baseKey(e))) return false
   if (!(e.metaKey || e.ctrlKey)) return true
   return FIELD_MOD_KEYS.has(baseKey(e))
 }

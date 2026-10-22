@@ -23,6 +23,7 @@
 export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   '[': ['brush.smaller'],
   ']': ['brush.larger'],
+  'alt+f6': ['window.focusNext', 'prevent'],
   arrowdown: ['object.nudgeDown', 'prevent'],
   arrowleft: ['object.nudgeLeft', 'prevent'],
   arrowright: ['object.nudgeRight', 'prevent'],
@@ -35,6 +36,7 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   f2: ['edit.cut', 'prevent'],
   f3: ['edit.copy', 'prevent'],
   f4: ['edit.paste', 'prevent'],
+  f7: ['window.layers', 'prevent'],
   "mod+'": ['view.grid', 'prevent'],
   'mod+-': ['view.zoomOut', 'prevent'],
   'mod+0': ['view.fit', 'prevent'],
@@ -105,7 +107,6 @@ export const RESERVED_KEYS: Record<string, readonly [string, string, string]> = 
   f12: ['file.revert', 'Revert', '-'],
   f5: ['window.brushes', 'Show/hide Brushes panel', '-'],
   f6: ['window.color', 'Show/hide Color panel', 'WP-COLOR'],
-  f7: ['window.layers', 'Show/hide Layers panel', 'WP-LAYERS'],
   f8: ['object.newSymbol', 'Create new symbol', 'WP-SYMBOLS'],
   g: ['tool:gradient', 'Gradient tool', 'WP-PAINT'],
   j: ['tool:columnGraph', 'Column Graph tool', '-'],

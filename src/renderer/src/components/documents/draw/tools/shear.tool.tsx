@@ -14,6 +14,7 @@ export default transformTool({
   label: 'Shear',
   icon: 'format_italic',
   order: 115,
+  flyout: 'scale',
   dialog: 'shear',
   undo: 'Shear',
   matrix(o, start, p) {

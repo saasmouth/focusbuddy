@@ -38,6 +38,7 @@ const join: DrawTool = {
   icon: 'link',
   group: 1,
   order: 43,
+  flyout: 'pencil',
   cursor: 'crosshair',
   overlayOrder: 50,
   anchorTool: true,

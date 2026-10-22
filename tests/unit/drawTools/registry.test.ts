@@ -4,6 +4,7 @@ import { commandRegistryProblems, drawCommands, drawMenus } from '../../../src/r
 import { KEYMAP } from '../../../src/renderer/src/components/documents/draw/commands/keymap'
 import { setKeyPlatform, toolKeyString } from '../../../src/renderer/src/components/documents/draw/commands/keys'
 import { drawPanels } from '../../../src/renderer/src/components/documents/draw/panels/registry'
+import { drawBarTabs } from '../../../src/renderer/src/components/documents/draw/bar/registry'
 import { drawDialogs } from '../../../src/renderer/src/components/documents/draw/dialogs/registry'
 import { buildMenu } from '../../../src/renderer/src/components/documents/editor/DrawStudioMenuBar'
 import type { MenuItem } from '../../../src/renderer/src/components/documents/editor/menuBarKit'
@@ -72,7 +73,10 @@ describe('registries', () => {
   })
 
   it('panels and dialogs are discovered', () => {
-    expect(drawPanels().map((p) => p.id)).toEqual(['inspector', 'anchors', 'transform', 'align', 'artboards', 'layers'])
+    // Overlay panels (the rail's bottom buttons); the inspector, Transform, Align and
+    // Anchor points panels became top-bar tabs (bar/*.tab.tsx).
+    expect(drawPanels().map((p) => p.id)).toEqual(['layers', 'artboards'])
+    expect(drawBarTabs().map((t) => t.id)).toEqual(['home', 'object', 'align', 'type', 'shape', 'brush', 'anchors', 'path', 'group', 'image', 'artboard'])
     expect(drawDialogs().map((d) => d.id).sort()).toEqual([
       'artboard-options',
       'artboard-rearrange',
@@ -129,9 +133,10 @@ describe('the menu bar is built from commands', () => {
       'layer:Layer',
       'document:Document',
       'view:View',
+      'window:Window',
       'help:Help'
     ])
-    const all = ['file', 'edit', 'object', 'layer', 'document', 'view', 'help'].map((m) => [m, ...describeMenu(buildMenu(h.ed.ctx, m))].join('\n')).join('\n\n')
+    const all = ['file', 'edit', 'object', 'layer', 'document', 'view', 'window', 'help'].map((m) => [m, ...describeMenu(buildMenu(h.ed.ctx, m))].join('\n')).join('\n\n')
     expect(all).toBe(
       [
         'file',
@@ -236,6 +241,10 @@ describe('the menu bar is built from commands', () => {
         '  Add Anchor Points|||off|',
         '  Remove Anchor Points|remove||off|',
         '  Cut Path at Selected Anchor Points|content_cut||off|',
+        '  Close path|||off|',
+        '  Open path|||off|',
+        '  Reverse path direction|||off|',
+        '  Join into one path|||off|',
         '---',
         'Group|group_work|⌘G|off|',
         'Ungroup|workspaces|⇧⌘G|off|',
@@ -298,6 +307,13 @@ describe('the menu bar is built from commands', () => {
         '---',
         "Grid|grid_4x4|⌘'||",
         'Snap to edges|straighten|⌘U||on',
+        '',
+        'window',
+        'Layers|layers|F7||',
+        'Artboards|dashboard|||',
+        '---',
+        'Move focus: canvas, top bar, tools|keyboard_tab|⌥F6|off|',
+        'Next tool in group|switch_access_shortcut||off|',
         '',
         'help',
         'How PlexiiDraw works|help|F1||'

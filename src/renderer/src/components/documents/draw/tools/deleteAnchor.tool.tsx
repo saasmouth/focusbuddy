@@ -12,6 +12,7 @@ const deleteAnchorTool: DrawTool = {
   icon: 'do_not_disturb_on',
   group: 1,
   order: 33,
+  flyout: 'pen',
   key: '-',
   cursor: 'default',
   overlayOrder: 50,

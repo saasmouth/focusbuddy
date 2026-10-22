@@ -34,6 +34,7 @@ const addAnchorTool: DrawTool = {
   icon: 'add_circle',
   group: 1,
   order: 32,
+  flyout: 'pen',
   key: '+',
   cursor: 'copy',
   overlayOrder: 50,

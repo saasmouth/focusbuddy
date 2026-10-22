@@ -13,6 +13,7 @@ const scissors: DrawTool = {
   icon: 'content_cut',
   group: 1,
   order: 36,
+  flyout: 'scissors',
   key: 'C',
   cursor: 'crosshair',
   overlayOrder: 50,

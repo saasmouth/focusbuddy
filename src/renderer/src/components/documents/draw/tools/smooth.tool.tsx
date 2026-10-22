@@ -7,6 +7,7 @@ import type { DrawDoc } from '@shared/draw/model'
 import { smoothPaths } from '@shared/draw/ops'
 import type { DrawTool, EditorCtx, Txn } from '../editor/types'
 import { AnchorOverlay } from './anchorOverlay'
+import { setShellPrefs } from '../editor/shellPrefs'
 
 interface SmoothGesture {
   trail: Pt[]
@@ -26,6 +27,12 @@ const smooth: DrawTool = {
   icon: 'blur_linear',
   group: 1,
   order: 41,
+  flyout: 'pencil',
+  // Illustrator: double-click the tool (or Enter) for its options -- here
+  // its Fidelity and Size on the top bar's Anchors tab, brought into view.
+  onOptions() {
+    setShellPrefs({ tab: 'anchors', collapsed: false })
+  },
   cursor: 'crosshair',
   overlayOrder: 50,
   anchorTool: true,

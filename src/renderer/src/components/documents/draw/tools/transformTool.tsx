@@ -50,6 +50,8 @@ export interface TransformToolSpec {
   icon: string
   key?: string
   order: number
+  /** The rail flyout it shares (Rotate with Reflect; Scale with Shear and Reshape). */
+  flyout: string
   dialog: 'rotate' | 'reflect' | 'scale' | 'shear'
   /** Undo label; " copy" is added for an Alt-drag. */
   undo: string
@@ -86,6 +88,7 @@ export function transformTool(spec: TransformToolSpec): DrawTool {
     group: 6,
     order: spec.order,
     key: spec.key,
+    flyout: spec.flyout,
     cursor: 'crosshair',
     overlayOrder: 40,
 

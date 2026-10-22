@@ -456,6 +456,12 @@ const objectCommands: Command[] = [
   }
 ]
 
+/** How many paths are selected (a path the commands above can act on). */
+function selectedPathCount(ctx: EditorCtx): number {
+  const doc = ctx.doc()
+  return ctx.get().selection.filter((id) => getObject(doc, id)?.type === 'path').length
+}
+
 /** The one selected group that sits at the current level (top level, or in the isolated group), or null. */
 function isolatableSelection(ctx: EditorCtx): string | null {
   const s = ctx.get()
@@ -505,10 +511,27 @@ export const commands: Command[] = [
     enabled: writable,
     run: (ctx, axis) => ctx.history.commit(distributeObjects(ctx.doc(), ctx.get().selection, axis as 'h' | 'v'), 'Distribute')
   },
+  // Close, Open and Reverse lived only in the old inspector; they are in the
+  // Path tab and here in Object › Path too (the menu is the whole command index).
+  {
+    id: 'object.closePath',
+    label: 'Close path',
+    menu: { path: 'object/Path', order: 300 },
+    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 0,
+    run: (ctx) => ctx.run('object.setClosed', true)
+  },
+  {
+    id: 'object.openPath',
+    label: 'Open path',
+    menu: { path: 'object/Path', order: 301 },
+    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 0,
+    run: (ctx) => ctx.run('object.setClosed', false)
+  },
   {
     id: 'object.reverse',
     label: 'Reverse path direction',
-    enabled: writable,
+    menu: { path: 'object/Path', order: 302 },
+    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 0,
     run: (ctx) => {
       let next = ctx.doc()
       for (const id of ctx.get().selection) next = reversePath(next, id)
@@ -528,7 +551,8 @@ export const commands: Command[] = [
   {
     id: 'object.join',
     label: 'Join into one path',
-    enabled: writable,
+    menu: { path: 'object/Path', order: 303 },
+    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 1,
     run: (ctx) => {
       const { doc, newId } = joinPaths(ctx.doc(), ctx.get().selection)
       if (doc === ctx.doc()) return

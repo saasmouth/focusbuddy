@@ -13,6 +13,7 @@ export default transformTool({
   icon: 'flip',
   key: 'O',
   order: 113,
+  flyout: 'rotate',
   dialog: 'reflect',
   undo: 'Reflect',
   clickWithOrigin: 'transform',

@@ -129,14 +129,22 @@ describe('read-only mode for a drawing made by a newer PlexiiDraw', () => {
     expect(host.querySelectorAll('[data-testid^="draw-vector-"] path')).toHaveLength(1)
   })
 
-  it('turns off the editing tools and every inspector control', async () => {
+  it('turns off the editing tools, greys the top bar with the reason, and disables the panels', async () => {
     await mount(newer())
     expect((host.querySelector('[data-testid="draw-tool-pen"]') as HTMLButtonElement).disabled).toBe(true)
     expect((host.querySelector('[data-testid="draw-tool-select"]') as HTMLButtonElement).disabled).toBe(false)
     expect((host.querySelector('[data-testid="draw-tool-hand"]') as HTMLButtonElement).disabled).toBe(false)
-    const fieldset = host.querySelector('fieldset')
+    // The top bar: editing controls off and saying why; looking (zoom, fit) still works.
+    const fill = host.querySelector('[data-testid="draw-fill"]') as HTMLButtonElement
+    expect(fill.disabled).toBe(true)
+    expect(fill.getAttribute('aria-label')).toContain('this document is read-only')
+    expect((host.querySelector('[data-testid="draw-undo"]') as HTMLButtonElement).disabled).toBe(true)
+    expect((host.querySelector('[data-testid="draw-zoom-in"]') as HTMLButtonElement).disabled).toBe(false)
+    // F7 still opens Layers (looking is allowed); every control inside it is off.
+    await key('F7')
+    const fieldset = host.querySelector('[data-testid="draw-panel-layers"] fieldset') as HTMLFieldSetElement | null
     expect(fieldset?.disabled).toBe(true)
-    expect(fieldset?.querySelector('[data-testid="draw-inspector"]')).not.toBeNull()
+    expect(fieldset?.querySelector('[data-testid="draw-layers-panel"]')).not.toBeNull()
   })
 
   it('an unknown object in a v1-numbered body is also read-only', async () => {

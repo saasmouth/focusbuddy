@@ -1,4 +1,6 @@
-// The layers panel: vector and paint layers in one stack.
+// The Layers panel (F7, as in Illustrator): vector and paint layers in one
+// stack. An overlay panel beside the tool rail, opened from its rail button,
+// Window › Layers or F7, and pinnable.
 
 import { useStore } from 'zustand'
 import DrawLayersPanel from '../DrawLayersPanel'
@@ -24,6 +26,6 @@ function Layers({ ctx }: { ctx: EditorCtx }): JSX.Element {
   )
 }
 
-const layers: DrawPanel = { id: 'layers', title: 'Layers', dock: 'right', order: 20, height: 260, component: Layers }
+const layers: DrawPanel = { id: 'layers', title: 'Layers', icon: 'layers', order: 10, command: 'window.layers', component: Layers }
 
 export default layers
