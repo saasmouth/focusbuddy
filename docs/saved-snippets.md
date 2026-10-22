@@ -185,6 +185,180 @@ useEffect(() => registerSnippetTarget({
 }), [instanceId])
 ```
 
+## Adding a snippet target
+
+Written for whoever wires Cells, Deck, Design, Draw or Diagrams. A target is a
+registration, not a change to the core: nothing in `shared/snippets.ts`, the
+store, the library or the save dialog needs editing to add one.
+
+There are two halves, and they are independent — a surface can do either alone.
+**Capture** turns a selection into a snippet. **Insertion** puts one back.
+
+### 1. Capture: a selection becomes a body
+
+Write a pure function from your editor's selection to a body of your kind.
+Return `null` when there is nothing selected, rather than an empty body: the
+caller needs to tell "nothing to save" from "saved something empty".
+
+```ts
+// documents/editor/docSnippets.ts — the doc example
+export function docBodyFromSelection(editor: Editor): DocSnippetBody | null {
+  const { from, to, empty } = editor.state.selection
+  if (empty || to <= from) return null
+  const content = editor.state.doc.slice(from, to).content.toJSON() as unknown[]
+  if (!content.length) return null
+  // Store plain text alongside the nodes: it is what the library searches and
+  // what gives an honest preview without rendering anything.
+  return { kind: 'doc', content, text: editor.state.doc.textBetween(from, to, '\n', ' ') }
+}
+```
+
+```ts
+// desk/deskSnippets.ts — the widget example. Size travels, POSITION does not:
+// shape is part of what makes a widget reusable; where it sat is not.
+export function widgetBodyFromWidget(w: Widget): WidgetSnippetBody {
+  return { kind: 'widget', widgetKind: w.kind, title: w.title ?? '', content: w.content ?? '',
+           width: w.width ?? 2, height: w.height ?? 2, color: w.color ?? null }
+}
+```
+
+Then open `SaveSnippetDialog` with it. Pass an EMPTY body rather than skipping
+the dialog when nothing is selected — it already says "There is nothing in the
+selection to save", which beats a menu item that appears to do nothing:
+
+```tsx
+const [draft, setDraft] = useState<SheetSnippetBody | null>(null)
+// …menu item:
+onSaveSnippet: () => setDraft(sheetBodyFromSelection(grid) ?? { kind: 'sheet', rows: [] })
+// …render:
+{draft && <SaveSnippetDialog body={draft} suggestedName={…} onClose={() => setDraft(null)} />}
+```
+
+Where the menu item goes: a widget uses `FrameCallbacks.onSaveAsSnippet`
+(`lib/contextMenu/types.ts`, rendered in `universal.ts` beside "Save as file").
+A document uses its own menu bar. Put it wherever that surface's other
+"do something with this selection" actions already live.
+
+### 2. Insertion: register a target
+
+```ts
+export function useSheetSnippetTarget(instanceId: string, hasSelection: boolean): void {
+  useEffect(() => {
+    return registerSnippetTarget({
+      id: `sheet:${instanceId}`,
+      label: 'This spreadsheet',
+      accepts: ['sheet'],
+      supports: ['duplicate'],
+      insert: (snippet) => pasteBlockAtSelection(snippet.body)
+    })
+  }, [instanceId, hasSelection])
+}
+```
+
+Five rules, each learned from something that would otherwise be wrong:
+
+**`id` identifies the MOUNTED SURFACE, not the document.** The same document
+open twice is two destinations; closed, it is none. `DocEditor` passes its React
+`useId` scope, because it has no document id at all. `registerSnippetTarget`
+returns its own unregister function, so returning it from `useEffect` is the
+whole lifecycle.
+
+**Depend on everything `insert` closes over.** Otherwise the registry holds a
+stale closure writing into an editor that has been replaced.
+
+**`supports` must be honest.** List `'live'` only if you resolve the snippet at
+render time, every render. If you cannot, list `'duplicate'` alone — the library
+then shows one button. A Live option that silently produced a copy would be a
+lie about what the user asked for. See "Why a desk offers Duplicate only" for a
+case where Duplicate-only is the right answer even though live was possible.
+
+**`insert` returns false when you decline.** No selection, read-only, wrong
+kind. The store reports the refusal instead of counting a use, which is why
+`usageCount` means anything.
+
+**Open the library scoped to your kinds.** `<SnippetLibrary kinds={['sheet']}
+targetId={…} />`. The kind filter already hides kinds nothing can hold, but
+passing `kinds` is what stops a user picking a snippet your surface will refuse.
+
+### 3. Live instances, if you support them
+
+Only needed for `'live'`. Store the id and nothing else, then resolve on every
+render — the host must never carry a copy of the body:
+
+- a node/element type holding `{ snippetId }`, resolved on mount;
+- registered in the **shared schema** if your app round-trips through a
+  converter, or an exported file loses the reference. `SnippetEmbedNode` is in
+  `buildDocExtensions` for exactly that reason;
+- a **missing state** when the master is gone. A dangling reference must look
+  dangling: see `SnippetEmbed`'s `snippet-embed-missing`. Blankness, or a cached
+  copy of what it used to say, are both worse than an honest gap.
+
+A duplicate creates **no** reference. That is why `insertSnippetDuplicate` takes
+the content and `insertSnippetLive` takes an id.
+
+### 4. The six kinds and their bodies
+
+```ts
+DocSnippetBody     { kind: 'doc',     content: unknown[], text: string }
+WidgetSnippetBody  { kind: 'widget',  widgetKind, title, content, width, height, color }
+SheetSnippetBody   { kind: 'sheet',   rows: string[][], formats?: Record<string, unknown> }
+SlideSnippetBody   { kind: 'slide',   elements: unknown[] }
+DesignSnippetBody  { kind: 'design',  elements: unknown[] }
+DiagramSnippetBody { kind: 'diagram', nodes: unknown[], edges: unknown[] }
+```
+
+`doc` and `widget` are wired. `sheet`, `slide`, `design` and `diagram` are
+typed and stored but register no target yet.
+
+If a shape does not fit, change it in `shared/snippets.ts` and add its case to
+`snippetSummary` and `snippetBodyIsEmpty` — the compiler will name both, because
+they switch exhaustively on the union. Do not widen a body to `unknown`: the
+kind/body agreement check is what stops a slide surface being handed an object
+a document wrote.
+
+Positions inside a body are **relative to the block's top-left**. The
+destination decides where the block lands.
+
+### 5. The tests a target needs
+
+Three, mirroring what the doc and desk surfaces have:
+
+1. **Capture is pure** — a unit test that a selection becomes the right body and
+   that an empty selection returns `null`. No app needed.
+2. **The link modes are what you claim** — assert `linkModesFor(target, kind)`.
+   One line, and it catches a `supports` list that drifts from the code.
+3. **The round trip, in the app** — save a selection, insert it back, and assert
+   it arrived. If you support live, also: edit the master and prove the live
+   instance changed *and the duplicate did not*, then delete the master and
+   prove the instance shows as missing. Those two are the whole feature and are
+   invisible unless something checks them (`tests/e2e/snippets.spec.ts` SN-3 and
+   SN-4).
+
+Two traps that cost real time in the document surface, both of which will hit
+any new surface:
+
+- **Insertion replaces the selection**, the way a paste does. A test that saves
+  a selection and then inserts without collapsing it first will see the copy
+  *replace* the original and count one occurrence, not two.
+- **The first-run corner cards eat clicks.** `local-ai-intro` is fixed
+  bottom-centre at `z-225`; anything your panel puts in that band gets its
+  clicks swallowed while Playwright reports the target visible, enabled and
+  stable for the full timeout. Call `chooseCloudAiSource(window)` after
+  `waitForReady`, and `suppressFeatureSpotlights` for the bottom-right card.
+
+### A worked skeleton
+
+```
+src/renderer/src/components/<app>/<app>Snippets.ts
+  ├─ <kind>BodyFromSelection(...)   → body | null      (capture, pure)
+  ├─ insertSnippetInto<App>(...)    → boolean          (insertion, false = declined)
+  ├─ use<App>SnippetTarget(...)     → registers while mounted
+  └─ <app>SnippetTargetId(id)       → one place both host and picker agree on
+```
+
+Then: a menu item calling the save dialog, a menu item opening
+`<SnippetLibrary kinds={[…]}>`, and the three tests. Nothing else.
+
 ## Honest failure states
 
 Each of these is a case where the plausible-looking behaviour is the wrong one.
