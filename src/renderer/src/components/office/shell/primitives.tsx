@@ -173,7 +173,7 @@ export function BarSelect<T extends string>({ label, value, options, onChange, w
         onChange={(e) => onChange(e.target.value as T)}
         onKeyDown={(e) => e.stopPropagation()}
         style={{ width }}
-        className="fb-field h-6 px-1 text-[12px] disabled:opacity-35"
+        className="fb-field h-6 px-1 py-0 text-[12px] disabled:opacity-35"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -227,7 +227,7 @@ export function BarNumber({ label, value, onChange, min, max, step = 1, suffix, 
             }
           }}
           style={{ width }}
-          className="fb-field h-6 px-1 text-[12px] fb-tabular disabled:opacity-35"
+          className="fb-field h-6 px-1 py-0 text-[12px] fb-tabular disabled:opacity-35"
         />
         {suffix && <span className="text-[10px] text-[var(--ink-40)]">{suffix}</span>}
       </span>
