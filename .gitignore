@@ -73,3 +73,5 @@ resources/models/
 # Stray compiler output: a bare `tsc` without --noEmit writes a .jsx/.js twin beside
 # every .tsx. The source tree has no real .jsx files, so never track one here.
 src/**/*.jsx
+src/**/*.js
+!src/web/public/*.js
