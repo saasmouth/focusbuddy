@@ -110,7 +110,8 @@ for (const theme of ['light', 'dark'] as const) {
     await suppressFeatureSpotlights(window)
     await window.reload()
     await waitForReady(window)
-    // The collapsed rail shows the People area only when People Map is on.
+    // The collapsed rail shows the People area with the People entitlement
+    // (product_people); people_map is granted for the People Map surfaces.
     for (const cap of ['product_office', 'product_people', 'product_brain', 'people_map']) await grantCapability(window, cap)
     expect(await window.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(theme === 'dark')
 

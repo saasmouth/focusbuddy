@@ -12,6 +12,7 @@ import UpgradeCard from './UpgradeCard'
 import { useViewStore, type View } from '../stores/view'
 import { catalogFor } from '../lib/widgetCatalog'
 import { useViewKindEnabled } from '../lib/viewCapability'
+import { useCapabilityStore } from '../stores/capabilities'
 
 import { chimeIn } from '../lib/audioBeep'
 import { AREA_TONES, attentionFilterTone } from '../lib/areaTones'
@@ -79,6 +80,11 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   // view-kind -> capability map MainPane's CapabilityGate enforces, so nav and
   // surface agree and a user never clicks into a locked wall.
   const viewEnabled = useViewKindEnabled()
+  // The rail's People area icon follows the People AREA entitlement, as the
+  // expanded menu's People section does (AreaAccordion, product_people). It
+  // used to follow People Map (people_map), a Team tool inside the area, so an
+  // account with People but not People Map had no People icon on the rail at all.
+  const peopleAreaOn = useCapabilityStore((s) => s.capabilities.product_people === true)
 
   const connectedApps = useConnectedAppsStore((s) => s.apps)
   const appsLoaded = useConnectedAppsStore((s) => s.loaded)
@@ -233,7 +239,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
 
   if (collapsed) {
     const showOffice = viewEnabled('documents')
-    const showPeople = viewEnabled('people-map')
+    const showPeople = peopleAreaOn
     const showBrain  = viewEnabled('knowledge')
     const hasSegments = showOffice || showPeople || showBrain
 
