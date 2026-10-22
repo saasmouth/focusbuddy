@@ -207,6 +207,13 @@ export interface SnippetQuery {
  * cannot do live instances says so, and the picker then offers only Duplicate
  * rather than showing a choice that would silently degrade.
  */
+/**
+ * What a target returns from `insert`. `true` took it; `false` declined without
+ * a reason; the object form declines WITH one, which the store surfaces
+ * verbatim. Boolean-returning targets stay valid.
+ */
+export type SnippetInsertResult = boolean | { ok: false; reason: string }
+
 export interface SnippetTarget {
   /** Stable id for the surface instance, e.g. `doc:<documentId>`. */
   id: string
@@ -219,8 +226,14 @@ export interface SnippetTarget {
    * Insert the snippet. Resolves false when the surface declined — a sheet with
    * no selection, a document that is read-only — so the caller can say why
    * instead of reporting a success that did not happen.
+   *
+   * Return `{ ok: false, reason }` when the surface knows something the store
+   * cannot: which cell a formula would have pointed off-sheet, which merged
+   * range the block would have split. A bare `false` gets a generic message,
+   * which is honest but unhelpful, and the whole point of declining rather than
+   * repointing silently is that the user can act on the reason.
    */
-  insert: (snippet: Snippet, link: SnippetLink) => Promise<boolean> | boolean
+  insert: (snippet: Snippet, link: SnippetLink) => Promise<SnippetInsertResult> | SnippetInsertResult
 }
 
 /** Which link modes are possible for this snippet in this target. */
