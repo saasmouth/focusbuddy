@@ -122,13 +122,15 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   const barHandle = useRef<ContextBarHandle | null>(null)
   /** Screen px of the viewport's left edge that pinned overlay panels cover (domServices: Fit, Paste). */
   const insetRef = useRef(0)
+  /** A fit waiting for its new zoom to be laid out (domServices fitBox); run in a layout effect. */
+  const pendingCentre = useRef<(() => void) | null>(null)
   const focusCanvas = useCallback(() => scrollRef.current?.focus({ preventScroll: true }), [])
 
   // One editor per mounted studio. Services read through refs, so they always
   // see the current DOM and props.
   const editorRef = useRef<DrawEditor | null>(null)
   if (!editorRef.current) {
-    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, inset: insetRef }
+    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, inset: insetRef, pendingCentre }
     // ⌥F6 (window.focusNext): the canvas, then the top bar, then the tool rail.
     const ui = {
       cycleFocus: (): void => {
@@ -333,6 +335,13 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     sc.scrollTop = next.scrollTop
   }, [zoom])
 
+  // A fit (⌘0, Fit All, Zoom to Selection, opening) scrolls in the same frame
+  // its zoom is laid out, never a frame later.
+  useLayoutEffect(() => {
+    const f = pendingCentre.current
+    if (f) f()
+  }, [zoom])
+
   // ── Pasteboard: keep the view still, draw only the visible part ───────────
 
   // A document point sits at (p - extent) * zoom inside the pasteboard, so
@@ -408,7 +417,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   // Fit the artboard on first paint so a 4K canvas is not opened at 1:1.
   const fitted = useRef(false)
-  useEffect(() => {
+  // A layout effect, so the first frame painted is already fitted and centred.
+  useLayoutEffect(() => {
     if (fitted.current) return
     fitted.current = true
     ctx.viewport.fit()
@@ -526,6 +536,32 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     insetRef.current = next
     setInset(next)
   }, [])
+  // Pinning a panel: it floats over the canvas's left edge. If the artboards
+  // are partly under it and there is grey to spare on the right, pan once --
+  // just enough, and never so far that their right edge leaves the window --
+  // so what you were looking at stays visible beside the panel. Unpinning
+  // pans back. Decided from the UN-inset geometry (the stage against the
+  // scroll element; neither moves with the inset), so it cannot oscillate.
+  const pinPan = useRef(0)
+  useLayoutEffect(() => {
+    const sc = scrollRef.current
+    const st = stageRef.current
+    if (!sc || !st) return
+    if (pinPan.current) {
+      sc.scrollLeft += pinPan.current
+      pinPan.current = 0
+    }
+    if (!inset) return
+    const r = sc.getBoundingClientRect()
+    const s = st.getBoundingClientRect()
+    const left = s.left - r.left - sc.clientLeft
+    const room = sc.clientWidth - (left + s.width)
+    const shift = Math.min(inset - left, room)
+    if (shift <= 0) return
+    const before = sc.scrollLeft
+    sc.scrollLeft = before - shift
+    pinPan.current = before - sc.scrollLeft
+  }, [inset])
   const setPinned = useCallback((id: string, pin: boolean) => {
     const cur = shellPrefs.getState().pinned
     setShellPrefs({ pinned: pin ? [...new Set([...cur, id])] : cur.filter((p) => p !== id) })
@@ -686,14 +722,6 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           ref={scrollRef}
           tabIndex={-1}
           className="flex-1 min-w-0 flex overflow-auto bg-stone-200/60 dark:bg-black/40 outline-none"
-          // A pinned panel floats over the canvas's left edge. Its width
-          // (onRectChange -> inset) is padding here, so pinning shifts the
-          // pasteboard right by exactly that much: the art you were looking
-          // at stays visible beside the panel, with no pan and nothing left
-          // under it. The inset is measured from the panel's own rect against
-          // this element's left edge, neither of which the padding moves, so
-          // it cannot feed back into itself.
-          style={inset ? { paddingLeft: inset } : undefined}
           data-testid="draw-canvas-scroll"
           onScroll={onCanvasScroll}
           onPointerDown={(e) => {

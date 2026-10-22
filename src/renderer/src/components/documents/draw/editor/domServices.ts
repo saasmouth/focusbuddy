@@ -26,6 +26,14 @@ export interface StudioRefs {
    * beside a pinned Layers panel rather than under it.
    */
   inset: { current: number }
+  /**
+   * A fit waiting for the stage to be laid out at its new zoom. The studio
+   * runs it in a layout effect, in the same frame the zoom lands, so the view
+   * never shows a frame scrolled to the wrong place (on a 227-inch pasteboard
+   * that frame is far from the art) and a click right after a fit hits what
+   * is drawn. Optional: without it the fit centres two frames later.
+   */
+  pendingCentre?: { current: (() => void) | null }
 }
 
 /** Services bound to a studio's refs; `store` is read lazily, once the editor exists. */
@@ -44,8 +52,10 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
     const pad = Math.max(0, opts.pad ?? 24)
     const room = (n: number): number => Math.max(16, n - 2 * pad)
     const z = clampZoom(Math.min(opts.maxZoom ?? 4, Math.min(room(el.clientWidth - inset) / box.w, room(el.clientHeight) / box.h)))
+    const zoomChanges = store().getState().zoom !== z
     store().setState({ zoom: z })
     const centre = (): void => {
+      if (refs.pendingCentre && refs.pendingCentre.current === centre) refs.pendingCentre.current = null
       const sc = refs.scroll.current
       const stage = sc?.querySelector('[data-testid="draw-stage"]') as HTMLElement | null
       if (!sc || !stage) return
@@ -58,6 +68,13 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
       const top = sc.scrollTop + (sr.top - cr.top - sc.clientTop) + (box.y - f.y) * zz - (sc.clientHeight - box.h * zz) / 2
       sc.scrollLeft = Math.max(0, left)
       sc.scrollTop = Math.max(0, top)
+    }
+    if (refs.pendingCentre) {
+      // Same zoom: the stage is already laid out, so centre now. A new zoom:
+      // the studio's layout effect centres once React has committed it.
+      if (!zoomChanges) return centre()
+      refs.pendingCentre.current = centre
+      return
     }
     // Two frames: React commits the new zoom, then the browser lays it out.
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(centre))

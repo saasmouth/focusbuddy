@@ -628,8 +628,30 @@ export function copyableIds(ctx: EditorCtx): string[] {
     .map((n) => n.id)
 }
 
+/**
+ * The copy still being written to the system clipboard, if any. A copy first
+ * draws the art as a picture for other apps (slow with photos, or on a busy
+ * machine) and only then writes; a ⌘V pressed in that gap used to read the
+ * clipboard as it was BEFORE the copy and paste the old contents -- or, with
+ * nothing usable there, nothing at all. Paste waits for it first.
+ */
+let copyInFlight: Promise<unknown> | null = null
+
+/** Run a clipboard write so a paste started meanwhile waits for it. */
+function trackCopy<T>(work: Promise<T>): Promise<T> {
+  const p = work.finally(() => {
+    if (copyInFlight === p) copyInFlight = null
+  })
+  copyInFlight = p
+  return p
+}
+
 /** Copy the selection to the system clipboard. True when it was written. */
-export async function copySelection(ctx: EditorCtx): Promise<boolean> {
+export function copySelection(ctx: EditorCtx): Promise<boolean> {
+  return trackCopy(copySelectionNow(ctx))
+}
+
+async function copySelectionNow(ctx: EditorCtx): Promise<boolean> {
   const built = buildClipboard(ctx.doc(), copyableIds(ctx))
   if (!built) {
     ctx.status('Select something to copy.')
@@ -655,7 +677,11 @@ export async function copySelection(ctx: EditorCtx): Promise<boolean> {
 }
 
 /** Edit › Copy As › SVG Code: the selection's SVG markup on the clipboard as plain text (code editors, Figma's paste, chat). */
-export async function copySvgCode(ctx: EditorCtx): Promise<boolean> {
+export function copySvgCode(ctx: EditorCtx): Promise<boolean> {
+  return trackCopy(copySvgCodeNow(ctx))
+}
+
+async function copySvgCodeNow(ctx: EditorCtx): Promise<boolean> {
   const built = buildClipboard(ctx.doc(), copyableIds(ctx))
   if (!built) {
     ctx.status('Select something to copy.')
@@ -829,6 +855,8 @@ export function placeIncoming(ctx: EditorCtx, inc: Incoming, mode: PasteMode): {
 /** Read the system clipboard and paste with `mode`; one undo step. */
 export async function pasteFromClipboard(ctx: EditorCtx, mode: PasteMode): Promise<boolean> {
   if (ctx.get().readOnly) return false
+  // A copy made a moment ago must be on the clipboard before it is read.
+  if (copyInFlight) await copyInFlight.catch(() => undefined)
   const read = await drawClipboardBackend().read()
   const inc = await incomingFrom(ctx, read)
   if ('error' in inc) {
