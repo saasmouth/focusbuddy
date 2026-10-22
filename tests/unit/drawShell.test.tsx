@@ -248,3 +248,30 @@ describe('no control is lost (the mapping table, SPEC §5.1)', () => {
     }
   })
 })
+
+describe('bar fields record one undo step per real change', () => {
+  it('a BarNumber left with its value unchanged does not report a change (no empty undo step)', async () => {
+    const { BarNumber } = await import('../../src/renderer/src/components/office/shell')
+    const onChange = vi.fn()
+    act(() => root.render(<BarNumber label="Opacity" value={50} onChange={onChange} testid="n" />))
+    const input = host.querySelector('[data-testid="n"]') as HTMLInputElement
+    act(() => {
+      input.focus()
+      input.blur()
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(onChange).not.toHaveBeenCalled()
+    // A real change is reported once.
+    act(() => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      set.call(input, '60')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(onChange).toHaveBeenCalledWith(60)
+  })
+})
