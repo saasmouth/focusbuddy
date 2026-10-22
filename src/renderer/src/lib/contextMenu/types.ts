@@ -56,6 +56,11 @@ export interface FrameCallbacks {
   // an instance of.
   onSaveAsFile?: () => void
   onOpenFile?: () => void
+  // Saved snippets: keep this widget's shape and content as a reusable one, so
+  // a widget you set up often can be placed on any desk again. Distinct from
+  // onSaveAsFile, which makes ONE widget appear in several places with its
+  // edits flowing both ways. A snippet is a template; a file is one object.
+  onSaveAsSnippet?: () => void
 }
 
 export interface MenuContext {

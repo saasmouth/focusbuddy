@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  ORG_SNIPPET_REACH_NOTE,
+  ORG_SNIPPETS_SYNC,
   snippetKindIcon,
   snippetKindLabel,
   snippetSummary,
@@ -53,6 +55,17 @@ export default function SnippetLibrary({ kinds, targetId, onClose }: SnippetLibr
   }, [refresh, kinds])
 
   const inPersonalWorkspace = activeOrgId === PERSONAL_ORG_ID
+
+  // Only offer kinds the user can actually act on: the caller's restriction if
+  // it gave one, otherwise the kinds that are really in the library. Listing a
+  // kind that nothing can hold — or that nobody has saved — advertises a
+  // capability the UI cannot honour, and a filter that always returns nothing
+  // reads as a fault rather than as an empty category.
+  const offerableKinds = useMemo(() => {
+    if (kinds?.length) return kinds
+    const present = new Set(snippets.map((s) => s.kind))
+    return SNIPPET_KINDS.filter((k) => present.has(k))
+  }, [kinds, snippets])
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -133,13 +146,28 @@ export default function SnippetLibrary({ kinds, targetId, onClose }: SnippetLibr
             data-testid="snippet-kind-filter"
           >
             <option value="all">All kinds</option>
-            {(kinds?.length ? kinds : SNIPPET_KINDS).map((k) => (
+            {offerableKinds.map((k) => (
               <option key={k} value={k}>
                 {snippetKindLabel(k)}
               </option>
             ))}
           </select>
         </div>
+
+        {/*
+          The Organisation tab says what these snippets actually reach. Until
+          workspace sync carries snippets, they are on this computer, and a tab
+          labelled "Organisation" would otherwise imply teammates see them.
+        */}
+        {tab === 'org' && !inPersonalWorkspace && !ORG_SNIPPETS_SYNC && (
+          <div
+            className="mb-2 flex items-start gap-1.5 rounded-[var(--radius-row)] bg-[var(--surface-sunken)] px-2 py-1.5 text-[11px] text-[var(--ink-60)]"
+            data-testid="snippet-org-reach"
+          >
+            <Icon name="info" size={13} className="mt-0.5 shrink-0 text-[var(--ink-40)]" />
+            <span>{ORG_SNIPPET_REACH_NOTE}</span>
+          </div>
+        )}
 
         {error && (
           <div className="mb-2 text-[12px] text-red-600 dark:text-red-400" data-testid="snippet-library-error">

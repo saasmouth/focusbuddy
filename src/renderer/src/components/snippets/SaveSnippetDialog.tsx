@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { snippetBodyIsEmpty, snippetKindLabel, snippetSummary, type SnippetBody, type SnippetScope } from '@shared/snippets'
+import {
+  ORG_SNIPPET_REACH_NOTE,
+  ORG_SNIPPETS_SYNC,
+  snippetBodyIsEmpty,
+  snippetKindLabel,
+  snippetSummary,
+  type SnippetBody,
+  type SnippetScope
+} from '@shared/snippets'
 import Icon from '../Icon'
 import { useSnippetsStore } from '../../stores/snippets'
 import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
@@ -171,9 +179,26 @@ export default function SaveSnippetDialog({
                     className={`px-2.5 py-1 text-[11px] ${scope === 'org' ? 'bg-accent/10 text-accent' : 'text-[var(--ink-60)]'}`}
                     data-testid="save-snippet-scope-org"
                   >
-                    Everyone in this organisation
+                    {ORG_SNIPPETS_SYNC ? 'Everyone in this organisation' : 'Mark as organisation-wide'}
                   </button>
                 </div>
+                {/*
+                  Said plainly, not as small print. Workspace sync does not
+                  carry snippets yet — the server rejects any item type outside
+                  its whitelist — so an org snippet stays on this computer.
+                  Marking it still records the intent and is what will travel
+                  once sync carries them, but the user must not be told
+                  teammates can see it when they cannot.
+                */}
+                {scope === 'org' && !ORG_SNIPPETS_SYNC && (
+                  <div
+                    className="mt-1.5 flex items-start gap-1.5 rounded-[var(--radius-row)] bg-[var(--surface-sunken)] px-2 py-1.5 text-[11px] text-[var(--ink-60)]"
+                    data-testid="save-snippet-org-reach"
+                  >
+                    <Icon name="info" size={13} className="mt-0.5 shrink-0 text-[var(--ink-40)]" />
+                    <span>{ORG_SNIPPET_REACH_NOTE}</span>
+                  </div>
+                )}
               </div>
             )}
 

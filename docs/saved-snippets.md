@@ -60,6 +60,47 @@ org here" are different statements and an empty list would assert the wrong one.
 `fork` copies an org snippet into the caller's personal library, so someone can
 diverge from the shared version without editing it for everyone.
 
+### Org scope does not reach teammates yet, and says so
+
+**`ORG_SNIPPETS_SYNC` is `false` as of 4.3.41.** An org snippet is marked
+organisation-wide and the library filters on it, but it **stays on the computer
+that saved it**.
+
+Workspace sync carries a closed set of item types and the gate is server-side:
+
+```ts
+// focusbuddy-signal/src/workspaceSync.ts
+export type WorkspaceItemType = 'node' | 'widget' | 'timeblock' | 'table' | 'row' | 'file'
+if (!WORKSPACE_ITEM_TYPES.includes(input.itemType))
+  return { ok: false, conflict: false, error: 'Invalid itemType.' }
+```
+
+`snippet` is not in that list, so adding it is a server change and a deploy, not
+a client edit. Until then the UI must not imply sharing, so:
+
+- the save dialog's org button reads **"Mark as organisation-wide"**, not
+  "Everyone in this organisation";
+- selecting it shows `ORG_SNIPPET_REACH_NOTE` — *"Saved on this computer.
+  Sharing with your organisation arrives with sync."*;
+- the library's Organisation tab shows the same note above its list.
+
+All of that wording derives from the one flag, so flipping
+`ORG_SNIPPETS_SYNC` in the same change that adds `snippet` to both whitelists
+updates every string at once and no copy goes stale.
+`tests/unit/snippets.test.ts` asserts the two stay in step.
+
+The scope was kept rather than hidden because it records the user's intent, it
+is what the library filters on, and it is what will travel unchanged once sync
+carries snippets — hiding it would mean rebuilding it later and losing the
+intent meanwhile. What is not acceptable is telling someone their colleagues
+can see something they cannot.
+
+The precedent sits in the server's own comment beside that union: a sync that
+accepted only what it recognised "had faithfully carried everything it was
+willing to accept" while reporting success throughout, and an image arrived as
+a blank widget. Silent partial sync reads as success, which is why this is a
+constant and a test rather than a comment.
+
 ## Where snippets can go
 
 A snippet is typed by what it holds, and each surface declares what it accepts.
@@ -95,7 +136,7 @@ that did not happen, which is why `usageCount` means something.
 | Kind | Body | Wired |
 |---|---|---|
 | `doc` | TipTap nodes + plain text | **yes** — duplicate and live |
-| `widget` | the desk-template widget shape | modelled, not wired |
+| `widget` | kind, title, content, size, colour | **yes** — duplicate only, see below |
 | `sheet` | row-major values + per-cell formats | modelled, not wired |
 | `slide` | slide elements | modelled, not wired |
 | `design` | canvas elements | modelled, not wired |
@@ -103,9 +144,34 @@ that did not happen, which is why `usageCount` means something.
 
 The document surface is first because it is the one that needs both link modes
 and because the live-embed mechanism already existed there to build on. The
-remaining five are typed end to end but **no surface registers them yet** — a
+remaining four are typed end to end but **no surface registers them yet** — a
 kind with no target simply offers no destination, which is why the picker says
 "nothing open can take this" instead of failing.
+
+### Why a desk offers Duplicate only
+
+Not a limitation — a deliberate refusal to build a second mechanism for
+something that already has one.
+
+A work widget is already a file, and a file "can be placed on any number of
+desks as a **linked instance** whose edits flow both ways"
+(`docs/widget-files.md`). That IS live. A "live widget snippet" would be a
+second way to do the same thing, competing with the first, so the desk target
+declares `supports: ['duplicate']` and the library offers Duplicate alone.
+
+So the division is:
+
+- a widget **snippet** is a template for making new widgets of a shape you use
+  often — each one independent from the moment it lands;
+- a widget **file** is one widget that appears in several places at once.
+
+Both are real wants, they are not the same want, and the same widget can do
+both: `Save as snippet` and `Save as file` sit beside each other in the widget
+menu for exactly that reason.
+
+A widget snippet carries its SIZE but not its POSITION: shape is part of what
+makes a widget reusable, while where it sat on one desk is not. The destination
+desk decides where the new widget lands.
 
 Adding a surface is a registration, not a change to the core:
 
@@ -151,6 +217,8 @@ Each of these is a case where the plausible-looking behaviour is the wrong one.
 | `.../documents/embed/SnippetEmbedNode.tsx` | the live node, in the shared schema |
 | `.../documents/embed/SnippetEmbed.tsx` | resolves a live instance; owns the missing state |
 | `.../documents/editor/docSnippets.ts` | the document as a snippet surface |
+| `.../desk/deskSnippets.ts` | the desk as a snippet surface (duplicate only) |
+| `lib/contextMenu/` | `FrameCallbacks.onSaveAsSnippet`, beside `onSaveAsFile` |
 
 The DDL lives in its own module rather than in `schema.ts` for the reason
 `migrations.ts` documents: the cloud runtime builds its database from `SCHEMA`

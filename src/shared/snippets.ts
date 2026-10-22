@@ -198,6 +198,35 @@ export function targetAccepts(target: SnippetTarget, snippet: Snippet): boolean 
 
 // ── Pure helpers, shared by main and renderer ────────────────────────────────
 
+/**
+ * Whether an org-scoped snippet actually reaches teammates yet.
+ *
+ * It does NOT, as of 4.3.41, and the UI must say so rather than imply sharing.
+ * Workspace sync carries a closed set of item types — the client's union in
+ * main/db/workspaceSync.ts and, decisively, the SERVER's WORKSPACE_ITEM_TYPES
+ * whitelist, which rejects anything else with "Invalid itemType". `snippet` is
+ * not in it, so an org snippet saved here stays on this computer until that
+ * list grows, which needs a server change and a deploy.
+ *
+ * Marking a snippet as organisation-wide is still worth doing: it records the
+ * user's intent, it is what the org library filters on, and it is what will
+ * travel unchanged once sync carries snippets. What must not happen is the UI
+ * claiming teammates can see it. Flip this to true in the same change that
+ * adds 'snippet' to both whitelists.
+ *
+ * The precedent is in the server's own comment next to that list: a sync that
+ * accepted only what it knew "had faithfully carried everything it was willing
+ * to accept" while reporting success throughout, and an image arrived as a
+ * blank widget. Silent partial sync reads as success, which is why this is a
+ * constant and not a comment.
+ */
+export const ORG_SNIPPETS_SYNC = false
+
+/** What to tell the user about an org snippet's reach, given the above. */
+export const ORG_SNIPPET_REACH_NOTE = ORG_SNIPPETS_SYNC
+  ? 'Everyone in this organisation can use it.'
+  : 'Saved on this computer. Sharing with your organisation arrives with sync.'
+
 export const SNIPPET_KINDS: SnippetKind[] = ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram']
 
 const KIND_LABEL: Record<SnippetKind, string> = {

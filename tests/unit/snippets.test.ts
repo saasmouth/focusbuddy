@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   linkModesFor,
+  ORG_SNIPPET_REACH_NOTE,
+  ORG_SNIPPETS_SYNC,
   snippetBodyIsEmpty,
   snippetBodyMatchesKind,
   snippetMatches,
@@ -148,5 +150,33 @@ describe('the summary describes what is really there', () => {
     const out = snippetSummary(snippet({ body: { kind: 'doc', content: [{ type: 'paragraph' }], text } }))
     expect(out.endsWith('…')).toBe(true)
     expect(out.length).toBeLessThanOrEqual(120)
+  })
+})
+
+describe('an org snippet must not claim a reach it does not have', () => {
+  // Workspace sync carries a closed set of item types, enforced SERVER-side by
+  // WORKSPACE_ITEM_TYPES, which rejects anything else with "Invalid itemType".
+  // `snippet` is not in it, so an org snippet stays on this computer. The
+  // wording the UI shows is derived from one flag rather than written out in
+  // each place, so these two cannot drift apart — which is the only way the
+  // claim and the capability stay in step.
+  it('derives its wording from whether sync actually carries snippets', () => {
+    if (ORG_SNIPPETS_SYNC) {
+      expect(ORG_SNIPPET_REACH_NOTE).toMatch(/everyone in this organisation/i)
+    } else {
+      expect(ORG_SNIPPET_REACH_NOTE).toMatch(/this computer/i)
+      expect(ORG_SNIPPET_REACH_NOTE).toMatch(/sync/i)
+    }
+  })
+
+  it('does not promise colleagues can see it while sync cannot carry it', () => {
+    // The specific failure being guarded: a label that says teammates have it
+    // when nothing left the machine. Precedent is in the server's own comment
+    // about a sync that "faithfully carried everything it was willing to
+    // accept" and reported success while dropping the rest.
+    if (!ORG_SNIPPETS_SYNC) {
+      expect(ORG_SNIPPET_REACH_NOTE.toLowerCase()).not.toContain('everyone')
+      expect(ORG_SNIPPET_REACH_NOTE.toLowerCase()).not.toContain('shared with')
+    }
   })
 })
