@@ -60,41 +60,59 @@ describe("the document editor's chrome stays put when the page scrolls", () => {
   // editor with this problem — Sheet, Slides, Design, Map and DrawStudio all
   // mount their menu bar as a flex sibling of the scrolling body, so it never
   // moved there.
+  //
+  // The office-shell conversion fixed that by construction rather than by
+  // sticky positioning: OfficeShellLayout renders the bar as the first child of
+  // an `h-full flex flex-col`, with the canvas in a `flex-1 min-h-0` below it.
+  // The bar is outside the scroller, so there is nothing to come apart and no
+  // `sticky` anywhere. These tests therefore assert the new guarantee — Doc now
+  // has the same shape the other five editors always had — instead of the
+  // sticky block that used to provide it. Toolbar.tsx itself is gone; its
+  // controls are ContextBar tabs in writeRibbon.tsx.
   const src = readFileSync(
     join(__dirname, '..', '..', 'src/renderer/src/components/documents/DocEditor.tsx'),
     'utf8'
   )
+  const shell = readFileSync(
+    join(__dirname, '..', '..', 'src/renderer/src/components/office/shell/OfficeShellLayout.tsx'),
+    'utf8'
+  )
 
-  it('pins the whole chrome block, full width', () => {
-    const sticky = /className="sticky top-0[^"]*"/.exec(src)?.[0] ?? ''
-    expect(sticky).toMatch(/sticky top-0/)
-    // Full width is the half that buys the vertical space back: capped at
+  it('no longer pins chrome with sticky positioning', () => {
+    // The bug was two separately-pinned rows. With the bar outside the
+    // scroller there is nothing left to pin, so a reappearance of the chrome
+    // block means someone has rebuilt the thing that broke. Matched by its own
+    // signature — `sticky top-0 z-20` over the opaque paper background — and
+    // not by `sticky` alone: the page-view horizontal ruler is legitimately
+    // `sticky top-0 z-30` so it stays above the sheet while the page scrolls.
+    expect(src).not.toMatch(/sticky top-0 z-20/)
+    expect(src).not.toMatch(/sticky[^"]*bg-paper/)
+  })
+
+  it('mounts the whole editor in the office shell, not a bespoke column', () => {
+    expect(src).toMatch(/<WriteChrome/)
+    // The menu bar goes in as the shell's menuBar, which is what puts it on one
+    // row with the tabs (owner ruling D2) and inside the same unscrolling bar.
+    expect(src).toMatch(/menuBar=\{/)
+    expect(src).toMatch(/<DocMenuBar/)
+  })
+
+  it('keeps the bar outside the scrolling canvas, which is what cannot come apart', () => {
+    // bar first, then the canvas row: the bar is a flex sibling of the body.
+    const bar = shell.indexOf('{bar}')
+    const canvas = shell.indexOf('{children}')
+    expect(bar).toBeGreaterThan(-1)
+    expect(canvas).toBeGreaterThan(bar)
+    // The shell's canvas slot owns no scrolling, so Doc supplies its own.
+    expect(src).toMatch(/relative h-full overflow-auto/)
+  })
+
+  it('still gives the document the full width it formats', () => {
+    // Full width was the half that bought the vertical space back: capped at
     // max-w-3xl the toolbar was narrower than the 900-1040px text column it
     // formats, so it wrapped onto three rows on a window wide enough for one.
-    expect(sticky).toMatch(/w-full/)
-    expect(sticky).not.toMatch(/max-w-3xl/)
-  })
-
-  it('keeps an opaque background, because document text scrolls underneath', () => {
-    const sticky = /className="sticky top-0[^"]*"/.exec(src)?.[0] ?? ''
-    expect(sticky).toMatch(/bg-paper/)
-  })
-
-  it('leaves the toolbar no sticky of its own', () => {
-    // Two separately-pinned rows is what came apart in the first place.
-    const toolbar = readFileSync(
-      join(__dirname, '..', '..', 'src/renderer/src/components/documents/editor/Toolbar.tsx'),
-      'utf8'
-    )
-    const root = /data-testid="doc-toolbar"[\s\S]{0,400}?className="([^"]*)"/.exec(toolbar)?.[1] ?? ''
-    expect(root).not.toMatch(/sticky/)
-  })
-
-  it('still mounts the menu bar inside the pinned block, above the toolbar', () => {
-    const start = src.indexOf('sticky top-0 z-20 -mx-8')
-    const menu = src.indexOf('<DocMenuBar', start)
-    const toolbar = src.indexOf('<Toolbar', start)
-    expect(menu).toBeGreaterThan(start)
-    expect(toolbar).toBeGreaterThan(menu)
+    // The shell bar is full width by construction; what matters now is that
+    // nobody has re-capped the chrome.
+    expect(src).not.toMatch(/sticky[^"]*max-w-3xl/)
   })
 })

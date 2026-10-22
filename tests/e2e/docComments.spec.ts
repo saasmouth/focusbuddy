@@ -12,7 +12,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, selectBarTab } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -64,6 +64,7 @@ test('add a comment on selected text, see the thread + highlight, and it persist
   await selectAllInEditor(window)
 
   // Open the Comments panel.
+  await selectBarTab(window, 'doc-toolbar', 'review')
   await window.locator('[data-testid="doc-comments-toggle"]').click()
   await expect(window.locator('[data-testid="doc-comments-tab"]')).toBeVisible({ timeout: 5_000 })
   await expect(window.locator('[data-testid="doc-comments-empty"]')).toBeVisible()
@@ -93,6 +94,7 @@ test('add a comment on selected text, see the thread + highlight, and it persist
   await window.locator('text=Untitled document').first().click()
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 8_000 })
 
+  await selectBarTab(window, 'doc-toolbar', 'review')
   await window.locator('[data-testid="doc-comments-toggle"]').click()
   await expect(window.locator('[data-testid="doc-comments-list"]')).toContainText(
     'Please double-check the numbers here.',
@@ -114,6 +116,7 @@ test('reply with an @mention: the autocomplete offers a real participant and the
   await window.waitForTimeout(300)
   await selectAllInEditor(window)
 
+  await selectBarTab(window, 'doc-toolbar', 'review')
   await window.locator('[data-testid="doc-comments-toggle"]').click()
   await expect(window.locator('[data-testid="doc-comments-tab"]')).toBeVisible({ timeout: 5_000 })
 

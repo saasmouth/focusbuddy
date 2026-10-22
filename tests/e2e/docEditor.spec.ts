@@ -26,7 +26,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, selectBarTab } from './_helpers'
 
 // ── Shared navigation helpers ─────────────────────────────────────────────────
 
@@ -676,6 +676,7 @@ test('DE-13 — outline: shows headings after they are typed; empty hint before 
     await openDocumentsHub(window)
     await startBlankDoc(window)
 
+    await selectBarTab(window, 'doc-toolbar', 'review')
     const outlineToggle = window.locator('[data-testid="doc-outline-toggle"]')
     await expect(outlineToggle).toBeVisible({ timeout: 5_000 })
 
@@ -905,6 +906,7 @@ test('DE-17 — page view: continuous is default; Page btn shows portrait sheet;
     await expect(window.locator('[data-testid="doc-page"]')).not.toBeVisible({ timeout: 3_000 })
 
     // 2. Switch to Page view.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     const page = window.locator('[data-testid="doc-page"]')
     await expect(page).toBeVisible({ timeout: 3_000 })
@@ -919,6 +921,7 @@ test('DE-17 — page view: continuous is default; Page btn shows portrait sheet;
     // comparison is skipped because the headless viewport (< 816 px) clamps both
     // orientations to the same rendered width — that is a harness geometry
     // limitation, not a product defect.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-orientation-btn"]').click()
     await expect(page).toHaveAttribute('data-orientation', 'landscape', { timeout: 3_000 })
     // The inline style width is set directly by the component (style={{ width: geom.w }}).
@@ -932,6 +935,7 @@ test('DE-17 — page view: continuous is default; Page btn shows portrait sheet;
     expect(Number.parseInt(landscapeW, 10), `landscape inline width (${landscapeW}) must be > 816`).toBeGreaterThan(816)
 
     // 4. Return to Continuous — the sheet must disappear.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-layout-toggle"] button').filter({ hasText: 'Continuous' }).click()
     await expect(page).not.toBeVisible({ timeout: 3_000 })
   } finally {

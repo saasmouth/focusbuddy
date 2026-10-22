@@ -224,6 +224,7 @@ export default function DocumentsView(): JSX.Element {
               <div
                 key={d.id}
                 draggable
+                data-testid="doc-recent-card"
                 onDragStart={(e) => setDocDrag(e, { id: d.id, docType: d.docType, title: d.title })}
                 onClick={() => goDocument(d.id)}
                 style={{ animationDelay: `${Math.min(i * 35, 350)}ms` }}

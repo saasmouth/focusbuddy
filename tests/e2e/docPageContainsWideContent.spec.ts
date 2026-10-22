@@ -8,7 +8,7 @@
  * containment CSS.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, selectBarTab } from './_helpers'
 
 async function openDoc(window: Page): Promise<void> {
   await switchArea(window, 'office')
@@ -56,6 +56,7 @@ test.describe('Page view contains wide content', () => {
         .run()
     })
     await window.waitForTimeout(400)
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     await window.locator('[data-testid="doc-page-canvas"]').waitFor({ state: 'visible', timeout: 6_000 })
     await window.waitForTimeout(500)

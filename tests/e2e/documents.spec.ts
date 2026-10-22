@@ -96,7 +96,7 @@ test('Step 1-3 — app boots clean, sidebar entry, hub renders Create-with-AI + 
   }
 })
 
-test('Step 4 — blank Document: edit text, back to hub, Recent shows it, re-open persists text', async () => {
+test('Step 4 — blank Document: edit text, back to hub, Recent shows its derived title, re-open persists text', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -121,11 +121,21 @@ test('Step 4 — blank Document: edit text, back to hub, Recent shows it, re-ope
     await window.locator('button[title="Back to Documents"]').click()
     await expect(window.getByRole('heading', { name: 'Documents', level: 1 })).toBeVisible({ timeout: 5_000 })
 
-    // Recent list must contain "Untitled document"
-    await expect(window.locator('text=Untitled document').first()).toBeVisible({ timeout: 5_000 })
+    // The Recent card carries the title the document NAMED ITSELF. A blank doc
+    // is created as "Untitled document", but titleBackfill derives a real name
+    // from the content on the way out (shared/titles.ts takes the heading or
+    // the first real line), so by the time the hub renders, the card reads the
+    // text that was typed. Asserting the derived title is the stronger check:
+    // it proves the naming ran AND that the document reached Recent.
+    //
+    // Scoped to the card, because the save also raises a toast with the same
+    // name — `text=` alone would match either, and matching the toast would
+    // then click the wrong thing.
+    const card = window.locator('[data-testid="doc-recent-card"]').filter({ hasText: 'Hello autosave world' })
+    await expect(card.first()).toBeVisible({ timeout: 5_000 })
 
     // Re-open it by clicking the recent card
-    await window.locator('text=Untitled document').first().click()
+    await card.first().click()
     const editorAfter = window.locator('[contenteditable="true"]').first()
     await editorAfter.waitFor({ state: 'visible', timeout: 5_000 })
     await expect(editorAfter).toContainText('Hello autosave world', { timeout: 5_000 })
@@ -134,7 +144,7 @@ test('Step 4 — blank Document: edit text, back to hub, Recent shows it, re-ope
   }
 })
 
-test('Step 5 — blank Spreadsheet: SUM formula, multiply, #ERR for broken formula', async () => {
+test('Step 5 — blank Spreadsheet: SUM formula, multiply, #DIV/0! for division by zero', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -166,8 +176,12 @@ test('Step 5 — blank Spreadsheet: SUM formula, multiply, #ERR for broken formu
     await setCell(0, 1, '=A1*3') // B1
     expect(await display(0, 1), 'B1 =A1*3').toBe('30')
 
-    await setCell(0, 2, '=1/0') // C1, non-finite → #ERR (avoids the =<op> formula menu)
-    expect(await display(0, 2), 'C1 =1/0 (#ERR)').toBe('#ERR')
+    // Division by zero is a TYPED error, not the generic marker: sheetFormula
+    // surfaces the error a spreadsheet user expects (#DIV/0!, #N/A, #VALUE!,
+    // #NAME?, #NUM!, #REF!) and keeps #ERR only as the fallback for anything
+    // else thrown. This asserted #ERR from before the typed errors landed.
+    await setCell(0, 2, '=1/0') // C1 (avoids the =<op> formula menu)
+    expect(await display(0, 2), 'C1 =1/0 (#DIV/0!)').toBe('#DIV/0!')
   } finally {
     await dispose()
   }

@@ -3,7 +3,7 @@
  * rulers in page view, with draggable markers that set the page margins live.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, switchArea, selectBarTab } from './_helpers'
 
 test.describe('doc margin ruler', () => {
   let app: LaunchedApp
@@ -18,6 +18,7 @@ test.describe('doc margin ruler', () => {
     await switchArea(window, 'office')
     await window.locator('[data-testid="office-app-docs"]').click()
     await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 10_000 })
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     await expect(window.locator('[data-testid="doc-page-canvas"]')).toBeVisible({ timeout: 6_000 })
 
@@ -45,6 +46,7 @@ test.describe('doc margin ruler', () => {
     expect(after, `left margin should grow after dragging (before ${before}, after ${after})`).toBeGreaterThan(before + 60)
 
     // Toggle the ruler off.
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-ruler-btn"]').click()
     await expect(window.locator('[data-testid="doc-ruler-h"]')).toHaveCount(0)
   })

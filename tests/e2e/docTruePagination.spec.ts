@@ -19,7 +19,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, switchArea } from './_helpers'
+import { launchApp, waitForReady, switchArea, selectBarTab } from './_helpers'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 
@@ -74,6 +74,7 @@ test('TRPAG-1 — true pagination: discrete sheets with gap, spacers, typing saf
     await window.waitForTimeout(500)
 
     // ── Step 2: switch to Page view ────────────────────────────────────────────
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     const pageViewBtn = window.locator('[data-testid="doc-pageview-btn"]')
     await expect(pageViewBtn).toBeVisible({ timeout: 5_000 })
     await pageViewBtn.click()
@@ -201,6 +202,7 @@ test('TRPAG-1 — true pagination: discrete sheets with gap, spacers, typing saf
     ).toBeLessThanOrEqual(2)
 
     // ── Step 5: toggle to Continuous view — sheets and spacers disappear ───────
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     const continuousBtn = window.locator('[data-testid="doc-layout-toggle"] button', { hasText: 'Continuous' })
     await expect(continuousBtn).toBeVisible({ timeout: 3_000 })
     await continuousBtn.click()

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
 import Icon from '../Icon'
 import {
@@ -13,7 +13,7 @@ import {
   type SidePane
 } from '../office/shell'
 import StylesPanel from './editor/StylesPanel'
-import type { HeadingStyle, HeadingStyles } from './editor/headingStyles'
+import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './editor/headingStyles'
 import { officeMenuItems, WRITE_TABS, writeRailItems, type WCtx, type WriteDialog, type WritePanel, type WriteSidePane } from './editor/writeRibbon'
 
 // The PlexiiWrite frame on the shared office shell (SPEC §6.2): the menu bar
@@ -62,9 +62,9 @@ export interface WriteChromeProps {
   // ── page setup
   pageView: boolean
   onSetPageView: (v: boolean) => void
-  orientation: 'portrait' | 'landscape'
-  paperSize: string
-  onSetPageSetup: (patch: { orientation?: 'portrait' | 'landscape'; size?: string }) => void
+  orientation: PageOrientation
+  paperSize: PaperSize
+  onSetPageSetup: (patch: { orientation?: PageOrientation; size?: PaperSize }) => void
   showRuler: boolean
   onSetShowRuler: (v: boolean) => void
   // ── track changes
@@ -118,6 +118,19 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
     bottom,
     children
   } = props
+
+  // Re-render on every editor transaction, so the mark toggles, the alignment
+  // state and the contextual Table tab reflect where the cursor actually is.
+  // Toolbar.tsx carried this listener; the bar it replaced would otherwise show
+  // whatever was true when the chrome last rendered for another reason.
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const bump = (): void => setTick((t) => t + 1)
+    editor.on('transaction', bump)
+    return () => {
+      editor.off('transaction', bump)
+    }
+  }, [editor])
 
   const [tab, setTabState] = useState<string>(() => readPref<string>(TAB_KEY, 'home'))
   const [collapsed, setCollapsedState] = useState<boolean>(() => readPref<boolean>(COLLAPSE_KEY, false))

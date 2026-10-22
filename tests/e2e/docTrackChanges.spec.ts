@@ -8,7 +8,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, selectBarTab } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -59,6 +59,7 @@ test('DTC-1 — suggesting records an insertion; accept keeps it, reject removes
   // Text is inserted via the editor command (not raw keystrokes) so the assertion
   // isn't racing keyboard focus; the insertion still flows through the same
   // capture path that live typing does.
+  await selectBarTab(window, 'doc-toolbar', 'review')
   await window.locator('[data-testid="doc-suggest-toggle"]').click()
   await insertAtEnd(window, ' Absolutely')
 
@@ -67,6 +68,7 @@ test('DTC-1 — suggesting records an insertion; accept keeps it, reject removes
   await expect(window.locator('.ProseMirror .tc-insert')).toContainText('Absolutely')
 
   // Accept all keeps the text but clears the tracking mark.
+  await selectBarTab(window, 'doc-toolbar', 'review')
   await window.locator('[data-testid="doc-accept-all"]').click()
   await window.waitForTimeout(200)
   await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(0)
@@ -75,6 +77,7 @@ test('DTC-1 — suggesting records an insertion; accept keeps it, reject removes
   // A second suggestion, then Reject all removes it.
   await insertAtEnd(window, ' maybe')
   await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(1, { timeout: 4_000 })
+  await selectBarTab(window, 'doc-toolbar', 'review')
   await window.locator('[data-testid="doc-reject-all"]').click()
   await window.waitForTimeout(200)
   await expect(window.locator('.ProseMirror .tc-insert')).toHaveCount(0)

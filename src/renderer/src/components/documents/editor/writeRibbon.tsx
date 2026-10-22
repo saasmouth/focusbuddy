@@ -12,7 +12,7 @@ import {
   type RailItem
 } from '../../office/shell'
 import FontPicker from './FontPicker'
-import type { HeadingStyle, HeadingStyles } from './headingStyles'
+import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './headingStyles'
 
 // PlexiiWrite on the office shell (SPEC §6.2): the ToolRail items and every
 // ContextBar tab. Owner ruling D1 moved the formatting row's controls into
@@ -42,9 +42,9 @@ export interface WCtx {
   // Page setup
   pageView: boolean
   setPageView: (v: boolean) => void
-  orientation: 'portrait' | 'landscape'
-  paperSize: string
-  setPageSetup: (patch: { orientation?: 'portrait' | 'landscape'; size?: string }) => void
+  orientation: PageOrientation
+  paperSize: PaperSize
+  setPageSetup: (patch: { orientation?: PageOrientation; size?: PaperSize }) => void
   showRuler: boolean
   setShowRuler: (v: boolean) => void
   // Track changes
@@ -80,13 +80,6 @@ const LINE_HEIGHTS = [
   { value: '2', label: 'Double' }
 ]
 
-const PAPER_SIZES = [
-  { value: 'a4', label: 'A4' },
-  { value: 'letter', label: 'Letter' },
-  { value: 'legal', label: 'Legal' },
-  { value: 'a3', label: 'A3' },
-  { value: 'a5', label: 'A5' }
-]
 
 /**
  * Write's colour controls were `<input type="color">` swatches with no preset

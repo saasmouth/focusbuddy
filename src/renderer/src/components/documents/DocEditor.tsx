@@ -19,12 +19,12 @@ import {
   type PageMargins,
   type PageHeaderFooter
 } from './editor/headingStyles'
-import Toolbar from './editor/Toolbar'
 import DocMenuBar from './editor/DocMenuBar'
+import WriteChrome from './WriteChrome'
 import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
 import FindReplace from './editor/FindReplace'
-import DocSidePanel, { type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
+import { docSidePanes, type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
 import { useDocAi } from './editor/useDocAi'
 import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
 import type { Doc as YDoc } from 'yjs'
@@ -294,7 +294,6 @@ export default function DocEditor({
   // sessions). Paper size, orientation and margins are part of the document and
   // travel with it, so they live on the body, not in localStorage.
   const [pageView, setPageView] = useState<boolean>(() => readPref('fb.doc.pageView', ['0', '1'] as const, '0') === '1')
-  const [showMargins, setShowMargins] = useState(false)
   // Word-style margin ruler in page view; on by default, remembered per user.
   const [showRuler, setShowRuler] = useState<boolean>(() => readPref('fb.doc.ruler', ['0', '1'] as const, '1') === '1')
   const toggleRuler = (): void =>
@@ -307,7 +306,6 @@ export default function DocEditor({
       }
       return next
     })
-  const [showHeaderFooter, setShowHeaderFooter] = useState(false)
   const [aiInstruction, setAiInstruction] = useState('')
   const [busyOffice, setBusyOffice] = useState<string | null>(null)
   const [officeMsg, setOfficeMsg] = useState<string | null>(null)
@@ -669,305 +667,32 @@ export default function DocEditor({
   // is never shown in focus mode, which keeps its calm single-column feel.
   const showPanel = panelOpen && !focusMode
 
-  return (
-    <div className={`relative flex h-full ${scopeClass} ${focusMode ? 'fb-focus-mode' : ''}`}>
-      {/* `@` in the body. Mounted at the root rather than beside one of the two
-          EditorContent branches, because either may be the one on screen and a
-          picker attached to the wrong branch simply never appears. Portalled to
-          <body> at the caret, so the document's own scroll container cannot
-          clip it. */}
-      <DocMentionPicker
-        editor={editor}
-        query={mentionQuery}
-        onClose={() => setMentionQuery(null)}
-        registerKeyHandler={(h) => {
-          mentionKeyRef.current = h
-        }}
-      />
-      {tableMenu && (
-        <>
-          {/* Click-away closes without changing anything. */}
-          <div className="fixed inset-0 z-[80]" onMouseDown={() => setTableMenu(null)} />
-          <div
-            data-testid="doc-table-menu"
-            className="fixed z-[81] min-w-[232px] rounded-[var(--radius-row)] fb-glass-panel py-1 fb-t-label"
-            style={{ left: tableMenu.x, top: tableMenu.y }}
-          >
-            <button
-              data-testid="doc-table-header-repeat"
-              onClick={toggleHeaderRepeat}
-              className="w-full text-left px-3 py-1.5 hover:bg-[var(--surface-sunken)] text-[var(--ink-90)] fb-press flex items-center gap-2"
-            >
-              <Icon name={tableMenu.on ? 'check_box' : 'check_box_outline_blank'} size={15} />
-              Repeat header row on every page
-            </button>
-          </div>
-        </>
-      )}
-      {/* Named heading styles: one rule per configured level, scoped to this editor. */}
-      <style dangerouslySetInnerHTML={{ __html: headingCss(scopeClass, headingStyles) }} />
-      <style dangerouslySetInnerHTML={{ __html: FOCUS_CSS }} />
-      <style dangerouslySetInnerHTML={{ __html: COMMENT_CSS }} />
-      <style dangerouslySetInnerHTML={{ __html: overflowCss(scopeClass) }} />
-      <style dangerouslySetInnerHTML={{ __html: tableCss(scopeClass) }} />
-      <style dangerouslySetInnerHTML={{ __html: pagePaperCss(scopeClass) }} />
+  // Which heading level the cursor sits in, and the friendly name of the block
+  // style, for the Styles control. Both were computed inside Toolbar.tsx; the
+  // ContextBar tabs read them from here now.
+  const currentHeadingLevel = [1, 2, 3, 4, 5, 6].find((lvl) => editor.isActive('heading', { level: lvl })) ?? null
+  const styleLabel = editor.isActive('bulletList')
+    ? 'Bulleted'
+    : editor.isActive('orderedList')
+      ? 'Numbered'
+      : editor.isActive('taskList')
+        ? 'Checklist'
+        : editor.isActive('codeBlock')
+          ? 'Code'
+          : editor.isActive('blockquote')
+            ? 'Quote'
+            : currentHeadingLevel === 1
+              ? 'Title'
+              : currentHeadingLevel
+                ? `Heading ${currentHeadingLevel - 1}`
+                : 'Normal'
 
-      <div className="relative flex-1 min-w-0 overflow-auto">
-      {!focusMode && (
-        <div className="sticky top-0 z-20 w-full px-4 pt-2 bg-paper/95 backdrop-blur border-b border-[var(--edge-soft)]">
-          {/* ALL of the chrome pins, and it spans the full width.
-              
-              Two things were wrong. The toolbar was sticky on its own, so
-              scrolling slid File/View/Tools out of reach while the formatting
-              row stayed — the chrome came apart and the menus you reach for
-              most were the ones that left. And the whole block was capped at
-              max-w-3xl, narrower than the 900-1040px column of text it
-              formats, so a toolbar that fits one row on a wide window wrapped
-              onto three and ate the vertical space the document needed.
-              Full width is not cosmetic here: it is what buys the rows back.
-
-              It is the first child of the scroll container, so top-0 means it
-              never moves at all. The background is opaque because document
-              text scrolls underneath it. */}
-          <div className="mb-1 pb-1 border-b border-[var(--edge-soft)]">
-            <DocMenuBar
-              editor={editor}
-              title={title}
-              onInsertImage={() => void insertImage()}
-              onInsertWidget={() => setWidgetPickerOpen(true)}
-              onExportDocx={() => void exportDocx()}
-              onExportPdf={() => void exportPdf()}
-              onFind={() => setFindOpen(true)}
-              onFocusMode={() => setFocusMode(true)}
-              pageView={pageView}
-              onSetPageView={setPageView}
-              onOutline={() => {
-                setPanelTab('outline')
-                setPanelOpen(true)
-              }}
-              onComments={() => {
-                setPanelTab('comments')
-                setPanelOpen(true)
-              }}
-            />
-          </div>
-          <Toolbar
-            editor={editor}
-            headingStyles={headingStyles}
-            onSetHeadingStyle={updateHeadingStyle}
-            onAskAi={ai.openInsert}
-            onToggleFind={() => setFindOpen((v) => !v)}
-            onInsertImage={() => void insertImage()}
-            onImportDocx={() => void importDocx()}
-            onExportDocx={() => void exportDocx()}
-            onExportPdf={() => void exportPdf()}
-          />
-
-          <div className="flex items-center gap-2 mt-1 mb-1.5 text-[11px] text-[var(--ink-50)] flex-wrap">
-            <ReadingMeta editor={editor} />
-
-            {/* Continuous vs Page, then orientation + paper when on a page. */}
-            <span className="inline-flex rounded-full bg-[var(--surface-sunken)] overflow-hidden" data-testid="doc-layout-toggle">
-              <button
-                onClick={() => setPageView(false)}
-                className={`px-2 py-1 ${!pageView ? 'bg-accent/10 text-accent' : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'}`}
-                title="Continuous view — one flowing column"
-              >
-                Continuous
-              </button>
-              <button
-                onClick={() => setPageView(true)}
-                className={`px-2 py-1 ${pageView ? 'bg-accent/10 text-accent' : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'}`}
-                title="Page view — paper sheets with margins"
-                data-testid="doc-pageview-btn"
-              >
-                Page
-              </button>
-            </span>
-            {pageView && (
-              <>
-                <button
-                  onClick={() => updatePageSetup({ orientation: page.orientation === 'portrait' ? 'landscape' : 'portrait' })}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)] fb-spring-soft"
-                  title="Toggle portrait / landscape"
-                  data-testid="doc-orientation-btn"
-                >
-                  <Icon name={page.orientation === 'portrait' ? 'crop_portrait' : 'crop_landscape'} size={13} />
-                  <span>{page.orientation === 'portrait' ? 'Portrait' : 'Landscape'}</span>
-                </button>
-                <button
-                  onClick={() => updatePageSetup({ size: page.size === 'letter' ? 'a4' : 'letter' })}
-                  className="px-2 py-1 rounded-full hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)] fb-spring-soft"
-                  title="Paper size"
-                  data-testid="doc-paper-btn"
-                >
-                  {page.size === 'a4' ? 'A4' : 'Letter'}
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowMargins((v) => !v)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)] fb-spring-soft"
-                    title="Page margins"
-                    data-testid="doc-margins-btn"
-                  >
-                    <Icon name="margin" size={13} />
-                    <span>Margins</span>
-                  </button>
-                  {showMargins && (
-                    <MarginMenu margin={page.margin} onPick={(m) => updatePageSetup({ margin: m })} onClose={() => setShowMargins(false)} />
-                  )}
-                </div>
-                <button
-                  onClick={toggleRuler}
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full fb-spring-soft ${showRuler ? 'bg-accent/10 text-accent' : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'}`}
-                  title="Show the ruler — drag the markers to set page margins"
-                  data-testid="doc-ruler-btn"
-                >
-                  <Icon name="straighten" size={13} />
-                  <span>Ruler</span>
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowHeaderFooter((v) => !v)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)] fb-spring-soft"
-                    title="Header & footer"
-                    data-testid="doc-headerfooter-btn"
-                  >
-                    <Icon name="web_asset" size={13} />
-                    <span>Header/Footer</span>
-                  </button>
-                  {showHeaderFooter && (
-                    <HeaderFooterMenu
-                      header={page.header}
-                      footer={page.footer}
-                      onChange={(patch) => updatePageSetup(patch)}
-                      onClose={() => setShowHeaderFooter(false)}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-
-            <span className="ml-auto flex items-center gap-1">
-              <button
-                onClick={() => {
-                  // Toggle: collapse the panel if its Outline tab is already
-                  // showing, otherwise open the panel on that tab.
-                  if (panelOpen && panelTab === 'outline') setPanelOpen(false)
-                  else {
-                    setPanelTab('outline')
-                    setPanelOpen(true)
-                  }
-                }}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full fb-spring-soft ${
-                  panelOpen && panelTab === 'outline'
-                    ? 'text-accent bg-accent/10'
-                    : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'
-                }`}
-                title="Show the document outline"
-                data-testid="doc-outline-toggle"
-              >
-                <Icon name="format_list_bulleted" size={13} />
-                <span>Outline</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (panelOpen && panelTab === 'comments') setPanelOpen(false)
-                  else {
-                    setPanelTab('comments')
-                    setPanelOpen(true)
-                  }
-                }}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full fb-spring-soft ${
-                  panelOpen && panelTab === 'comments'
-                    ? 'text-accent bg-accent/10'
-                    : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'
-                }`}
-                title="Show comments"
-                data-testid="doc-comments-toggle"
-              >
-                <Icon name="comment" size={13} />
-                <span>Comments</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (hasGlobalAssistant) {
-                    // The one assistant, docked/floating, contextual to this doc.
-                    window.dispatchEvent(new CustomEvent('fb:open-assistant'))
-                    return
-                  }
-                  if (panelOpen && panelTab === 'ai') setPanelOpen(false)
-                  else {
-                    setPanelTab('ai')
-                    setPanelOpen(true)
-                  }
-                }}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full fb-spring-soft ${
-                  !hasGlobalAssistant && panelOpen && panelTab === 'ai'
-                    ? 'text-accent bg-accent/10'
-                    : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'
-                }`}
-                title="Show PlexiiAssist"
-                data-testid="doc-assistant-toggle"
-              >
-                <Icon name="auto_awesome" size={13} />
-                <span>PlexiiAssist</span>
-              </button>
-              <button
-                onClick={() => setFocusMode(true)}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)] fb-spring-soft"
-                title="Enter focus mode — dims everything but the line you're writing"
-                data-testid="doc-focus-toggle"
-              >
-                <Icon name="center_focus_strong" size={13} />
-                <span>Focus</span>
-              </button>
-              <button
-                onClick={() => {
-                  const next = !suggesting
-                  setSuggesting(next)
-                  editor?.commands.setTrackUser({ author: userName || user?.name || 'You', color: user?.color || '#2563eb' })
-                  editor?.commands.setSuggesting(next)
-                }}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full fb-spring-soft ${
-                  suggesting ? 'bg-accent/[0.14] text-accent' : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'
-                }`}
-                title="Suggesting mode — record edits as tracked changes to accept or reject"
-                data-testid="doc-suggest-toggle"
-                aria-pressed={suggesting}
-              >
-                <Icon name="edit_note" size={13} />
-                <span>Suggesting</span>
-              </button>
-              {(suggesting || hasTracked) && (
-                <>
-                  <button
-                    onClick={() => editor?.commands.acceptAllChanges()}
-                    disabled={!hasTracked}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-emerald-500/[0.12] text-emerald-600 dark:text-emerald-400 disabled:opacity-40 fb-spring-soft"
-                    title="Accept all tracked changes"
-                    data-testid="doc-accept-all"
-                  >
-                    <Icon name="check" size={13} />
-                    <span>Accept all</span>
-                  </button>
-                  <button
-                    onClick={() => editor?.commands.rejectAllChanges()}
-                    disabled={!hasTracked}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-red-500/[0.12] text-red-600 dark:text-red-400 disabled:opacity-40 fb-spring-soft"
-                    title="Reject all tracked changes"
-                    data-testid="doc-reject-all"
-                  >
-                    <Icon name="close" size={13} />
-                    <span>Reject all</span>
-                  </button>
-                </>
-              )}
-            </span>
-          </div>
-        </div>
-      )}
-
+  // Everything that lives inside the scroll area: the focus bar, the bubble
+  // menu, Find, the office/AI strip and the document itself. Held in one
+  // place because focus mode renders it bare while normal mode renders it
+  // inside the office shell.
+  const docBody = (
+    <>
       {focusMode && (
         <div
           className="fixed top-3 left-1/2 -translate-x-1/2 z-[120] fb-glass-chrome rounded-full border border-[color:var(--glass-chrome-border)] shadow-lg flex items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--ink-70)]"
@@ -1101,20 +826,144 @@ export default function DocEditor({
           <EditorContent editor={editor} />
         </div>
       )}
+    </>
+  )
 
-      {/* Collapsed: a slim tab on the right edge to bring the panel back. */}
-      {!showPanel && !focusMode && (
-        <button
-          onClick={() => setPanelOpen(true)}
-          className="absolute top-3 right-3 z-[55] inline-flex items-center gap-1 rounded-full bg-[var(--surface-raised)] px-2.5 py-1 text-[11px] text-[var(--ink-70)] hover:text-[rgb(var(--accent))] shadow-sm"
-          title="Show the outline, comments and assistant panel"
-          data-testid="doc-side-panel-expand"
-        >
-          <Icon name="chevron_left" size={14} />
-          <span>Panel</span>
-        </button>
+  return (
+    <div className={`relative flex h-full ${scopeClass} ${focusMode ? 'fb-focus-mode' : ''}`}>
+      {/* `@` in the body. Mounted at the root rather than beside one of the two
+          EditorContent branches, because either may be the one on screen and a
+          picker attached to the wrong branch simply never appears. Portalled to
+          <body> at the caret, so the document's own scroll container cannot
+          clip it. */}
+      <DocMentionPicker
+        editor={editor}
+        query={mentionQuery}
+        onClose={() => setMentionQuery(null)}
+        registerKeyHandler={(h) => {
+          mentionKeyRef.current = h
+        }}
+      />
+      {tableMenu && (
+        <>
+          {/* Click-away closes without changing anything. */}
+          <div className="fixed inset-0 z-[80]" onMouseDown={() => setTableMenu(null)} />
+          <div
+            data-testid="doc-table-menu"
+            className="fixed z-[81] min-w-[232px] rounded-[var(--radius-row)] fb-glass-panel py-1 fb-t-label"
+            style={{ left: tableMenu.x, top: tableMenu.y }}
+          >
+            <button
+              data-testid="doc-table-header-repeat"
+              onClick={toggleHeaderRepeat}
+              className="w-full text-left px-3 py-1.5 hover:bg-[var(--surface-sunken)] text-[var(--ink-90)] fb-press flex items-center gap-2"
+            >
+              <Icon name={tableMenu.on ? 'check_box' : 'check_box_outline_blank'} size={15} />
+              Repeat header row on every page
+            </button>
+          </div>
+        </>
       )}
-      </div>
+      {/* Named heading styles: one rule per configured level, scoped to this editor. */}
+      <style dangerouslySetInnerHTML={{ __html: headingCss(scopeClass, headingStyles) }} />
+      <style dangerouslySetInnerHTML={{ __html: FOCUS_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: COMMENT_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: overflowCss(scopeClass) }} />
+      <style dangerouslySetInnerHTML={{ __html: tableCss(scopeClass) }} />
+      <style dangerouslySetInnerHTML={{ __html: pagePaperCss(scopeClass) }} />
+      {focusMode ? (
+        // Focus mode keeps its calm single column: no rail, no tabs, no panes.
+        <div className="relative flex-1 min-w-0 overflow-auto">{docBody}</div>
+      ) : (
+        <WriteChrome
+          editor={editor}
+          readOnly={false}
+          menuBar={
+            <DocMenuBar
+              editor={editor}
+              title={title}
+              onInsertImage={() => void insertImage()}
+              onInsertWidget={() => setWidgetPickerOpen(true)}
+              onExportDocx={() => void exportDocx()}
+              onExportPdf={() => void exportPdf()}
+              onFind={() => setFindOpen(true)}
+              onFocusMode={() => setFocusMode(true)}
+              pageView={pageView}
+              onSetPageView={setPageView}
+              onOutline={() => {
+                setPanelTab('outline')
+                setPanelOpen(true)
+              }}
+              onComments={() => {
+                setPanelTab('comments')
+                setPanelOpen(true)
+              }}
+            />
+          }
+          styleLabel={styleLabel}
+          currentHeadingLevel={currentHeadingLevel}
+          headingStyles={headingStyles}
+          onSetHeadingStyle={updateHeadingStyle}
+          wordCount={editor.storage.characterCount?.words?.() ?? 0}
+          pageView={pageView}
+          onSetPageView={setPageView}
+          orientation={page.orientation}
+          paperSize={page.size}
+          onSetPageSetup={(patch) => updatePageSetup(patch)}
+          showRuler={showRuler}
+          onSetShowRuler={() => toggleRuler()}
+          suggesting={suggesting}
+          onSetSuggesting={setSuggesting}
+          hasTracked={hasTracked}
+          onAcceptAll={() => editor?.commands.acceptAllChanges()}
+          onRejectAll={() => editor?.commands.rejectAllChanges()}
+          sidePane={showPanel ? panelTab : null}
+          onSidePane={(p) => {
+            if (p) {
+              setPanelTab(p)
+              setPanelOpen(true)
+            } else setPanelOpen(false)
+          }}
+          panes={docSidePanes({
+            editor,
+            ai,
+            userName,
+            showAiTab: !hasGlobalAssistant,
+            comments,
+            canComment,
+            onAddComment,
+            onReply: onReplyComment,
+            onJumpComment,
+            mentionHandles,
+            myHandle
+          })}
+          onInsertImage={() => void insertImage()}
+          onInsertWidget={() => setWidgetPickerOpen(true)}
+          onOpenLink={() => setFindOpen(false)}
+          onImportDocx={() => void importDocx()}
+          onExportDocx={() => void exportDocx()}
+          onExportPdf={() => void exportPdf()}
+          onAskAi={ai.openInsert}
+          onFocusMode={() => setFocusMode(true)}
+          onFind={() => setFindOpen((v) => !v)}
+          onWordCount={() => setFindOpen(false)}
+          onA11y={() => setFindOpen(false)}
+          marginsPanel={<MarginMenu margin={page.margin} onPick={(m) => updatePageSetup({ margin: m })} />}
+          headerFooterPanel={
+            <HeaderFooterMenu header={page.header} footer={page.footer} onChange={(patch) => updatePageSetup(patch)} />
+          }
+          bottom={
+            <div className="flex items-center gap-2 px-2 text-[11px] text-[var(--ink-50)] flex-wrap">
+              <ReadingMeta editor={editor} />
+            </div>
+          }
+        >
+          {/* The shell's canvas slot is flex-1 with no overflow of its own, so
+              the document keeps its own scroller — the same one it had before
+              the conversion. */}
+          <div className="relative h-full overflow-auto">{docBody}</div>
+        </WriteChrome>
+      )}
 
       {widgetPickerOpen && (
         <WidgetPickerDialog
@@ -1138,52 +987,29 @@ export default function DocEditor({
         />
       )}
 
-      {showPanel && (
-        <DocSidePanel
-          editor={editor}
-          ai={ai}
-          userName={userName}
-          showAiTab={!hasGlobalAssistant}
-          tab={panelTab}
-          onTab={setPanelTab}
-          onCollapse={() => setPanelOpen(false)}
-          comments={comments}
-          canComment={canComment}
-          onAddComment={onAddComment}
-          onReply={onReplyComment}
-          onJumpComment={onJumpComment}
-          mentionHandles={mentionHandles}
-          myHandle={myHandle}
-        />
-      )}
     </div>
   )
 }
 
 // The page-margins menu: the named presets Word offers plus a custom editor for
 // the four sides (in inches). Picking a preset or editing a side updates the
-// Header & footer editor popover. Writes header/footer straight onto the page
-// setup, so the running header/footer on every sheet and the .docx export follow.
+// Header & footer editor. Writes header/footer straight onto the page setup, so
+// the running header/footer on every sheet and the .docx export follow. Rendered
+// as the body of a ShellPanel, which owns its placement, Escape and close — so
+// this returns bare content with no scrim and no absolute positioning.
 function HeaderFooterMenu({
   header,
   footer,
-  onChange,
-  onClose
+  onChange
 }: {
   header?: PageHeaderFooter
   footer?: PageHeaderFooter
   onChange: (patch: Partial<PageSetup>) => void
-  onClose: () => void
 }): JSX.Element {
   const inputCls =
     'fb-field w-full px-2 py-1 text-[12px]'
   return (
-    <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div
-        className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-0 mt-1.5 z-40 w-64 p-2.5 text-[var(--ink-70)] space-y-2.5"
-        data-testid="doc-headerfooter-menu"
-      >
+      <div className="text-[var(--ink-70)] space-y-2.5" data-testid="doc-headerfooter-menu">
         <div>
           <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--ink-40)] mb-1">Header</p>
           <input
@@ -1223,19 +1049,16 @@ function HeaderFooterMenu({
           </label>
         </div>
       </div>
-    </>
   )
 }
 
 // document's page setup, so the sheet and the exports follow immediately.
 function MarginMenu({
   margin,
-  onPick,
-  onClose
+  onPick
 }: {
   margin: PageMargins
   onPick: (m: PageMargins) => void
-  onClose: () => void
 }): JSX.Element {
   const sides: { key: keyof PageMargins; label: string }[] = [
     { key: 'top', label: 'Top' },
@@ -1244,12 +1067,7 @@ function MarginMenu({
     { key: 'left', label: 'Left' }
   ]
   return (
-    <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div
-        className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in absolute left-0 mt-1.5 z-40 w-56 p-2 text-[var(--ink-70)]"
-        data-testid="doc-margins-menu"
-      >
+      <div className="text-[var(--ink-70)]" data-testid="doc-margins-menu">
         {MARGIN_PRESETS.map((p) => {
           const active = p.margin.top === margin.top && p.margin.right === margin.right && p.margin.bottom === margin.bottom && p.margin.left === margin.left
           return (
@@ -1287,7 +1105,6 @@ function MarginMenu({
           </div>
         </div>
       </div>
-    </>
   )
 }
 

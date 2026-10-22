@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, selectBarTab } from './_helpers'
 
 // Regression guard for the page-view pagination: no top-level block may straddle
 // the grey gap between two sheets, and the page uses the default 1-inch (96px)
@@ -40,6 +40,7 @@ test('page view: no block straddles the page gap, default 1in margins', async ()
       w.__fbView?.getState().goDocument(id)
     }, docId)
     await window.locator('[data-testid="doc-editor-surface"]').waitFor({ timeout: 8000 }).catch(() => {})
+    await selectBarTab(window, 'doc-toolbar', 'layout')
     await window.locator('[data-testid="doc-pageview-btn"]').click()
     await window.waitForTimeout(1200)
 
