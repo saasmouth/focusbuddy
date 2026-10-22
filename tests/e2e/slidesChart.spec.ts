@@ -22,8 +22,11 @@ async function startBlankSlides(window: Page): Promise<void> {
 
 async function insertChartViaMenu(window: Page): Promise<void> {
   await window.getByRole('button', { name: 'Insert', exact: true }).click()
-  await expect(window.locator('text=Chart').first()).toBeVisible({ timeout: 3_000 })
-  await window.locator('text=Chart').first().click()
+  // Scoped to the Insert menu: a bare `text=Chart` first matches the side
+  // menu's Chart work-widget tile (sidemenu-widget-chart), not this action.
+  const item = window.locator('[data-testid="slides-menubar-insert-list"]').getByText('Chart', { exact: true })
+  await expect(item).toBeVisible({ timeout: 3_000 })
+  await item.click()
   await window.waitForTimeout(400)
 }
 
