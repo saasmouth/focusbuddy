@@ -63,7 +63,12 @@ export interface CellsChromeProps {
   aiOpen: boolean
   onAiOpen: (v: boolean) => void
   renderAssistant: () => ReactNode
-  /** Panel bodies SheetEditor owns (conditional formatting, validation, named ranges…). */
+  /**
+   * Bodies for panels SheetEditor owns. Empty today: Cells' only ShellPanel is
+   * `office`, whose body CellsChrome draws itself. This stays because it is how
+   * a converted tool supplies its body — see CellsPanel for the five that are
+   * still modals.
+   */
   panelBodies?: Partial<Record<CellsPanel, ReactNode>>
   /** The sheet tab strip along the bottom. */
   bottom?: ReactNode
@@ -72,11 +77,6 @@ export interface CellsChromeProps {
 }
 
 const PANEL_META: Record<CellsPanel, { title: string; icon: string; width?: number; pinnable?: boolean }> = {
-  condformat: { title: 'Conditional formatting', icon: 'palette', width: 340 },
-  validation: { title: 'Data validation', icon: 'rule', width: 320 },
-  macros: { title: 'Macros', icon: 'code', width: 420, pinnable: true },
-  query: { title: 'Query', icon: 'account_tree', width: 380, pinnable: true },
-  namedranges: { title: 'Named ranges', icon: 'label', width: 300 },
   office: { title: 'Import / export', icon: 'folder_open', width: 240 }
 }
 

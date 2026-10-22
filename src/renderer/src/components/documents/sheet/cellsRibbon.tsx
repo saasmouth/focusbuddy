@@ -34,7 +34,16 @@ import type { SheetMenuActions } from '../editor/SheetMenuBar'
 // wrong. As BarToggles they read `activeFormat` and toggle, which makes the bar
 // agree with the menu.
 
-export type CellsPanel = 'condformat' | 'validation' | 'macros' | 'query' | 'namedranges' | 'office'
+// The panels Cells really has. Only `office` is one: its rail item calls
+// togglePanel and CellsChrome draws its body. Conditional formatting, data
+// validation, macros, query and named ranges are each still SheetEditor's own
+// modal — reachable and working, but not ShellPanels — and this type listed all
+// six, so five ShellPanels were declared that no caller could open and no body
+// could fill. Converting those modals to panels is a real change with a visible
+// UX difference (a centred dialog becomes a docked panel), so it is a follow-up
+// rather than something to half-declare here. Add an id back in the same change
+// that gives it an opener and a body.
+export type CellsPanel = 'office'
 export type CellsSidePane = 'ai'
 
 /** The live sheet state every tab reads. */
