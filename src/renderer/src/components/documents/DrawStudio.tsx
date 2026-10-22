@@ -683,6 +683,14 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           ref={scrollRef}
           tabIndex={-1}
           className="flex-1 min-w-0 flex overflow-auto bg-stone-200/60 dark:bg-black/40 outline-none"
+          // A pinned panel floats over the canvas's left edge. Its width
+          // (onRectChange -> inset) is padding here, so pinning shifts the
+          // pasteboard right by exactly that much: the art you were looking
+          // at stays visible beside the panel, with no pan and nothing left
+          // under it. The inset is measured from the panel's own rect against
+          // this element's left edge, neither of which the padding moves, so
+          // it cannot feed back into itself.
+          style={inset ? { paddingLeft: inset } : undefined}
           data-testid="draw-canvas-scroll"
           onScroll={onCanvasScroll}
           onPointerDown={(e) => {
