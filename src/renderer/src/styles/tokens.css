@@ -156,6 +156,16 @@
   --nav-item-inner: var(--shadow-inset-highlight), inset 0 -1px 0 oklch(0% 0 0 / 0.03);
   --nav-item-inner-hover: var(--shadow-inset-highlight), inset 0 -1px 0 oklch(0% 0 0 / 0.05);
 
+  /* ── Plexii entity icons (components/PlexiiIcon) ───────────────────────────
+     Single-colour glyphs from the owner's icon set are drawn as a mask in this
+     colour. The set ships them in violet-300 (#c4b5fd), chosen for a dark
+     gallery: on a light surface that is under 2:1, so light takes violet-600
+     (5.7:1 on white) and .dark restores the owner's own violet. */
+  --plexii-glyph: #7c3aed;
+  /* Connected-app logos are square brand marks; this rounds them into tiles
+     without altering the files. Matches the corner of the app tiles. */
+  --plexii-logo-radius: 22%;
+
   /* ── Spring easings ─────────────────────────────────────────────────────── */
   /* Snap: zero-overshoot decel — modal dismiss, button release */
   --ease-spring-snap: cubic-bezier(0.32, 0.72, 0, 1);
@@ -232,6 +242,7 @@
 
 /* ── Dark theme overrides ─────────────────────────────────────────────────── */
 .dark {
+  --plexii-glyph: #c4b5fd;
   --ink-100: oklch(96% 0.005 264);
   --ink-90: oklch(86% 0.006 264);
   --ink-70: oklch(72% 0.008 264);
