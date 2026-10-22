@@ -36,12 +36,25 @@ declare module '@tiptap/core' {
   }
 }
 
-function SnippetEmbedView({ node, selected }: NodeViewProps): JSX.Element {
+function SnippetEmbedView({ node, selected, updateAttributes }: NodeViewProps): JSX.Element {
   const snippetId = (node.attrs.snippetId as string | null) ?? ''
+  const showChrome = node.attrs.showChrome === true
   return (
     <NodeViewWrapper className="my-3" data-drag-handle>
-      <div className={`not-prose ${selected ? 'rounded-lg ring-2 ring-accent' : ''}`} contentEditable={false}>
-        <SnippetEmbed snippetId={snippetId} />
+      {/*
+        No `not-prose` here, deliberately. A doc snippet is meant to read as the
+        paragraphs around it — that is what "appear as their natural form" means
+        — so it inherits the document's own typography. It carried not-prose
+        while it was a bordered card with its own header, where matching the page
+        did not matter.
+      */}
+      <div className={selected ? 'rounded-lg ring-2 ring-accent' : ''} contentEditable={false}>
+        <SnippetEmbed
+          snippetId={snippetId}
+          host="doc"
+          showChrome={showChrome}
+          onShowChromeChange={(next) => updateAttributes({ showChrome: next })}
+        />
       </div>
     </NodeViewWrapper>
   )
@@ -59,6 +72,21 @@ export const SnippetEmbedNode = Node.create({
         default: null,
         parseHTML: (el) => el.getAttribute('data-snippet-embed'),
         renderHTML: (attrs) => (attrs.snippetId ? { 'data-snippet-embed': attrs.snippetId } : {})
+      },
+      /**
+       * Whether this instance keeps its frame shown. Per-instance, because the
+       * owner asked for the pin to be "on the instance of the snippet when
+       * applied" rather than a global preference — two copies of the same
+       * snippet in one document can differ.
+       *
+       * It round-trips through HTML like snippetId, so exporting and re-importing
+       * a document keeps the pin instead of quietly resetting it. Absent means
+       * false, which is the resting state.
+       */
+      showChrome: {
+        default: false,
+        parseHTML: (el) => el.getAttribute('data-snippet-chrome') === 'true',
+        renderHTML: (attrs) => (attrs.showChrome ? { 'data-snippet-chrome': 'true' } : {})
       }
     }
   },

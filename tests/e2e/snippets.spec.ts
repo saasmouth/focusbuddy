@@ -247,3 +247,113 @@ test('SN-5 — the personal workspace says there is no shared library rather tha
     await dispose()
   }
 })
+
+test('SN-6 — a placed snippet shows its content with no frame until hovered', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    await openDocumentsHub(window)
+    await startBlankDoc(window)
+
+    await typeAndSelectAll(window, 'Payment is due within 30 days.')
+    await saveSelectionAsSnippet(window, 'Payment terms')
+
+    // Keep a plain paragraph in the document. Two reasons, both learned the hard
+    // way: insertion REPLACES the selection like a paste, so without this the
+    // document would contain nothing but the embed — and then there is nowhere
+    // outside the embed to click, so "move focus away" would land back inside it
+    // and focus would keep the chrome open, which is correct behaviour making a
+    // wrong assertion.
+    //
+    // Click back into the text first: the save dialog took focus, so typing
+    // without this goes nowhere and the paragraph never exists.
+    await window
+      .locator('[data-testid="doc-editor-surface"]')
+      .getByText('Payment is due within 30 days.')
+      .click({ timeout: 5_000 })
+    await window.keyboard.press('End')
+    await window.keyboard.press('Enter')
+    await window.keyboard.type('Ordinary paragraph.')
+    await expect(
+      window.locator('[data-testid="doc-editor-surface"]').getByText('Ordinary paragraph.')
+    ).toBeVisible({ timeout: 5_000 })
+
+    await openSnippetLibrary(window)
+    await rowFor(window, 'Payment terms').locator('[data-testid="snippet-insert-live"]').click()
+    await expect(window.locator('[data-testid="snippet-library"]')).toBeHidden({ timeout: 5_000 })
+
+    const embed = window.locator('[data-testid="snippet-embed"]')
+    await expect(embed).toBeVisible({ timeout: 8_000 })
+
+    // Move focus OFF the embed before judging the resting state. Inserting can
+    // leave it focused, and focus reveals the chrome by design — so asserting
+    // without this would be testing nothing.
+    const away = window.locator('[data-testid="doc-editor-surface"]').getByText('Ordinary paragraph.')
+    await away.click({ timeout: 5_000 })
+    await window.mouse.move(5, 5)
+    await expect(embed).toHaveAttribute('data-chrome-open', 'false', { timeout: 4_000 })
+
+    // The owner's point: the content is there, the frame is not.
+    await expect(embed).toContainText('Payment is due within 30 days')
+    await expect(window.locator('[data-testid="snippet-embed-chrome"]')).toHaveCount(0)
+
+    // Hover reveals it, naming the snippet and what kind of instance this is.
+    await embed.hover()
+    const chrome = window.locator('[data-testid="snippet-embed-chrome"]')
+    await expect(chrome).toBeVisible({ timeout: 4_000 })
+    await expect(chrome).toContainText('Payment terms')
+    await expect(window.locator('[data-testid="snippet-embed-mode"]')).toContainText('Live')
+
+    // And hides again when the pointer leaves, with focus genuinely elsewhere.
+    await away.click({ timeout: 5_000 })
+    await window.mouse.move(5, 5)
+    await expect(window.locator('[data-testid="snippet-embed-chrome"]')).toHaveCount(0, { timeout: 4_000 })
+  } finally {
+    await dispose()
+  }
+})
+
+test('SN-7 — the frame can be pinned per instance, and the pin survives a reopen', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    await openDocumentsHub(window)
+    await startBlankDoc(window)
+
+    await typeAndSelectAll(window, 'Net 30 from the invoice date.')
+    await saveSelectionAsSnippet(window, 'Net 30')
+
+    await openSnippetLibrary(window)
+    await rowFor(window, 'Net 30').locator('[data-testid="snippet-insert-live"]').click()
+    await expect(window.locator('[data-testid="snippet-library"]')).toBeHidden({ timeout: 5_000 })
+
+    const embed = window.locator('[data-testid="snippet-embed"]')
+    await expect(embed).toBeVisible({ timeout: 8_000 })
+
+    await embed.hover()
+    await window.locator('[data-testid="snippet-embed-pin"]').click()
+
+    // Clicking the pin FOCUSES the embed, and focus reveals the chrome on its
+    // own — so the chrome being visible right now proves nothing about the pin.
+    // Move the pointer and the focus away first; only then is it the pin keeping
+    // it open.
+    await window.locator('[data-testid="doc-editor-surface"]').click({ position: { x: 20, y: 10 } })
+    await window.mouse.move(5, 5)
+    await expect(embed).toHaveAttribute('data-chrome-open', 'true', { timeout: 4_000 })
+    await expect(window.locator('[data-testid="snippet-embed-chrome"]')).toBeVisible()
+
+    // The pin is an attribute on this instance, so reopening the document keeps
+    // it rather than quietly resetting to the resting state.
+    await openDocumentsHub(window)
+    await window.locator('[data-testid="doc-recent-card"]').first().click()
+    await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 8_000 })
+    const reopened = window.locator('[data-testid="snippet-embed"]')
+    await expect(reopened).toBeVisible({ timeout: 8_000 })
+    await window.mouse.move(5, 5)
+    await expect(reopened).toHaveAttribute('data-chrome-open', 'true', { timeout: 6_000 })
+  } finally {
+    await dispose()
+  }
+})
