@@ -359,11 +359,22 @@ export async function openAreaSwitcher(window: Page): Promise<void> {
   }
   const menu = window.locator('[data-testid="workspace-switcher-menu"]')
   if (await menu.isVisible().catch(() => false)) return
+  // WAIT for the trigger rather than probing it. Probing made this a silent
+  // no-op whenever the chrome had not mounted yet, and the caller then timed
+  // out on switch-<area> as if the area did not exist: a 30s beforeAll failure
+  // with no mention of the switcher in it. On a machine running several e2e
+  // suites at once that is the difference between green and a mystery red —
+  // designFootnotes failed this way three times and passed alone every time.
   const trigger = window.locator('[data-testid="workspace-switcher-trigger"]').first()
-  if (await trigger.isVisible().catch(() => false)) {
+  await expect(trigger, 'the workspace switcher trigger never mounted').toBeVisible({ timeout: 20_000 })
+  await trigger.click()
+  // One retry: the first press can be swallowed by chrome that mounts over it
+  // (the local-AI cards, the feature-spotlight card), and a dropdown that did
+  // not open is indistinguishable from an area that is not there.
+  if (!(await menu.isVisible().catch(() => false))) {
     await trigger.click()
-    await expect(menu).toBeVisible({ timeout: 8_000 })
   }
+  await expect(menu).toBeVisible({ timeout: 8_000 })
 }
 
 export type AreaKind = 'plexidesk' | 'office' | 'plexipeople' | 'plexibrain'
