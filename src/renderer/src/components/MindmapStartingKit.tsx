@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { AiBuildSuggestion } from '@shared/types'
 import Icon from './Icon'
 import { STANDARD_APPS, type StandardApp } from '../lib/standardApps'
-import { logoForStandardId } from '../lib/appLogos'
+import PlexiiIcon from './PlexiiIcon'
+import { CONNECTED_ICON_ASSETS } from '../lib/plexiiIconMap'
 
 // Phase 2 — when a freshly-explored mind-map node opens its (empty) task canvas,
 // auto-offer a "starting kit": AI-suggested widgets for the node's goal plus a
@@ -217,13 +218,8 @@ export default function MindmapStartingKit({
                 data-testid={`kit-app-${a.id}`}
                 title={a.url}
               >
-                {logoForStandardId(a.id) ? (
-                  <img
-                    src={logoForStandardId(a.id)!}
-                    alt=""
-                    className="h-3.5 w-3.5 rounded-[3px] shrink-0 object-contain"
-                    draggable={false}
-                  />
+                {CONNECTED_ICON_ASSETS[a.id] ? (
+                  <PlexiiIcon kind="connected" id={a.id} size={14} fallback={a.icon} />
                 ) : (
                   <Icon name={a.icon} size={12} style={{ color: a.color }} />
                 )}

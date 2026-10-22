@@ -1,56 +1,25 @@
 // Real brand logos for the standard-app catalog, bundled as local assets so
-// they render instantly and offline. Downloaded from each vendor's official
-// icon endpoints (apple-touch-icon / gstatic product icons) at 128px+.
+// they render instantly and offline. Since 4.3.41 they are the owner's
+// Connected-Apps set (assets/plexii-icons/connected, built by
+// scripts/build-plexii-icons.mjs); the older assets/app-logos copies are gone.
+// Components draw them through <PlexiiIcon kind="connected">, which picks the
+// size for the screen; these lookups remain for callers that need an id or URL.
 //
-// Two lookups:
+// Lookups:
+//   standardIdForUrl  — the catalog id a URL belongs to, by hostname.
 //   logoForStandardId — direct hit for catalog entries (the Add dialog).
 //   logoForUrl        — match any ConnectedApp back to a catalog logo by
 //                       hostname, so apps added before this feature (or with
 //                       equivalent URLs) pick up their real logo with no
 //                       migration or DB backfill.
 
-import gmail from '../assets/app-logos/gmail.png'
-import gcal from '../assets/app-logos/gcal.png'
-import gdrive from '../assets/app-logos/gdrive.png'
-import notion from '../assets/app-logos/notion.png'
-import trello from '../assets/app-logos/trello.png'
-import todoist from '../assets/app-logos/todoist.png'
-import slack from '../assets/app-logos/slack.png'
-import discord from '../assets/app-logos/discord.png'
-import whatsapp from '../assets/app-logos/whatsapp.png'
-import github from '../assets/app-logos/github.png'
-import linear from '../assets/app-logos/linear.png'
-import jira from '../assets/app-logos/jira.png'
-import claude from '../assets/app-logos/claude.png'
-import chatgpt from '../assets/app-logos/chatgpt.png'
-import gemini from '../assets/app-logos/gemini.png'
-import spotify from '../assets/app-logos/spotify.png'
-import ytmusic from '../assets/app-logos/ytmusic.png'
-import youtube from '../assets/app-logos/youtube.png'
-import figma from '../assets/app-logos/figma.png'
-import miro from '../assets/app-logos/miro.png'
+import { PLEXII_ICON_ASSETS } from './plexiiIconAssets.generated'
+import { CONNECTED_ICON_ASSETS } from './plexiiIconMap'
 
-const LOGO_BY_ID: Record<string, string> = {
-  gmail,
-  gcal,
-  gdrive,
-  notion,
-  trello,
-  todoist,
-  slack,
-  discord,
-  whatsapp,
-  github,
-  linear,
-  jira,
-  claude,
-  chatgpt,
-  gemini,
-  spotify,
-  ytmusic,
-  youtube,
-  figma,
-  miro
+/** Largest file the owner's set has for a standard-app id (lib/plexiiIconMap). */
+function logoFile(id: string): string | null {
+  const asset = PLEXII_ICON_ASSETS[CONNECTED_ICON_ASSETS[id] ?? '']
+  return asset ? (asset.src[128] ?? asset.src[64] ?? asset.src[32] ?? null) : null
 }
 
 // hostname → catalog id. Covers the catalog URLs plus the equivalent hosts a
@@ -87,10 +56,16 @@ const HOST_TO_ID: Record<string, string> = {
 }
 
 export function logoForStandardId(id: string): string | null {
-  return LOGO_BY_ID[id] ?? null
+  return logoFile(id)
 }
 
 export function logoForUrl(url: string | null | undefined): string | null {
+  const id = standardIdForUrl(url)
+  return id ? logoFile(id) : null
+}
+
+/** The standard-app id a URL belongs to, or null. */
+export function standardIdForUrl(url: string | null | undefined): string | null {
   if (!url) return null
   let host: string
   try {
@@ -102,7 +77,7 @@ export function logoForUrl(url: string | null | undefined): string | null {
   // up the domain so www.slack.com / app.slack.com resolve to slack.com.
   while (host) {
     const id = HOST_TO_ID[host]
-    if (id) return LOGO_BY_ID[id] ?? null
+    if (id) return id
     const dot = host.indexOf('.')
     if (dot === -1) return null
     host = host.slice(dot + 1)
