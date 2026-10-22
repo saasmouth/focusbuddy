@@ -102,6 +102,46 @@ export function packSources<T extends { text: string }>(
   return { kept, dropped: sources.length - kept.length }
 }
 
+/** Below this many characters a passage says too little to ground anything on. */
+export const MIN_FITTED_PASSAGE = 400
+
+/**
+ * packSources for a hard window (the on-device model): the same ranked packing,
+ * but the cost is the whole rendered line (title and numbering included), and
+ * nothing is kept "anyway" past the budget — on a 16k-token window one 6,000
+ * character passage over budget is the difference between an answer and a
+ * refusal. When the best match alone does not fit it is shortened to fit
+ * (never below MIN_FITTED_PASSAGE, else nothing is kept), and marked as
+ * shortened in the text the model reads. Pure; exported for tests.
+ */
+export function fitRetrievalSources<T extends { title: string; text: string }>(
+  sources: T[],
+  budget: number
+): { kept: T[]; dropped: number; shortened: number } {
+  const kept: T[] = []
+  let used = 0
+  let shortened = 0
+  for (const s of sources) {
+    const overhead = s.title.length + 24 // "[nn] (type) title: " and the newline
+    const body = Math.min(s.text.length, SOURCE_PROMPT_CAP)
+    if (used + overhead + body <= budget) {
+      kept.push(s)
+      used += overhead + body
+      continue
+    }
+    if (kept.length === 0) {
+      const room = budget - overhead - 24 // " [shortened to fit]"
+      if (room >= MIN_FITTED_PASSAGE) {
+        kept.push({ ...s, text: `${s.text.slice(0, room)} [shortened to fit]` })
+        used = budget
+        shortened = 1
+      }
+    }
+    break
+  }
+  return { kept, dropped: sources.length - kept.length, shortened }
+}
+
 // One numbered source line of the chat retrieval block. Pure and exported so a
 // unit test can assert what ACTUALLY reaches the prompt — the gate the defect
 // audit demanded after the 600-char cut survived invisible to every spec.
