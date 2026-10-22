@@ -140,13 +140,20 @@ test.describe('PlexiDesign page layout', () => {
     await placeDesign(window, 'text', { fx: 0.3, fy: 0.6 })
     await window.keyboard.press('Escape')
 
-    // Select both by marquee over the whole canvas.
+    // Rubber-band both frames. The press must land on EMPTY stage, and it now
+    // starts at the page's TOP-RIGHT corner: pinned ShellPanels float over the
+    // canvas by design (SPEC §2.4), and the Layout panel this spec opened sits
+    // over the top-LEFT corner the press used to use — its header swallowed
+    // the gesture, so no marquee began, nothing was selected, and "Link text
+    // frames" stayed disabled while being present, visible and stable.
     const canvas = window.locator('[data-testid="slide-canvas"]')
     const cb = await canvas.boundingBox()
     if (!cb) throw new Error('the canvas was not laid out')
-    await window.mouse.move(cb.x + 2, cb.y + 2)
+    await window.mouse.move(cb.x + cb.width - 6, cb.y + 6)
     await window.mouse.down()
-    await window.mouse.move(cb.x + cb.width - 2, cb.y + cb.height - 2)
+    // The move/up listeners are on `window`, so the far corner may sit below
+    // the viewport on a tall page — only the press has to be on the stage.
+    await window.mouse.move(cb.x + 4, cb.y + cb.height - 4, { steps: 8 })
     await window.mouse.up()
 
     // Threading moved to the contextual Text tab (SPEC §6.3); it never

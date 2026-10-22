@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideTextElement } from '@shared/types'
 import SlideCanvas from './slides/SlideCanvas'
 import {
@@ -189,7 +189,10 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   const [variations, setVariations] = useState<DesignBody[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
-  const [canvasW, setCanvasW] = useState(640)
+  // The canvas wrapper's measured box, and the rect of whichever ShellPanel is
+  // pinned open over it. Both feed the page's fit, below.
+  const [wrapBox, setWrapBox] = useState({ w: 688, left: 0 })
+  const [panelRect, setPanelRect] = useState<DOMRect | null>(null)
   const [brandOpen, setBrandOpen] = useState(false)
   // The non-printing layout aids — margin box, column grid, guides, wrap
   // outlines. On by default, because a layout program that hides its grid is
@@ -287,17 +290,45 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [design])
 
-  // Fit the canvas to the available width, capped so a wide design doesn't sprawl.
+  // Measure the canvas wrapper: its width fits the page, its left edge decides
+  // whether a pinned panel is over it.
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
-      const avail = el.clientWidth - 48
-      setCanvasW(Math.max(280, Math.min(avail, 720)))
+      setWrapBox({ w: el.clientWidth, left: el.getBoundingClientRect().left })
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // A pinned ShellPanel floats over the canvas's left edge by design (SPEC
+  // §2.4) and reports its rect so the host can inset its viewport. Here the
+  // page IS the work, so it must never sit behind the glass: in a 1694px
+  // window the Page layout panel covered the left 113px of an A4 page. When
+  // the centred page would run under the panel, the page is inset past it
+  // instead — and when it would clear the panel anyway, nothing moves.
+  //
+  // The decision is made on the un-inset geometry, so it cannot oscillate.
+  // A panel in sheet mode (a narrow window, where it spans the full width and
+  // sits at the bottom) is left alone; there the canvas scrolls.
+  const { canvasW, canvasInset } = useMemo(() => {
+    const plain = Math.max(280, Math.min(wrapBox.w - 48, 720))
+    let inset = 0
+    if (panelRect && panelRect.width <= wrapBox.w / 2) {
+      const pageLeft = wrapBox.left + 24 + (wrapBox.w - 48 - plain) / 2
+      if (pageLeft < panelRect.right + 8) {
+        inset = Math.max(0, Math.round(panelRect.right + 8 - wrapBox.left - 24))
+      }
+    }
+    return { canvasW: Math.max(280, Math.min(wrapBox.w - 48 - inset, 720)), canvasInset: inset }
+  }, [wrapBox, panelRect])
+
+  // One handler for all four pinnable panels: only ever one is open (`panel` is
+  // a single id), and ShellPanel reports null as it closes or is unpinned. The
+  // identity must be stable, or the panel's reporting effect re-runs on every
+  // render of this editor.
+  const reportPanelRect = useCallback((r: DOMRect | null) => setPanelRect(r), [])
 
   const size: DesignSize = findDesignSize(`${design.width}x${design.height}`) ?? {
     id: 'custom',
@@ -1460,6 +1491,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           id="layout"
           pinnable
           pinned={pinnedPanels.includes('layout')}
+          onRectChange={reportPanelRect}
           onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'layout'] : list.filter((x) => x !== 'layout')))}
           title="Page layout"
           open
@@ -1489,6 +1521,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           id="styles"
           pinnable
           pinned={pinnedPanels.includes('styles')}
+          onRectChange={reportPanelRect}
           onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'styles'] : list.filter((x) => x !== 'styles')))}
           title="Paragraph styles"
           open
@@ -1504,6 +1537,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           id="swatches"
           pinnable
           pinned={pinnedPanels.includes('swatches')}
+          onRectChange={reportPanelRect}
           onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'swatches'] : list.filter((x) => x !== 'swatches')))}
           title="Swatches &amp; spot inks"
           open
@@ -1519,6 +1553,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           id="preflight"
           pinnable
           pinned={pinnedPanels.includes('preflight')}
+          onRectChange={reportPanelRect}
           onPinnedChange={(v) => setPinnedPanels((list) => (v ? [...list, 'preflight'] : list.filter((x) => x !== 'preflight')))}
           title="Preflight for print"
           open
@@ -1762,7 +1797,11 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
         }
       >
         <div className="h-full min-h-0 flex flex-col">
-        <div ref={wrapRef} className="flex-1 min-w-0 overflow-auto bg-stone-200/50 dark:bg-black/30 flex items-start justify-center p-6">
+        <div
+          ref={wrapRef}
+          className="flex-1 min-w-0 overflow-auto bg-stone-200/50 dark:bg-black/30 flex items-start justify-center p-6"
+          style={canvasInset ? { paddingLeft: 24 + canvasInset } : undefined}
+        >
           <div>
             {editingMaster && (
               <div
