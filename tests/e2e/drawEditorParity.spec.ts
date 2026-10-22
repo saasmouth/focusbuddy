@@ -288,6 +288,10 @@ test('EP-9 the eraser removes pixels and the bucket fills; the eyedropper picks 
   await window.locator('[data-testid="draw-add-raster-layer"]').click()
   const raster = window.locator('[data-testid^="draw-raster-"]')
   const testId = (await raster.getAttribute('data-testid'))!
+  // The Layers panel floats (unpinned) over the canvas's left edge: close it,
+  // or a click on the artboard's top-left lands on the panel, as it should.
+  await window.keyboard.press('Escape')
+  await expect(window.locator('[data-testid="draw-panel-layers"]')).toHaveCount(0)
   await window.keyboard.press('k')
   await click(50, 50)
   const full = await paintedPixels(testId)
