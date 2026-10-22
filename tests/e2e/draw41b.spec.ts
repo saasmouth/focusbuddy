@@ -9,7 +9,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
-import { keepNoticesOutOfTheWay, openDocument, openDrawPanel, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
+import { keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
 
 let app: LaunchedApp
 let window: Page
@@ -94,4 +94,56 @@ test('ZS-1 Zoom to Selection: greyed with its reason until something is selected
   // Unpin again, for the specs after this one.
   await t('draw-panel-layers-pin').click()
   await window.keyboard.press('Escape')
+})
+
+async function artboardsMenuItem(label: string) {
+  await t('draw-studio-menubar-object').click()
+  await window.locator('[data-testid="draw-studio-menubar-object-list"] button').filter({ hasText: 'Artboards' }).hover()
+  return window.locator('button').filter({ hasText: label }).first()
+}
+
+type Board = { id: string; name: string; x: number; y: number; w: number; h: number }
+type StoredDoc = { artboards?: Board[]; layers: Array<{ kind: string; objects?: Array<{ id: string }> }> }
+const storedDoc = async (id: string): Promise<StoredDoc> => (await readStored(window, id)).raw as StoredDoc
+
+test('CA-1 Object › Artboards › Convert to Artboards: off with its reason for a non-rectangle, then the selected rectangles become artboards in one undo step', async () => {
+  const ellipse = {
+    id: 'oval',
+    type: 'path',
+    shapeKind: 'ellipse',
+    path: { subpaths: [{ closed: true, nodes: [{ x: 650, y: 400, outX: 700, outY: 400 }, { x: 750, y: 450 }, { x: 650, y: 500 }, { x: 600, y: 450 }] }] },
+    fill: { type: 'solid', color: '#40c057' }
+  }
+  const id = await seedDrawDoc(window, v1Body([rectObject('a', 100, 100, 200, 150), rectObject('b', 400, 100, 150, 150), ellipse]), 'Convert to artboards')
+  await openDocument(window, id)
+
+  // Only the ellipse selected: off, saying why.
+  const oval = await stagePoint(window, 800, { x: 680, y: 450 })
+  await window.mouse.click(oval.x, oval.y)
+  const off = await artboardsMenuItem('Convert to Artboards')
+  await expect(off).toBeDisabled()
+  await expect(off).toContainText('select one or more rectangles')
+  await window.keyboard.press('Escape')
+  await window.keyboard.press('Escape')
+
+  // Both rectangles (and the ellipse, which is left alone).
+  const a = await stagePoint(window, 800, { x: 120, y: 120 })
+  const b = await stagePoint(window, 800, { x: 420, y: 120 })
+  await window.keyboard.down('Shift')
+  await window.mouse.click(a.x, a.y)
+  await window.mouse.click(b.x, b.y)
+  await window.keyboard.up('Shift')
+  await (await artboardsMenuItem('Convert to Artboards')).click()
+  await expect.poll(async () => ((await storedDoc(id)).artboards ?? []).map((x) => [x.name, x.x, x.y, x.w, x.h])).toEqual([
+    ['Artboard 1', 0, 0, 800, 600],
+    ['Artboard 2', 100, 100, 200, 150],
+    ['Artboard 3', 400, 100, 150, 150]
+  ])
+  expect((await storedDoc(id)).layers[0].objects!.map((o) => o.id)).toEqual(['oval'])
+  await expect(t('draw-status')).toContainText('Made 2 artboards: Artboard 2, Artboard 3.')
+
+  // One undo step puts the rectangles back and takes the artboards away.
+  await t('draw-undo').click()
+  await expect.poll(async () => ((await storedDoc(id)).artboards ?? []).length).toBe(1)
+  expect((await storedDoc(id)).layers[0].objects!.map((o) => o.id)).toEqual(['a', 'b', 'oval'])
 })

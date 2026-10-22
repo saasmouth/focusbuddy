@@ -282,6 +282,7 @@ describe('the menu bar is built from commands', () => {
         '  Artboard Options…|tune|||',
         '  Fit to Artwork Bounds|fit_screen|||',
         '  Fit to Selected Art|crop_free||off|',
+        '  Convert to Artboards|transform||off|',
         '  Rearrange All Artboards…|grid_view||off|',
         '',
         'layer',
