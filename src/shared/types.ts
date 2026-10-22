@@ -3579,6 +3579,10 @@ export interface AiChatStoredMessage {
   // Interactive UI blocks this assistant turn carried (Plexii P4). Empty for
   // user turns and turns written before blocks existed.
   blocks: ChatUiBlock[]
+  // What the grounding check found in this answer when it was given, for the
+  // "check this" marks. Null when it found nothing, and for turns saved before
+  // marks were stored: those show none, never recomputed ones.
+  grounding: AnswerGrounding | null
 }
 export interface AiChatConversation {
   meta: AiChatConversationMeta

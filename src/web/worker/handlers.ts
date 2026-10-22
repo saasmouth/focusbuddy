@@ -109,7 +109,7 @@ import { importDeskBundle } from '../../main/db/deskBundle'
 import type { PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
 import type { DepType, PlanTaskPatch } from '@shared/projects'
-import type { AiChatConversationContext, AiChatMode, ActionProposal, AppliedProposal, ChatMentionRef, ChatQuestion, ChatSource, EnergyLevel, FocusSessionCompletePatch, FocusSessionStartDraft, MemoryKind, StoredTrace, TimeBlockDraft, TimeBlockPatch } from '@shared/types'
+import type { AiChatConversationContext, AiChatMode, ActionProposal, AnswerGrounding, AppliedProposal, ChatMentionRef, ChatQuestion, ChatSource, ChatUiBlock, EnergyLevel, FocusSessionCompletePatch, FocusSessionStartDraft, MemoryKind, StoredTrace, TimeBlockDraft, TimeBlockPatch } from '@shared/types'
 import type { WorkingCalendar } from '@shared/workingCalendar'
 import type { PostInput } from '../../main/notifications/substrate'
 import type { DirectoryPerson } from '../../main/peopleDirectory'
@@ -421,6 +421,8 @@ export const HANDLERS: Record<string, Handler> = {
       question?: ChatQuestion | null
       trace?: StoredTrace | null
       mentions?: ChatMentionRef[]
+      blocks?: ChatUiBlock[]
+      grounding?: AnswerGrounding | null
     }) => appendAiChatMessage(conversationId, message)),
   'aiChat:createConversation': h((input: {
     taskId: string | null

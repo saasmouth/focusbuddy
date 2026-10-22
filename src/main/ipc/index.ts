@@ -736,6 +736,8 @@ import type {
   ChatMentionRef,
   ChatQuestion,
   ChatSource,
+  ChatUiBlock,
+  AnswerGrounding,
   StoredTrace,
   FocusClusterDraft
 } from '@shared/types'
@@ -4105,6 +4107,8 @@ export function registerIpcHandlers(): void {
         question?: ChatQuestion | null
         trace?: StoredTrace | null
         mentions?: ChatMentionRef[]
+        blocks?: ChatUiBlock[]
+        grounding?: AnswerGrounding | null
       }
     ) => appendAiChatMessage(conversationId, message)
   )
