@@ -150,19 +150,23 @@ test('DIAGRAM: clicking Box toolbar button adds a node (no crash)', async () => 
   // No page errors.
   expect(errors).toHaveLength(0)
 
-  // Persistence: widget.content should now be valid JSON with at least one node.
-  const content = await window.evaluate(
-    async ({ tid, wid }: { tid: string; wid: string }) => {
-      const api = (window as unknown as { api: typeof window.api }).api
-      const widgets = await api.widgets.listByTask(tid)
-      return widgets.find((w) => w.id === wid)?.content ?? null
-    },
-    { tid: seeded.taskId, wid: seeded.widgetId }
-  )
-  expect(content).not.toBeNull()
-  const parsed = JSON.parse(content!) as { nodes: unknown[]; edges: unknown[] }
-  expect(parsed.nodes).toBeDefined()
-  expect(parsed.nodes.length).toBeGreaterThanOrEqual(1)
+  // Persistence: widget.content becomes valid JSON with at least one node. The
+  // save is debounced, so poll for it: a fixed wait read '' under load (the
+  // 80815a8e baseline failed with "Unexpected end of JSON input" that way).
+  const readNodes = async (): Promise<number> => {
+    const content = await window.evaluate(
+      async ({ tid, wid }: { tid: string; wid: string }) => {
+        const api = (window as unknown as { api: typeof window.api }).api
+        const widgets = await api.widgets.listByTask(tid)
+        return widgets.find((w) => w.id === wid)?.content ?? null
+      },
+      { tid: seeded.taskId, wid: seeded.widgetId }
+    )
+    if (!content) return -1 // not persisted yet
+    const parsed = JSON.parse(content) as { nodes?: unknown[]; edges?: unknown[] }
+    return Array.isArray(parsed.nodes) ? parsed.nodes.length : -2
+  }
+  await expect.poll(readNodes, { timeout: 8_000, message: 'the diagram widget persisted at least one node' }).toBeGreaterThanOrEqual(1)
 })
 
 test('DIAGRAM: pre-seeded graph renders existing nodes on mount', async () => {

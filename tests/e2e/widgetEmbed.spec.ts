@@ -1,8 +1,8 @@
 // E2E: embedding a desk widget inside a document via DocMenuBar's Insert >
-// "Widget from a desk" picker.
+// "Work widget from a desk" picker.
 //
 // Contract:
-//   - DocMenuBar.tsx Insert menu item "Widget from a desk" calls onInsertWidget,
+//   - DocMenuBar.tsx Insert menu item "Work widget from a desk" calls onInsertWidget,
 //     which DocEditor.tsx wires to open WidgetPickerDialog
 //     ([data-testid="widget-picker"]).
 //   - Picking an entry ([data-testid^="widget-picker-item-"]) runs
@@ -56,7 +56,7 @@ async function openDoc(window: LaunchedApp['window'], docId: string): Promise<vo
 async function insertWidgetFromDesk(window: LaunchedApp['window'], widgetId: string): Promise<void> {
   await window.locator('[data-testid="doc-menu-insert"]').click()
   await expect(window.locator('[data-testid="doc-menu-insert-list"]')).toBeVisible({ timeout: 3_000 })
-  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Widget from a desk', { exact: true }).click()
+  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Work widget from a desk', { exact: true }).click()
 
   await expect(window.locator('[data-testid="widget-picker"]')).toBeVisible({ timeout: 3_000 })
   await window.locator(`[data-testid="widget-picker-item-${widgetId}"]`).click()

@@ -1,11 +1,18 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady } from './_helpers'
 
-// Regression guard for the page-view pagination: no top-level block may straddle
+// Regression guard for the page-view pagination: no LINE of text may straddle
 // the grey gap between two sheets, and the page uses the default 1-inch (96px)
 // margins. Before the fix, the plugin summed per-block heights (ignoring CSS
 // margin collapse), so spacers landed short and text spilled across the page gap.
-test('page view: no block straddles the page gap, default 1in margins', async () => {
+//
+// Lines, not blocks: since line-level pagination (8373d58f) the plugin breaks a
+// long paragraph mid-way, with the spacer inside it, exactly as Word does. That
+// paragraph's own box then spans the gap by design while none of its lines do,
+// so a block-level check reports a correct layout as broken. Line boxes (a Range
+// over each block's text) are what the reader sees. Same technique as
+// docPagePagination.spec.
+test('page view: no line of text straddles the page gap, default 1in margins', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -56,22 +63,44 @@ test('page view: no block straddles the page gap, default 1in margins', async ()
       const gaps = sheetRects.slice(0, -1).map((s, i) => ({ from: s.bottom, to: sheetRects[i + 1].top }))
       const pm = content?.querySelector('.ProseMirror') as HTMLElement | null
       const blocks = Array.from(pm?.children ?? []).filter((el) => !el.classList.contains('fb-page-spacer')) as HTMLElement[]
+      const lineRects = (el: HTMLElement): DOMRect[] => {
+        const out: DOMRect[] = []
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+        let n: Node | null
+        while ((n = walker.nextNode())) {
+          if (!n.nodeValue || !n.nodeValue.trim()) continue
+          const rg = document.createRange()
+          rg.selectNodeContents(n)
+          out.push(...Array.from(rg.getClientRects()))
+        }
+        return out.filter((r) => r.height > 0 && r.width > 0)
+      }
+      let lineCount = 0
       let overlapCount = 0
+      const overlaps: string[] = []
+      let splitBlocks = 0 // paragraphs broken across a page by an inline spacer
       blocks.forEach((b) => {
-        const r = b.getBoundingClientRect()
-        const top = r.top - (pr?.top ?? 0)
-        const bot = r.bottom - (pr?.top ?? 0)
-        for (const g of gaps) {
-          if (bot > g.from + 1 && top < g.to - 1) {
-            overlapCount++
-            break
+        if (b.querySelector('.fb-page-spacer')) splitBlocks++
+        for (const r of lineRects(b)) {
+          lineCount++
+          const top = r.top - (pr?.top ?? 0)
+          const bot = r.bottom - (pr?.top ?? 0)
+          for (const g of gaps) {
+            if (bot > g.from + 1 && top < g.to - 1) {
+              overlapCount++
+              overlaps.push(`${b.tagName.toLowerCase()} "${(b.textContent || '').slice(0, 24)}" line ${Math.round(top)}-${Math.round(bot)} gap ${Math.round(g.from)}-${Math.round(g.to)}`)
+              break
+            }
           }
         }
       })
       return {
         sheetCount: sheets.length,
         blockCount: blocks.length,
+        lineCount,
+        splitBlocks,
         overlapCount,
+        overlaps: overlaps.slice(0, 6),
         padTop: cs?.paddingTop,
         padBottom: cs?.paddingBottom,
         padLeft: cs?.paddingLeft
@@ -81,8 +110,9 @@ test('page view: no block straddles the page gap, default 1in margins', async ()
     // Multi-page doc actually paginated.
     expect(report.sheetCount).toBeGreaterThan(1)
     expect(report.blockCount).toBeGreaterThan(1)
-    // The core guarantee: nothing crosses the page gap.
-    expect(report.overlapCount).toBe(0)
+    expect(report.lineCount, 'line boxes were measured').toBeGreaterThan(report.blockCount)
+    // The core guarantee: no line of text crosses the page gap.
+    expect(report.overlapCount, `lines across a page gap:\n${report.overlaps.join('\n')}`).toBe(0)
     // Default 1-inch margins (96px at 96dpi) are applied to the page content.
     expect(report.padTop).toBe('96px')
     expect(report.padBottom).toBe('96px')

@@ -18,7 +18,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, grantCapability } from './_helpers'
 
 type SearchHit = { type: string; id: string; title: string }
 type FbWindow = Window & {
@@ -31,11 +31,24 @@ type FbWindow = Window & {
   }
 }
 
+// The palette opens from the top bar's Search button (the bottom command pill
+// it used to live on was removed in 5b226e81, "move Search to the top bar").
 async function openPalette(window: import('@playwright/test').Page): Promise<void> {
-  const pill = window.locator('button[title="Open command palette (⌘K)"]')
-  await expect(pill).toBeVisible({ timeout: 5_000 })
-  await pill.click()
+  const search = window.locator('[data-testid="topbar-search"]')
+  await expect(search).toBeVisible({ timeout: 5_000 })
+  await search.click()
   await window.waitForSelector('[role="dialog"][aria-label="Command palette"]', { timeout: 4_000 })
+}
+
+// A palette row BY ITS OWN LABEL. Playwright's hasText is a case-insensitive
+// substring, and the palette now leads with "Search the web — “<query>”" and
+// "Ask Plexii — “<query>”", which contain the query; `.first()` picked the web
+// search. So match the row that has an element whose text IS the label.
+function paletteOption(window: import('@playwright/test').Page, label: string): import('@playwright/test').Locator {
+  return window
+    .locator('[role="dialog"][aria-label="Command palette"] [role="option"]')
+    .filter({ has: window.getByText(label, { exact: true }) })
+    .first()
 }
 
 // ── Quick-create: New document ────────────────────────────────────────────────
@@ -49,7 +62,7 @@ test('SWEEP-1 — palette "New document" creates a blank doc and opens it direct
     await openPalette(window)
     const input = window.locator('[role="dialog"][aria-label="Command palette"] input')
     await input.fill('new document')
-    const option = window.locator('[role="option"]').filter({ hasText: 'New document' }).first()
+    const option = paletteOption(window, 'New document')
     await expect(option).toBeVisible({ timeout: 4_000 })
     await option.click()
 
@@ -70,10 +83,13 @@ test('SWEEP-2 — palette "New signature request" opens PlexiSign\'s composer', 
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    // PlexiiSign gates on `esign`, Pro-only since b6ad6564 (2026-07-07); this is
+    // about the palette route, not the price, so grant it (as correctnessBatch does).
+    await grantCapability(window, 'esign')
     await openPalette(window)
     const input = window.locator('[role="dialog"][aria-label="Command palette"] input')
     await input.fill('new signature')
-    const option = window.locator('[role="option"]').filter({ hasText: 'New signature request' }).first()
+    const option = paletteOption(window, 'New signature request')
     await expect(option).toBeVisible({ timeout: 4_000 })
     await option.click()
 
@@ -113,6 +129,7 @@ test('SWEEP-4 — search:query surfaces event, meeting and sign hits; the palett
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
+    await grantCapability(window, 'esign') // PlexiiSign is Pro-only (see SWEEP-2)
     const marker = `Zorbaflex-${Date.now()}`
 
     // Seed one of each newly-searchable type via real IPC (no UI flakiness).
@@ -139,7 +156,7 @@ test('SWEEP-4 — search:query surfaces event, meeting and sign hits; the palett
     await openPalette(window)
     const input = window.locator('[role="dialog"][aria-label="Command palette"] input')
     await input.fill(`${marker} agreement`)
-    const option = window.locator('[role="option"]').filter({ hasText: `${marker} agreement` }).first()
+    const option = paletteOption(window, `${marker} agreement`)
     await expect(option).toBeVisible({ timeout: 4_000 })
     await option.click()
     await expect(window.locator('[data-testid="plexisign"]')).toBeVisible({ timeout: 8_000 })
@@ -150,27 +167,35 @@ test('SWEEP-4 — search:query surfaces event, meeting and sign hits; the palett
 
 // ── Settings: Advanced toggle ─────────────────────────────────────────────────
 
-test('SWEEP-5 — Settings Advanced toggle collapses sounds/AI model/haptics/voice; Appearance/Theme studio/Account/ApiKeys/Backup stay visible', async () => {
+// Settings became tabs in f03087b0 (Appearance, Account, Organisation, AI,
+// Templates, Data, Advanced) instead of a long popover with a collapsible
+// Advanced group. The claim is the same: everyday settings come first and the
+// tuning surfaces (sounds, voice, haptics) sit behind Advanced.
+test('SWEEP-5 — Settings opens on everyday Appearance; the Advanced tab holds sounds/voice tuning; Account, AI keys and Backup have their own tabs', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
     await window.getByRole('button', { name: 'Appearance settings' }).click()
 
-    // Always-visible everyday settings.
-    await expect(window.locator('[data-testid="open-theme-studio"]')).toBeVisible({ timeout: 5_000 })
+    // Opens on the everyday Appearance tab, with the Theme studio.
+    const appearanceTab = window.locator('[data-testid="settings-tab-appearance"]')
+    await expect(appearanceTab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
+    await expect(window.locator('[data-testid="open-theme-studio"]')).toBeVisible()
+    // The tuning controls are not on the everyday tab.
+    await expect(window.locator('[data-testid^="voice-mode-"]')).toHaveCount(0)
 
-    const advancedToggle = window.locator('[data-testid="settings-advanced-toggle"]')
-    await expect(advancedToggle).toBeVisible()
-    await expect(advancedToggle).toHaveAttribute('aria-expanded', 'false')
-
-    // Collapsed by default: the voice-mode controls (Advanced-only) are not present.
-    await expect(window.locator('[data-testid^="voice-mode-"]').first()).toHaveCount(0)
-
-    await advancedToggle.click()
-    await expect(advancedToggle).toHaveAttribute('aria-expanded', 'true')
+    // Advanced holds them.
+    const advancedTab = window.locator('[data-testid="settings-tab-advanced"]')
+    await advancedTab.click()
+    await expect(advancedTab).toHaveAttribute('aria-selected', 'true')
     await expect(window.locator('[data-testid^="voice-mode-"]').first()).toBeVisible({ timeout: 3_000 })
+    await expect(window.locator('[data-testid="open-theme-studio"]')).toHaveCount(0)
 
-    // Everyday settings remain visible even with Advanced open.
+    // The everyday areas each keep a tab of their own, one click away.
+    for (const id of ['account', 'ai', 'data']) await expect(window.locator(`[data-testid="settings-tab-${id}"]`)).toBeVisible()
+
+    // And Appearance is one click back.
+    await appearanceTab.click()
     await expect(window.locator('[data-testid="open-theme-studio"]')).toBeVisible()
   } finally {
     await dispose()

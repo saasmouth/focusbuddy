@@ -164,7 +164,8 @@ test('Plexi3 batch — live verification of all 6 shipped items', async () => {
     await expect(sidebar).toBeVisible({ timeout: 4_000 })
     await expect(sidebar.getByText('Rooms & desks', { exact: true })).toHaveCount(0)
     await expect(sidebar.getByText('Shared with me', { exact: true })).toHaveCount(0)
-    await expect(sidebar.getByText('All rooms', { exact: true })).toBeVisible()
+    // The duplicate "All rooms" row went in 5b328993 (one room destination); the nav row is "Rooms".
+    await expect(sidebar.getByText('Rooms', { exact: true })).toBeVisible()
     await expect(sidebar.getByText('All desks', { exact: true })).toBeVisible()
     const sharedRow = sidebar.getByText('Shared', { exact: true })
     await expect(sharedRow).toBeVisible()
