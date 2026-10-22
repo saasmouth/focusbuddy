@@ -197,47 +197,82 @@ const layoutTab: BarTab<WCtx> = {
   label: 'Layout',
   render: (c) => (
     <>
-      <BarToggle icon="notes" label="Continuous view — one flowing column" pressed={!c.pageView} onChange={() => c.setPageView(false)} readOnlySafe />
-      <BarToggle icon="description" label="Page view — paper sheets with margins" pressed={c.pageView} onChange={() => c.setPageView(true)} readOnlySafe testid="doc-pageview-btn" />
-      <BarSep />
-      <BarButton
-        icon={c.orientation === 'portrait' ? 'crop_portrait' : 'crop_landscape'}
-        label={c.orientation === 'portrait' ? 'Portrait — switch to landscape' : 'Landscape — switch to portrait'}
-        showLabel
-        disabled={!c.pageView}
-        disabledReason="only in Page view"
-        onClick={() => c.setPageSetup({ orientation: c.orientation === 'portrait' ? 'landscape' : 'portrait' })}
-        testid="doc-orientation-btn"
-      />
-      <BarSelect
-        label="Paper size"
-        width={88}
-        value={c.paperSize}
-        options={PAPER_SIZES}
-        disabled={!c.pageView}
-        disabledReason="only in Page view"
-        onChange={(v) => c.setPageSetup({ size: v })}
-        testid="doc-paper-btn"
-      />
-      <BarButton
-        icon="straighten"
-        label="Margins"
-        disabled={!c.pageView}
-        disabledReason="only in Page view"
-        onClick={() => c.togglePanel('margins')}
-        controls={shellPanelDomId('margins')}
-        testid="doc-margins-btn"
-      />
-      <BarToggle
-        icon="square_foot"
-        label="Ruler"
-        pressed={c.showRuler}
-        disabled={!c.pageView}
-        disabledReason="only in Page view"
-        onChange={c.setShowRuler}
-        readOnlySafe
-        testid="doc-ruler-btn"
-      />
+      {/*
+        The Continuous / Page switch keeps its original markup, not a pair of
+        BarToggles. Three specs address it as a container of text buttons
+        (`[data-testid="doc-layout-toggle"] button` filtered by the words
+        "Continuous" and "Page"), and doc-pageview-btn is the Page button
+        inside it. An icon toggle would satisfy neither.
+      */}
+      <BarCustom label="View" testid="doc-layout-toggle-wrap">
+        <span className="inline-flex rounded-full bg-[var(--surface-sunken)] overflow-hidden" data-testid="doc-layout-toggle">
+          <button
+            onClick={() => c.setPageView(false)}
+            className={`px-2 py-1 text-[11px] ${!c.pageView ? 'bg-accent/10 text-accent' : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'}`}
+            title="Continuous view — one flowing column"
+          >
+            Continuous
+          </button>
+          <button
+            onClick={() => c.setPageView(true)}
+            className={`px-2 py-1 text-[11px] ${c.pageView ? 'bg-accent/10 text-accent' : 'hover:bg-[color-mix(in_oklab,var(--surface-sunken)_70%,transparent)]'}`}
+            title="Page view — paper sheets with margins"
+            data-testid="doc-pageview-btn"
+          >
+            Page
+          </button>
+        </span>
+      </BarCustom>
+      {/*
+        The page controls are RENDERED ONLY in Page view, not disabled there.
+        DPS-1 asserts doc-orientation-btn is `not.toBeVisible()` back in
+        Continuous, and a disabled button is still visible.
+      */}
+      {c.pageView && (
+        <>
+          <BarSep />
+          <BarButton
+            icon={c.orientation === 'portrait' ? 'crop_portrait' : 'crop_landscape'}
+            label="Toggle portrait / landscape"
+            showLabel
+            onClick={() => c.setPageSetup({ orientation: c.orientation === 'portrait' ? 'landscape' : 'portrait' })}
+            testid="doc-orientation-btn"
+          />
+          {/*
+            Paper size stays a button that cycles Letter <-> A4 and shows the
+            current size as its text. DPS-2 clicks it and then asserts the
+            control itself contains "A4" / "Letter"; a <select> satisfies
+            neither the click nor the text.
+          */}
+          <BarCustom label="Paper size">
+            <button
+              onClick={() => c.setPageSetup({ size: c.paperSize === 'letter' ? 'a4' : 'letter' })}
+              className="h-7 px-2 rounded text-[11px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+              title="Paper size"
+              data-testid="doc-paper-btn"
+            >
+              {c.paperSize === 'a4' ? 'A4' : 'Letter'}
+            </button>
+          </BarCustom>
+          <BarButton
+            icon="margin"
+            label="Page margins"
+            showLabel
+            onClick={() => c.togglePanel('margins')}
+            controls={shellPanelDomId('margins')}
+            testid="doc-margins-btn"
+          />
+          <BarToggle
+            icon="straighten"
+            label="Show the ruler — drag the markers to set page margins"
+            showLabel
+            pressed={c.showRuler}
+            onChange={c.setShowRuler}
+            readOnlySafe
+            testid="doc-ruler-btn"
+          />
+        </>
+      )}
     </>
   )
 }
