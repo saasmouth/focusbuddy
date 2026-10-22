@@ -466,7 +466,7 @@ test('MindMap widget: node creation, drill-in, label edit, side panel, accept/re
 
 // ── Canvas task-header strip: title, meta, time pill, zoom controls ────────
 
-test('Canvas task-header strip renders (title, meta, time pill) and zoom controls work', async () => {
+test('Desk timer shows in the floating pill and the zoom pill zooms in, out and resets', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -494,37 +494,51 @@ test('Canvas task-header strip renders (title, meta, time pill) and zoom control
   await window.getByRole('button', { name: /HeavyHeaderTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
 
-  const header = window.locator('[data-testid="canvas-task-header"]')
-  await expect(header).toBeVisible({ timeout: 5_000 })
+  // The canvas task-header bar this test was written against no longer exists.
+  // c48d0360 ("UI/UX: eliminate header bar, consolidate desk controls into
+  // FloatingPill") deleted it and redistributed its contents, so `canvas-task-header`
+  // is in no source file at all. Two of the four things this test asserted were
+  // header-only furniture and went with it: the <h2> desk title and the
+  // `span[title="Priority"]` meta row. The two whose features survived follow
+  // them to where they actually render, rather than being deleted with the bar.
 
-  // Title.
-  await expect(header.getByRole('heading', { name: 'HeavyHeaderTest', level: 2 })).toBeVisible({
-    timeout: 5_000
-  })
-  // Meta (priority/interest/importance icons row) — just confirm the
-  // priority title tooltip element exists.
-  await expect(header.locator('span[title="Priority"]')).toBeVisible()
-  // Time pill (isTracked path).
-  await expect(header.locator('[title*="min elapsed"]')).toBeVisible({ timeout: 5_000 })
-  console.log('Header title, meta, time pill render: OK')
+  // Tracked time moved into the floating pill. The seed above is exactly what
+  // makes it appear: status in_progress sets started_at server-side, which makes
+  // isTracked true, and Canvas computes timerText only then — so this still
+  // covers the tracked path the old time pill covered. Format is m:ss, counting
+  // down from the estimate, and negative once overdue.
+  const timer = window.locator('[data-testid="pill-timer"]')
+  await expect(timer).toBeVisible({ timeout: 5_000 })
+  await expect(timer).toHaveText(/^-?\d+:\d{2}$/)
+  console.log('Desk timer renders in the floating pill: OK', await timer.textContent())
 
-  // Zoom controls.
-  const zoomLabel = header.locator('button[title="Reset view (⌘0)"]')
+  // Zoom is its own hover-expand pill now: collapsed it shows only the
+  // percentage, and the - / + buttons render only while it is hovered. A cold
+  // click finds nothing and reads like a crash, so hover before each one.
+  const zoom = window.locator('[data-testid="zoom-controls"]')
+  await expect(zoom).toBeVisible()
+  await zoom.hover()
+
+  const zoomLabel = zoom.locator('button[title="Reset view (⌘0)"]')
   await expect(zoomLabel).toBeVisible()
   const initialPct = await zoomLabel.textContent()
 
-  await header.locator('button[title="Zoom in (⌘])"]').click()
+  await zoom.hover()
+  await zoom.locator('button[title="Zoom in (⌘])"]').click()
   await window.waitForTimeout(150)
   const afterZoomIn = await zoomLabel.textContent()
   expect(afterZoomIn, 'zoom in increased percentage').not.toBe(initialPct)
 
-  await header.locator('button[title="Zoom out (⌘[)"]').click()
+  await zoom.hover()
+  await zoom.locator('button[title="Zoom out (⌘[)"]').click()
   await window.waitForTimeout(150)
-  await header.locator('button[title="Zoom out (⌘[)"]').click()
+  await zoom.hover()
+  await zoom.locator('button[title="Zoom out (⌘[)"]').click()
   await window.waitForTimeout(150)
   const afterZoomOut = await zoomLabel.textContent()
   expect(afterZoomOut, 'zoom out changed percentage').not.toBe(afterZoomIn)
 
+  await zoom.hover()
   await zoomLabel.click()
   await window.waitForTimeout(150)
   const afterReset = await zoomLabel.textContent()
