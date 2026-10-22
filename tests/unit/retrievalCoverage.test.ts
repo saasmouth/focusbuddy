@@ -54,7 +54,7 @@ vi.mock('../../src/main/backgroundAiGate', () => ({
 
 import { reindexKnowledge, semanticSearchKnowledge, knowledgeCoverage } from '../../src/main/semanticRetrieval'
 import { reindexDocuments, semanticSearchDocuments, documentCoverage, _resetDocCache } from '../../src/main/documentRetrieval'
-import { chatMeaningFraction, traceSemantic, workspaceCoverage } from '../../src/main/embeddingCoverage'
+import { chatMeaningFraction, chatRetrievalCoverage, traceSemantic, workspaceCoverage } from '../../src/main/embeddingCoverage'
 import { getTraceView, type AssistantTrace } from '../../src/renderer/src/lib/traceView'
 
 // A unit vector at cosine `c` to the query [1, 0].
@@ -213,6 +213,24 @@ describe('coverage', () => {
   })
 })
 
+describe('a chat turn counts documents ranked by meaning through the chunk index (4.3.42)', () => {
+  // LBP-1 at 37115bfb: four documents, every passage embedded, the chunk index
+  // live — and the search line said "· 0% ranked by meaning", because the
+  // chunk path was counted as keyword-only. It ranks passages by meaning now.
+  it('a fully embedded workspace with the chunk index live is 100%, not 0%', async () => {
+    seedDoc('d1', 'Warehouse operations manual', 'The generator is serviced every fourteen weeks.')
+    pool('document').set('d1', { vector: [1, 0], model: 'm' })
+    const r = await chatRetrievalCoverage()
+    expect(r).toEqual({ fraction: 1, model: 'm' })
+  })
+  it('an un-embedded document still counts against it', async () => {
+    seedDoc('d1', 'A', 'alpha text')
+    seedDoc('d2', 'B', 'beta text')
+    pool('document').set('d1', { vector: [1, 0], model: 'm' })
+    expect((await chatRetrievalCoverage())!.fraction).toBeCloseTo(0.5, 5)
+  })
+})
+
 describe('the trace says how much of a search was ranked by meaning', () => {
   const base: AssistantTrace = {
     status: 'done',
@@ -234,8 +252,8 @@ describe('the trace says how much of a search was ranked by meaning', () => {
     expect(label({ semantic: true, semanticCoverage: 0.486 })).toContain('48% ranked by meaning')
     expect(label({ semantic: true, semanticCoverage: 0.996 })).toContain('99% ranked by meaning')
   })
-  it('full or unknown coverage says nothing extra', () => {
-    expect(label({ semantic: true, semanticCoverage: 1 })).not.toContain('meaning')
+  it('full coverage says so; unknown coverage says nothing extra', () => {
+    expect(label({ semantic: true, semanticCoverage: 1 })).toContain('· 100% ranked by meaning')
     expect(label({ semantic: true })).not.toContain('meaning')
   })
   it('keyword-only still reads as keyword match, not as a coverage share', () => {

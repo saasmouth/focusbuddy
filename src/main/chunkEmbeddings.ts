@@ -71,7 +71,9 @@ function chunkEmbedText(c: ChunkRow): string {
  */
 export async function reindexChunkEmbeddings(
   sourceType = 'document',
-  force = false
+  force = false,
+  /** Called after each batch is written, so a progress count can move. */
+  onBatch?: () => void
 ): Promise<{ embedded: number; pruned: number; reason?: string }> {
   const kind = chunkKind(sourceType)
   const chunks = listChunkRows(sourceType)
@@ -106,6 +108,7 @@ export async function reindexChunkEmbeddings(
         embedded++
       }
     })
+    onBatch?.()
   }
   return { embedded, pruned }
 }

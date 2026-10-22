@@ -2590,6 +2590,13 @@ const api = {
       ipcRenderer.on('localAi:changed', listener)
       return () => ipcRenderer.removeListener('localAi:changed', listener)
     },
+    // The PlexiiBrain counts (coverage) moved: passages embedded, documents
+    // described. Settings re-reads them instead of showing the opening figure.
+    onCoverageChanged: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('brain:coverageChanged', listener)
+      return () => ipcRenderer.removeListener('brain:coverageChanged', listener)
+    },
     onConsentRequest: (cb: (r: CloudConsentRequest) => void): (() => void) => {
       const listener = (_e: unknown, r: CloudConsentRequest): void => cb(r)
       ipcRenderer.on('localAi:consentRequest', listener)

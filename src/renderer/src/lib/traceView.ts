@@ -248,11 +248,14 @@ function webSources(trace: AssistantTrace): ChatSource[] {
 // With a semantic route, coverage below 100% means part of the workspace had
 // no vector the route could compare and was ranked by keyword alone — which
 // reads as an assistant that only knows recent things. Said once, as a share.
-// Rounded DOWN so 99.6% never reads as complete; silent at full or unknown.
+// Rounded DOWN so 99.6% never reads as complete; silent only when unknown.
+// Said at 100% too (4.3.42): a line that vanished when everything was ranked by
+// meaning could not be told apart from one that was never drawn, and the
+// owner's "PlexiiBrain ranks by passage" check reads it to confirm the search.
 function partialMeaning(coverage: number | null | undefined): string {
   if (typeof coverage !== 'number' || !Number.isFinite(coverage)) return ''
-  const pct = Math.max(0, Math.floor(coverage * 100))
-  return pct >= 100 ? '' : ` · ${pct}% ranked by meaning`
+  const pct = Math.min(100, Math.max(0, Math.floor(coverage * 100)))
+  return ` · ${pct}% ranked by meaning`
 }
 
 function retrieveLabel(trace: AssistantTrace): string {

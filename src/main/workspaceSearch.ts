@@ -1,6 +1,6 @@
 // Grounded retrieval over the workspace — the substrate for "ask your workspace".
 // PlexiBrain knowledge is ranked by meaning (semantic embeddings blended with
-// keyword) when an embedding key is configured, and documents are keyword-ranked.
+// keyword) when an embedding route exists, and so are documents, on their passages.
 // With no key everything degrades to keyword, so grounding never fabricates a
 // match. The pure ranking lives in workspaceRank.ts; the semantic side in
 // semanticRetrieval.ts. Both are unit-testable without the database.
@@ -16,9 +16,9 @@ import {
 } from './workspaceRank'
 import { semanticSearchKnowledge } from './semanticRetrieval'
 import { semanticSearchDocuments } from './documentRetrieval'
+import { passageSearchDocuments } from './passageRetrieval'
 import {
   chunkIndexActive,
-  chunkSearchDocuments,
   chunkSearchWidgets,
   chunkSearchFiles,
   chunkSearchChats
@@ -84,7 +84,8 @@ export async function retrieveSources(
 
   // Documents ride the chunk index (A2, R10): passage-level BM25 over
   // fb_chunks_fts, so a question matches the paragraph that answers it
-  // rather than a substring of a document's opening (defect #2). A fresh
+  // rather than a substring of a document's opening (defect #2) — and, with
+  // an embedder, the same passages ranked by meaning (passageRetrieval.ts). A fresh
   // profile before its first sweep falls back to the legacy whole-document
   // path — the same results as before, never fewer.
   // A document on the desk you are standing on is a desk object, even though
@@ -119,7 +120,7 @@ export async function retrieveSources(
 
   const docSources = byDeskAffinity(
     chunkIndexActive()
-      ? chunkSearchDocuments(query, limit)
+      ? await passageSearchDocuments(query, limit)
       : await semanticSearchDocuments(query, limit)
   )
 

@@ -531,6 +531,7 @@ import {
 import { reindexDocumentChunks } from '../chunkIndex'
 import { enrichDocument, enrichAllDocuments } from '../ai/enrichDocuments'
 import { brainCoverage } from '../brainCoverage'
+import { documentScopeText } from '../passageRetrieval'
 import { kickEmbeddingSweep } from '../ai/localAiSweeps'
 import {
   exportWorkspaceJson,
@@ -2917,9 +2918,11 @@ export function registerIpcHandlers(): void {
       const hist = Array.isArray(history) ? history.slice(-4) : []
       // Scope: when the caller passes the open document's text, ground ONLY on it
       // (the "This document" scope); otherwise retrieve across the whole workspace.
+      // A long document is cut to its opening plus the passages that answer
+      // the question, not to its first 12,000 characters (passageRetrieval.ts).
       const sources =
         docContext && docContext.text && docContext.text.trim()
-          ? [{ docId: 'current-doc', title: docContext.title || 'This document', docType: 'doc', snippet: docContext.text.slice(0, 200), text: docContext.text.slice(0, 12000), score: 1 }]
+          ? [{ docId: 'current-doc', title: docContext.title || 'This document', docType: 'doc', snippet: docContext.text.slice(0, 200), text: await documentScopeText(question, docContext.text), score: 1 }]
           : await retrieveSources([...hist.map((h) => h.question), question].join(' '))
       if (sources.length) recordAiCall()
       const channel = `workspace:askStream:${requestId}`
