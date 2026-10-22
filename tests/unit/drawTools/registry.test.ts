@@ -301,6 +301,7 @@ describe('the menu bar is built from commands', () => {
         'view',
         'Fit Artboard in Window|fit_screen|⌘0||',
         'Fit All in Window|zoom_out_map|⌥⌘0||',
+        'Zoom to Selection|center_focus_weak||off|',
         'Zoom to 100%|zoom_in|⌘1||',
         'Next Artboard|navigate_next||off|',
         'Previous Artboard|navigate_before||off|',

@@ -211,8 +211,14 @@ export interface ViewportService {
   setScroll(left: number, top: number): void
   /** Fit the active artboard to the window. */
   fit(): void
-  /** Zoom and scroll so a document rectangle fills the window (Fit All, an artboard). Optional: absent in headless runs. */
-  fitBox?(box: import('@shared/drawGeometry').Box): void
+  /**
+   * Zoom and scroll so a document rectangle fills the window (Fit All, an
+   * artboard, Zoom to Selection), in the part no pinned panel covers.
+   * `pad` is the screen margin kept on every side (default 24 px), `maxZoom`
+   * the most it may zoom in (default 4, so Fit never blows a small artboard
+   * up past 400%). Optional: absent in headless runs.
+   */
+  fitBox?(box: import('@shared/drawGeometry').Box, opts?: { pad?: number; maxZoom?: number }): void
   /** The part of the document the window shows, in document units (where Paste centres art). Optional: absent in headless runs. */
   visibleRect?(): import('@shared/drawGeometry').Box | null
 }
@@ -352,6 +358,8 @@ export interface Command {
   menu?: CommandMenuPlacement
   /** Disabled commands show greyed with this reason; must be pure. */
   enabled?(ctx: EditorCtx): boolean
+  /** Why it is disabled now, as a short phrase ("select something to zoom to"), shown under the menu item and in bar tooltips; must be pure. */
+  disabledReason?(ctx: EditorCtx): string | null
   /** Shows a check mark. */
   checked?(ctx: EditorCtx): boolean
   /** Whether a KEY binding should fire now; when false the key falls through (e.g. arrows with nothing selected). */

@@ -7,6 +7,7 @@ import type { Box } from '@shared/drawGeometry'
 import { artboardsBounds, primaryArtboard, rasterFrame } from '@shared/draw/ops'
 import type { LiveUndo } from '../../../../lib/yjsKeyedJson'
 import { fontShorthand, layoutText } from '../textMeasure'
+import { clampZoom } from '../viewport'
 import { createCanvasRaster } from './canvasRaster'
 import type { EditorServices } from './editor'
 import type { EditorState, UiService } from './types'
@@ -36,11 +37,13 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
    * middle once the stage has been laid out at the new zoom. With one artboard
    * and the whole artboard asked for, this is the old Fit to window exactly.
    */
-  function fitBox(box: Box): void {
+  function fitBox(box: Box, opts: { pad?: number; maxZoom?: number } = {}): void {
     const el = refs.scroll.current
     if (!el || !(box.w > 0) || !(box.h > 0)) return
     const inset = Math.max(0, Math.min(refs.inset.current, el.clientWidth - 96))
-    const z = Math.max(0.05, Math.min(4, Math.min((el.clientWidth - inset - 48) / box.w, (el.clientHeight - 48) / box.h)))
+    const pad = Math.max(0, opts.pad ?? 24)
+    const room = (n: number): number => Math.max(16, n - 2 * pad)
+    const z = clampZoom(Math.min(opts.maxZoom ?? 4, Math.min(room(el.clientWidth - inset) / box.w, room(el.clientHeight) / box.h)))
     store().setState({ zoom: z })
     const centre = (): void => {
       const sc = refs.scroll.current
