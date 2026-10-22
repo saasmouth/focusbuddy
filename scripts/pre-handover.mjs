@@ -62,14 +62,43 @@ for (const cfg of ['typecheck:node', 'typecheck:web', 'typecheck:webruntime']) {
 }
 
 // 3. Collection. Playwright exits 0 on "No tests found", so a spec that dies at
-//    collection — a rebase duplicating a helper in _helpers.ts does this —
-//    reads as a passing run.
+//    collection — a rebase duplicating a helper in tests/e2e/_helpers.ts does
+//    this — reads as a passing run.
+//
+//    Two counts, labelled, because one of them is easy to misread. The first is
+//    ONLY the spec files named on the command line, so a small number there is
+//    normal and means nothing about the suite; d1 saw "6 test(s) collected" and
+//    reasonably wondered whether that was gating anything. The second is the
+//    whole suite, which is the number that catches a helper breaking collection
+//    everywhere.
+const collected = (out) => {
+  const m = out.match(/Total: (\d+) test/)
+  return m ? Number(m[1]) : 0
+}
+
 if (specs.length) {
-  const r = run('spec collection', `npx playwright test ${specs.join(' ')} --list`)
-  const m = r.out.match(/Total: (\d+) test/)
-  const total = m ? Number(m[1]) : 0
-  record('spec collection', total > 0, `${total} test(s) collected`)
-  if (total === 0) console.log('      Zero collected. Playwright exits 0 on "No tests found" — this is NOT a pass.')
+  const r = run('named-spec collection', `npx playwright test ${specs.join(' ')} --list`)
+  const total = collected(r.out)
+  record(
+    'named-spec collection',
+    total > 0,
+    `${total} test(s) in the ${specs.length} spec file(s) named here — NOT a suite total`
+  )
+  for (const sp of specs) console.log(`        ${sp}`)
+  if (total === 0) {
+    console.log('      Zero collected: either a path above is wrong, or the spec died at')
+    console.log('      collection. Playwright exits 0 on "No tests found", not a pass.')
+  }
+}
+
+{
+  const r = run('whole-suite collection', 'npx playwright test --list')
+  const total = collected(r.out)
+  record('whole-suite collection', total > 0, `${total} test(s) across the whole e2e suite`)
+  if (total === 0) {
+    console.log('      The SUITE collects nothing. A duplicated helper in _helpers.ts does')
+    console.log('      this, and every spec then "passes" by running none of itself.')
+  }
 }
 
 const failed = results.filter((r) => !r.ok)
