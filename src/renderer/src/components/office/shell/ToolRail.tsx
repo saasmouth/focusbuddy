@@ -5,7 +5,7 @@ import Tooltip from '../../Tooltip'
 import { SIDE_PANE_DOM_ID } from './layout'
 
 // The office ToolRail: the left strip of tool icons every office app shares
-// (spec: /private/tmp/claude-501/office-shell/SPEC.md §2.1–2.2), extracted from
+// (spec: docs/office-shell/SPEC.md §2.1–2.2), extracted from
 // PlexiiDraw's Toolbox.
 //
 // It is deliberately dumb about state and keys:

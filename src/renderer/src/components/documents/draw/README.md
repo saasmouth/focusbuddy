@@ -7,7 +7,7 @@ files.** You do not edit `DrawStudio.tsx`, the menu bar, the tool rail, the top
 bar or a shared list.
 
 The studio sits on the shared office shell (`components/office/shell`, spec
-`/private/tmp/claude-501/office-shell/SPEC.md` §6.2), like every office app:
+`docs/office-shell/SPEC.md` §6.2), like every office app:
 
 - the **tool rail** on the left is the tool registry (`render/rail.tsx`):
   the toolbox's sections and order, each tool's LIVE key, flyouts, the
