@@ -257,8 +257,10 @@ button. The menu items are Edit › "Save selection as snippet…" (also on a
 shape's right-click menu) and Insert › "Insert snippet…" (also on the canvas
 right-click menu). The target id is the mounted editor's `useId`, so the same
 diagram open in the document view and in a work widget is two destinations.
-Tests: `tests/unit/diagramSnippets.test.ts` and
-`tests/e2e/snippetsDiagram.spec.ts`.
+Tests: `tests/unit/diagramSnippets.test.ts` (capture, insertion, the
+target's contract), `tests/unit/diagramSnippetsTarget.test.tsx` (registers on
+mount, withdraws on unmount and when read-only) and
+`tests/e2e/snippetsDiagram.spec.ts` (the round trip in the app).
 
 Adding a surface is a registration, not a change to the core:
 
