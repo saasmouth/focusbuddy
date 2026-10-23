@@ -75,6 +75,17 @@ interface Props {
    */
   v2Blocked?: string | null
   /**
+   * A reader, not an editor. The studio already enforced read-only centrally
+   * but derived it from the DRAWING's compatibility alone, so a viewer of a
+   * shared drawing could not be told: they got a full studio, and the server
+   * dropped what they did.
+   *
+   * It is OR'd with compatibility rather than replacing it, and remembered in
+   * the store as `hostReadOnly`, because `fold` recomputes compatibility when a
+   * peer's body arrives.
+   */
+  readOnly?: boolean
+  /**
    * A host that writes only when asked (a saved snippet's edit session,
    * SnippetEditSessionView): File › Save and ⌘S (`file.save`) call this, and
    * ⌘S's default is prevented. Absent -- a drawing, which is persisted from
@@ -139,7 +150,7 @@ function keyInput(e: KeyboardEvent): KeyInput {
   }
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session, documentOps }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session, documentOps, readOnly = false }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -184,7 +195,9 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         } else barHandle.current?.focusBar()
       }
     }
-    editorRef.current = createDrawEditor(content, createDomServices(refs, () => editorRef.current!.store, ui))
+    editorRef.current = createDrawEditor(content, createDomServices(refs, () => editorRef.current!.store, ui), {
+      readOnly
+    })
     // Before anything can be edited: a live session with an older participant keeps the drawing v1.
     if (v2Blocked) editorRef.current.store.setState({ v2Writes: false, v2Blocked })
     // Pinned panels reopen with the editor (they stay open while you work).
@@ -225,6 +238,14 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   useEffect(() => {
     store.setState(v2Blocked ? { v2Writes: false, v2Blocked } : { v2Writes: DRAW_V2_WRITES, v2Blocked: null })
   }, [v2Blocked, store])
+
+  // The host's read-only can change while the studio is mounted: an owner
+  // downgrading someone to viewer arrives as a prop change, and the live view
+  // does not remount on it. The drawing's own compatibility stays OR'd in, so
+  // granting write access cannot make a newer-format drawing writable.
+  useEffect(() => {
+    store.setState((s) => ({ hostReadOnly: readOnly, readOnly: readOnly || s.compat.readOnly }))
+  }, [readOnly, store])
 
   // Re-render when the live own-change stack changes, so Undo enables correctly.
   useEffect(() => (liveUndo ? liveUndo.subscribe(() => store.setState((s) => ({ liveUndoTick: s.liveUndoTick + 1 }))) : undefined), [liveUndo, store])

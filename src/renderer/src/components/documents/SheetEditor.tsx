@@ -95,6 +95,23 @@ interface Props {
    * there is no document (a snippet session): those items are then not shown.
    */
   documentOps?: DocumentOps
+  /**
+   * A reader, not an editor. CellsChrome already had the machinery and this
+   * editor hard-coded `false` into it, so a VIEWER of a shared spreadsheet got
+   * a full one: they could type, and the server dropped it.
+   *
+   * It means onChange NEVER fires. Every write goes through `commit` (and
+   * mutateTab through that), so the guard is central rather than per command —
+   * the four paths that reach onChange without it are undo, redo, switching
+   * sheet and import, and each is guarded where it is. Navigation still works:
+   * switching sheet changes what is shown and writes nothing, because
+   * activeSheet lives in the body.
+   *
+   * This is the client half. The server refuses a viewer's writes regardless
+   * (yjsDocAuth.ts, and the viewer gate on PUT /livedocs/:id/body); the point
+   * of this half is that the app stops pretending the edit landed.
+   */
+  readOnly?: boolean
 }
 
 interface Cell {
@@ -209,7 +226,7 @@ function computeFuncMenu(value: string): FuncMenu | null {
   return { items, tokenStart, query }
 }
 
-export default function SheetEditor({ body: rawBody, title, onChange, documentOps }: Props): JSX.Element {
+export default function SheetEditor({ body: rawBody, title, onChange, documentOps, readOnly = false }: Props): JSX.Element {
   const [body, setBody] = useState<SheetBodyV2>(() => normalizeBody(rawBody))
   // Accept live external updates (co-editing): when the body prop changes to a
   // new version, fold it into the grid. We deliberately do NOT touch the active
@@ -365,13 +382,14 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   // ── Commit helpers ────────────────────────────────────────────────────────
   const commit = useCallback(
     (next: SheetBodyV2) => {
+      if (readOnly) return
       undoStack.current.push(body)
       if (undoStack.current.length > 100) undoStack.current.shift()
       redoStack.current = []
       setBody(next)
       onChange(next)
     },
-    [body, onChange]
+    [body, onChange, readOnly]
   )
   const mutateTab = useCallback(
     (fn: (t: SheetTab) => SheetTab) => commit(withTab(body, idx, fn(tab))),
@@ -407,19 +425,21 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   }
 
   const undo = useCallback(() => {
+    if (readOnly) return
     const prev = undoStack.current.pop()
     if (!prev) return
     redoStack.current.push(body)
     setBody(prev)
     onChange(prev)
-  }, [body, onChange])
+  }, [body, onChange, readOnly])
   const redo = useCallback(() => {
+    if (readOnly) return
     const nxt = redoStack.current.pop()
     if (!nxt) return
     undoStack.current.push(body)
     setBody(nxt)
     onChange(nxt)
-  }, [body, onChange])
+  }, [body, onChange, readOnly])
 
   const colWidthOf = useCallback(
     (c: number): number => (liveWidth?.c === c ? liveWidth.w : tab.colWidths?.[c] ?? DEFAULT_COL_W),
@@ -687,6 +707,10 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   }, [funcMenu, funcIndex])
 
   function startEdit(cell: Cell, initial?: string): void {
+    // A reader never enters the cell editor. The write would be refused by
+    // `commit` anyway, but a caret that accepts typing and then discards it is
+    // the app pretending an edit landed, which is worse than refusing it.
+    if (readOnly) return
     pointRef.current = null
     setPointCell(null)
     setEditing(cell)
@@ -1184,8 +1208,11 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
   function switchTab(i: number): void {
+    // activeSheet lives in the body, so remembering which sheet you are on is
+    // a document write. A reader still gets to look at the other sheets; it
+    // just is not recorded for everyone.
     setBody({ ...body, activeSheet: i })
-    onChange({ ...body, activeSheet: i })
+    if (!readOnly) onChange({ ...body, activeSheet: i })
     selectCell(0, 0)
   }
   function addTab(): void {
@@ -1292,6 +1319,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
 
   // ── Office import / export ────────────────────────────────────────────────
   async function importFile(): Promise<void> {
+    if (readOnly) return
     setStatus('Importing…')
     try {
       const res = await window.api.sheet.import()
@@ -1400,7 +1428,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   function insertSnippetHere(snippet: Snippet): SnippetInsertResult {
     const landing = insertSheetSnippet(tab, snippet, {
       at: { r: selection.r0, c: selection.c0 },
-      readOnly: false,
+      readOnly,
       newId: newValidationId
     })
     if ('declined' in landing) {
@@ -1463,7 +1491,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   return (
     <CellsChrome
       actions={sheetActions}
-      readOnly={false}
+      readOnly={readOnly}
       menuBar={<SheetMenuBar actions={sheetActions} />}
       activeFormat={cellFormat(tab, focus.r, focus.c)}
       activeFont={cellFormat(tab, focus.r, focus.c)?.fontFamily}
@@ -1781,6 +1809,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             onFormulaArrow={handleFormulaArrow}
             pointCell={pointCell}
             onHeaderRename={(c, name) => mutateTab((t) => setColumnName(t, c, name))}
+            readOnly={readOnly}
             onColResizeStart={onColResizeStart}
             onColAutoFit={onColAutoFit}
             rowHeightOf={rowHeightOf}

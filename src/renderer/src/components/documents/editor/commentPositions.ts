@@ -37,6 +37,7 @@ import {
 import {
   quoteFor,
   readCommentAnchor,
+  resolveAnchor,
   resolveThreads,
   type LocalCommentAnchor,
   type OrphanThread,
@@ -179,6 +180,41 @@ export function yjsCandidate(editor: Editor, anchor: YjsCommentAnchor): Resolved
     // boundary; a malformed one is absent, not a crash in the editor.
     return null
   }
+}
+
+/**
+ * Turn a LOCAL anchor in a co-edited document into a live one.
+ *
+ * A live document acquires local anchors: `yjsAnchorFor` returns null when the
+ * editor has no binding yet, and the caller's only honest option then is to
+ * store a plain range, so a comment left in the moment between the editor
+ * mounting and the room syncing is anchored by offsets. Those offsets go stale
+ * the first time another peer types in front of them, so they want upgrading
+ * once a binding exists.
+ *
+ * THE QUOTE IS CHECKED FIRST, and that is the whole point rather than a
+ * precaution. Converting a range into relative positions is irreversible: a
+ * relative position references an item, so once it is written there is nothing
+ * left to compare against the text, and a range that had already drifted is
+ * baked in permanently with no quote check able to catch it afterwards. So the
+ * range is resolved — believed if it still holds its quote, re-found if the
+ * text moved — and converted only then. An orphan is left exactly as it is: a
+ * stale local anchor that resolves by quote on every open is a nuisance, and a
+ * confidently wrong relative position is forever.
+ *
+ * Returns null when there is nothing to do or nothing safe to do: an anchor
+ * that is already live, an editor with no binding, an anchor whose text cannot
+ * be found, or an anchor with NO QUOTE — which is blind by definition, and
+ * blind is the one thing this must not convert. A quoteless anchor keeps
+ * working as it is; it simply never gains concurrency safety.
+ */
+export function upgradeAnchorForCollab(editor: Editor, anchor: unknown): YjsCommentAnchor | null {
+  const parsed = readCommentAnchor(anchor)
+  if (!parsed || parsed.kind !== 'local' || !parsed.quote) return null
+  if (!isCollabEditor(editor)) return null
+  const out = resolveAnchor(parsed, positionText(editor.state.doc), { from: parsed.from, to: parsed.to })
+  if (out.status === 'orphan') return null
+  return yjsAnchorFor(editor, out.range.from, out.range.to)
 }
 
 export interface CommentAnchorInput {

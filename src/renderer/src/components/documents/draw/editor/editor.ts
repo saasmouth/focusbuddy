@@ -50,8 +50,13 @@ export interface DrawEditor {
   fold(content: unknown): void
 }
 
-/** The editor's starting state for stored content (v1 or v2, trusted or not). */
-export function initialEditorState(content: unknown): EditorState {
+/**
+ * The editor's starting state for stored content (v1 or v2, trusted or not).
+ *
+ * `hostReadOnly` is the host's own refusal — a viewer of a shared drawing —
+ * which is separate from the drawing's compatibility and OR'd with it.
+ */
+export function initialEditorState(content: unknown, hostReadOnly = false): EditorState {
   const compat = drawDocCompatibility(content)
   return {
     doc: normalizeDrawDoc(content),
@@ -74,7 +79,8 @@ export function initialEditorState(content: unknown): EditorState {
     snapOn: true,
     spaceDown: false,
     scratchVisible: false,
-    readOnly: compat.readOnly,
+    readOnly: compat.readOnly || hostReadOnly,
+    hostReadOnly,
     compat,
     storedSchema: declaredSchema(content),
     dialog: null,
@@ -108,8 +114,12 @@ export function hitTestDoc(doc: DrawDoc, p: Pt, zoom: number): DrawNode | null {
   return null
 }
 
-export function createDrawEditor(content: unknown, services: EditorServices): DrawEditor {
-  const store = createStore<EditorState>(() => initialEditorState(content))
+export function createDrawEditor(
+  content: unknown,
+  services: EditorServices,
+  opts?: { readOnly?: boolean }
+): DrawEditor {
+  const store = createStore<EditorState>(() => initialEditorState(content, opts?.readOnly === true))
 
   /** Hand the document to the host in storage form -- never when read-only. */
   function emit(doc: DrawDoc): void {
@@ -279,7 +289,15 @@ export function createDrawEditor(content: unknown, services: EditorServices): Dr
       // Another person's edit (or an own-change undo coming back) is never
       // pushed onto the local undo stack.
       const compat = drawDocCompatibility(next)
-      store.setState({ doc: normalizeDrawDoc(next), compat, readOnly: compat.readOnly, storedSchema: Math.max(store.getState().storedSchema, declaredSchema(next)) })
+      // readOnly is recomputed from the arriving document's compatibility, so
+      // the HOST's own read-only has to be OR'd back in — without it, a
+      // viewer's editor became writable the moment a co-editor typed.
+      store.setState({
+        doc: normalizeDrawDoc(next),
+        compat,
+        readOnly: compat.readOnly || store.getState().hostReadOnly,
+        storedSchema: Math.max(store.getState().storedSchema, declaredSchema(next))
+      })
       services.raster.invalidate()
     }
   }
