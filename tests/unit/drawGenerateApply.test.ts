@@ -8,6 +8,7 @@ import { addGeneratedPaintLayer, addGeneratedVectorLayer, fitNodesToArtboard, re
 import { compileScene, sceneBounds } from '../../src/shared/draw/generate/compile'
 import { validateScene } from '../../src/shared/draw/generate/scene'
 import { normalizeDrawDoc } from '../../src/shared/draw/normalize'
+import { drawDocToSvg } from '../../src/shared/draw/svg'
 import type { DrawDoc, DrawDocRasterLayer, DrawDocVectorLayer, DrawPathNode } from '../../src/shared/draw/model'
 
 let n = 0
@@ -125,5 +126,33 @@ describe('regenerating a selection replaces it in place', () => {
     const d = doc()
     expect(replaceObjects(d, ['nope'], [])).toEqual(d)
     expect(replaceObjects(d, [], [])).toBe(d)
+  })
+})
+
+describe('the preview SVG is safe to put in the DOM', () => {
+  // AiSidePane renders the preview with dangerouslySetInnerHTML, and what it
+  // renders is built from a LANGUAGE MODEL's reply. The renderer-source guard
+  // in shareSurfaceUrlColor.test.ts makes every use of that sink state its
+  // reason; this is the evidence behind the entry, because "the serializer
+  // escapes" is a comment until something checks it.
+  it('cannot be made to carry markup through a name, a colour or path data', () => {
+    const { scene } = validateScene({
+      name: '</svg><script>alert(1)</script>',
+      items: [
+        { shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, fill: '#111', name: '"><script>alert(2)</script>' },
+        { shape: { kind: 'path', d: 'M0 0 L10 10 Z' }, fill: '#222', name: '</path><foreignObject>' }
+      ]
+    })
+    const d = doc()
+    const { nodes } = compileScene(scene!, { newId })
+    const withArt = addGeneratedVectorLayer(d, nodes, scene!.name)
+    const svg = drawDocToSvg(withArt, { artboardId: withArt.artboards[0]!.id })
+    expect(svg).not.toContain('<script')
+    expect(svg).not.toContain('</svg><')
+    expect(svg).not.toContain('<foreignObject')
+    // A colour that was never a colour never reaches the markup either: the
+    // validator drops it long before the serializer sees it.
+    const { scene: bad } = validateScene({ items: [{ shape: { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }, fill: '#fff" onload="alert(3)' }] })
+    expect((bad?.items[0] as { fill?: string }).fill).toBeUndefined()
   })
 })

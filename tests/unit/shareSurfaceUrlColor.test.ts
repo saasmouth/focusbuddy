@@ -162,7 +162,11 @@ describe('renderer source guards', () => {
       ['components/documents/DesignAiPanel.tsx', 'sanitizeHtml'],
       ['components/documents/sheet/SheetAiPanel.tsx', 'sanitizeHtml'],
       ['components/documents/editor/DocSidePanel.tsx', 'sanitizeHtml'],
-      ['components/documents/embed/SnippetDocBody.tsx', 'sanitizeHtml over docToHtml of a stored snippet (the editor\'s own schema)']
+      ['components/documents/embed/SnippetDocBody.tsx', 'sanitizeHtml over docToHtml of a stored snippet (the editor\'s own schema)'],
+      [
+        'components/documents/draw/AiSidePane.tsx',
+        'drawDocToSvg of a throwaway preview document: the serializer escapes everything that reaches markup and writes numbers through num()/fixed(), and the scene it renders was validated first (hex colours only, path data re-parsed, names never emitted). Proved by "the preview SVG is safe to put in the DOM" in drawGenerateApply.test.ts.'
+      ]
     ])
     // The attribute itself, not a mention: DrawStudio's comment explaining why
     // the sink was removed does not count.
