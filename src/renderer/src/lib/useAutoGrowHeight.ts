@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 import { useWidgetStore } from '../stores/widgets'
 import type { Widget, WidgetKind } from '@shared/types'
+import { GROW_MAX_HEIGHT } from './useGrowToFit'
 
 // Auto-grow: a free widget's height follows its content. The widget gives a ref
 // to the element whose natural (unconstrained) height is the content height; the
@@ -21,6 +22,11 @@ import type { Widget, WidgetKind } from '@shared/types'
 // behaviour — long-form text (note/page/markdown/living-doc) scrolls, the
 // browser + embedded viewports keep their size, media keeps its fit, and the
 // internal-scroll / pan-canvas / geometry-computed kinds are unchanged.
+//
+// One owner per kind: a kind that grows itself with useGrowToFit (markdown,
+// custom-block) is not listed. The ceiling is the kind's GROW_MAX_HEIGHT where
+// it has one (a sticky stops at 640, a card at 560), else MAX_H.
+// tests/unit/growOwner.test.ts guards both.
 const AUTO_GROW_KINDS: ReadonlySet<WidgetKind> = new Set<WidgetKind>([
   'sticky',
   'card',
@@ -34,6 +40,11 @@ export function autoGrowsHeight(kind: WidgetKind): boolean {
 
 const MIN_H = 120
 const MAX_H = 900
+
+/** The height this hook grows a kind to at most: its GROW_MAX_HEIGHT, else MAX_H. */
+export function autoGrowMax(kind: WidgetKind): number {
+  return GROW_MAX_HEIGHT[kind] ?? MAX_H
+}
 // Only react to changes bigger than this, so sub-pixel reflow + our own writes
 // don't ping-pong.
 const THRESHOLD = 6
@@ -55,7 +66,7 @@ export function useAutoGrowHeight(
     !widget.pinned
   const widgetId = widget.id
   const min = opts?.min ?? MIN_H
-  const max = opts?.max ?? MAX_H
+  const max = opts?.max ?? autoGrowMax(widget.kind)
 
   useEffect(() => {
     if (!enabled) return

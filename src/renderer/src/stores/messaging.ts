@@ -729,3 +729,10 @@ useMessagingStore.subscribe((state, prev) => {
     .setConversationSnapshot(state.conversations.map((c) => ({ id: c.id, label: c.title || c.id })))
     .catch(() => {})
 })
+
+// Expose the messaging store on window so e2e specs can open a conversation in a
+// signed-in session they seeded (beside __fbAccount). A thin handle to the real
+// store, not a mock; it changes nothing about how the app behaves.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbMessaging?: typeof useMessagingStore }).__fbMessaging = useMessagingStore
+}

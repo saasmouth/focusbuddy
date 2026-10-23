@@ -237,19 +237,22 @@ test('MF-5 — DocMenuBar Insert→Meeting item exists and navigates without thr
     w.__fbView?.getState().goDocument(id)
   }, docId)
 
-  // Wait for the doc menu bar to appear.
-  await expect(window.locator('text=Insert').first()).toBeVisible({ timeout: 6000 })
+  // Wait for the doc menu bar to appear. Visible matches only: the office
+  // shell's tab bar keeps an off-screen, invisible copy of every tab (it
+  // measures them to decide what folds), and "Insert" is one of them.
+  const insert = window.locator('text=Insert').filter({ visible: true }).first()
+  await expect(insert).toBeVisible({ timeout: 6000 })
 
   // Open Insert menu.
-  await window.locator('text=Insert').first().click()
+  await insert.click()
 
   // "Meeting" item should be in the dropdown.
-  await expect(window.locator('text=Meeting').first()).toBeVisible({ timeout: 2000 })
+  await expect(window.locator('text=Meeting').filter({ visible: true }).first()).toBeVisible({ timeout: 2000 })
 
   // Click it — should call launchMeeting → goMeetings without throwing.
   let threw = false
   try {
-    await window.locator('text=Meeting').first().click()
+    await window.locator('text=Meeting').filter({ visible: true }).first().click()
     await window.waitForTimeout(800)
   } catch (e) {
     threw = true

@@ -1,16 +1,17 @@
-import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { test, expect, type Page } from '@playwright/test'
+import { launchApp, type LaunchedApp, waitForReady, openProduct, suppressFeatureSpotlights } from './_helpers'
+import { signInWithFakeSignal } from './_fakeSignal'
 
 // PlexiChat feature batch: composer buttons, emoji picker insert, GIF no-key
 // state, header Meet + pin buttons, chat-thread widget from the Chat tile + empty-state
 // render.
 //
-// The harness boots signed-out, so the ChatComposer is only reachable when a
-// signed-in session + conversation exists. We drive composer UI by seeding a
-// mock session token directly via IPC/store state so we get a real render
-// without needing a live server. For checks that are purely structural (button
-// in DOM, widget in palette) we assert via evaluate() rather than pointer
-// gestures so the tests stay deterministic.
+// The harness boots signed-out, so the ChatComposer is only reachable in a
+// signed-in session with an open conversation. Those tests sign in through
+// _fakeSignal: the session is seeded into the renderer's real stores and every
+// request to the signal server is answered locally, so nothing reaches the
+// production server. (They used to look for store globals that do not exist and,
+// not finding them, log a note and pass without checking anything.)
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -20,183 +21,65 @@ test.afterEach(async () => {
   }
 })
 
+async function openChat(window: Page): Promise<void> {
+  await suppressFeatureSpotlights(window)
+  await openProduct(window, 'chat')
+  await expect(window.getByRole('heading', { name: 'Messages', exact: true })).toBeVisible({ timeout: 8_000 })
+}
+
+const COMPOSER_BUTTONS = ['composer-attach', 'composer-voice', 'composer-emoji', 'composer-gif']
+
 // ── 1. App boots ─────────────────────────────────────────────────────────────
 test('PCHAT-1 — app boots and sidebar is visible', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  await expect(
-    window.getByRole('heading', { name: /^plexidesk$/i, level: 2 }).first()
-  ).toBeVisible()
+  await expect(window.locator('[data-testid="sidebar-dock"]')).toBeVisible()
 })
 
 // ── 2. Messages view opens and shows signed-out gate ─────────────────────────
-test('PCHAT-2 — Messages view opens from sidebar (signed-out gate)', async () => {
+test('PCHAT-2 — Messages (PlexiiChat) opens from Office (signed-out gate)', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  await window.getByRole('button', { name: /^Messages$/ }).first().click()
-  await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible({ timeout: 6_000 })
+  await openChat(window)
   await expect(window.getByText(/Sign in to message/i)).toBeVisible()
 })
 
-// ── 3. Composer buttons visible (inject a conversation to surface the composer)
+// ── 3. Composer buttons visible in a signed-in conversation ──────────────────
 test('PCHAT-3 — composer shows attach/voice/emoji/gif buttons when conversation active', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
+  await openChat(window)
 
-  // Navigate to Messages first so the view is mounted
-  await window.getByRole('button', { name: /^Messages$/ }).first().click()
-  await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible({ timeout: 6_000 })
-
-  // Inject a fake signed-in session + an active conversation directly into the
-  // messaging store so the composer renders without needing a live server.
-  const injected = await window.evaluate(async () => {
-    type Win = typeof window & {
-      __messagingStore?: {
-        setState: (s: object) => void
-        getState: () => { activeId: string | null }
-      }
-      __accountStore?: {
-        setState: (s: object) => void
-        getState: () => { account: null | object }
-      }
-    }
-    const w = window as Win
-    // Locate Zustand store handles exposed on window (PlexiDesk dev pattern)
-    if (!w.__messagingStore || !w.__accountStore) return { ok: false, reason: 'stores not exposed' }
-    // Give a fake session so the composer renders
-    w.__accountStore.setState({
-      account: { id: 'acc_test', email: 'test@test.local', handle: 'tester' },
-      sessionToken: 'fake-token-for-ui-test'
-    })
-    w.__messagingStore.setState({
-      activeId: 'conv-test-123',
-      conversations: [
-        { id: 'conv-test-123', kind: 'dm', title: 'other', lastMessageAt: 0, unreadCount: 0, members: [], lastMessage: null }
-      ],
-      messagesByConv: { 'conv-test-123': [] }
-    })
-    return { ok: true }
-  })
-
-  if (!injected.ok) {
-    // Stores not exposed on window — check DOM for buttons by querying directly
-    // This is expected in production builds where stores aren't on window.
-    // We fall back to checking whether the ChatComposer buttons are registered
-    // in the component tree by looking at what the DOM contains after a short
-    // wait for a potential re-render.
-    await window.waitForTimeout(500)
-  } else {
-    await window.waitForTimeout(800)
+  await signInWithFakeSignal(window, { conversation: { id: 'conv-test-123', title: 'other' } })
+  await expect(window.locator('[data-testid="message-composer"]')).toBeVisible({ timeout: 5_000 })
+  for (const tid of COMPOSER_BUTTONS) {
+    await expect(window.locator(`[data-testid="${tid}"]`), `${tid} in the composer`).toBeVisible()
   }
-
-  // Check that the four composer buttons exist in DOM — either mounted directly
-  // (if injection worked) or via the component being in the tree somewhere.
-  const attachInDom = await window.evaluate(
-    () => !!document.querySelector('[data-testid="composer-attach"]')
-  )
-  const voiceInDom = await window.evaluate(
-    () => !!document.querySelector('[data-testid="composer-voice"]')
-  )
-  const emojiInDom = await window.evaluate(
-    () => !!document.querySelector('[data-testid="composer-emoji"]')
-  )
-  const gifInDom = await window.evaluate(
-    () => !!document.querySelector('[data-testid="composer-gif"]')
-  )
-
-  // These buttons live inside ChatComposer which only renders when
-  // activeId + sessionToken are both set. If injection worked they'll be
-  // present. If not, confirm the view is at least at the sign-in gate
-  // (not crashed) and report partial.
-  if (!injected.ok) {
-    // Without store injection we cannot render the composer signed-out; confirm
-    // the view is healthy (not crashed), then skip the compositor assertion
-    // with an explicit note.
-    await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible()
-    // Mark test as requiring store injection — not a product failure
-    console.log(
-      'PCHAT-3 NOTE: __messagingStore/__accountStore not on window; ' +
-        'composer buttons deferred to PCHAT-3b (IPC path below)'
-    )
-    return
-  }
-
-  expect(attachInDom, 'composer-attach in DOM').toBe(true)
-  expect(voiceInDom, 'composer-voice in DOM').toBe(true)
-  expect(emojiInDom, 'composer-emoji in DOM').toBe(true)
-  expect(gifInDom, 'composer-gif in DOM').toBe(true)
 })
 
-// ── 3b. Composer buttons — IPC-seeded conversation (no fake token needed) ────
+// ── 3b. Composer buttons on a workspace with a desk, after the list refreshes ─
 test('PCHAT-3b — composer buttons present after IPC-created task + messaging store seed', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
 
-  // Create a task so a desk exists (required for MessagesView to show header)
+  // Create a task so a desk exists (MessagesView reads desks for its header).
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     await api.nodes.create({ parentId: null, kind: 'task', title: 'ChatTest' })
   })
+  await openChat(window)
 
-  // Navigate to Messages
-  await window.getByRole('button', { name: /^Messages$/ }).first().click()
-  await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible({ timeout: 6_000 })
-
-  // Seed the messaging store to inject an active conversation + session so the
-  // ChatComposer mounts. We reach into the React fiber to find the store.
-  const composed = await window.evaluate(async () => {
-    // The messaging store is exported from the module; the IPC bridge exposes
-    // an api handle. Try to reach the store via the window.__stores debug bridge
-    // that the renderer attaches in dev+test mode.
-    type Win = typeof window & {
-      __stores?: {
-        messaging?: { setState: (s: object) => void }
-        account?: { setState: (s: object) => void }
-      }
-    }
-    const w = window as Win
-    if (!w.__stores?.messaging || !w.__stores?.account) {
-      return { exposed: false }
-    }
-    w.__stores.account.setState({
-      account: { id: 'acc_e2e', email: 'e2e@local', handle: 'e2e' },
-      sessionToken: 'tok-e2e-test'
-    })
-    w.__stores.messaging.setState({
-      activeId: 'conv-e2e',
-      conversations: [
-        {
-          id: 'conv-e2e', kind: 'dm', title: 'friend', lastMessageAt: 0,
-          unreadCount: 0, members: [], lastMessage: null
-        }
-      ],
-      messagesByConv: { 'conv-e2e': [] }
-    })
-    return { exposed: true }
-  })
-
-  await window.waitForTimeout(600)
-
-  if (!composed.exposed) {
-    // No debug store bridge available; verify composer source files have the
-    // testids by checking the catalog-level (already verified in source read)
-    // and that the Messages view is non-crashed.
-    await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible()
-    console.log('PCHAT-3b: __stores bridge not exposed; asserting via source-read verification')
-    return
-  }
-
-  // With injection: all four buttons must be in DOM
-  for (const tid of ['composer-attach', 'composer-voice', 'composer-emoji', 'composer-gif']) {
-    const present = await window.evaluate(
-      (t) => !!document.querySelector(`[data-testid="${t}"]`),
-      tid
-    )
-    expect(present, `${tid} in DOM after store injection`).toBe(true)
+  const fake = await signInWithFakeSignal(window, { conversation: { id: 'conv-e2e', title: 'friend' } })
+  await expect(window.locator('[data-testid="message-composer"]')).toBeVisible({ timeout: 5_000 })
+  // The signed-in view refreshes its conversation list from the (fake) server;
+  // the composer must survive that round trip, not only the seeded state.
+  await expect.poll(() => fake.requests.includes('GET /conversations'), { timeout: 5_000 }).toBe(true)
+  for (const tid of COMPOSER_BUTTONS) {
+    await expect(window.locator(`[data-testid="${tid}"]`), `${tid} after the list refreshed`).toBeVisible()
   }
 })
 
@@ -226,12 +109,12 @@ test('PCHAT-4 — the Chat tile offers a chat thread for the desk, and Widgets d
   await window.getByRole('button', { name: /PaletteTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
+  // The Chat tile is on every desk's app list; it must offer "Add … to this desk".
   const chatTile = window.locator('[data-testid="office-comms-app-chat"]').first()
-  if (await chatTile.isVisible().catch(() => false)) {
-    await chatTile.click({ button: 'right' })
-    await expect(window.locator('[data-canvas-ctx-menu]').getByText(/to this desk$/).first()).toBeVisible()
-    await window.keyboard.press('Escape')
-  }
+  await expect(chatTile).toBeVisible()
+  await chatTile.click({ button: 'right' })
+  await expect(window.locator('[data-canvas-ctx-menu]').getByText(/to this desk$/).first()).toBeVisible()
+  await window.keyboard.press('Escape')
   await expect(window.locator('[data-testid="sidemenu-widget-chat-thread"]')).toHaveCount(0)
   void seeded
 })
@@ -270,9 +153,15 @@ test('PCHAT-5 — chat-thread widget renders picker empty-state on canvas', asyn
   await window.getByRole('button', { name: /ChatWidgetTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
-  // Widget frame must exist in the DOM (WidgetFrame wraps it with data-widget-id)
+  // The widget sits in a WidgetFrame (data-widget-id) like every other widget.
+  // It used to render bare, unpositioned and immovable (renderWidget now frames
+  // the body-only kinds; tests/unit/renderWidgetFramed.test.tsx).
   const widgetId = seeded.widgetId
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 6_000 })
+  // Signed out, the widget is honest about needing an account...
+  await expect(window.locator(`[data-widget-id="${widgetId}"]`)).toContainText('Sign in to use chat on this desk.')
+  // ...and signed in with no conversations, it offers the picker's empty state.
+  await signInWithFakeSignal(window, {})
 
   // Widget mounts — "Pin a conversation" heading should be visible in empty state
   await expect(window.getByText('Pin a conversation')).toBeVisible({ timeout: 6_000 })
@@ -293,47 +182,10 @@ test('PCHAT-6 — Meet and pin buttons in messages header (signed-in store injec
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
+  await openChat(window)
 
-  await window.getByRole('button', { name: /^Messages$/ }).first().click()
-  await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible({ timeout: 6_000 })
-
-  // Inject a signed-in session and an active conversation so the header renders
-  const injected = await window.evaluate(async () => {
-    type Win = typeof window & {
-      __stores?: {
-        messaging?: { setState: (s: object) => void }
-        account?: { setState: (s: object) => void }
-      }
-    }
-    const w = window as Win
-    if (!w.__stores?.messaging || !w.__stores?.account) return false
-    w.__stores.account.setState({
-      account: { id: 'acc_h', email: 'h@local', handle: 'h' },
-      sessionToken: 'tok-header-test'
-    })
-    w.__stores.messaging.setState({
-      activeId: 'conv-hdr',
-      conversations: [
-        {
-          id: 'conv-hdr', kind: 'dm', title: 'buddy', lastMessageAt: 1,
-          unreadCount: 0, members: [], lastMessage: null
-        }
-      ],
-      messagesByConv: { 'conv-hdr': [] }
-    })
-    return true
-  })
-  await window.waitForTimeout(600)
-
-  if (!injected) {
-    // Without store bridge, assert buttons exist in component source instead
-    // (already verified via source grep: data-testid="messages-meet" l.550,
-    // data-testid="messages-pin" l.558 of MessagesView.tsx)
-    console.log('PCHAT-6: store bridge not available; Meet/pin confirmed via source read')
-    return
-  }
-
-  await expect(window.locator('[data-testid="messages-meet"]')).toBeVisible({ timeout: 3_000 })
+  await signInWithFakeSignal(window, { conversation: { id: 'conv-hdr', title: 'buddy' } })
+  await expect(window.locator('[data-testid="messages-meet"]')).toBeVisible({ timeout: 5_000 })
   await expect(window.locator('[data-testid="messages-pin"]')).toBeVisible({ timeout: 3_000 })
 })
 
