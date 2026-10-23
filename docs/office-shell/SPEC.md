@@ -562,7 +562,6 @@ Menus as they render (`·` = separator). Generated from `tests/e2e/_menuInventor
 | Cells | Edit › `Duplicate` | a range has nothing "beside itself" to duplicate into; it is copied and pasted to a chosen cell |
 | Cells | Insert › `Work widget from a desk…` | a cell holds a value; Cells has no surface a live widget can sit on |
 | Cells | Arrange | cells do not layer |
-| Design | Edit › `Find…`, `Find and replace…` | Design text lives in threaded rich-text stories; searching them needs the story editor (owner f0) |
 | Draw | the shared File/Edit/Help layout, and the kit for right-click | Illustrator's layout and keys (⌘F/⌘B Paste in Front/Back, ⌥⇧⌘K shortcuts) for its users' muscle memory; the menu bar and right-click menu are built from Draw's command registry (owner d1). E-16 |
 
 **Delivered (4.3.41-local.2, branch `menu-contract-41`):**

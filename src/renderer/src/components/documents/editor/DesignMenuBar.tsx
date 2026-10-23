@@ -63,6 +63,10 @@ export interface DesignMenuActions {
   duplicateSelection: () => void
   /** Select everything a person could click on the page being edited. */
   selectAll: () => void
+  /** Open Find… (⌘F) over every piece of text in the design. */
+  find: () => void
+  /** Open the same panel with its Replace row showing (⇧⌘H). */
+  findAndReplace: () => void
   /** Save the selected elements as a reusable snippet. */
   saveSelectionAsSnippet: () => void
   /** Open the saved-snippets library to insert one onto the page being edited. */
@@ -150,6 +154,8 @@ export default function DesignMenuBar({
         { kind: 'item', ...menuAction('delete'), icon: 'delete', run: a.deleteSelected, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
         { kind: 'sep' },
         { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: a.selectAll },
+        { kind: 'item', ...menuAction('find'), icon: 'search', run: a.find },
+        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: a.findAndReplace },
         { kind: 'sep' },
         {
           kind: 'item',

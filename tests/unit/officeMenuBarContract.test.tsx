@@ -115,10 +115,6 @@ const EXCEPTIONS: Partial<Record<string, Partial<Record<MenuActionId, string>>>>
     duplicate: 'a range has no "beside itself" to duplicate into; it is copied and pasted to a chosen cell',
     workWidgetFromDesk: 'a cell holds a value; Cells has no surface a live widget can sit on'
   },
-  Design: {
-    find: 'Design text lives in threaded rich-text stories; searching them needs the story editor (owner f0, SPEC §9.6)',
-    findAndReplace: 'Design text lives in threaded rich-text stories; searching them needs the story editor (owner f0, SPEC §9.6)'
-  }
 }
 const exempt = (app: string, id: MenuActionId): boolean => !!EXCEPTIONS[app]?.[id]
 

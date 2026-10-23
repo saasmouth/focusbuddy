@@ -77,8 +77,7 @@ const APPS: App[] = [
     docType: 'design',
     bar: 'design-menubar',
     item: 'design-menubar',
-    noEdit: ['Find…', 'Find and replace…'],
-    find: '',
+    find: 'design-find',
     object: {
       sel: '.react-draggable:has([data-testid="slide-element"])',
       prep: async (w) => {
