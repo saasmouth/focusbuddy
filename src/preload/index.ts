@@ -236,6 +236,16 @@ const api = {
     cancel: (id: string): Promise<boolean> => ipcRenderer.invoke('decisions:cancel', id)
   },
   widgets: {
+    /**
+     * Fires with the desks whose widgets were changed behind the renderer's
+     * back (the MCP server writing straight to the database). The open desk
+     * reloads on it; see main/widgetEvents.ts.
+     */
+    onExternalChange: (cb: (taskIds: string[]) => void): (() => void) => {
+      const listener = (_e: unknown, p: { taskIds: string[] }): void => cb(p?.taskIds ?? [])
+      ipcRenderer.on('widgets:externalChange', listener)
+      return () => ipcRenderer.removeListener('widgets:externalChange', listener)
+    },
     // Fetch one widget by id. Needed to answer "which desk is this on?" when all
     // you have is the widget — a cited source names the widget, not its canvas.
     get: (id: string): Promise<Widget | null> => ipcRenderer.invoke('widgets:get', id),

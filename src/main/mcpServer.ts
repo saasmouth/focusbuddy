@@ -97,6 +97,7 @@ import {
   type RpcReply
 } from './mcpProtocol'
 import { RECALL_TOOLS, liveMcpDeps, type McpDeps as RecallDeps } from './mcpRecall'
+import { notifyWidgetsChanged } from './widgetEvents'
 
 const CREATABLE_DOC_TYPES = ['doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const
 type CreatableDocType = (typeof CREATABLE_DOC_TYPES)[number]
@@ -2883,11 +2884,27 @@ async function buildLiveWorkspaceDeps(serverVersion: string): Promise<WorkspaceD
     // x/y/width/height the moment the tool learned to place things, and the
     // unit tests could not see it because they assert what the TOOL builds,
     // not what this adapter forwards.
-    createWidget: (draft) => widgets.createWidget({ ...draft, kind: draft.kind as Widget['kind'] }),
+    // Every widget write below also tells the renderer (notifyWidgetsChanged):
+    // these go straight to the database, so an open desk would not otherwise see
+    // a widget an agent just put on it until the desk was reopened.
+    createWidget: (draft) => {
+      const w = widgets.createWidget({ ...draft, kind: draft.kind as Widget['kind'] })
+      notifyWidgetsChanged([w.taskId])
+      return w
+    },
     createWidgetFile: (draft) => widgetFiles.createWidgetFile(draft),
     getWidgetFile: (id) => widgetFiles.getWidgetFile(id),
-    updateWidgetFile: (id, patch) => widgetFiles.updateWidgetFile(id, patch),
-    placeWidgetFile: (id, at) => widgetFiles.placeWidgetFile(id, at),
+    updateWidgetFile: (id, patch) => {
+      const out = widgetFiles.updateWidgetFile(id, patch)
+      // A file's edit fans out to every desk copy of it.
+      notifyWidgetsChanged(widgetFiles.listWidgetFileInstances(id).map((w) => w.taskId))
+      return out
+    },
+    placeWidgetFile: (id, at) => {
+      const w = widgetFiles.placeWidgetFile(id, at)
+      if (w) notifyWidgetsChanged([w.taskId])
+      return w
+    },
     listFileEntries: files.listEntries,
     getFileEntry: files.getEntry,
     fileText: fileText.extractFileText,
@@ -2905,7 +2922,11 @@ async function buildLiveWorkspaceDeps(serverVersion: string): Promise<WorkspaceD
     updateKnowledge: knowledge.updateKnowledge,
     updateRow: tables.updateRow,
     getRow: (tableId, rowId) => tables.listRows(tableId).find((r) => r.id === rowId) ?? null,
-    updateWidget: widgets.updateWidget,
+    updateWidget: (id, patch) => {
+      const w = widgets.updateWidget(id, patch)
+      if (w) notifyWidgetsChanged([w.taskId])
+      return w
+    },
     getWidget: widgets.getWidget,
     updateNode: nodes.updateNode,
     updateTimeBlock: timeBlocks.updateTimeBlock,

@@ -527,6 +527,17 @@ export default function Canvas(): JSX.Element {
     else clearWidgets()
   }, [activeTaskId, loadForTask, clearWidgets])
 
+  // Widgets changed behind this window's back (an agent over MCP writing
+  // straight to the database): if this desk is one of them, reload it in place,
+  // the same no-blink refresh sync uses. Without this, a widget an agent put on
+  // the open desk stayed invisible until the desk was reopened.
+  useEffect(() => {
+    if (!activeTaskId) return
+    return window.api.widgets.onExternalChange((taskIds) => {
+      if (taskIds.includes(activeTaskId)) void loadForTask(activeTaskId, { refresh: true })
+    })
+  }, [activeTaskId, loadForTask])
+
   // Per-widget Context Health frames (plexi-4.0, UX-022 at the Object level). Once
   // a desk's widgets have loaded, baseline each one's "changed since your last
   // visit" health so the frames reflect what moved while the user was away. Runs
