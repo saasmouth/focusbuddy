@@ -179,9 +179,9 @@ describe('resolveMenu — §9.3 group order', () => {
     expect(items.slice(firstDanger).every((i) => i.danger)).toBe(true)
   })
 
-  it('AI assist reaches three levels at the top; More actions › Create & link stays within three', () => {
+  it('AI Assist reaches three levels at the top; More actions › Create & link stays within three', () => {
     const items = resolveMenu(widgetCtx(widget('note', 'some text')))
-    const ai = topLevel(items).find((i) => i.label === 'AI assist')
+    const ai = topLevel(items).find((i) => i.label === 'AI Assist')
     expect(maxDepth([ai as CtxMenuItem])).toBe(3)
     const more = topLevel(items).find((i) => i.label === 'More actions')
     expect(maxDepth([more as CtxMenuItem])).toBe(3)
@@ -202,14 +202,14 @@ describe('resolveMenu — Create & link carries the Copy into rows', () => {
   })
 })
 
-describe('resolveMenu — AI assist (E-12)', () => {
+describe('resolveMenu — AI Assist (E-12)', () => {
   beforeEach(() => clearWidgetContextActions())
 
   it('offers the one set of eight from @shared/aiTextActions, in sentence case', () => {
     expect(AI_ACTION_SET).toEqual([...AI_DIRECT_ACTIONS, ...AI_READ_ACTIONS])
     expect(AI_ACTION_SET).toHaveLength(8)
     const items = resolveMenu(widgetCtx(widget('note', 'some text')))
-    const ai = topLevel(items).find((i) => i.label === 'AI assist')
+    const ai = topLevel(items).find((i) => i.label === 'AI Assist')
     const rows = (ai?.children ?? []).filter((c) => !c.separator && !c.children).map((c) => c.label)
     expect(rows.slice(0, 8)).toEqual([
       'Expand', 'Simplify', 'Summarise', 'Rewrite', 'Fix grammar', 'Improve clarity', 'Continue writing', 'Explain'
@@ -217,15 +217,15 @@ describe('resolveMenu — AI assist (E-12)', () => {
     expect(allLabels([ai as CtxMenuItem]).some((l) => l.includes('...'))).toBe(false)
   })
 
-  it('omits AI assist when there is no workable text', () => {
+  it('omits AI Assist when there is no workable text', () => {
     const items = resolveMenu(widgetCtx(widget('timer', '')))
-    expect(allLabels(items)).not.toContain('AI assist')
+    expect(allLabels(items)).not.toContain('AI Assist')
   })
 
-  it('lets a widget suppress AI assist via the provider', () => {
+  it('lets a widget suppress AI Assist via the provider', () => {
     registerWidgetContextActions('living-doc', () => ({ context: [], suppress: { 'ai-assist': true } }))
     const items = resolveMenu(widgetCtx(widget('living-doc', 'living body text')))
-    expect(allLabels(items)).not.toContain('AI assist')
+    expect(allLabels(items)).not.toContain('AI Assist')
   })
 })
 
@@ -264,13 +264,28 @@ describe('resolveMenu — frame actions', () => {
   })
 })
 
+describe('resolveMenu — a body\'s own More actions merges into the resolver\'s', () => {
+  beforeEach(() => clearWidgetContextActions())
+  it('shows one More actions holding both the body\'s rows and the folded ones', () => {
+    const ctx = frameCtx(widget('custom', ''), { onSaveAsSnippet: () => {}, onRename: () => {} })
+    ctx.headerExtras = [
+      { label: 'Change what it does…', onClick: () => {} },
+      { label: 'More actions', children: [{ label: 'View source', onClick: () => {} }, { label: 'Start over', onClick: () => {} }] }
+    ]
+    const items = resolveMenu(ctx)
+    expect(labels(items).filter((l) => l === 'More actions')).toHaveLength(1)
+    const more = topLevel(items).find((i) => i.label === 'More actions')!
+    expect(allLabels(more.children ?? [])).toEqual(expect.arrayContaining(['View source', 'Start over', 'Make this a desk…']))
+  })
+})
+
 describe('resolveMenu — removal rows (E-2)', () => {
   beforeEach(() => clearWidgetContextActions())
   const danger = (items: CtxMenuItem[]): string[] => items.filter((i) => i.danger).map((i) => i.label ?? '')
 
-  it('a work widget file: Archive · Remove from this desk · Move to Trash, no Remove ▸ chooser', () => {
+  it('a work widget file: Remove from this desk · Archive · Move to Trash, no Remove ▸ chooser', () => {
     const items = resolveMenu(frameCtx({ ...widget('sticky', 'x'), syncGroupId: 'wf:file-1' }))
-    expect(danger(items)).toEqual(['Archive', 'Remove from this desk', 'Move to Trash'])
+    expect(danger(items)).toEqual(['Remove from this desk', 'Archive', 'Move to Trash'])
     expect(allLabels(items)).not.toContain('Remove')
   })
 
@@ -312,7 +327,7 @@ describe('resolveMenu — multi-selection', () => {
     expect(flat).toContain('Copy all text')
     expect(flat).toContain('Bring all to front')
     expect(flat).toContain('Automate 2 with an agent')
-    expect(flat).not.toContain('AI assist')
+    expect(flat).not.toContain('AI Assist')
     expect(flat).not.toContain('Create & link')
     const last = topLevel(items).at(-1)
     expect(last?.label).toBe('Remove or delete 2 work widgets…')

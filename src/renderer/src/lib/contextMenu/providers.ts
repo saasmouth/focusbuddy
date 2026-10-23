@@ -132,7 +132,7 @@ registerWidgetContextActions('table', 'cell', (ctx) => {
         // (danger routes it there; F-11 found it buried in the Context band).
         id: 'table/delete-row',
         group: 'destructive',
-        priority: 2,
+        priority: -10, // the clicked row first, before the rows that remove the whole widget
         label: 'Delete row',
         icon: 'delete',
         danger: true,
@@ -156,6 +156,7 @@ for (const kind of LINK_KINDS) {
       context: [
         {
           id: `${kind}/open-external`,
+          opens: true,
           group: 'object',
           priority: 0,
           label: isHttp ? 'Open in browser' : MENU.open.label,

@@ -236,8 +236,8 @@ test('CTX-REG-3 — unified menu on a note body has canonical sections', async (
 
   console.log('[CTX-REG-3] note menu text snippet:', menuText.slice(0, 200))
 
-  // Must contain AI assist
-  expect(menuText, 'Expected AI assist in menu').toMatch(/AI Assist/i)
+  // Must contain AI Assist
+  expect(menuText, 'Expected AI Assist in menu').toMatch(/AI Assist/i)
   // §9.3: Create & link, Bring to front and Share… live under More actions on
   // a crowded text widget (the eight-row ceiling, E-6).
   expect(menuText, 'Expected More actions in menu').toMatch(/More actions/)

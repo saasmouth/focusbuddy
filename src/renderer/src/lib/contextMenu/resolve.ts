@@ -35,6 +35,14 @@ import {
 } from './universal'
 import { MENU } from '@shared/menus/lexicon'
 
+/**
+ * E-1 (owner ruling): the head of the object group, in this order: Open rows
+ * (contributions marked `opens`), then Add to Focus…. A ruling that reorders
+ * them is a change to these two numbers. (The jump list's Rename, E-11, sits
+ * above both; see universal.ts buildObject.)
+ */
+export const OBJECT_LEAD = { open: -1100, attention: -1000 } as const
+
 /** E-6: top-level rows above the destructive group, More actions included. */
 export const MENU_ROW_CEILING = 8
 
@@ -148,10 +156,17 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   let order = 0
   const add = (c: MenuContribution | null | undefined, fold?: number): void => {
     if (!c || !passes(c, ctx)) return
-    rows.push({ group: groupOf(c), priority: c.priority, fold: c.fold ?? fold ?? FOLD[c.id] ?? KIND_ROW_FOLD, order: order++, c })
+    const lead = c.opens ? OBJECT_LEAD.open : c.id === 'core/attention' ? OBJECT_LEAD.attention : null
+    rows.push({
+      group: groupOf(c),
+      priority: lead ?? c.priority,
+      fold: c.opens ? NEVER : (c.fold ?? fold ?? FOLD[c.id] ?? KIND_ROW_FOLD),
+      order: order++,
+      c
+    })
   }
 
-  // 1. Add to Focus… first on every object (E-1, CR-09 D-A).
+  // 1. Add to Focus… (second on an object with an Open row, first otherwise: OBJECT_LEAD).
   if (!s.attention) add(buildAttention(ctx))
 
   // Kind rows: the host's raw extras first (the old headerMenuExtras), then
@@ -161,6 +176,15 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   const kindFold = (): number => (kindRows++ === 0 ? FIRST_KIND_ROW_FOLD : KIND_ROW_FOLD)
   for (const item of ctx.headerExtras ?? []) {
     if (item.separator || !item.label) continue
+    // A body's own "More actions ▸" (the custom widget's) merges into the one
+    // the resolver builds: one More actions per menu, never two.
+    if (item.label === MENU.moreActions.label && item.children?.length) {
+      for (const child of item.children) {
+        if (child.separator || !child.label) continue
+        rows.push({ group: child.danger ? 'destructive' : 'more', priority: 50 + order, fold: KIND_ROW_FOLD, order: order++, item: child })
+      }
+      continue
+    }
     const group: MenuGroup = item.danger ? 'destructive' : 'object'
     rows.push({ group, priority: -100 + order, fold: group === 'object' ? kindFold() : KIND_ROW_FOLD, order: order++, item })
   }

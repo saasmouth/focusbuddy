@@ -97,7 +97,7 @@ test('Plexi3.0 reconciliation: single AI panel, pill+resume, Ryan chrome intact,
   console.log('widgets rendered on surface:', widgetsOnSurface)
   expect(widgetsOnSurface).toBeGreaterThanOrEqual(3)
 
-  // ── CHECK 1 — exactly one AI assistant panel, no duplicate rail ───────────
+  // ── CHECK 1 — exactly one AI Assistant panel, no duplicate rail ───────────
   const nextBestActionsCount = await window.getByText(/NEXT BEST ACTIONS/i).count()
   const asideCount = await window.locator('aside').count()
   const assistantHeadingCount = await window

@@ -68,8 +68,9 @@ const CONVERT_TARGETS: Array<{ kind: WidgetKind; label: string; icon: string }> 
 const seedText = (ctx: MenuContext): string => workingText(ctx).text
 const hint = (keys: Parameters<typeof shortcutLabel>[0]): string => shortcutLabel(keys, menuPlatform())
 
-// ── Attention (CR-09 D-A, E-1) ──────────────────────────────────────────────
-// The FIRST row on every object menu, by operator ruling. Deterministic: a
+// ── Attention (E-1, owner ruling) ───────────────────────────────────────────
+// Right after the object's Open row (first when there is none); the order is
+// resolve.ts OBJECT_LEAD. Deterministic: a
 // preset names it and picks its class, the standard confirm card (DEC-028)
 // takes it from there, and the filed item POINTS at the object.
 export function buildAttention(ctx: MenuContext): MenuContribution | null {
@@ -163,6 +164,7 @@ export function buildObject(ctx: MenuContext, s: Suppress): MenuContribution[] {
     out.push({
       id: 'core/open-file',
       group: 'object',
+      opens: true,
       priority: 30,
       label: 'Open file',
       icon: 'open_in_full',
@@ -461,7 +463,7 @@ export function buildMore(ctx: MenuContext, s: Suppress): MenuContribution[] {
   return out
 }
 
-// ── Group 6, destructive (E-2) ──────────────────────────────────────────────
+// ── Group 6, destructive (E-2, owner ruling: Remove from this desk · Archive · Move to Trash, by priority 0·1·2) ──────────────────────────────────────────────
 export function buildDestructive(ctx: MenuContext, s: Suppress): MenuContribution[] {
   if (s.destructive || ctx.object.type === 'empty-canvas') return []
   const mode = ctx.frame?.removal ?? 'full'
@@ -486,7 +488,7 @@ export function buildDestructive(ctx: MenuContext, s: Suppress): MenuContributio
     out.push({
       id: 'core/archive',
       group: 'destructive',
-      priority: 0,
+      priority: 1,
       label: MENU.archive.label,
       icon: 'archive',
       danger: true,
@@ -500,7 +502,7 @@ export function buildDestructive(ctx: MenuContext, s: Suppress): MenuContributio
       out.push({
         id: 'core/remove-from-desk',
         group: 'destructive',
-        priority: 1,
+        priority: 0,
         label: removeFromLabel('desk'),
         icon: 'remove_circle_outline',
         danger: true,

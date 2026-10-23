@@ -80,6 +80,18 @@ async function bareCanvasPoint(window: Page): Promise<{ x: number; y: number }> 
   })
 }
 
+/**
+ * E-1 (owner ruling): an object's Open row leads and Add to Focus… follows. A
+ * work widget file's instance has "Open file"; a desk-only one has no Open row
+ * and Add to Focus… leads. (The launch backfill may file a widget made through
+ * the API, so the spec accepts either, and checks the order when Open is there.)
+ */
+function expectObjectLead(firstGroup: string[] | undefined): void {
+  expect(firstGroup).toBeDefined()
+  if (firstGroup![0] === 'Open file') expect(firstGroup![1]).toBe('Add to Focus…')
+  else expect(firstGroup![0]).toBe('Add to Focus…')
+}
+
 const menu = (window: Page) => window.locator('[data-canvas-ctx-menu]').first()
 
 /** Every destructive row is drawn in the danger colour, and nothing else is. */
@@ -123,9 +135,10 @@ for (const theme of ['light', 'dark'] as const) {
     await window.locator(`[data-widget-id="${s.sticky}"] [data-widget-header]`).click({ button: 'right', position: { x: 60, y: 10 } })
     await expect(menu(window)).toBeVisible()
     const sticky = await renderedMenuGroups(window)
-    expect(sticky.groups[0]?.[0]).toBe('Add to Focus…')
-    expect(sticky.groups.at(-1)).toEqual(['Archive', 'Remove from this desk', 'Move to Trash'])
-    expect(sticky.danger).toEqual(['Archive', 'Remove from this desk', 'Move to Trash'])
+    // Promoted to a file above, so its Open row leads (E-1).
+    expect(sticky.groups[0]?.slice(0, 2)).toEqual(['Open file', 'Add to Focus…'])
+    expect(sticky.groups.at(-1)).toEqual(['Remove from this desk', 'Archive', 'Move to Trash'])
+    expect(sticky.danger).toEqual(['Remove from this desk', 'Archive', 'Move to Trash'])
     expect(sticky.groups.flat()).toContain('More actions')
     expect(sticky.groups.flat()).toContain('Paste')
     // The ceiling (E-6): at most eight rows above the destructive group.
@@ -144,8 +157,8 @@ for (const theme of ['light', 'dark'] as const) {
     await galleryBody.click({ button: 'right', position: { x: 120, y: 120 } })
     await expect(menu(window)).toBeVisible()
     const body = await renderedMenuGroups(window)
-    expect(body.groups[0]?.[0]).toBe('Add to Focus…')
-    expect(body.danger[0]).toBe('Archive')
+    expectObjectLead(body.groups[0])
+    expect(body.danger).toContain('Archive')
     await shot(window, `gallery-body-${theme}`)
     await closeMenu(window)
     await window.locator(`[data-widget-id="${s.gallery}"] [data-widget-header]`).click({ button: 'right', position: { x: 60, y: 10 } })
@@ -190,23 +203,28 @@ test('WP1A-2 — on a zoomed canvas the menu is not scaled or clipped', async ()
   expect(hb, 'the header is on screen').not.toBeNull()
   await window.mouse.click(hb!.x + 40, hb!.y + hb!.height / 2, { button: 'right' })
   await expect(menu(window)).toBeVisible()
+  await window.waitForTimeout(400)
   const geo = await menu(window).evaluate((m) => {
     const r = m.getBoundingClientRect()
     const row = m.querySelector(':scope > div > button') as HTMLElement
-    let el: Element | null = m
-    let scaled = false
+    // Drawn at its layout size: no ancestor scale() reaches it (the menu's own
+    // pop-in animation has finished by now; its ancestors are body and html).
+    const scaled = Math.abs(r.width / (m as HTMLElement).offsetWidth - 1) > 0.01
+    let el: Element | null = m.parentElement
+    let ancestorTransform = false
     while (el) {
       const t = getComputedStyle(el).transform
-      if (t && t !== 'none' && !/^matrix\(1, 0, 0, 1,/.test(t)) scaled = true
+      if (t && t !== 'none') ancestorTransform = true
       el = el.parentElement
     }
-    return { w: r.width, h: r.height, left: r.left, top: r.top, right: r.right, bottom: r.bottom, rowH: row.getBoundingClientRect().height, vw: innerWidth, vh: innerHeight, inBody: m.parentElement === document.body, scaled }
+    return { w: r.width, h: r.height, left: r.left, top: r.top, right: r.right, bottom: r.bottom, rowH: row.getBoundingClientRect().height, vw: innerWidth, vh: innerHeight, inBody: m.parentElement === document.body, scaled, ancestorTransform }
   })
   // Portalled to the body, outside the canvas's scale(), at its natural size.
   expect(geo.inBody).toBe(true)
   expect(geo.scaled).toBe(false)
+  expect(geo.ancestorTransform).toBe(false)
   expect(geo.rowH).toBeLessThan(40)
-  expect(geo.w).toBeGreaterThanOrEqual(210)
+  expect(geo.w).toBeGreaterThanOrEqual(209.5) // the kit's min-w-[210px], at its natural size
   expect(geo.w).toBeLessThan(420)
   expect(geo.left).toBeGreaterThanOrEqual(0)
   expect(geo.top).toBeGreaterThanOrEqual(0)
@@ -231,12 +249,14 @@ test('WP1A-3 — keyboard: arrows move, Escape closes, focus returns to the jump
   await row.click({ button: 'right' })
   await expect(menu(window)).toBeVisible()
   const groups = await renderedMenuGroups(window)
-  expect(groups.groups[0]?.slice(0, 3)).toEqual(['Rename', 'Show on the canvas', 'Add to Focus…'])
+  expect(groups.groups[0]?.slice(0, 2)).toEqual(['Rename', 'Show on the canvas'])
+  expectObjectLead(groups.groups[0]?.slice(2))
   // The menu holds the list open even though it sits outside the minimap.
   await expect(list).toBeVisible()
   await shot(window, 'jump-list-row-light')
-  // The panel has focus; arrows move the highlight.
-  await window.keyboard.press('ArrowDown')
+  // The panel has focus; Home and the arrows move the highlight. (The pointer
+  // may sit on a row of the menu that opened under it, so start from Home.)
+  await window.keyboard.press('Home')
   await window.keyboard.press('ArrowDown')
   const active = await menu(window).evaluate((m) => {
     const rows = Array.from(m.querySelectorAll(':scope > div > button')) as HTMLElement[]

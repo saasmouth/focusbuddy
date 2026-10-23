@@ -4,9 +4,6 @@
 // to Trash, Share…, Add to Focus…, Ask PlexiiAssist, …) are NOT here: they are
 // imported from MENU at the call site.
 
-// TODO(§9 lexicon): move to MENU.aiAssist. Sentence case (§9.4): "AI Assist"
-// read as Title Case beside every other row.
-export const AI_ASSIST_LABEL = 'AI assist'
 // TODO(§9 lexicon): move to MENU.copyAllText. AUDIT §4.2: plain "Copy" is the
 // selection; a scoped label only when the whole object's text is copied.
 export const COPY_ALL_TEXT_LABEL = 'Copy all text'

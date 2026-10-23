@@ -129,11 +129,12 @@ describe('work widget header: every registered kind', () => {
 
   for (const kind of kinds) {
     it(`${kind}: contract, Add to Focus… first, ceiling, E-2 rows`, () => {
-      // Seed text kinds so AI assist and Copy appear: the fullest menu.
+      // Seed text kinds so AI Assist and Copy appear: the fullest menu.
       const w = widget(kind, ['sticky', 'note', 'markdown', 'page', 'card', 'living-doc'].includes(kind) ? 'Some words here' : '')
       for (const snippets of [false, true]) {
         const items = resolveMenu(buildContextForWidget(w, at, { frame: kind === 'section' ? { onShare: noop, onMakeTask: noop, onRename: noop, removal: 'archive-only' } : canvasFrame(w, { snippets }) }))
         expectMenuContract(items)
+        // E-1: Add to Focus… leads unless the object has an Open row (none without content or a file).
         expect(items[0]?.label, `${kind}: first row`).toBe('Add to Focus…')
         expect(ceilingRows(items), `${kind}: rows above the destructive group`).toBeLessThanOrEqual(MENU_ROW_CEILING)
         const danger = items.filter((i) => i.danger).map((i) => i.label)
@@ -143,27 +144,39 @@ describe('work widget header: every registered kind', () => {
       if (kind !== 'section') {
         const filed = widget(kind, '', { syncGroupId: 'wf:file-1' })
         const items = resolveMenu(buildContextForWidget(filed, at, { frame: canvasFrame(filed) }))
-        expect(items.filter((i) => i.danger).map((i) => i.label)).toEqual(['Archive', 'Remove from this desk', 'Move to Trash'])
+        expect(items.filter((i) => i.danger).map((i) => i.label)).toEqual(['Remove from this desk', 'Archive', 'Move to Trash'])
       }
     })
   }
+
+  it('E-1: an Open row leads, Add to Focus… second (link kinds and widget files)', () => {
+    for (const kind of ['file', 'image', 'video', 'pdf', 'gdoc', 'gsheet', 'gslide', 'email', 'webview'] as WidgetKind[]) {
+      const w = widget(kind, 'https://example.com/x')
+      const items = resolveMenu(buildContextForWidget(w, at, { frame: canvasFrame(w) }))
+      expectMenuContract(items)
+      expect(groupsOf(items)[0]?.slice(0, 2), kind).toEqual(['Open in browser', 'Add to Focus…'])
+    }
+    const filed = widget('timer', '', { syncGroupId: 'wf:file-1' })
+    expect(groupsOf(resolveMenu(buildContextForWidget(filed, at, { frame: canvasFrame(filed) })))[0]?.slice(0, 2)).toEqual(['Open file', 'Add to Focus…'])
+  })
 
   it('sticky, exactly: §9.3 groups with Paste and the kind row counted', () => {
     const w = widget('sticky', 'Buy milk', { syncGroupId: 'wf:file-1' })
     const items = resolveMenu(buildContextForWidget(w, at, { frame: canvasFrame(w, { snippets: true }) }))
     expectMenuContract(items, {
       groups: [
-        ['Add to Focus…', 'Build with AI'],
+        // E-1 (owner ruling): Open first, Add to Focus… second.
+        ['Open file', 'Add to Focus…'],
         ['Copy all text', 'Paste', 'Duplicate'],
-        ['Ask PlexiiAssist', 'AI assist'],
+        ['Ask PlexiiAssist', 'AI Assist'],
         ['More actions'],
-        ['Archive', 'Remove from this desk', 'Move to Trash']
+        ['Remove from this desk', 'Archive', 'Move to Trash']
       ]
     })
     const more = items.find((i) => i.label === 'More actions')!
     const inMore = (more.children ?? []).map((c) => c.label)
     // Nothing the old menu offered is lost: it moved into More actions.
-    for (const l of ['Make a checklist', 'Rename', 'Share…', 'Insert snippet…', 'Duplicate, keep synced', 'Bring to front', 'Save selection as snippet…', 'Create & link', 'Make this a desk…', 'Pin to corner', 'Recolor', 'Flag as a decision', 'Open file']) {
+    for (const l of ['Build with AI', 'Make a checklist', 'Rename', 'Share…', 'Insert snippet…', 'Duplicate, keep synced', 'Bring to front', 'Save selection as snippet…', 'Create & link', 'Make this a desk…', 'Pin to corner', 'Recolor', 'Flag as a decision']) {
       expect(inMore, l).toContain(l)
     }
     expect(items.find((i) => i.label === 'Paste')?.shortcut).toBe('⌘V')
@@ -176,6 +189,21 @@ describe('work widget header: every registered kind', () => {
     const copy = items.find((i) => i.label === 'Copy')
     expect(copy?.shortcut).toBe('⌘C')
     expect(items.map((i) => i.label)).toContain('Ask PlexiiAssist about this')
+  })
+})
+
+describe('a table row handle (the cell provider with an empty column)', () => {
+  it('row actions, no empty Copy or AI rows, Delete row in the destructive group', () => {
+    const w = widget('table', 'tbl_1')
+    const items = resolveMenu(
+      buildContextForWidget(w, at, { frame: canvasFrame(w, { snippets: true }), granularity: 'cell', payload: { rowId: 'r1', columnLabel: '', tableId: '' }, selectionText: '' })
+    )
+    expectMenuContract(items)
+    const all = JSON.stringify(items)
+    expect(all).toContain('Duplicate row')
+    expect(items.filter((i) => i.danger).map((i) => i.label)[0]).toBe('Delete row')
+    expect(items.map((i) => i.label)).not.toContain('Copy')
+    expect(all).not.toContain('AI Assist')
   })
 })
 
@@ -213,7 +241,7 @@ describe('the focus dock tile', () => {
     const items = resolveMenu(focusDockTileContext(w, at, { onShowInFullView: noop, onShare: noop, onMakeTask: noop, onSaveAsSnippet: noop }))
     expectMenuContract(items, {
       groups: [
-        ['Add to Focus…', 'Show in full view', 'Share…'],
+        ['Show in full view', 'Add to Focus…', 'Share…'],
         ['Duplicate'],
         ['Bring to front'],
         ['Save selection as snippet…'],
@@ -238,7 +266,7 @@ describe('the columns view card', () => {
       columnCardContext(widget('timer'), at, { onOpen: noop, onReveal: noop, moveTo: [{ title: 'Doing', onMove: noop }] })
     )
     expectMenuContract(items, { allowCase: ['Doing'] })
-    expect(groupsOf(items)[0]?.slice(0, 3)).toEqual(['Add to Focus…', 'Show in full view', 'Show on the canvas'])
+    expect(groupsOf(items)[0]?.slice(0, 3)).toEqual(['Show in full view', 'Add to Focus…', 'Show on the canvas'])
   })
 })
 

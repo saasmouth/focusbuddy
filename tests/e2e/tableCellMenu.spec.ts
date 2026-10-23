@@ -84,7 +84,7 @@ test('right-click a table cell → Create + connect menu seeded with the cell te
   const cell = cellInput.locator('xpath=ancestor::td[1]')
   await cell.click({ button: 'right' })
 
-  // The cell opens the unified menu (SPEC §9.3): Add to Focus… first, the
+  // The cell opens the unified menu (SPEC §9.3): Open / Add to Focus… first, the
   // table's first row action (Add row) in the object group, the cell text in
   // the clipboard and Plexii groups, Delete row in the destructive group (it
   // is marked danger, F-11), and the rest under More actions, which keeps the
@@ -96,8 +96,10 @@ test('right-click a table cell → Create + connect menu seeded with the cell te
   const topLabels = await menu.locator(':scope > div > button[role^="menuitem"] > span.flex-1').evaluateAll((els) =>
     els.map((e) => (e.firstChild?.textContent ?? '').trim())
   )
-  expect(topLabels[0], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add to Focus…')
-  expect(topLabels[1], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add row')
+  // E-1 (owner ruling): an Open row (a filed table's "Open file") leads, then Add to Focus….
+  const lead = topLabels[0] === 'Open file' ? 1 : 0
+  expect(topLabels[lead], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add to Focus…')
+  expect(topLabels[lead + 1], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add row')
   expect(topLabels, `top-level menu: ${JSON.stringify(topLabels)}`).toContain('More actions')
   const dangerRows = await menu.locator(':scope > div > button.text-red-600 > span.flex-1').evaluateAll((els) =>
     els.map((e) => (e.firstChild?.textContent ?? '').trim())

@@ -80,9 +80,9 @@ describe('browser-target provider — actions per right-click target', () => {
     expect(labels).toContain('Add video to this desk')
   })
 
-  it('offers AI assist and Create seeded from a text selection in the page', () => {
+  it('offers AI Assist and Create seeded from a text selection in the page', () => {
     const labels = allLabels(resolveMenu(browserCtx({}, 'some selected page text')))
-    expect(labels).toContain('AI assist')
+    expect(labels).toContain('AI Assist')
     expect(labels).toContain('Create & link')
   })
 

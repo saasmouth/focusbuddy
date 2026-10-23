@@ -10,14 +10,16 @@
 //
 // ── The groups (SPEC §9.3), in this order, one separator between non-empty ones
 //
-//   'object'      Add to Focus… FIRST (E-1), then Open / Rename / kind rows / Share…
+//   'object'      Open FIRST, then Add to Focus… (E-1, owner ruling), then
+//                 Rename / kind rows / Share…
 //   'clipboard'   Copy · Paste · Insert snippet… · Duplicate · Duplicate, keep synced
 //   'arrange'     Bring to front (layered objects)
 //   'plexii'      Save selection as snippet… · Ask PlexiiAssist · AI assist ▸
 //   'more'        More actions ▸: everything past the eight-row ceiling (E-6),
 //                 plus rows that always live there (Create & link ▸, Pin ▸, …)
 //   'destructive' last, behind its own separator, every row `danger`:
-//                 Archive · Remove from this desk · Move to Trash (E-2), or Delete
+//                 Remove from this desk · Archive · Move to Trash (E-2, owner
+//                 ruling), or Archive · Delete for a desk-only kind
 //
 // ── For a widget BODY that wants rows of its own (the provider API) ──────────
 //
@@ -155,7 +157,7 @@ export interface MenuContext {
   contributions?: MenuContribution[]
   /**
    * Put Rename at the very top (E-11, the desk jump list, where right-click
-   * used to BE rename). Everywhere else Add to Focus… leads (E-1).
+   * used to BE rename). Everywhere else Open, then Add to Focus…, lead (E-1).
    */
   renameFirst?: boolean
 }
@@ -177,6 +179,8 @@ export interface MenuContribution {
   /** A toggle or a choice among siblings: the kit draws a check, never text. */
   checked?: boolean
   testid?: string
+  /** An Open row (Open, Open in browser, Open file, Show in full view): leads the object group (E-1, resolve.ts OBJECT_LEAD). */
+  opens?: boolean
   /** Inside a submenu: draw a separator above this row (its own run of rows). */
   separatorBefore?: boolean
   /**
