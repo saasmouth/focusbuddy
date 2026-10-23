@@ -62,25 +62,37 @@ export function liveDocAccess(meta: Pick<LiveDocFull, 'docType' | 'myRole'> | nu
   const viewerOnly = !!meta && !canEditLiveDoc(meta.myRole)
   return {
     viewerOnly,
-    // Comments are document-only, and still not open to a VIEWER — but for a
-    // different reason than the one this used to give.
+    // Comments are document-only, and OPEN TO A VIEWER since signal v125.
     //
-    // The old reason was that a comment's anchor IS a mark in the body, so a
-    // viewer could not write one. That is no longer true: an anchor is stored
-    // with the comment and drawn as a decoration, and leaving one writes
-    // nothing to the document. The client half is done and a viewer could use
-    // it today.
+    // Two restrictions used to live in this one line, and both are gone for
+    // different reasons:
     //
-    // What stops it is the SERVER, observably rather than as a matter of
-    // policy: the deployed livedoc service has no anchor column and drops the
-    // field, so a viewer's comment would be stored with no anchor and no mark —
-    // a thread in the panel pointing at nothing, with no quote to recover it
-    // from, permanently. A viewer cannot fall back to a mark the way an owner
-    // can, so there is nothing honest to give them until the column exists.
+    //   1. A comment's anchor used to BE a mark in the body, so leaving one was
+    //      a document write and a viewer could not make it. An anchor is now
+    //      stored with the comment and drawn as a decoration, so commenting
+    //      writes nothing to the document at all.
+    //   2. The deployed service then had no anchor column and dropped the
+    //      field, so a viewer's comment would have been stored with neither an
+    //      anchor nor a mark — a thread pointing at nothing, unrecoverable. A
+    //      viewer cannot fall back to a mark the way an owner can.
     //
-    // This opens the moment the server can hold an anchor. It is one condition
-    // in one place, and the rest of the chain is already built behind it.
-    canComment: !!meta && meta.docType === 'doc' && !viewerOnly
+    // v125 accepts a viewer's comment and persists its anchor, verified against
+    // a local build of the deployed tag rather than assumed.
+    //
+    // THIS IS A DELIBERATE FLIP, NOT AN OBSERVATION. Nothing here reads a
+    // capability from the server — no such field exists — so this line changed
+    // when the service shipped, by hand. An earlier version of this comment
+    // claimed it would "open the moment the server can hold an anchor", which
+    // was not true of the code underneath it and was relayed as if it were.
+    // What IS observable is the fallback: the host checks whether a created
+    // comment came back with the anchor it sent, so a client talking to an
+    // older service still gets marks and still works.
+    //
+    // ONLY COMMENTING OPENED. `viewerOnly` still gates every editing surface,
+    // and it is returned from this same function — so an edit here is one
+    // character away from opening more than intended. liveDocViewerRole asserts
+    // both halves.
+    canComment: !!meta && meta.docType === 'doc'
   }
 }
 export type LiveDocListItem = LiveDocMeta

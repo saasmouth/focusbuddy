@@ -7,8 +7,17 @@
  * docEditor.spec.ts uses, since synthetic DOM selection / Meta+A are
  * unreliable in Electron), open the Comments panel, add a comment through
  * the shared PromptDialog, assert the thread renders and the amber
- * [data-comment-id] mark exists in the editor DOM, then close and reopen the
- * document and assert the comment persisted (round-tripped through SQLite).
+ * [data-comment-id] highlight exists in the editor DOM, then close and reopen
+ * the document and assert the comment persisted (round-tripped through SQLite).
+ *
+ * THE HIGHLIGHT IS NO LONGER A MARK, and the DOM cannot tell the difference —
+ * which is why this file now also asserts what the DOCUMENT holds. A comment's
+ * anchor used to be a CommentMark applied to the body, so leaving a comment was
+ * a document write; that is why a viewer of a shared document could never
+ * comment, and why resolving one edited the document. The anchor is now stored
+ * with the comment and drawn as a ProseMirror decoration, which renders the
+ * same `fb-comment` class and the same data-comment-id attribute. A DOM
+ * assertion therefore passes either way and proves nothing about the change.
  */
 
 import { test, expect, type Page } from '@playwright/test'
@@ -89,9 +98,47 @@ test('add a comment on selected text, see the thread + highlight, and it persist
   )
   await expect(window.locator('[data-testid="doc-comments-empty"]')).toHaveCount(0)
 
-  // The amber anchor mark exists in the editor DOM.
+  // The amber highlight exists in the editor DOM. Says nothing about HOW —
+  // a mark and a decoration are indistinguishable here — so the next assertion
+  // is the one that matters.
   const markCount = await window.locator('[data-comment-id]').count()
   expect(markCount).toBeGreaterThan(0)
+
+  // AND THE DOCUMENT WAS NOT WRITTEN TO. This is the whole point of the anchor
+  // work: before it, the body carried a `comment` mark and leaving a comment
+  // was an edit. A viewer could not make that edit, so a viewer could not
+  // comment at all; resolving a thread edited the document too.
+  //
+  // Read from SQLite rather than the DOM, because only the stored body can tell
+  // a decoration from a mark.
+  //
+  // PAST THE AUTOSAVE FIRST. The body is persisted on a 600ms debounce, so a
+  // read taken straight after commenting sees the body as it was BEFORE any
+  // mark could have been written — and then "no mark" is true of a stale row
+  // rather than of the feature. Verified: with the mark deliberately restored,
+  // this assertion passed until the wait was added.
+  await window.waitForTimeout(1_500)
+  const stored = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const metas = await api.documents.list()
+    const newest = metas[0]
+    if (!newest) return { body: null as unknown, anchors: 0 }
+    const doc = await api.documents.get(newest.id)
+    const comments = await api.documents.listComments(newest.id)
+    return {
+      body: doc?.body ?? null,
+      anchors: comments.filter((c) => c.anchor != null).length
+    }
+  })
+  // POSITIVE CONTROL. The body we are about to inspect must be the SAVED one:
+  // if it does not even contain the sentence that was typed, the read came too
+  // early and the negative assertion below means nothing.
+  expect(JSON.stringify(stored.body)).toContain('This passage needs review')
+  // A mark would appear as {"type":"comment"} inside the body's mark arrays.
+  expect(JSON.stringify(stored.body)).not.toContain('"type":"comment"')
+  // And the comment really does carry an anchor, or the highlight above came
+  // from a mark after all and the assertion above is the vacuous one.
+  expect(stored.anchors).toBeGreaterThan(0)
 
   // ── Persistence: close and reopen the document, comment survives. ───────
   await window.locator('button[title="Back to Documents"]').click()

@@ -100,8 +100,11 @@ describe('liveDocAccess: what the view decides', () => {
   // body, so a unit mount cannot reach the props it passes down. The decision
   // is extracted for exactly that reason and tested here; the banner, which a
   // mount CAN see, is asserted below.
-  it('a viewer: read-only, and no commenting', () => {
-    expect(liveDocAccess({ docType: 'doc', myRole: 'viewer' })).toEqual({ viewerOnly: true, canComment: false })
+  it('a viewer: read-only, but CAN comment', () => {
+    // Commenting opened with signal v125, which accepts a viewer's comment and
+    // persists its anchor. Read-only did NOT open: both flags come out of the
+    // same function, so this asserts the pair rather than the one that changed.
+    expect(liveDocAccess({ docType: 'doc', myRole: 'viewer' })).toEqual({ viewerOnly: true, canComment: true })
   })
 
   it('an editor of a document: writable, and commenting', () => {
@@ -138,5 +141,49 @@ describe('LiveDocEditorView says what the person may do', () => {
     await mountWith(meta(undefined))
     expect(host.querySelector('[data-testid="livedoc-live"]')).not.toBeNull()
     expect(host.querySelector('[data-testid="livedoc-viewer"]')).toBeNull()
+  })
+})
+
+describe('opening comments did not open editing', () => {
+  // liveDocAccess returns viewerOnly and canComment from ONE function, so the
+  // flip that let viewers comment was a single character away from letting them
+  // edit. These assert the halves separately, because an `.toEqual` on the pair
+  // reads as one fact and this is two.
+
+  it('a viewer is still read-only in every document type', () => {
+    for (const docType of ['doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const) {
+      expect(liveDocAccess({ docType, myRole: 'viewer' }).viewerOnly).toBe(true)
+    }
+  })
+
+  it('an editor and an owner are still not read-only', () => {
+    expect(liveDocAccess({ docType: 'doc', myRole: 'editor' }).viewerOnly).toBe(false)
+    expect(liveDocAccess({ docType: 'doc', myRole: 'owner' }).viewerOnly).toBe(false)
+  })
+
+  it('commenting is still document-only, for a viewer as much as anyone', () => {
+    // The flip removed the ROLE condition, not the docType one. A viewer of a
+    // shared spreadsheet gets no comment button, same as its owner.
+    expect(liveDocAccess({ docType: 'sheet', myRole: 'viewer' }).canComment).toBe(false)
+    expect(liveDocAccess({ docType: 'design', myRole: 'viewer' }).canComment).toBe(false)
+    expect(liveDocAccess({ docType: 'doc', myRole: 'viewer' }).canComment).toBe(true)
+  })
+
+  it('an unknown role is treated as NOT a viewer, which the flip now extends to commenting', () => {
+    // Recording what is true rather than what I first assumed. canEditLiveDoc
+    // is `role !== 'viewer'`, so an absent role counts as editable — a
+    // deliberate "only a viewer is restricted" rule, asserted above for the
+    // design case since before any of this.
+    //
+    // My flip therefore also gives an unknown role canComment, which I checked
+    // rather than waved through: the server is the real gate either way (it
+    // refuses a viewer's document write and allows any member's comment), so a
+    // client that guesses wrong here produces a refused action, not an
+    // unauthorised one. The permissive default is pre-existing and raised with
+    // f0 rather than changed from here — altering canEditLiveDoc would change
+    // EDITING permissions, which is well outside opening comments.
+    const a = liveDocAccess({ docType: 'doc', myRole: undefined })
+    expect(a.viewerOnly).toBe(false)
+    expect(a.canComment).toBe(true)
   })
 })
