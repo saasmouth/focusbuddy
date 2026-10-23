@@ -268,6 +268,10 @@ test('PlexiSuite launcher opens PlexiSearch product home and launch button navig
   // Click the tile to open the product home.
   await tile.click()
   await window.waitForSelector('[data-testid="product-home-plexisearch"]', { timeout: 6_000 })
+  // Its tray tab reads the canonical name, not the humanised key "Plexisearch".
+  const tab = window.locator('[data-testid="tray-item-product:plexisearch"]')
+  await expect(tab).toContainText('PlexiiSearch')
+  await expect(tab).not.toContainText('inventory_2')
 
   // The Open/Launch button must be present.
   const openBtn = window.locator('[data-testid="open-plexisearch"]')

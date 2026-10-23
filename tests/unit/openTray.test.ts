@@ -297,9 +297,9 @@ describe('a tab never shows a raw id', () => {
     expect(tray).toContain("label: a.title || hostnameOf(a.url) || 'App'")
   })
 
-  it('a product resolves to a readable name, not its slug', () => {
+  it('a product resolves to its catalog name, not its slug (trayProductMeta.test.ts checks every tile)', () => {
     expect(tray).not.toContain('label: v.productKey')
-    expect(tray).toContain('humaniseKey(v.productKey)')
+    expect(tray).toContain('trayProductMeta(v.productKey)')
   })
 
   it('no case in the resolver prints a bare id field', () => {

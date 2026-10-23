@@ -21,6 +21,7 @@ import { useDocumentsStore } from '../stores/documents'
 import { useOpenTrayStore } from '../stores/openTray'
 import { activeKey, documentIdOf, orderTray, type TrayEntry } from '../lib/openTray'
 import { lookupApp } from '../lib/segmentApps'
+import { humaniseKey, trayProductMeta } from '../lib/trayProductMeta'
 import { AREA_TONES } from '../lib/areaTones'
 import {
   dragCarriesDocument,
@@ -43,13 +44,6 @@ function hostnameOf(url: string): string {
   } catch {
     return ''
   }
-}
-
-/** "desk-pro-annual" → "Desk pro annual". Better than printing the slug. */
-function humaniseKey(key: string): string {
-  const t = String(key || '').replace(/[-_]+/g, ' ').trim()
-  if (!t) return 'Product'
-  return t.charAt(0).toUpperCase() + t.slice(1)
 }
 
 interface Resolved {
@@ -216,10 +210,12 @@ export default function OpenTray(): JSX.Element | null {
             ? { label: a.title || hostnameOf(a.url) || 'App', icon: 'apps', app: a }
             : { label: 'App', icon: 'apps', missing: connectedApps.length > 0 }
         }
-        case 'product':
-          // Was the raw key, e.g. "desk-pro-annual". No product store to read
-          // a display name from, so humanise it rather than print the slug.
-          return { label: humaniseKey(v.productKey), icon: 'inventory_2', tone: AREA_TONES.office }
+        case 'product': {
+          // The catalog's canonical name and icon, as the launcher tile shows
+          // them (trayProductMeta). Was the humanised key and a generic box.
+          const p = trayProductMeta(v.productKey)
+          return { label: p.label, icon: p.icon, tone: AREA_TONES.office, entity: p.entity }
+        }
         case 'knowledge':
           return { label: 'Knowledge', icon: 'psychology', tone: AREA_TONES.brain }
         case 'office':
