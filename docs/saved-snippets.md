@@ -754,6 +754,48 @@ image round trip, rows into an fb_table, desk widgets created),
 `tests/unit/widgetSnippetTarget.test.tsx` (lifecycle, refusal verbatim, notice)
 and `tests/e2e/snippetsWidgets.spec.ts` (SW-1 Cells, SW-2 Draw, SW-3 paste).
 
+### Files dropped from the Files panel
+
+A file, document or folder dragged out of Files reaches the same forms, so a
+drop lands exactly as a paste or an insert of the same thing would. Three
+additions carry it:
+
+- **`link` form** (`LinkValue { href, title, target: 'file' | 'document' |
+  'folder', mime? }`). It holds no content, only where the thing is. PlexiiWrite
+  takes it as a `docEmbed` node for a document (exactly what `insertDocEmbed`
+  inserts) and otherwise as the title under a link mark; page and markdown work
+  widgets as a link; sticky and note as "title (href)"; a desk plan as a sticky.
+  Every other destination refuses a link-only drop with a sentence chosen from
+  the target and type (`REASON.*` in `shared/snippetConvert/common.ts`, e.g.
+  "PlexiiDeck cannot hold a video file. Drop it on a desk, or into PlexiiWrite as
+  a link." or "A folder cannot go into a table work widget. Drop it on a desk for
+  a Drive work widget."). The drop reader orders the link first for documents
+  and media and last for content files; builders take forms in that order. Only
+  `plexii://`, `http(s)://` and `mailto:` addresses are ever written as links.
+  Page and markdown widgets register the `plexii` scheme on their Link mark
+  (`widgets/widgetLink.ts`), as Write does, or TipTap blanks the address.
+- **`ImageValue.fileId`**: a picture that is already an `fb_files` row. Work
+  widgets refer to it as `fb-file://<id>` and `storeDataPicture`,
+  `storeNodePictures` and `pictureSrc` never ingest a second row; office
+  builders keep `src` (the data: URL). An SVG from Files names its original as
+  `'the original file'` ("It becomes a picture: edit it in the original file."),
+  and a PDF's first page carries `PDF_FIRST_PAGE` ("Only the first page comes
+  in, as a picture."), emitted by the async drop reader, so the core stays pure.
+- **The verb `'drop'`** (`WidgetVerb`): refusals say "Drop on the desk to add it
+  as an image." and "Nothing that was dropped …". Each work widget hook exposes
+  `dropForms(read: FormsRead, at?)`, carried on WidgetFrame's `snippets` prop:
+  `refused` is returned verbatim, `at` moves the caret first (a textarea's
+  nearest character, `textareaCaretAt`; an editor's `posAtCoords`), then the
+  SAME `land` as paste and insert runs. It shows no notice: the drop handler
+  gathers one line per drop from the results.
+
+`probeFileForms` and `fileAcceptsFor` (`shared/snippetConvert/accepts.ts`) and
+`widgetFileAccepts` (`lib/widgetSnippetInsert.ts`) derive what each destination
+takes from representative file forms, beside `acceptsFor`;
+`tests/unit/snippetAcceptsDrift.test.ts` pins that matrix and checks every
+verdict against what really lands, and `tests/unit/filesDropForms.test.tsx`
+covers each addition.
+
 ## Honest failure states
 
 Each of these is a case where the plausible-looking behaviour is the wrong one.

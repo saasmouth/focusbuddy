@@ -15,6 +15,7 @@
 // a picture that will not show.
 
 import type { Picture } from '@shared/snippetWidgets'
+import { isFileId } from '@shared/snippetConvert/common'
 import { snippetSvgToPng } from './snippetRaster'
 
 const EXT: Record<string, string> = {
@@ -58,8 +59,13 @@ function canStore(): boolean {
  * Store a data: URL picture in the file store and return its fb-file:// src.
  * Anything that is not a data: URL is returned unchanged (an http(s) or file
  * link is already a reference). Returns null when it could not be stored.
+ *
+ * `fileId`: the picture already IS a row in the file store (a file dropped
+ * from Files). It is referred to as that row and nothing is ingested, so the
+ * same bytes never become a second fb_files row.
  */
-export async function storeDataPicture(src: string, name: string): Promise<string | null> {
+export async function storeDataPicture(src: string, name: string, fileId?: string): Promise<string | null> {
+  if (isFileId(fileId)) return `fb-file://${fileId}`
   if (!/^data:/i.test(src)) return src
   const parsed = dataUrlBytes(src)
   if (!parsed || !parsed.mime.startsWith('image/')) return null
@@ -96,7 +102,7 @@ export async function pictureSrc(
     'svg' in picture
       ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(picture.svg.svg)}`
       : picture.src
-  const stored = await storeDataPicture(src, nameFrom(alt))
+  const stored = await storeDataPicture(src, nameFrom(alt), 'svg' in picture ? undefined : picture.fileId)
   if (stored) return { src: stored, alt }
   if (!/^data:/i.test(src)) return { src, alt }
   if (!opts.bitmapIfUnstored) return { src, alt }
@@ -112,17 +118,25 @@ type Node = { type?: string; attrs?: Record<string, unknown>; content?: Node[] }
 /**
  * Store every data: picture in a list of TipTap nodes. Returns a new list (the
  * input is not touched) and how many pictures could not be stored, which then
- * stay inline: a page can show them.
+ * stay inline: a page can show them. An image node carrying `attrs.fileId` (a
+ * picture from Files) is pointed at that row and never ingested again; the
+ * attribute is not kept, since the editors' image node has no such field.
  */
 export async function storeNodePictures(nodes: unknown[]): Promise<{ nodes: unknown[]; unstored: number }> {
   let unstored = 0
   const walk = async (n: Node): Promise<Node> => {
     if (!n || typeof n !== 'object') return n
     const out: Node = { ...n }
-    if (n.type === 'image' && typeof n.attrs?.src === 'string' && /^data:/i.test(n.attrs.src)) {
-      const stored = await storeDataPicture(n.attrs.src, nameFrom(typeof n.attrs.alt === 'string' ? n.attrs.alt : ''))
-      if (stored) out.attrs = { ...n.attrs, src: stored }
-      else unstored++
+    if (n.type === 'image' && n.attrs) {
+      const { fileId, ...attrs } = n.attrs
+      if ('fileId' in n.attrs) out.attrs = attrs
+      const src = attrs.src
+      if (isFileId(fileId)) out.attrs = { ...attrs, src: `fb-file://${fileId}` }
+      else if (typeof src === 'string' && /^data:/i.test(src)) {
+        const stored = await storeDataPicture(src, nameFrom(typeof attrs.alt === 'string' ? attrs.alt : ''))
+        if (stored) out.attrs = { ...attrs, src: stored }
+        else unstored++
+      }
     }
     if (Array.isArray(n.content)) out.content = await Promise.all(n.content.map(walk))
     return out

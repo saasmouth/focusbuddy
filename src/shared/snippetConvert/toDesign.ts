@@ -6,7 +6,7 @@ import { docFeatures, firstTableRows } from '../snippetForms/tiptap'
 import { paragraphNode } from '../snippetForms/rows'
 import { pictureLossy, svgDataUrl, usableElements } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { REASON, estimateLines, ok, pick, refusal } from './common'
+import { REASON, estimateLines, linkRefusal, ok, pick, refusal } from './common'
 import { imageElement, tableElement } from './elements'
 
 /** The story id a converted text frame reads. Design's insert mints a fresh one. */
@@ -55,7 +55,7 @@ export function toDesign(ctx: BuildContext): SnippetConversion {
     return ok({ kind: 'design', elements: structuredClone(elements) }, lossy)
   }
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
-  if (!f) return refusal(body, 'design')
+  if (!f) return linkRefusal(forms, 'design') ?? refusal(body, 'design')
   switch (f.kind) {
     case 'rows':
       return ok({ kind: 'design', elements: [tableElement(f.value)] }, f.lossy)

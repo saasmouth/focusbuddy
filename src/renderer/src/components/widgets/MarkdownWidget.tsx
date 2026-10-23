@@ -17,6 +17,7 @@ import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { WidgetImage } from './widgetImage'
 import { useEditorWidgetSnippets } from './useWidgetSnippets'
+import { WIDGET_LINK_OPTIONS } from './widgetLink'
 
 interface Props {
   widget: Widget
@@ -160,7 +161,8 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
         Link.configure({
           openOnClick: false,
           autolink: true,
-          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' }
+          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+          ...WIDGET_LINK_OPTIONS
         }),
         TaskList,
         TaskItem.configure({ nested: true }),

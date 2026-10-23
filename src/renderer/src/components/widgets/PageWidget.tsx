@@ -18,6 +18,7 @@ import { WidgetImage } from './widgetImage'
 import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { confirmDialog } from '../plexi/PromptDialog'
 import AnsweredBy from '../ai/AnsweredBy'
+import { WIDGET_LINK_OPTIONS } from './widgetLink'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -95,10 +96,12 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
       extensions: [
         StarterKit.configure({
           // Keep StarterKit defaults; everything from heading 1-3 to code blocks works out of the box.
+          // Its own Link is replaced by the one below, which knows plexii:// links.
+          link: false
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
-        Link.configure({ openOnClick: false }),
+        Link.configure({ openOnClick: false, ...WIDGET_LINK_OPTIONS }),
         // GFM tables — render + edit, stored natively in the page's Tiptap JSON.
         TableKit.configure({ table: { resizable: false } }),
         // Pictures (owner decision): stored as fb-file:// on insert or paste, and

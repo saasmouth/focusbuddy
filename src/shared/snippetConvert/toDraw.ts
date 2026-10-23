@@ -4,7 +4,7 @@ import { putAsset } from '../draw/assets'
 import { isDrawImageSrc } from '../draw'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { REASON, fitWithin, ok, pick, refusal } from './common'
+import { REASON, fitWithin, linkRefusal, ok, pick, refusal } from './common'
 import { formsOfSlide } from '../snippetForms/fromSlide'
 import { formsOfDesign } from '../snippetForms/fromDesign'
 
@@ -34,7 +34,7 @@ export function toDraw(ctx: BuildContext): SnippetConversion {
   const forms = body?.kind === 'slide' ? formsOfSlide(body, isDrawImageSrc) : body?.kind === 'design' ? formsOfDesign(body, isDrawImageSrc) : ctx.forms
   const f = pick(forms, ['svg', 'image', 'text'], body)
   if (!f && !body && forms.some((x) => x.kind === 'rows')) return { ok: false, reason: REASON.drawNoTables }
-  if (!f) return refusal(body, 'draw')
+  if (!f) return linkRefusal(forms, 'draw') ?? refusal(body, 'draw')
   switch (f.kind) {
     case 'svg': {
       const v = f.value
