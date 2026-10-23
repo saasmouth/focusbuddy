@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SheetBody, SlidesBody, MapBody } from '@shared/types'
 import { useDocCollabStore } from '../../stores/docCollab'
+import { liveDocAccess } from '../../lib/docCollabClient'
 import { useViewStore } from '../../stores/view'
 import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
@@ -328,8 +329,27 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
               ? 'brush'
               : 'account_tree'
   const isOwner = meta.ownerAccountId === myId
-  // Comments are a document-only feature for now.
-  const canComment = meta.docType === 'doc'
+  // MAY THIS ACCOUNT CHANGE THE DOCUMENT? Until signal v123 nothing returned
+  // a role, so every member of a shared document — viewers included — was
+  // handed a full editor, and the server took their edits. The server now
+  // refuses a viewer's updates (yjsDocAuth.ts); this is the app no longer
+  // pretending they are welcome.
+  //
+  // An ABSENT role means editor, not viewer: against an older server myRole
+  // is undefined, and every member could write before roles existed.
+  const { viewerOnly, canComment } = liveDocAccess(meta)
+  // NOT YET PASSED TO TWO OF THE SIX, because they take no such prop and both
+  // belong to other sessions:
+  //   - SheetEditor (Cells) has readOnly machinery inside CellsChrome but
+  //     exposes no prop to set it;
+  //   - DrawStudio derives state.readOnly from the drawing's own
+  //     compatibility (compat.readOnly) and cannot be told from outside.
+  // Both need `readOnly?: boolean` OR'd into what they already compute. Until
+  // then a viewer of a shared SHEET or DRAWING still sees an editable
+  // surface — and the server refuses their writes (signal v123), so the
+  // damage is a confusing experience rather than a permissions hole. Tracked
+  // with their owners rather than patched under them.
+
   // Awareness: who has access. No lock any more, so no holder is highlighted.
   const people = collaborators(meta.members ?? [], null, myId ?? null)
   // The label + colour shown on my caret to the other editors.
@@ -536,13 +556,32 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
 
       {/* Collaboration status strip. Every live editor type co-edits in real time
           (Tiptap / JSON reconcile), so there is no check-out lock. */}
-      <div
-        className="shrink-0 px-4 py-1.5 text-[12px] flex items-center gap-2 border-b bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200"
-        data-testid="livedoc-status"
-      >
-        <Icon name="bolt" size={14} />
-        <span data-testid="livedoc-live">Live — everyone here can edit together.</span>
-      </div>
+      {/* What this document is for YOU. "everyone here can edit together" is
+          not true of a viewer, and a viewer who believed it would type into a
+          document the server then refuses. No "Ask for edit access" button:
+          that flow was removed with the old check-out model and there is
+          nothing behind it, so offering one would be a dead control. Asking
+          the owner is what the person already has — their name is in the
+          collaborator list beside this. */}
+      {viewerOnly ? (
+        <div
+          className="shrink-0 px-4 py-1.5 text-[12px] flex items-center gap-2 border-b bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-200"
+          data-testid="livedoc-status"
+        >
+          <Icon name="visibility" size={14} />
+          <span data-testid="livedoc-viewer">
+            You can view this document. Changes you make would not be saved, so editing is turned off.
+          </span>
+        </div>
+      ) : (
+        <div
+          className="shrink-0 px-4 py-1.5 text-[12px] flex items-center gap-2 border-b bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200"
+          data-testid="livedoc-status"
+        >
+          <Icon name="bolt" size={14} />
+          <span data-testid="livedoc-live">Live — everyone here can edit together.</span>
+        </div>
+      )}
 
       {inviting && (
         <div className="shrink-0 px-4 py-2 border-b border-[var(--edge-soft)] flex items-center gap-2">
@@ -648,19 +687,19 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           ))}
         {meta.docType === 'slides' &&
           (collabBody !== null ? (
-            <SlidesEditor key={`${meta.id}:collab`} body={collabBody as SlidesBody} title={meta.title} onChange={onJsonChange} />
+            <SlidesEditor key={`${meta.id}:collab`} body={collabBody as SlidesBody} title={meta.title} onChange={onJsonChange} readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]">Connecting live editing…</div>
           ))}
         {meta.docType === 'map' &&
           (collabBody !== null ? (
-            <MapEditor key={`${meta.id}:collab`} body={collabBody as MapBody} title={meta.title} onChange={onJsonChange} foldExternal liveUndo={drawUndo ?? undefined} />
+            <MapEditor key={`${meta.id}:collab`} body={collabBody as MapBody} title={meta.title} onChange={onJsonChange} foldExternal liveUndo={drawUndo ?? undefined} readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}
         {meta.docType === 'design' &&
           (collabBody !== null ? (
-            <DesignEditor key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal />
+            <DesignEditor key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}

@@ -21,10 +21,54 @@ export interface LockHolder {
   handle: string
   firstName?: string | null
   lastName?: string | null
+  /**
+   * The member's access. Returned by the server as of signal v123; absent
+   * from an older server, and an absent role means EDITOR — every member
+   * could write before roles existed, so treating a missing role as a viewer
+   * would lock the existing population out of their own documents.
+   */
+  role?: 'owner' | 'editor' | 'viewer'
 }
 export interface LiveDocFull extends LiveDocMeta {
   body: string
   members: LockHolder[]
+  /**
+   * THIS account's access to the document (signal v123). Until it existed
+   * nothing exposed a role at all, so every member — viewers included — was
+   * handed a full editor. Optional for the same reason as above: against an
+   * older server it is absent, and absent means editor.
+   */
+  myRole?: 'owner' | 'editor' | 'viewer'
+}
+
+/** Is this account allowed to change the document? Absent role means yes. */
+export function canEditLiveDoc(role: LiveDocFull['myRole']): boolean {
+  return role !== 'viewer'
+}
+
+/**
+ * What this account may do with a live document, from its own role.
+ *
+ * A separate function rather than two lines in the view because the view can
+ * only render an editor once the Yjs engine has produced a body, so a test
+ * that mounts it cannot reach the props it passes down. This decision is the
+ * part that must be right, so it is testable on its own — the same reason
+ * yjsDocAuth.ts exists on the server.
+ */
+export function liveDocAccess(meta: Pick<LiveDocFull, 'docType' | 'myRole'> | null): {
+  viewerOnly: boolean
+  canComment: boolean
+} {
+  const viewerOnly = !!meta && !canEditLiveDoc(meta.myRole)
+  return {
+    viewerOnly,
+    // Comments are a document-only feature for now, and not for a viewer: a
+    // comment ANCHOR is a mark in the body, so a viewer's thread would be
+    // created over REST while the server dropped its anchor — a thread
+    // pointing at a span nobody else can see. Real viewer comments need an
+    // anchor that is not a body write.
+    canComment: !!meta && meta.docType === 'doc' && !viewerOnly
+  }
 }
 export type LiveDocListItem = LiveDocMeta
 
