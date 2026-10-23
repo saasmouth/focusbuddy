@@ -110,6 +110,20 @@ async function fileItem(window: Page, s: Seed, app: App, label: string): Promise
   await widget.locator(`[data-testid="${app.fileMenu}"]`).click()
   const item = widget.locator(`[data-testid="${app.fileMenu}-list"] button`).filter({ hasText: label }).first()
   await expect(item).toBeVisible()
+  // force skips Playwright's hit test, so first prove nothing covers the item: the
+  // topmost element at its centre must be the item or inside it. A covered menu
+  // therefore fails here instead of "clicking" through something else.
+  await expect
+    .poll(
+      () =>
+        item.evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+          return !!hit && (hit === el || el.contains(hit))
+        }),
+      { timeout: 5_000, message: `the "${label}" menu item is on top at its centre` }
+    )
+    .toBe(true)
   // force: the item holds still (probed), but under a loaded machine Playwright's
   // frame-to-frame stability check can stay "not stable" for the whole timeout,
   // on whichever app it happens to hit. Force still clicks the item's centre; it
