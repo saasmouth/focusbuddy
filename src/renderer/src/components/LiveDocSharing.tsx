@@ -1,12 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getSchema } from '@tiptap/core'
 import Icon from './Icon'
 import SharePeoplePicker, { type SharePick } from './SharePeoplePicker'
 import {
+  addComment,
   createLiveDoc,
   inviteToLiveDoc,
   inviteToLiveDocByEmail,
+  resolveComment,
   setLiveDocMemberRole
 } from '../lib/docCollabClient'
+import { buildDocExtensions } from './documents/editor/extensions'
+import { parseDocBody } from './documents/editor/headingStyles'
+import { copyCommentsToLiveDoc, describeCopy, type LocalCommentRow } from '../lib/commentShareCopy'
 import { useAccountStore } from '../stores/account'
 import { useViewStore } from '../stores/view'
 
@@ -25,6 +31,33 @@ export default function LiveDocSharing({
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const goLiveDoc = useViewStore((s) => s.goLiveDoc)
+
+  // A comment on a document only you can see is a private note, so bringing
+  // them along is asked for rather than assumed. Unticked: sharing a file must
+  // never publish "fix this before Sarah reads it" to Sarah as a side effect.
+  // Set once the live document exists. Sharing normally navigates away, which
+  // is what stopped a second Share creating a SECOND live document; when we
+  // stay put to show a note about the comments, that protection has to be put
+  // back explicitly.
+  const [shared, setShared] = useState(false)
+  const [includeComments, setIncludeComments] = useState(false)
+  const [comments, setComments] = useState<LocalCommentRow[]>([])
+  useEffect(() => {
+    let live = true
+    void window.api.documents
+      .listComments(documentId)
+      .then((rows) => {
+        if (live) setComments(rows as LocalCommentRow[])
+      })
+      .catch(() => {
+        if (live) setComments([])
+      })
+    return () => {
+      live = false
+    }
+  }, [documentId])
+  // Threads, not rows: a reply is part of the comment a person is counting.
+  const threadCount = comments.filter((c) => !c.parentId).length
 
   async function onShare(picks: SharePick[]): Promise<{ ok: boolean; error?: string }> {
     const token = useAccountStore.getState().sessionToken
@@ -50,6 +83,30 @@ export default function LiveDocSharing({
       setBusy(false)
       return { ok: false }
     }
+    // Comments first, while the room is still empty: the anchors are converted
+    // against the body the live copy will be seeded from, and a reader opening
+    // it should not find threads arriving one by one behind them.
+    let copyNote: string | null = null
+    if (includeComments && threadCount > 0) {
+      try {
+        const pm = (parseDocBody(doc.body).doc as object) ?? { type: 'doc', content: [{ type: 'paragraph' }] }
+        const result = await copyCommentsToLiveDoc(
+          {
+            token,
+            liveDocId: created.id,
+            pmJSON: pm,
+            schema: getSchema(buildDocExtensions({ interactive: false })),
+            comments
+          },
+          { addComment, resolveComment }
+        )
+        copyNote = describeCopy(result)
+      } catch {
+        // The document is shared either way; say so rather than rolling back a
+        // live document people may already have been invited to.
+        copyNote = 'the comments could not be copied'
+      }
+    }
     for (const p of picks) {
       let accId: string | null = null
       if (p.handle) {
@@ -62,6 +119,14 @@ export default function LiveDocSharing({
       if (perm === 'view' && accId) await setLiveDocMemberRole(token, created.id, accId, 'viewer').catch(() => {})
     }
     setBusy(false)
+    if (copyNote && /could not|without a highlight|unresolved/.test(copyNote)) {
+      // Something was not carried across exactly. Say it where the person
+      // still has the dialog in front of them, and stay put so they can read
+      // it, rather than navigating away from a half-told story.
+      setMsg(`Shared. Comments: ${copyNote}.`)
+      setShared(true)
+      return { ok: true }
+    }
     // Move the sharer into the live copy so everyone is editing the same document.
     goLiveDoc(created.id)
     onClose()
@@ -78,7 +143,24 @@ export default function LiveDocSharing({
         Sharing turns this into a live document everyone edits together, and switches you to the shared copy.
         Add as many people as you like.
       </p>
-      <SharePeoplePicker perm={perm} onPermChange={setPerm} busy={busy} onShare={onShare} msg={msg} />
+      {threadCount > 0 && (
+        <label className="flex items-start gap-2 text-[11px] text-[var(--ink-60)] cursor-pointer select-none" data-testid="share-include-comments">
+          <input
+            type="checkbox"
+            checked={includeComments}
+            disabled={busy}
+            onChange={(e) => setIncludeComments(e.target.checked)}
+            className="mt-[2px] accent-[var(--accent)]"
+          />
+          <span>
+            Include my comments ({threadCount})
+            <span className="block text-[var(--ink-40)]">
+              Everyone you share with will be able to read them.
+            </span>
+          </span>
+        </label>
+      )}
+      <SharePeoplePicker perm={perm} onPermChange={setPerm} busy={busy || shared} onShare={onShare} msg={msg} />
     </div>
   )
 }
