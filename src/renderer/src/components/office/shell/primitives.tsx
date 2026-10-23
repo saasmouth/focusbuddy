@@ -9,7 +9,14 @@ import Tooltip from '../../Tooltip'
 // has to thread it by hand. None of these handle keys beyond their own focused
 // element (no document listeners).
 
-export const READ_ONLY_REASON = 'not available: this document is read-only'
+/**
+ * The one sentence every office app shows for an action a read-only document
+ * cannot take: in the bar, the rail, the menus and the commands (aggregator
+ * ruling, 4.3.41). This constant is its only source; an app imports it rather
+ * than writing its own (Draw's commands/gate.ts, Write's and Cells' registries,
+ * the snippet declines). officeReadOnlyReason.test.tsx holds every app to it.
+ */
+export const READ_ONLY_REASON = 'This document is read-only.'
 
 export const BarContext = createContext<{ readOnly: boolean }>({ readOnly: false })
 
@@ -36,11 +43,20 @@ export interface BarCommon {
   controls?: string
 }
 
-/** Resolve disabled + the reason shown in the tooltip. Exported for tests. */
+/**
+ * Resolve disabled + the reason shown in the tooltip. Exported for tests.
+ *
+ * In a read-only document every control that is not `readOnlySafe` is off. Its
+ * reason is the control's OWN when it has one (an off command says why: its
+ * pending note, its gated reason, `barProps` from the OfficeCommand registry),
+ * so the bar says exactly what the menu row for the same command says; only a
+ * control with no reason of its own is given READ_ONLY_REASON.
+ */
 export function useBarState(p: BarCommon): { disabled: boolean; reason?: string } {
   const { readOnly } = useContext(BarContext)
-  if (readOnly && !p.readOnlySafe) return { disabled: true, reason: READ_ONLY_REASON }
-  return { disabled: !!p.disabled, reason: p.disabled ? p.disabledReason : undefined }
+  const own = p.disabled ? p.disabledReason : undefined
+  if (readOnly && !p.readOnlySafe) return { disabled: true, reason: own || READ_ONLY_REASON }
+  return { disabled: !!p.disabled, reason: own }
 }
 
 export function barTip(label: string, shortcut?: string, reason?: string): string {

@@ -227,7 +227,7 @@ test('SH-7 a drawing from a newer PlexiiDraw: the bar and the editing tools are 
   await expect(t('draw-tool-pen')).toBeDisabled()
   await expect(t('draw-tool-select')).toBeEnabled()
   await expect(t('draw-fill')).toBeDisabled()
-  await expect(t('draw-fill')).toHaveAttribute('aria-label', /this document is read-only/)
+  await expect(t('draw-fill')).toHaveAttribute('aria-label', /This document is read-only\./)
   await expect(t('draw-undo')).toBeDisabled()
   await expect(t('draw-zoom-in')).toBeEnabled()
   await barTab(window, 'object')

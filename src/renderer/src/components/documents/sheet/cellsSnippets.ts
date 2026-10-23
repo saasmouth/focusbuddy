@@ -7,6 +7,7 @@ import { parseA1Range } from '../../../lib/sheetCond'
 import { writeMatrix, type CellRange } from './sheetOps'
 import { registerSnippetTarget } from '../../../stores/snippets'
 import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
+import { READ_ONLY_REASON } from '../../office/shell/primitives'
 
 // PlexiiCells as a snippet surface: how a selected range becomes a saved
 // snippet, and how a saved one gets back onto a sheet.
@@ -217,7 +218,7 @@ export type SheetSnippetLanding = { tab: SheetTab; range: CellRange } | { declin
  * which silently repoints it; a snippet names the cell instead.
  */
 export function insertSheetSnippet(tab: SheetTab, snippet: Snippet, place: SheetSnippetPlacement): SheetSnippetLanding {
-  if (place.readOnly) return { declined: 'This spreadsheet is read-only.' }
+  if (place.readOnly) return { declined: READ_ONLY_REASON }
   if (snippet.kind !== 'sheet' || snippet.body?.kind !== 'sheet') return { declined: 'That snippet is not a block of cells.' }
   const body = snippet.body
   const raw = Array.isArray(body.rows) ? body.rows : []

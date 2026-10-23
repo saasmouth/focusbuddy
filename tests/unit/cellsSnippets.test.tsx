@@ -297,7 +297,7 @@ describe('insertion: insertSheetSnippet behaves like Cells’ paste', () => {
 
   describe('declines, with a reason a person can act on', () => {
     it('when the sheet is read-only', () => {
-      expect(insertSheetSnippet(SUM, snippetOf(body), at(0, 2, { readOnly: true }))).toEqual({ declined: 'This spreadsheet is read-only.' })
+      expect(insertSheetSnippet(SUM, snippetOf(body), at(0, 2, { readOnly: true }))).toEqual({ declined: 'This document is read-only.' })
     })
 
     it('when there is no active cell', () => {

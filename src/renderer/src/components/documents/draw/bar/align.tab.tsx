@@ -5,7 +5,7 @@
 // it the key: it is outlined in bold, it never moves, and an exact spacing is
 // measured from it. It was the Align panel and the inspector's align row.
 
-import { BarCustom, BarGroup, BarSelect, BarSep } from '../../../office/shell'
+import { BarCustom, BarGroup, BarSelect, BarSep, READ_ONLY_REASON, barTip } from '../../../office/shell'
 import { DISTRIBUTE_EDGES, type DistributeEdge } from '@shared/draw/ops'
 import { activeKey, alignState, type AlignToMode } from '../commands/align.commands'
 import type { DrawBarTab, EditorCtx } from '../editor/types'
@@ -72,7 +72,7 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
             value={a.spacing}
             onCommit={(v) => ctx.run('object.alignSpacing', v)}
             disabled={readOnly}
-            title="Distribute spacing: an exact gap, measured from the key object. Leave empty for Auto (even gaps)."
+            title={readOnly ? barTip('Distribute spacing', undefined, READ_ONLY_REASON) : 'Distribute spacing: an exact gap, measured from the key object. Leave empty for Auto (even gaps).'}
             testId="draw-align-spacing"
             className="w-[64px]"
           />
@@ -81,7 +81,7 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
             className="text-[11px] px-1 h-6 rounded text-[var(--ink-50)] hover:text-[var(--ink-80)] hover:bg-[var(--surface-sunken)] disabled:opacity-40"
             disabled={readOnly || a.spacing === null}
             onClick={() => ctx.run('object.alignSpacing', null)}
-            title="Back to Auto: even gaps between the outermost objects"
+            title={readOnly ? barTip('Back to Auto', undefined, READ_ONLY_REASON) : 'Back to Auto: even gaps between the outermost objects'}
             data-testid="draw-align-spacing-auto"
           >
             Auto

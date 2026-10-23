@@ -35,7 +35,7 @@ const CASCADE = 16
 /** Place dropped files at `at` (artboard coordinates). */
 export async function placeDroppedFiles(ctx: EditorCtx, files: ImportFile[], at: Pt, deps: ImportDeps = domImportDeps()): Promise<void> {
   if (ctx.get().readOnly) {
-    ctx.status('This artwork is read-only, so files cannot be placed in it.')
+    ctx.status("This document is read-only, so files can't be placed in it.")
     return
   }
   if (!files.length) return

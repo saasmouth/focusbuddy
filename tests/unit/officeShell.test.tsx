@@ -88,7 +88,7 @@ describe('railSlots / railTooltip (pure)', () => {
   it('formats tooltips: key, options suffix, disabled reason, no key when keyless', () => {
     expect(railTooltip('Select', 'V', {})).toBe('Select (V)')
     expect(railTooltip('Rotate', 'R', { options: true })).toBe('Rotate (R) — double-click for options')
-    expect(railTooltip('Pen', 'P', { disabledReason: 'not available: this document is read-only' })).toBe('Pen — not available: this document is read-only')
+    expect(railTooltip('Pen', 'P', { disabledReason: 'This document is read-only.' })).toBe('Pen — This document is read-only.')
     expect(railTooltip('Group selection', undefined, {})).toBe('Group selection')
     expect(railTooltip('Rectangle', 'M', { options: true, optionsHint: 'double-click to keep it selected' })).toBe('Rectangle (M) — double-click to keep it selected')
   })
@@ -119,7 +119,7 @@ describe('ToolRail', () => {
     expect(tid('x-rail-select').closest('[data-tip]')!.getAttribute('data-tip')).toBe('select (V)')
   })
 
-  it('disables with a reason; read-only disables everything not readOnlySafe', () => {
+  it('disables with a reason; read-only disables everything not readOnlySafe, keeping an item\'s own reason', () => {
     render(
       <ToolRail<Ctx>
         testid="r"
@@ -130,7 +130,10 @@ describe('ToolRail', () => {
     )
     expect((tid('r-hand') as HTMLButtonElement).disabled).toBe(false)
     expect((tid('r-pen') as HTMLButtonElement).disabled).toBe(true)
-    expect(tid('r-pen').getAttribute('aria-label')).toBe('pen — not available: this document is read-only')
+    expect(tid('r-pen').getAttribute('aria-label')).toBe('pen — This document is read-only.')
+    // An item that is off for a reason of its own says that reason, read-only or not (the bar's rule too).
+    expect((tid('r-join') as HTMLButtonElement).disabled).toBe(true)
+    expect(tid('r-join').getAttribute('aria-label')).toBe('join — select two paths')
     render(<ToolRail<Ctx> testid="r" ctx={{ sel: 'none' }} items={[item({ id: 'join', disabled: (c) => c.sel === 'none', disabledReason: 'select two paths' })]} />)
     expect(tid('r-join').getAttribute('aria-label')).toBe('join — select two paths')
   })
@@ -256,7 +259,7 @@ describe('ContextBar', () => {
   it('read-only greys out controls that are not readOnlySafe, with a reason', () => {
     render(<ContextBar<Ctx> testid="b" tabs={tabs} ctx={{ sel: 'edge' }} activeTab="home" onTabChange={noop} readOnly menuBar={null} />)
     expect((tid('bold') as HTMLButtonElement).disabled).toBe(true)
-    expect(tid('bold').getAttribute('aria-label')).toBe('Bold — not available: this document is read-only')
+    expect(tid('bold').getAttribute('aria-label')).toBe('Bold — This document is read-only.')
     render(<ContextBar<Ctx> testid="b" tabs={tabs} ctx={{ sel: 'edge' }} activeTab="line" onTabChange={noop} readOnly menuBar={null} />)
     expect((tid('anim') as HTMLButtonElement).disabled).toBe(false)
   })
