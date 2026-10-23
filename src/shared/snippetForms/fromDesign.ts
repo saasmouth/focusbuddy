@@ -2,7 +2,7 @@ import type { DesignSnippetBody } from '../snippets'
 import type { SlideElement, SlideTextElement, SlideTextParagraph, SlideTextRun } from '../types'
 import type { Form } from '../snippetForms'
 import { normalizeContent, type ContentDoc } from '../designContent'
-import { elementsPictureLossy, elementsText, elementsToSvg, isDrawableElement } from './picture'
+import { elementsPictureLossy, elementsText, elementsToSvg, usableElements, type ImageSrcCheck } from './picture'
 import { L } from './lossy'
 
 /**
@@ -60,6 +60,8 @@ export interface DesignAsPlain {
   linkedChains: boolean
   /** Some frame read a story at all. */
   threaded: boolean
+  /** Images left out because their address is not usable (see usableElements). */
+  droppedImages: number
 }
 
 /**
@@ -70,8 +72,8 @@ export interface DesignAsPlain {
  * fills and borders). Design-only fields (story ids, flow cache, layers, wrap,
  * swatch links) are removed; a swatch fill keeps its colour.
  */
-export function designAsPlainElements(body: DesignSnippetBody, followers: 'drop' | 'empty', marker = false): DesignAsPlain {
-  const elements = (Array.isArray(body.elements) ? body.elements : []).filter(isDrawableElement) as SlideElement[]
+export function designAsPlainElements(body: DesignSnippetBody, followers: 'drop' | 'empty', marker = false, srcOk?: ImageSrcCheck): DesignAsPlain {
+  const { elements, dropped } = usableElements(body.elements, srcOk)
   const stories = new Map<string, ContentDoc>()
   for (const [id, raw] of Object.entries(body.stories && typeof body.stories === 'object' ? body.stories : {})) {
     const doc = normalizeContent(raw)
@@ -115,19 +117,21 @@ export function designAsPlainElements(body: DesignSnippetBody, followers: 'drop'
   return {
     elements: out,
     linkedChains: [...count.values()].some((n) => n > 1),
-    threaded: count.size > 0
+    threaded: count.size > 0,
+    droppedImages: dropped
   }
 }
 
-export function formsOfDesign(body: DesignSnippetBody): Form[] {
+export function formsOfDesign(body: DesignSnippetBody, srcOk?: ImageSrcCheck): Form[] {
   const forms: Form[] = [{ kind: 'native', value: body, lossy: [] }]
-  const plain = designAsPlainElements(body, 'empty', true)
+  const plain = designAsPlainElements(body, 'empty', true, srcOk)
   if (!plain.elements.length) return forms
   const lossy = elementsPictureLossy(plain.elements)
   if (plain.linkedChains) lossy.push(L.linkedFramesFirst)
+  if (plain.droppedImages) lossy.push(L.unsupportedImage)
   forms.push({ kind: 'svg', value: elementsToSvg(plain.elements, 'PlexiiDesign'), lossy })
   // Words once each: a story counted in its first frame only.
-  const text = elementsText(designAsPlainElements(body, 'drop', true).elements)
+  const text = elementsText(designAsPlainElements(body, 'drop', true, srcOk).elements)
   if (text) forms.push({ kind: 'text', value: text, lossy: [L.wordsOnly] })
   return forms
 }
