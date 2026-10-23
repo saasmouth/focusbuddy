@@ -1,11 +1,9 @@
-import { openDocHistory } from '../DocHistoryPanel'
-import { confirmDialog, promptText } from '../../plexi/PromptDialog'
-import { useDocumentsStore } from '../../../stores/documents'
-import { useViewStore } from '../../../stores/view'
-import { launchMeeting } from '../../../lib/startMeeting'
+import type { DocumentOps } from './documentOps'
 import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
 
-// The PlexiDiagrams menu bar. Document-level File actions live here; the editor
+// The PlexiDiagrams menu bar. Document-level File actions come from the
+// DocumentOps the host bound to the diagram on screen (never the documents
+// store's `active`, which in a desk widget is some other document); the editor
 // supplies everything else (import/export, Edit, View, Insert, Arrange, Help) as
 // menu items wired to its real commands, so nothing here invents an action.
 //
@@ -21,69 +19,37 @@ export interface DrawMenuActions {
   arrange: () => MenuItem[]
   help: () => MenuItem[]
   /**
-   * False when the diagram on screen is not a document (a diagram snippet
-   * session). The document items below act on the documents store's ACTIVE
-   * document, which is then some other document: Make a copy would copy it,
-   * Rename rename it, Move to trash trash it, New create a row. All are
-   * disabled; the editor's own import/export items stay.
+   * The diagram on screen, bound by the host (createDocumentOps). Absent when it
+   * is not a document (a diagram snippet session): then New, Make a copy,
+   * Rename, Version history, Start a meeting and Move to trash are not shown at
+   * all; the editor's own import/export items stay.
    */
-  documentOps?: boolean
+  documentOps?: DocumentOps
 }
 
 export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): JSX.Element {
   const a = actions
-  const createBlank = useDocumentsStore((s) => s.createBlank)
-  const active = useDocumentsStore((s) => s.active)
-  const rename = useDocumentsStore((s) => s.rename)
-  const remove = useDocumentsStore((s) => s.remove)
-  const goDocument = useViewStore((s) => s.goDocument)
-  const goDocuments = useViewStore((s) => s.goDocuments)
-  const title = active?.title ?? 'Untitled diagram'
-
-  async function newDiagram(): Promise<void> {
-    const doc = await createBlank('map')
-    goDocument(doc.id)
-  }
-  async function makeCopy(): Promise<void> {
-    const copy = await window.api.documents.create({
-      docType: 'map',
-      title: `Copy of ${title}`,
-      body: active?.body
-    })
-    goDocument(copy.id)
-  }
-  async function doRename(): Promise<void> {
-    const next = await promptText({ title: 'Rename diagram', initial: title, confirmLabel: 'Rename' })
-    if (next != null && next.trim()) void rename(next.trim())
-  }
-  async function moveToTrash(): Promise<void> {
-    if (!active) return
-    const ok = await confirmDialog({
-      title: `Move "${title}" to trash?`,
-      body: 'You can restore it from the Documents trash.',
-      confirmLabel: 'Move to trash'
-    })
-    if (!ok) return
-    await remove(active.id)
-    goDocuments()
-  }
+  const ops = a.documentOps
 
   const menus: MenuDef[] = [
     {
       id: 'file',
       label: 'File',
-      build: () => [
-        { kind: 'item', label: 'New diagram', icon: 'note_add', run: () => void newDiagram(), disabled: a.documentOps === false },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy(), disabled: a.documentOps === false },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename, disabled: a.documentOps === false },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) }, disabled: a.documentOps === false },
-        { kind: 'sep' },
-        ...a.file(),
-        { kind: 'sep' },
-        { kind: 'item', label: 'Start a meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Diagram meeting' }), disabled: a.documentOps === false },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash(), disabled: a.documentOps === false }
-      ]
+      build: (): MenuItem[] =>
+        ops
+          ? [
+              { kind: 'item', label: 'New diagram', icon: 'note_add', run: () => void ops.newDocument() },
+              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              { kind: 'sep' },
+              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
+              { kind: 'item', label: 'Version history', icon: 'history', run: ops.openHistory },
+              { kind: 'sep' },
+              ...a.file(),
+              { kind: 'sep' },
+              { kind: 'item', label: 'Start a meeting', icon: 'videocam', run: ops.startMeeting },
+              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+            ]
+          : a.file()
     },
     { id: 'edit', label: 'Edit', build: a.edit },
     { id: 'view', label: 'View', build: a.view },

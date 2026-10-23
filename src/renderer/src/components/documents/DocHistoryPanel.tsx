@@ -70,6 +70,7 @@ export function DocHistoryPanelHost(): JSX.Element | null {
       className="fb-scrim fixed inset-0 z-[280] flex justify-end"
       onMouseDown={close}
       data-testid="doc-history-panel"
+      data-doc-id={docId}
     >
       <div
         role="dialog"

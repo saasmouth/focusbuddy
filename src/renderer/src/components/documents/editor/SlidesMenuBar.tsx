@@ -1,16 +1,12 @@
 import { useState } from 'react'
-import { openDocHistory } from '../DocHistoryPanel'
-import { confirmDialog, promptText } from '../../plexi/PromptDialog'
-import type { FbDocument } from '@shared/types'
-import { useDocumentsStore } from '../../../stores/documents'
-import { useViewStore } from '../../../stores/view'
-import { launchMeeting } from '../../../lib/startMeeting'
-import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
+import type { DocumentOps } from './documentOps'
+import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
 
 // A Google-Slides-style menu bar for the deck editor. Menus reflect what a
 // presentation actually does: slides, elements on a slide, layout/arrangement,
-// and presenting. Every item is wired to a real SlidesEditor op or a
-// documents-store action.
+// and presenting. Every item is wired to a real SlidesEditor op, or to the
+// DocumentOps the host bound to the document on screen (never the documents
+// store's `active`, which in a desk widget is some other document).
 
 export interface SlideAlign {
   dir: 'left' | 'centerX' | 'right' | 'top' | 'middleY' | 'bottom'
@@ -25,13 +21,12 @@ export interface SlidesMenuActions {
   /** False while editing a single-slide fragment (a slide snippet): slide-level items are disabled. */
   slideOps?: boolean
   /**
-   * False when the deck on screen is not a document (a slide snippet session).
-   * The File menu's document items act on the documents store's ACTIVE document,
-   * which is then some other document: Make a copy would copy it, Rename would
-   * rename it, Move to trash would trash it, and New would create a row. All are
-   * disabled; Download (a file, no row) stays.
+   * The document on screen, bound by the host (createDocumentOps). Absent when
+   * the deck is not a document (a slide snippet session): then New, Make a copy,
+   * Rename, Version history, Import, Move to trash and Insert › Meeting are not
+   * shown at all. Download (a file, no row) always stays.
    */
-  documentOps?: boolean
+  documentOps?: DocumentOps
   present: () => void
   checkA11y: () => void
   newSlide: () => void
@@ -69,66 +64,40 @@ export interface SlidesMenuActions {
 
 export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions }): JSX.Element {
   const a = actions
-  const createBlank = useDocumentsStore((s) => s.createBlank)
-  const active = useDocumentsStore((s) => s.active)
-  const rename = useDocumentsStore((s) => s.rename)
-  const remove = useDocumentsStore((s) => s.remove)
-  const goDocument = useViewStore((s) => s.goDocument)
-  const goDocuments = useViewStore((s) => s.goDocuments)
+  const ops = a.documentOps
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-
-  async function newDeck(): Promise<void> {
-    const doc = await createBlank('slides')
-    goDocument(doc.id)
-  }
-  async function makeCopy(): Promise<void> {
-    const body = (active?.body ?? undefined) as FbDocument['body'] | undefined
-    const copy = await window.api.documents.create({
-      docType: 'slides',
-      title: `Copy of ${a.title || 'Untitled deck'}`,
-      body
-    })
-    goDocument(copy.id)
-  }
-  async function doRename(): Promise<void> {
-    const next = await promptText({ title: 'Rename presentation', initial: a.title, confirmLabel: 'Rename' })
-    if (next != null && next.trim()) void rename(next.trim())
-  }
-  async function moveToTrash(): Promise<void> {
-    if (!active) return
-    const ok = await confirmDialog({
-      title: `Move "${a.title || 'Untitled deck'}" to trash?`,
-      body: 'You can restore it from the Documents trash.',
-      confirmLabel: 'Move to trash'
-    })
-    if (!ok) return
-    await remove(active.id)
-    goDocuments()
+  // Import replaces the EDITOR's deck and goes out through onChange, so the host
+  // persists it to the right document: an editor command, not a document op.
+  // Hidden only on a single slide (a snippet), where a whole .pptx has no home.
+  const importItem: MenuItem[] = a.slideOps === false ? [] : [{ kind: 'item', label: 'Import (.pptx)', icon: 'upload', run: a.importFile }]
+  const download: MenuItem = {
+    kind: 'submenu',
+    label: 'Download',
+    icon: 'download',
+    items: [
+      { kind: 'item', label: 'PowerPoint (.pptx)', run: () => a.exportFile('pptx') },
+      { kind: 'item', label: 'PDF document (.pdf)', run: () => a.exportFile('pdf') }
+    ]
   }
 
   const menus: MenuDef[] = [
     {
       id: 'file',
       label: 'File',
-      build: () => [
-        { kind: 'item', label: 'New presentation', icon: 'note_add', run: () => void newDeck(), disabled: a.documentOps === false },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy(), disabled: a.documentOps === false },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename, disabled: a.documentOps === false },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) }, disabled: a.documentOps === false },
-        { kind: 'item', label: 'Import (.pptx)', icon: 'upload', run: a.importFile, disabled: a.documentOps === false },
-        {
-          kind: 'submenu',
-          label: 'Download',
-          icon: 'download',
-          items: [
-            { kind: 'item', label: 'PowerPoint (.pptx)', run: () => a.exportFile('pptx') },
-            { kind: 'item', label: 'PDF document (.pdf)', run: () => a.exportFile('pdf') }
-          ]
-        },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash(), disabled: a.documentOps === false }
-      ]
+      build: () =>
+        ops
+          ? [
+              { kind: 'item', label: 'New presentation', icon: 'note_add', run: () => void ops.newDocument() },
+              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              { kind: 'sep' },
+              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
+              { kind: 'item', label: 'Version history', icon: 'history', run: ops.openHistory },
+              ...importItem,
+              download,
+              { kind: 'sep' },
+              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+            ]
+          : [...importItem, download]
     },
     {
       id: 'edit',
@@ -183,8 +152,7 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
         { kind: 'item', label: 'Table', icon: 'table_chart', run: a.insertTable },
         { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.insertWidget },
         { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'slides', id: active?.id ?? '', title: a.title || 'Presentation meeting' }) }
+        ...(ops ? [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'Meeting', icon: 'videocam', run: ops.startMeeting }] : [])
       ]
     },
     {

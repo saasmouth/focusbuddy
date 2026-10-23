@@ -45,6 +45,7 @@ import SnippetLibrary from '../../snippets/SnippetLibrary'
 import { diagramSnippetTargetId, suggestedDiagramSnippetName, useDiagramSnippetTarget } from './diagramSnippets'
 import './diagram.css'
 import { officeAccepts } from '../../../lib/officeSnippets'
+import type { DocumentOps } from '../editor/documentOps'
 
 // PlexiDiagrams — a Lucidchart-class diagram editor on React Flow. The saved
 // MapBody is the single source of truth; React Flow is only the interaction
@@ -63,6 +64,8 @@ export interface DiagramEditorProps {
    * snippet, which is a single graph; a second page would have nowhere to go.
    */
   singlePage?: boolean
+  /** The document this diagram IS, bound by the host; absent → no document File items. */
+  documentOps?: DocumentOps
   // Live co-editing: undo/redo reverse only YOUR changes in the shared document
   // (a Y.UndoManager on the local origin). Without it, undo restored a whole
   // local snapshot, which reconciled over the shared doc and reverted whatever
@@ -77,7 +80,7 @@ const edgeTypes = { diagram: DiagramEdge }
 // 'shape:<id>' arms a shape: click places it, drag sizes it (SPEC §3.2).
 export type Tool = 'select' | 'pan' | 'text' | `shape:${string}`
 
-export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, singlePage = false, liveUndo }: DiagramEditorProps): JSX.Element {
+export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, singlePage = false, documentOps, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
   const { zoom } = useViewport()
   const [body, setBodyState] = useState<MapBody>(() => normalizeMapBody(bodyProp))
@@ -723,6 +726,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         canRedo={liveUndo ? liveUndo.canRedo() : history.current.canRedo}
         readOnly={readOnly}
         singlePage={singlePage}
+        documentOps={documentOps}
         onSaveSnippet={saveSelectionAsSnippet}
         onInsertSnippet={openSnippetLibrary}
       >

@@ -4,6 +4,7 @@ import { resolveTheme, layoutElements, applyThemeToDeck, BUILTIN_THEMES } from '
 import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import SlideFace from './slides/SlideFace'
+import type { DocumentOps } from './editor/documentOps'
 import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import SlidesMenuBar from './editor/SlidesMenuBar'
@@ -101,9 +102,15 @@ interface Props {
    * would have nowhere to keep.
    */
   singleSlide?: boolean
+  /**
+   * The document this deck IS, bound by the host (createDocumentOps): what the
+   * File menu's document items act on. Absent (a snippet session) → those items
+   * are not shown. The editor itself never knows a document id.
+   */
+  documentOps?: DocumentOps
 }
 
-export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false, singleSlide = false }: Props): JSX.Element {
+export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false, singleSlide = false, documentOps }: Props): JSX.Element {
   const [body, setBody] = useState<SlidesBody>(() => migrateSlidesBody(rawBody))
   // Accept live external updates (co-editing): fold a new body prop into the
   // deck without disturbing the current slide selection or any active element
@@ -971,7 +978,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             canUndo: undo.current.length > 0,
             canRedo: redo.current.length > 0,
             slideOps: !singleSlide,
-            documentOps: !singleSlide,
+            documentOps,
             present: () => setPresenting(true),
             checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
             newSlide: () => addSlideFromTemplate('blank'),

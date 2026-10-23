@@ -4,9 +4,9 @@
 //     "New page" anywhere), since a snippet is a single graph;
 //   - a slide snippet opens PlexiiDeck on ONE in-memory slide (no navigator,
 //     no new/duplicate slide, the Slide menu's items disabled, no speaker notes
-//     box, since a fragment has nowhere to keep notes), and its File menu's
-//     document items are disabled (they act on the documents store's ACTIVE
-//     document, which in a session is some other document);
+//     box, since a fragment has nowhere to keep notes), and its File menu has
+//     no document items at all (a snippet session passes no DocumentOps: a
+//     snippet is not a document, so it has no copy, rename, history or trash);
 //   - neither creates or writes a document: the only thing a session persists
 //     is the snippet, and only on Save (the host's own tests pin that part).
 // The wrap/unwrap mapping is pinned in snippetSessionMapping.test.ts.
@@ -130,18 +130,14 @@ describe('a diagram snippet opens PlexiiDiagrams on one page', () => {
     expect(labels.some((l) => l.includes('PlexiiDiagrams JSON')), 'JSON replaces the diagram, pages and all').toBe(false)
   })
 
-  it('the File menu cannot create, copy, rename, meet on or trash a document', async () => {
+  it('the File menu has no document items (a snippet is not a document)', async () => {
     await open(DIAGRAM)
     act(() => (host.querySelector('[data-testid="draw-menubar-file"]') as HTMLElement).click())
-    const item = (label: string): HTMLButtonElement | undefined =>
-      Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="draw-menubar-file-list"] > button')).find((b) => b.textContent?.includes(label))
+    const labels = Array.from(host.querySelectorAll('[data-testid="draw-menubar-file-list"] button')).map((b) => b.textContent ?? '')
     for (const label of ['New diagram', 'Make a copy', 'Rename', 'Version history', 'Start a meeting', 'Move to trash']) {
-      expect(item(label), label).toBeDefined()
-      expect(item(label)!.disabled, `${label} is disabled in a session`).toBe(true)
+      expect(labels.some((l) => l.includes(label)), `${label} is absent in a session`).toBe(false)
     }
-    // Try them anyway: a disabled item must not run.
-    for (const label of ['New diagram', 'Make a copy', 'Move to trash']) act(() => item(label)!.click())
-    expect(docsCreate).not.toHaveBeenCalled()
+    expect(labels.some((l) => l.includes('Mermaid')) || host.textContent!.includes('Import'), 'the editor’s own Import stays').toBe(true)
   })
 
   it('creates and writes no document', async () => {
@@ -165,27 +161,20 @@ describe('a slide snippet opens PlexiiDeck on one in-memory slide', () => {
     expect(text()).toContain('Title')
   })
 
-  it('the File menu cannot create, copy, rename or trash a document; Download stays', async () => {
+  it('the File menu has no document items and no Import; Download stays', async () => {
     await open(SLIDE)
     const file = host.querySelector('[data-testid="slides-menubar-file"]') as HTMLElement | null
     expect(file, 'the Slides menu bar renders').not.toBeNull()
     act(() => file!.click())
-    const item = (label: string): HTMLButtonElement | undefined =>
-      Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="slides-menubar-file-list"] button')).find((b) => b.textContent?.includes(label))
+    const labels = Array.from(host.querySelectorAll('[data-testid="slides-menubar-file-list"] button')).map((b) => b.textContent ?? '')
     for (const label of ['New presentation', 'Make a copy', 'Rename', 'Version history', 'Import (.pptx)', 'Move to trash']) {
-      expect(item(label), label).toBeDefined()
-      expect(item(label)!.disabled, `${label} is disabled in a session`).toBe(true)
+      expect(labels.some((l) => l.includes(label)), `${label} is absent in a session`).toBe(false)
     }
-    expect(item('Download')?.disabled, 'Download (a file, no document row) stays').toBe(false)
+    expect(labels.some((l) => l.includes('Download')), 'Download (a file, no document row) stays').toBe(true)
   })
 
   it('creates no document row and writes nothing (the deck is in memory only)', async () => {
     await open(SLIDE)
-    // Try the disabled document items anyway: a disabled item must not run.
-    act(() => (host.querySelector('[data-testid="slides-menubar-file"]') as HTMLElement).click())
-    for (const b of Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="slides-menubar-file-list"] button'))) {
-      if (/New presentation|Make a copy|Move to trash/.test(b.textContent ?? '')) act(() => b.click())
-    }
     expect(docsCreate).not.toHaveBeenCalled()
     expect(docsUpdate).not.toHaveBeenCalled()
     expect(snippetUpdate).not.toHaveBeenCalled()

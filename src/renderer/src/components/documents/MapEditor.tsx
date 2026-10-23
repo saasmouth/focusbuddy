@@ -2,6 +2,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import type { MapBody } from '@shared/types'
 import type { LiveUndo } from '../../lib/yjsKeyedJson'
 import DiagramEditor from './diagram/DiagramEditor'
+import type { DocumentOps } from './editor/documentOps'
 
 // PlexiDiagrams editor — a Lucidchart-class diagram editor (see ./diagram/).
 // Kept as the stable entry point: PlexiOffice, the document view, the live
@@ -21,6 +22,8 @@ interface Props {
   readOnly?: boolean
   // One graph, no pages (editing a diagram snippet).
   singlePage?: boolean
+  // The document this diagram IS, bound by the host (File menu document items).
+  documentOps?: DocumentOps
   // Live co-editing: own-change undo over the shared document.
   liveUndo?: LiveUndo
 }

@@ -17,7 +17,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
 
-const seen: { doc?: DocumentOps; sheet?: DocumentOps } = {}
+const seen: { doc?: DocumentOps; sheet?: DocumentOps; slides?: DocumentOps; map?: DocumentOps; design?: DocumentOps } = {}
 
 vi.mock('@office', () => ({
   DocEditor: ({ documentOps }: { documentOps?: DocumentOps }) => {
@@ -28,9 +28,18 @@ vi.mock('@office', () => ({
     seen.sheet = documentOps
     return <div data-testid="sheet-editor" />
   },
-  SlidesEditor: () => <div />,
-  MapEditor: () => <div />,
-  DesignEditor: () => <div />,
+  SlidesEditor: ({ documentOps }: { documentOps?: DocumentOps }) => {
+    seen.slides = documentOps
+    return <div data-testid="slides-editor" />
+  },
+  MapEditor: ({ documentOps }: { documentOps?: DocumentOps }) => {
+    seen.map = documentOps
+    return <div data-testid="map-editor" />
+  },
+  DesignEditor: ({ documentOps }: { documentOps?: DocumentOps }) => {
+    seen.design = documentOps
+    return <div data-testid="design-editor" />
+  },
   DrawStudio: () => <div />
 }))
 vi.mock('../../src/renderer/src/components/widgets/WidgetFrame', () => ({
@@ -152,5 +161,18 @@ describe('a document widget binds its File menu to its own document', () => {
     await mount('sheet')
     expect(seen.sheet).toBeDefined()
     expect(seen.sheet!.id).toBe(MINE.id)
+  })
+
+  // Deck, Diagrams and Design had the same menu-bar pattern; each kind gets its
+  // own assertion that the widget wires them, bound to its own document.
+  it.each([
+    ['slides', 'slides'],
+    ['map', 'map'],
+    ['design', 'design']
+  ] as const)('does the same for a %s widget', async (kind, key) => {
+    await mount(kind)
+    expect(seen[key], `${kind} gets ops`).toBeDefined()
+    expect(seen[key]!.id).toBe(MINE.id)
+    expect(seen[key]!.id).not.toBe(OTHER.id)
   })
 })

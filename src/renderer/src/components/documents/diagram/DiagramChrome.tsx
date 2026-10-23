@@ -4,6 +4,7 @@ import { hiddenCount, type Graph, type Sel } from '@shared/diagram/ops'
 import type { PageInfo } from '@shared/diagram/pages'
 import { SHAPES, SHAPE_CATEGORIES } from '@shared/diagram/shapes'
 import DrawMenuBar from '../editor/DrawMenuBar'
+import type { DocumentOps } from '../editor/documentOps'
 import type { MenuItem } from '../editor/menuBarKit'
 import Icon from '../../Icon'
 import { BarButton, BarMenu, BarToggle, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail } from '../../office/shell'
@@ -59,6 +60,7 @@ export function DiagramChrome({
   canRedo,
   readOnly,
   singlePage = false,
+  documentOps,
   onSaveSnippet,
   onInsertSnippet,
   children
@@ -79,6 +81,8 @@ export function DiagramChrome({
   readOnly: boolean
   /** One graph, no pages (a diagram snippet): no page tabs, no new page. */
   singlePage?: boolean
+  /** The document this diagram IS (host-bound); absent → no document File items. */
+  documentOps?: DocumentOps
   // Saved snippets: the editor owns the dialogs; the menus only open them.
   onSaveSnippet?: () => void
   onInsertSnippet?: () => void
@@ -469,8 +473,7 @@ export function DiagramChrome({
             collapsed={collapsed}
             onCollapsedChange={changeCollapsed}
             readOnly={readOnly}
-            // A single-page diagram is a snippet session, not a document: no document-level File items.
-            menuBar={<DrawMenuBar actions={{ ...menus, documentOps: !singlePage }} />}
+            menuBar={<DrawMenuBar actions={{ ...menus, documentOps }} />}
             pinnedStart={
               <>
                 <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={!canUndo} onClick={cmd.undo} testid="diagram-undo" />

@@ -300,3 +300,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushOnExit)
   window.addEventListener('pagehide', flushOnExit)
 }
+
+// Expose the documents store on window so e2e specs can reproduce a state the
+// app reaches on its own (a document opened or created without navigating to
+// it, e.g. by PlexiiAssist) through the store's real methods. A thin handle to
+// the real store, not a mock; it changes nothing about how the app behaves.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbDocuments?: typeof useDocumentsStore }).__fbDocuments = useDocumentsStore
+}
