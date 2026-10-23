@@ -48,6 +48,7 @@ import {
   editableIds,
   joinPaths,
   mapObjects,
+  pathfinderOperands,
   reshape,
   reversePath,
   setPathClosed,
@@ -57,9 +58,9 @@ import {
 import type { Command, EditorCtx, EditorState, MenuSpec } from '../editor/types'
 import { enterIsolation, exitIsolation, isIsolated, isolatedGroup, scopeNodes } from '../editor/isolation'
 import { v2BlockedReason, v2Writable } from '../editor/v2gate'
-import { alignSelection, canAlign } from './align.commands'
-
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
+import { alignSelection, alignWhy } from './align.commands'
+import { firstOf, gate, notReadOnly, unless, writableGate, type Why } from './gate'
+import { selectedPathIds } from './path.commands'
 
 export const menus: MenuSpec[] = [
   { path: 'object', label: 'Object', order: 30 },
@@ -138,21 +139,27 @@ export function holdsV2Content(s: EditorState): boolean {
 
 const v2Needed = (s: EditorState): string => `Groups and clipping masks need the newer PlexiiDraw drawing format: ${v2BlockedReason(s)}.`
 
-/** Run `go` when `ok`, otherwise say why nothing happened (a key press reaches a command even when its menu item is greyed). */
-/** Runs made by guarded(): they say why they cannot work, so a key may run them while disabled. */
-const explaining = new WeakSet<Command['run']>()
-
-function guarded(ok: (ctx: EditorCtx) => boolean, why: (ctx: EditorCtx) => string, go: (ctx: EditorCtx) => void): Command['run'] {
-  const run: Command['run'] = (ctx) => {
-    if (ctx.get().readOnly) return
-    if (!ok(ctx)) {
-      ctx.status(why(ctx))
-      return
+/**
+ * A command gated by `why` (gate.ts): the menu greys it with that sentence,
+ * and a key press, which reaches a command even when its menu item is greyed,
+ * runs it to say the same sentence instead of doing nothing. Read-only stays
+ * silent, as it always has for these keys.
+ */
+function guarded(why: Why, go: (ctx: EditorCtx) => void): Pick<Command, 'enabled' | 'disabledReason' | 'explainsWhenDisabled' | 'run'> {
+  const full = firstOf(notReadOnly, why)
+  return {
+    ...gate(full),
+    explainsWhenDisabled: true,
+    run: (ctx) => {
+      if (ctx.get().readOnly) return
+      const no = full(ctx)
+      if (no) {
+        ctx.status(no)
+        return
+      }
+      go(ctx)
     }
-    go(ctx)
   }
-  explaining.add(run)
-  return run
 }
 
 const editableSel = (ctx: EditorCtx): string[] => editableIds(ctx.doc(), ctx.get().selection)
@@ -161,9 +168,11 @@ function groupPicks(ctx: EditorCtx): NodePlace[] {
   return pickForGrouping(ctx.doc(), ctx.get().selection, editableIds)
 }
 
-const canGroup = (ctx: EditorCtx): boolean => {
+const groupWhy: Why = (ctx) => {
+  if (!holdsV2Content(ctx.get())) return v2Needed(ctx.get())
   const picks = groupPicks(ctx)
-  return writable(ctx) && holdsV2Content(ctx.get()) && picks.length > 0 && !picks.some(isClipPathPlace)
+  if (!picks.length) return 'Select the objects to group first.'
+  return picks.some(isClipPathPlace) ? CLIP_PROBLEM['clip-path-picked'] : null
 }
 
 const selectedGroups = (ctx: EditorCtx): string[] => {
@@ -192,64 +201,53 @@ const RULES: Array<{ rule: FillRule; label: string }> = [
   { rule: 'evenodd', label: 'Even-odd fill rule' }
 ]
 
+/** Something editable is selected; else `reason`. */
+const needsSelection = (reason: string): Why => unless((ctx) => editableSel(ctx).length > 0, reason)
+
 const objectCommands: Command[] = [
   {
     id: 'object.group',
     label: 'Group',
     icon: 'group_work',
     menu: { path: 'object', order: 200 },
-    enabled: canGroup,
-    run: guarded(
-      canGroup,
-      (ctx) => (!holdsV2Content(ctx.get()) ? v2Needed(ctx.get()) : groupPicks(ctx).some(isClipPathPlace) ? CLIP_PROBLEM['clip-path-picked'] : 'Select the objects to group first.'),
-      (ctx) => {
-        const { doc, groupId } = groupNodes(ctx.doc(), groupPicks(ctx))
-        if (!groupId) return
-        ctx.history.commit(doc, 'Group')
-        ctx.select([groupId])
-      }
-    )
+    ...guarded(groupWhy, (ctx) => {
+      const { doc, groupId } = groupNodes(ctx.doc(), groupPicks(ctx))
+      if (!groupId) return
+      ctx.history.commit(doc, 'Group')
+      ctx.select([groupId])
+    })
   },
   {
     id: 'object.ungroup',
     label: 'Ungroup',
     icon: 'workspaces',
     menu: { path: 'object', order: 201 },
-    enabled: (ctx) => writable(ctx) && selectedGroups(ctx).length > 0,
-    run: guarded(
-      (ctx) => selectedGroups(ctx).length > 0,
-      () => 'Select a group to ungroup.',
-      (ctx) => {
-        const { doc, ids, droppedEffects } = ungroupNodes(ctx.doc(), selectedGroups(ctx))
-        ctx.history.commit(doc, 'Ungroup')
-        ctx.select(ids)
-        if (droppedEffects) ctx.status('The group’s own effects were removed with it.')
-      }
-    )
+    ...guarded(unless((ctx) => selectedGroups(ctx).length > 0, 'Select a group to ungroup.'), (ctx) => {
+      const { doc, ids, droppedEffects } = ungroupNodes(ctx.doc(), selectedGroups(ctx))
+      ctx.history.commit(doc, 'Ungroup')
+      ctx.select(ids)
+      if (droppedEffects) ctx.status('The group’s own effects were removed with it.')
+    })
   },
   // Lock
   {
     id: 'object.lock.selection',
     label: 'Selection',
     menu: { path: 'object/Lock', order: 0 },
-    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0,
-    run: guarded(
-      (ctx) => editableSel(ctx).length > 0,
-      () => 'Select the objects to lock.',
-      (ctx) => {
-        ctx.history.commit(flagNodes(ctx.doc(), editableSel(ctx), 'locked'), 'Lock')
-        ctx.select([])
-      }
-    )
+    ...guarded(needsSelection('Select the objects to lock.'), (ctx) => {
+      ctx.history.commit(flagNodes(ctx.doc(), editableSel(ctx), 'locked'), 'Lock')
+      ctx.select([])
+    })
   },
   {
     id: 'object.lock.above',
     label: 'All artwork above',
     menu: { path: 'object/Lock', order: 1 },
-    enabled: (ctx) => writable(ctx) && artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
-    run: guarded(
-      (ctx) => artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
-      () => 'Nothing overlaps the selection from above.',
+    ...guarded(
+      firstOf(
+        needsSelection('Select an object to lock the artwork above it.'),
+        unless((ctx) => artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked').length > 0, 'Nothing overlaps the selection from above.')
+      ),
       (ctx) => ctx.history.commit(flagNodes(ctx.doc(), artworkAboveIds(ctx.doc(), editableSel(ctx), 'locked'), 'locked'), 'Lock')
     )
   },
@@ -257,10 +255,11 @@ const objectCommands: Command[] = [
     id: 'object.lock.otherLayers',
     label: 'Other layers',
     menu: { path: 'object/Lock', order: 2 },
-    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
-    run: guarded(
-      (ctx) => editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'locked').length > 0,
-      () => 'There are no other unlocked layers.',
+    ...guarded(
+      firstOf(
+        needsSelection('Select an object to lock every layer but its own.'),
+        unless((ctx) => otherLayerIds(ctx.doc(), editableSel(ctx), 'locked').length > 0, 'There are no other unlocked layers.')
+      ),
       (ctx) => ctx.history.commit(flagLayers(ctx.doc(), otherLayerIds(ctx.doc(), editableSel(ctx), 'locked'), 'locked'), 'Lock other layers')
     )
   },
@@ -269,40 +268,31 @@ const objectCommands: Command[] = [
     label: 'Unlock all',
     icon: 'lock_open',
     menu: { path: 'object', order: 310 },
-    enabled: (ctx) => writable(ctx) && flaggedIds(ctx.doc(), 'locked', isolatedId(ctx)).length > 0,
-    run: guarded(
-      (ctx) => flaggedIds(ctx.doc(), 'locked', isolatedId(ctx)).length > 0,
-      () => 'Nothing is locked.',
-      (ctx) => {
-        const { doc, ids } = clearFlagAll(ctx.doc(), 'locked', isolatedId(ctx))
-        ctx.history.commit(doc, 'Unlock all')
-        selectRestored(ctx, ids)
-      }
-    )
+    ...guarded(unless((ctx) => flaggedIds(ctx.doc(), 'locked', isolatedId(ctx)).length > 0, 'Nothing is locked.'), (ctx) => {
+      const { doc, ids } = clearFlagAll(ctx.doc(), 'locked', isolatedId(ctx))
+      ctx.history.commit(doc, 'Unlock all')
+      selectRestored(ctx, ids)
+    })
   },
   // Hide
   {
     id: 'object.hide.selection',
     label: 'Selection',
     menu: { path: 'object/Hide', order: 0 },
-    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0,
-    run: guarded(
-      (ctx) => editableSel(ctx).length > 0,
-      () => 'Select the objects to hide.',
-      (ctx) => {
-        ctx.history.commit(flagNodes(ctx.doc(), editableSel(ctx), 'hidden'), 'Hide')
-        ctx.select([])
-      }
-    )
+    ...guarded(needsSelection('Select the objects to hide.'), (ctx) => {
+      ctx.history.commit(flagNodes(ctx.doc(), editableSel(ctx), 'hidden'), 'Hide')
+      ctx.select([])
+    })
   },
   {
     id: 'object.hide.above',
     label: 'All artwork above',
     menu: { path: 'object/Hide', order: 1 },
-    enabled: (ctx) => writable(ctx) && artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
-    run: guarded(
-      (ctx) => artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
-      () => 'Nothing overlaps the selection from above.',
+    ...guarded(
+      firstOf(
+        needsSelection('Select an object to hide the artwork above it.'),
+        unless((ctx) => artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0, 'Nothing overlaps the selection from above.')
+      ),
       (ctx) => ctx.history.commit(flagNodes(ctx.doc(), artworkAboveIds(ctx.doc(), editableSel(ctx), 'hidden'), 'hidden'), 'Hide')
     )
   },
@@ -310,10 +300,11 @@ const objectCommands: Command[] = [
     id: 'object.hide.otherLayers',
     label: 'Other layers',
     menu: { path: 'object/Hide', order: 2 },
-    enabled: (ctx) => writable(ctx) && editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
-    run: guarded(
-      (ctx) => editableSel(ctx).length > 0 && otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0,
-      () => 'There are no other visible layers.',
+    ...guarded(
+      firstOf(
+        needsSelection('Select an object to hide every layer but its own.'),
+        unless((ctx) => otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden').length > 0, 'There are no other visible layers.')
+      ),
       (ctx) => ctx.history.commit(flagLayers(ctx.doc(), otherLayerIds(ctx.doc(), editableSel(ctx), 'hidden'), 'hidden'), 'Hide other layers')
     )
   },
@@ -322,26 +313,23 @@ const objectCommands: Command[] = [
     label: 'Show all',
     icon: 'visibility',
     menu: { path: 'object', order: 330 },
-    enabled: (ctx) => writable(ctx) && flaggedIds(ctx.doc(), 'hidden', isolatedId(ctx)).length > 0,
-    run: guarded(
-      (ctx) => flaggedIds(ctx.doc(), 'hidden', isolatedId(ctx)).length > 0,
-      () => 'Nothing is hidden.',
-      (ctx) => {
-        const { doc, ids } = clearFlagAll(ctx.doc(), 'hidden', isolatedId(ctx))
-        ctx.history.commit(doc, 'Show all')
-        selectRestored(ctx, ids)
-      }
-    )
+    ...guarded(unless((ctx) => flaggedIds(ctx.doc(), 'hidden', isolatedId(ctx)).length > 0, 'Nothing is hidden.'), (ctx) => {
+      const { doc, ids } = clearFlagAll(ctx.doc(), 'hidden', isolatedId(ctx))
+      ctx.history.commit(doc, 'Show all')
+      selectRestored(ctx, ids)
+    })
   },
   // Clipping Mask
   {
     id: 'object.clip.make',
     label: 'Make',
     menu: { path: 'object/Clipping Mask', order: 0 },
-    enabled: (ctx) => writable(ctx) && holdsV2Content(ctx.get()) && makeClipProblem(ctx.doc(), ctx.get().selection) === null,
-    run: guarded(
-      (ctx) => holdsV2Content(ctx.get()) && makeClipProblem(ctx.doc(), ctx.get().selection) === null,
-      (ctx) => (!holdsV2Content(ctx.get()) ? v2Needed(ctx.get()) : CLIP_PROBLEM[makeClipProblem(ctx.doc(), ctx.get().selection) ?? 'nothing']),
+    ...guarded(
+      (ctx) => {
+        if (!holdsV2Content(ctx.get())) return v2Needed(ctx.get())
+        const problem = makeClipProblem(ctx.doc(), ctx.get().selection)
+        return problem === null ? null : CLIP_PROBLEM[problem]
+      },
       (ctx) => {
         const { doc, groupId } = makeClipMask(ctx.doc(), ctx.get().selection)
         if (!groupId) return
@@ -354,37 +342,26 @@ const objectCommands: Command[] = [
     id: 'object.clip.release',
     label: 'Release',
     menu: { path: 'object/Clipping Mask', order: 1 },
-    enabled: (ctx) => writable(ctx) && clipGroupsFor(ctx.doc(), ctx.get().selection).length > 0,
-    run: guarded(
-      (ctx) => clipGroupsFor(ctx.doc(), ctx.get().selection).length > 0,
-      () => 'Select a clipping group to release.',
-      (ctx) => {
-        const { doc, groupIds } = releaseClipMask(ctx.doc(), ctx.get().selection)
-        ctx.history.commit(doc, 'Release clipping mask')
-        ctx.select(groupIds)
-      }
-    )
+    ...guarded(unless((ctx) => clipGroupsFor(ctx.doc(), ctx.get().selection).length > 0, 'Select a clipping group to release.'), (ctx) => {
+      const { doc, groupIds } = releaseClipMask(ctx.doc(), ctx.get().selection)
+      ctx.history.commit(doc, 'Release clipping mask')
+      ctx.select(groupIds)
+    })
   },
   {
     id: 'object.clip.editMask',
     label: 'Edit mask',
     menu: { path: 'object/Clipping Mask', order: 100 },
-    enabled: (ctx) => editMaskTarget(ctx.doc(), ctx.get().selection) !== null,
-    run: guarded(
-      (ctx) => editMaskTarget(ctx.doc(), ctx.get().selection) !== null,
-      () => 'Select one clipping group.',
-      (ctx) => ctx.select([editMaskTarget(ctx.doc(), ctx.get().selection)!])
+    ...guarded(unless((ctx) => editMaskTarget(ctx.doc(), ctx.get().selection) !== null, 'Select one clipping group to edit its mask.'), (ctx) =>
+      ctx.select([editMaskTarget(ctx.doc(), ctx.get().selection)!])
     )
   },
   {
     id: 'object.clip.editContents',
     label: 'Edit contents',
     menu: { path: 'object/Clipping Mask', order: 101 },
-    enabled: (ctx) => editContentsTargets(ctx.doc(), ctx.get().selection).length > 0,
-    run: guarded(
-      (ctx) => editContentsTargets(ctx.doc(), ctx.get().selection).length > 0,
-      () => 'Select one clipping group with something in it.',
-      (ctx) => ctx.select(editContentsTargets(ctx.doc(), ctx.get().selection))
+    ...guarded(unless((ctx) => editContentsTargets(ctx.doc(), ctx.get().selection).length > 0, 'Select one clipping group with something in it.'), (ctx) =>
+      ctx.select(editContentsTargets(ctx.doc(), ctx.get().selection))
     )
   },
   // Compound Path
@@ -392,44 +369,31 @@ const objectCommands: Command[] = [
     id: 'object.compound.make',
     label: 'Make',
     menu: { path: 'object/Compound Path', order: 0 },
-    enabled: (ctx) => writable(ctx) && canMakeCompound(ctx.doc(), ctx.get().selection),
-    run: guarded(
-      (ctx) => canMakeCompound(ctx.doc(), ctx.get().selection),
-      () => 'Select two or more paths (or groups of paths) to make a compound path.',
-      (ctx) => {
-        const { doc, newId } = makeCompoundPath(ctx.doc(), ctx.get().selection)
-        if (!newId) return
-        ctx.history.commit(doc, 'Make compound path')
-        ctx.select([newId])
-      }
-    )
+    ...guarded(unless((ctx) => canMakeCompound(ctx.doc(), ctx.get().selection), 'Select two or more paths (or groups of paths) to make a compound path.'), (ctx) => {
+      const { doc, newId } = makeCompoundPath(ctx.doc(), ctx.get().selection)
+      if (!newId) return
+      ctx.history.commit(doc, 'Make compound path')
+      ctx.select([newId])
+    })
   },
   {
     id: 'object.compound.release',
     label: 'Release',
     menu: { path: 'object/Compound Path', order: 1 },
-    enabled: (ctx) => writable(ctx) && compoundPathIds(ctx.doc(), ctx.get().selection).length > 0,
-    run: guarded(
-      (ctx) => compoundPathIds(ctx.doc(), ctx.get().selection).length > 0,
-      () => 'Select a compound path to release.',
-      (ctx) => {
-        const { doc, ids } = releaseCompoundPath(ctx.doc(), ctx.get().selection)
-        ctx.history.commit(doc, 'Release compound path')
-        ctx.select(ids)
-      }
-    )
+    ...guarded(unless((ctx) => compoundPathIds(ctx.doc(), ctx.get().selection).length > 0, 'Select a compound path to release.'), (ctx) => {
+      const { doc, ids } = releaseCompoundPath(ctx.doc(), ctx.get().selection)
+      ctx.history.commit(doc, 'Release compound path')
+      ctx.select(ids)
+    })
   },
   ...RULES.map(
     (r, i): Command => ({
       id: `object.fillRule.${r.rule}`,
       label: r.label,
       menu: { path: 'object/Compound Path', order: 100 + i },
-      enabled: (ctx) => writable(ctx) && fillRuleTargets(ctx.doc(), ctx.get().selection).length > 0,
       checked: (ctx) => fillRuleOf(ctx.doc(), ctx.get().selection) === r.rule,
-      run: guarded(
-        (ctx) => fillRuleTargets(ctx.doc(), ctx.get().selection).length > 0,
-        () => 'Select a path to set its fill rule.',
-        (ctx) => ctx.history.commit(setFillRule(ctx.doc(), ctx.get().selection, r.rule), 'Fill rule')
+      ...guarded(unless((ctx) => fillRuleTargets(ctx.doc(), ctx.get().selection).length > 0, 'Select a path to set its fill rule.'), (ctx) =>
+        ctx.history.commit(setFillRule(ctx.doc(), ctx.get().selection, r.rule), 'Fill rule')
       )
     })
   ),
@@ -439,28 +403,27 @@ const objectCommands: Command[] = [
     label: 'Isolate selected group',
     icon: 'center_focus_strong',
     menu: { path: 'object', order: 500 },
-    enabled: (ctx) => isolatableSelection(ctx) !== null,
-    run: guarded(
-      (ctx) => isolatableSelection(ctx) !== null,
-      () => 'Select one group to isolate.',
-      (ctx) => void enterIsolation(ctx, isolatableSelection(ctx)!)
-    )
+    ...guarded(unless((ctx) => isolatableSelection(ctx) !== null, 'Select one group to isolate.'), (ctx) => void enterIsolation(ctx, isolatableSelection(ctx)!))
   },
   {
     id: 'object.exitIsolation',
     label: 'Exit isolation mode',
     icon: 'filter_center_focus',
     menu: { path: 'object', order: 501 },
-    enabled: (ctx) => isIsolated(ctx.get()),
+    // Leaving isolation only changes the view, so it works on a read-only drawing too.
+    ...gate(unless((ctx) => isIsolated(ctx.get()), 'No group is isolated.')),
     run: (ctx) => exitIsolation(ctx)
   }
 ]
 
-/** How many paths are selected (a path the commands above can act on). */
-function selectedPathCount(ctx: EditorCtx): number {
-  const doc = ctx.doc()
-  return ctx.get().selection.filter((id) => getObject(doc, id)?.type === 'path').length
-}
+/** Close, Open and Reverse act on the selected paths that are not locked or hidden (nor on a locked or hidden layer). */
+const pathsWhy = (reason: string): Why => firstOf(notReadOnly, unless((ctx) => selectedPathIds(ctx).length > 0, reason))
+
+/** Pathfinder: two or more editable paths at a layer's top level. */
+const pathfinderWhy: Why = firstOf(
+  notReadOnly,
+  unless((ctx) => pathfinderOperands(ctx.doc(), editableIds(ctx.doc(), ctx.get().selection)).length >= 2, 'Select two or more paths to combine them.')
+)
 
 /** The one selected group that sits at the current level (top level, or in the isolated group), or null. */
 function isolatableSelection(ctx: EditorCtx): string | null {
@@ -477,18 +440,27 @@ export const commands: Command[] = [
       id: `object.${b.id}`,
       label: b.label,
       menu: { path: 'object/Pathfinder', order: i },
-      enabled: writable,
+      ...gate(pathfinderWhy),
       run: (ctx) => runBoolean(ctx, b.op)
     })
   ),
-  { id: 'object.boolean', label: 'Pathfinder', enabled: writable, run: (ctx, op) => runBoolean(ctx, op as BooleanOp) },
+  { id: 'object.boolean', label: 'Pathfinder', ...gate(pathfinderWhy), run: (ctx, op) => runBoolean(ctx, op as BooleanOp) },
   ...ARRANGE.map(
     (a, i): Command => ({
       id: `object.arrange.${a.dir}`,
       label: a.label,
       menu: { path: 'object/Arrange', order: i },
       // Within each object's own layer or group (inside groups too).
-      enabled: (ctx) => writable(ctx) && canArrange(ctx.doc(), editableIds(ctx.doc(), ctx.get().selection), a.dir),
+      ...gate(
+        firstOf(
+          notReadOnly,
+          unless((ctx) => editableIds(ctx.doc(), ctx.get().selection).length > 0, 'Select something to arrange it.'),
+          unless(
+            (ctx) => canArrange(ctx.doc(), editableIds(ctx.doc(), ctx.get().selection), a.dir),
+            a.dir === 'front' || a.dir === 'forward' ? 'The selection is already at the front.' : 'The selection is already at the back.'
+          )
+        )
+      ),
       run: (ctx) => {
         const s = ctx.get()
         ctx.history.commit(arrangeNodes(s.doc, editableIds(s.doc, s.selection), a.dir), a.label)
@@ -502,14 +474,14 @@ export const commands: Command[] = [
       label: edge === 'center' ? 'Centre' : edge[0].toUpperCase() + edge.slice(1),
       menu: { path: 'object/Align', order: i },
       // To the selection, the key object or the artboard (align.commands.ts).
-      enabled: canAlign,
+      ...gate(alignWhy),
       run: (ctx) => alignSelection(ctx, edge)
     })
   ),
   {
     id: 'object.distribute',
     label: 'Distribute',
-    enabled: writable,
+    ...writableGate,
     run: (ctx, axis) => ctx.history.commit(distributeObjects(ctx.doc(), ctx.get().selection, axis as 'h' | 'v'), 'Distribute')
   },
   // Close, Open and Reverse lived only in the old inspector; they are in the
@@ -518,34 +490,38 @@ export const commands: Command[] = [
     id: 'object.closePath',
     label: 'Close path',
     menu: { path: 'object/Path', order: 300 },
-    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 0,
+    ...gate(pathsWhy('Select a path to close it.')),
     run: (ctx) => ctx.run('object.setClosed', true)
   },
   {
     id: 'object.openPath',
     label: 'Open path',
     menu: { path: 'object/Path', order: 301 },
-    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 0,
+    ...gate(pathsWhy('Select a path to open it.')),
     run: (ctx) => ctx.run('object.setClosed', false)
   },
   {
     id: 'object.reverse',
     label: 'Reverse path direction',
     menu: { path: 'object/Path', order: 302 },
-    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 0,
+    ...gate(pathsWhy('Select a path to reverse it.')),
     run: (ctx) => {
+      const ids = selectedPathIds(ctx)
+      if (!ids.length) return
       let next = ctx.doc()
-      for (const id of ctx.get().selection) next = reversePath(next, id)
+      for (const id of ids) next = reversePath(next, id)
       ctx.history.commit(next, 'Reverse path')
     }
   },
   {
     id: 'object.setClosed',
     label: 'Open or close path',
-    enabled: writable,
+    ...writableGate,
     run: (ctx, closed) => {
+      const ids = selectedPathIds(ctx)
+      if (!ids.length) return
       let next = ctx.doc()
-      for (const id of ctx.get().selection) next = setPathClosed(next, id, closed === true)
+      for (const id of ids) next = setPathClosed(next, id, closed === true)
       ctx.history.commit(next, closed ? 'Close path' : 'Open path')
     }
   },
@@ -553,9 +529,10 @@ export const commands: Command[] = [
     id: 'object.join',
     label: 'Join into one path',
     menu: { path: 'object/Path', order: 303 },
-    enabled: (ctx) => writable(ctx) && selectedPathCount(ctx) > 1,
+    // The same operands as Pathfinder: paths at a layer's top level.
+    ...gate(firstOf(notReadOnly, unless((ctx) => pathfinderOperands(ctx.doc(), selectedPathIds(ctx)).length >= 2, 'Select two or more paths to join them into one.'))),
     run: (ctx) => {
-      const { doc, newId } = joinPaths(ctx.doc(), ctx.get().selection)
+      const { doc, newId } = joinPaths(ctx.doc(), selectedPathIds(ctx))
       if (doc === ctx.doc()) return
       ctx.history.commit(doc, 'Join paths')
       ctx.select(newId ? [newId] : [])
@@ -564,7 +541,7 @@ export const commands: Command[] = [
   {
     id: 'object.reshape',
     label: 'Shape parameters',
-    enabled: writable,
+    ...writableGate,
     run: (ctx, patch) => {
       const id = ctx.get().selection[0]
       if (id) ctx.history.commit(reshape(ctx.doc(), id, patch as { cornerRadius?: number; sides?: number; innerRatio?: number }), 'Shape')
@@ -603,5 +580,5 @@ export const commands: Command[] = [
     label: 'Type settings',
     run: (ctx, patch) => patchSelected(ctx, (o) => (o.type === 'text' ? ctx.text.measure({ ...o, ...(patch as Partial<DrawTextNode>) }) : o), 'Type')
   },
-  ...objectCommands.map((c) => (explaining.has(c.run) ? { ...c, explainsWhenDisabled: true } : c))
+  ...objectCommands
 ]

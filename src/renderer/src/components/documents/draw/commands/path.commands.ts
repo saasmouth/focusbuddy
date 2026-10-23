@@ -23,8 +23,8 @@ import {
 } from '@shared/draw/ops'
 import type { Command, EditorCtx, MenuSpec, PathPrefs } from '../editor/types'
 import { partialAnchors, selectAnchors, selectedAnchors, wholeSelection } from '../editor/anchorSelection'
+import { firstOf, gate, notReadOnly, unless, type Why } from './gate'
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
 export const menus: MenuSpec[] = [{ path: 'object/Path', label: 'Path', icon: 'timeline', order: 125 }]
 
@@ -43,15 +43,21 @@ function pickedEndpoints(ctx: EditorCtx): [EndpointRef, EndpointRef] | null {
   return ends.length === 2 ? [ends[0], ends[1]] : null
 }
 
-function canJoin(ctx: EditorCtx): boolean {
-  if (!writable(ctx)) return false
+/** Why ⌘J (and Average & Join) cannot join now, or null. */
+const joinWhy: Why = firstOf(notReadOnly, (ctx) => {
   const s = ctx.get()
   if (partialAnchors(s).length) {
     const pair = pickedEndpoints(ctx)
-    return !!pair && !(pair[0].id === pair[1].id && pair[0].si === pair[1].si && pair[0].end === pair[1].end)
+    const ok = !!pair && !(pair[0].id === pair[1].id && pair[0].si === pair[1].si && pair[0].end === pair[1].end)
+    return ok ? null : 'Select two open end points to join them.'
   }
-  return openEndpoints(s.doc, wholeSelection(s)).length > 0
-}
+  return openEndpoints(s.doc, wholeSelection(s)).length > 0 ? null : 'Select open paths, or two of their end points, to join them.'
+})
+
+const oneAnchor = unless((ctx) => selectedAnchors(ctx.get()).length > 0, 'Select anchor points first.')
+const twoAnchors = unless((ctx) => selectedAnchors(ctx.get()).length >= 2, 'Select two or more anchor points to average them.')
+const aPath = (reason: string): Why => unless((ctx) => selectedPathIds(ctx).length > 0, reason)
+const pickedAnchors = (reason: string): Why => unless((ctx) => partialAnchors(ctx.get()).length > 0, reason)
 
 /** ⌘J: join the two picked endpoints, or chain the selected open paths by their nearest ends. */
 export function runJoin(ctx: EditorCtx, average: boolean): void {
@@ -90,14 +96,14 @@ export const commands: Command[] = [
     label: 'Join',
     icon: 'link',
     menu: { path: 'object/Path', order: 0 },
-    enabled: canJoin,
+    ...gate(joinWhy),
     run: (ctx) => runJoin(ctx, false)
   },
   {
     id: 'path.average',
     label: 'Average…',
     menu: { path: 'object/Path', order: 1 },
-    enabled: (ctx) => writable(ctx) && selectedAnchors(ctx.get()).length >= 2,
+    ...gate(firstOf(notReadOnly, twoAnchors)),
     run: (ctx) => {
       if (selectedAnchors(ctx.get()).length < 2) return
       ctx.set({ dialog: { id: 'average' } })
@@ -107,13 +113,13 @@ export const commands: Command[] = [
     id: 'path.averageJoin',
     label: 'Average & Join',
     menu: { path: 'object/Path', order: 2 },
-    enabled: canJoin,
+    ...gate(joinWhy),
     run: (ctx) => runJoin(ctx, true)
   },
   {
     id: 'path.averageApply',
     label: 'Average anchor points',
-    enabled: (ctx) => writable(ctx) && selectedAnchors(ctx.get()).length >= 2,
+    ...gate(firstOf(notReadOnly, twoAnchors)),
     run: (ctx, axis) => {
       const refs = selectedAnchors(ctx.get())
       const next = averageAnchors(ctx.doc(), refs, (axis as AverageAxis) ?? 'both')
@@ -124,7 +130,7 @@ export const commands: Command[] = [
     id: 'path.simplify',
     label: 'Simplify…',
     menu: { path: 'object/Path', order: 100 },
-    enabled: (ctx) => writable(ctx) && selectedPathIds(ctx).length > 0,
+    ...gate(firstOf(notReadOnly, aPath('Select a path to simplify it.'))),
     run: (ctx) => {
       if (selectedPathIds(ctx).length) ctx.set({ dialog: { id: 'simplify' } })
     }
@@ -133,7 +139,7 @@ export const commands: Command[] = [
     id: 'path.addAnchorPoints',
     label: 'Add Anchor Points',
     menu: { path: 'object/Path', order: 110 },
-    enabled: (ctx) => writable(ctx) && selectedPathIds(ctx).length > 0,
+    ...gate(firstOf(notReadOnly, aPath('Select a path to add anchor points to it.'))),
     run: (ctx) => {
       const ids = selectedPathIds(ctx)
       const next = addMidpointAnchors(ctx.doc(), ids)
@@ -147,7 +153,7 @@ export const commands: Command[] = [
     label: 'Remove Anchor Points',
     icon: 'remove',
     menu: { path: 'object/Path', order: 120 },
-    enabled: (ctx) => writable(ctx) && partialAnchors(ctx.get()).length > 0,
+    ...gate(firstOf(notReadOnly, pickedAnchors('Select anchor points with the Direct Selection tool to remove them.'))),
     run: (ctx) => {
       const s = ctx.get()
       const refs = partialAnchors(s)
@@ -163,7 +169,7 @@ export const commands: Command[] = [
     label: 'Cut Path at Selected Anchor Points',
     icon: 'content_cut',
     menu: { path: 'object/Path', order: 130 },
-    enabled: (ctx) => writable(ctx) && partialAnchors(ctx.get()).length > 0,
+    ...gate(firstOf(notReadOnly, pickedAnchors('Select anchor points with the Direct Selection tool to cut the path there.'))),
     run: (ctx) => {
       const s = ctx.get()
       const { doc, ids } = cutAtAnchors(s.doc, partialAnchors(s))
@@ -179,7 +185,7 @@ export const commands: Command[] = [
     id: 'path.convertCorner',
     label: 'Convert selected anchor points to corner',
     icon: 'change_history',
-    enabled: (ctx) => writable(ctx) && selectedAnchors(ctx.get()).length > 0,
+    ...gate(firstOf(notReadOnly, oneAnchor)),
     run: (ctx) => {
       const next = convertAnchors(ctx.doc(), selectedAnchors(ctx.get()), 'corner')
       if (next !== ctx.doc()) ctx.history.commit(next, 'Convert to corner')
@@ -189,7 +195,7 @@ export const commands: Command[] = [
     id: 'path.convertSmooth',
     label: 'Convert selected anchor points to smooth',
     icon: 'radio_button_unchecked',
-    enabled: (ctx) => writable(ctx) && selectedAnchors(ctx.get()).length > 0,
+    ...gate(firstOf(notReadOnly, oneAnchor)),
     run: (ctx) => {
       const next = convertAnchors(ctx.doc(), selectedAnchors(ctx.get()), 'smooth')
       if (next !== ctx.doc()) ctx.history.commit(next, 'Convert to smooth')
@@ -210,7 +216,7 @@ export const commands: Command[] = [
     (a): Command => ({
       id: `path.alignAnchors.${a.edge}`,
       label: a.label,
-      enabled: (ctx) => writable(ctx) && selectedAnchors(ctx.get()).length >= 2,
+      ...gate(firstOf(notReadOnly, unless((ctx) => selectedAnchors(ctx.get()).length >= 2, 'Select two or more anchor points to align them.'))),
       run: (ctx) => {
         const next = alignAnchors(ctx.doc(), selectedAnchors(ctx.get()), a.edge)
         if (next !== ctx.doc()) ctx.history.commit(next, 'Align anchor points')
@@ -220,7 +226,7 @@ export const commands: Command[] = [
   {
     id: 'path.cornerRadius',
     label: 'Round corners',
-    enabled: (ctx) => writable(ctx) && selectedAnchors(ctx.get()).length > 0,
+    ...gate(firstOf(notReadOnly, oneAnchor)),
     run: (ctx, r) => {
       const radius = Number(r)
       if (!(radius > 0)) return

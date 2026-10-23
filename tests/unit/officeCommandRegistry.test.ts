@@ -71,13 +71,19 @@ describe('one definition per action', () => {
     expect(silent).toEqual([])
   })
 
-  // PlexiiDraw's registry greys commands out without saying why (76 of its 141
-  // menu commands in a blank drawing: distribute, artboard actions…), against
-  // SPEC §9.5. Its owner (d1) fixes them in the registry; this ratchet lets the
-  // number only go down (E-16).
-  it('PlexiiDraw: commands off without a reason only ever get fewer', () => {
-    const silentNow = APPS.Draw!.filter((c) => c.enabled && !c.enabled() && !c.reason?.()).length
-    expect(silentNow).toBeLessThanOrEqual(76)
+  // PlexiiDraw's adapter always hands over a reason function, so the rule above
+  // cannot see a silent one there; this asks it. It was a ratchet at 76 (of 141
+  // menu commands in a blank drawing: distribute, artboard actions…); d1 gave
+  // every one a reason from the same predicate as its `enabled` (Draw's
+  // commands/gate.ts), so it is now zero, blank and read-only (E-16).
+  it.each([
+    ['a blank drawing', () => drawOfficeCommands(withDocument(harness(blank())).ed.ctx)],
+    ['a read-only drawing', () => drawOfficeCommands(withDocument(harness(blank(), { readOnly: true })).ed.ctx)]
+  ])('PlexiiDraw: no command is off without a reason, in %s', (_state, commands) => {
+    const silent = commands()
+      .filter((c) => c.enabled && !c.enabled() && !c.reason?.()?.trim())
+      .map((c) => c.id)
+    expect(silent).toEqual([])
   })
 
   it('labels use the owner’s spelling: centre, colour', () => {

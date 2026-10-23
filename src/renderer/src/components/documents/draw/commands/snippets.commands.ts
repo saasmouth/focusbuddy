@@ -8,8 +8,8 @@
 import type { Command, EditorCtx } from '../editor/types'
 import { copyableIds } from '../editor/clipboard'
 import { drawBodyFromSelection, drawSnippetTargetId, emptyDrawBody, suggestedDrawSnippetName } from '../editor/drawSnippets'
+import { gate, unless, writableGate } from './gate'
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const canSave = (ctx: EditorCtx): boolean => copyableIds(ctx).length > 0
 
 export const commands: Command[] = [
@@ -19,8 +19,7 @@ export const commands: Command[] = [
     icon: 'bookmark_add',
     menu: { path: 'edit', order: 400 },
     // Saving never edits, so it works on a read-only drawing too, like Copy.
-    enabled: canSave,
-    disabledReason: (ctx) => (canSave(ctx) ? null : 'Select something to save as a snippet.'),
+    ...gate(unless(canSave, 'Select something to save as a snippet.')),
     run: (ctx) => {
       const s = ctx.get()
       // Run with nothing selected (from code, not the disabled item), the
@@ -35,8 +34,7 @@ export const commands: Command[] = [
     label: 'Insert snippet…',
     icon: 'bookmarks',
     menu: { path: 'edit', order: 401 },
-    enabled: writable,
-    disabledReason: (ctx) => (writable(ctx) ? null : 'This drawing is read-only.'),
+    ...writableGate,
     run: (ctx) => ctx.set({ dialog: { id: 'snippet-library', props: { targetId: drawSnippetTargetId(ctx) } } })
   }
 ]

@@ -30,7 +30,6 @@ import {
   activateArtboard,
   allArtboardsBox,
   artboardsBlockedReason,
-  artboardsEditable,
   changeArtboardWithPaint,
   copyNode,
   guardArtboards,
@@ -40,12 +39,16 @@ import {
   steppedArtboard
 } from '../editor/artboards'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import { firstOf, gate, unless, type Why } from './gate'
 
 export const menus: MenuSpec[] = [{ path: 'object/Artboards', label: 'Artboards', icon: 'dashboard_customize', order: 900 }]
 
-const editable = (ctx: EditorCtx): boolean => artboardsEditable(ctx.get())
 const several = (ctx: EditorCtx): boolean => ctx.get().doc.artboards.length > 1
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
+
+/** Read-only, or a drawing that must stay in the older format (editor/artboards.ts). */
+const editableWhy: Why = (ctx) => artboardsBlockedReason(ctx.get())
+const ONLY_ONE = 'There is only one artboard.'
 
 /** The artboard a command acts on: the one named in its args, else the active one. */
 function target(ctx: EditorCtx, args: unknown): DrawArtboard {
@@ -82,7 +85,7 @@ export const commands: Command[] = [
     label: 'New Artboard',
     icon: 'add_box',
     menu: { path: 'object/Artboards', order: 0 },
-    enabled: editable,
+    ...gate(editableWhy),
     run: (ctx) => {
       if (!guardArtboards(ctx)) return
       const doc = ctx.doc()
@@ -96,7 +99,7 @@ export const commands: Command[] = [
     label: 'Duplicate Artboard',
     icon: 'library_add',
     menu: { path: 'object/Artboards', order: 1 },
-    enabled: editable,
+    ...gate(editableWhy),
     run: (ctx, args) => {
       if (!guardArtboards(ctx)) return
       const a = target(ctx, args)
@@ -114,7 +117,7 @@ export const commands: Command[] = [
     icon: 'delete',
     menu: { path: 'object/Artboards', order: 2 },
     // A drawing always keeps one artboard; the art on a deleted one stays.
-    enabled: (ctx) => editable(ctx) && several(ctx),
+    ...gate(firstOf(editableWhy, unless(several, 'A drawing keeps at least one artboard.'))),
     run: (ctx, args) => {
       if (!guardArtboards(ctx) || !several(ctx)) return
       const a = target(ctx, args)
@@ -127,7 +130,7 @@ export const commands: Command[] = [
     label: 'Rename…',
     icon: 'edit',
     menu: { path: 'object/Artboards', order: 3 },
-    enabled: editable,
+    ...gate(editableWhy),
     run: (ctx, args) => {
       const a = target(ctx, args)
       const name = (args as { name?: unknown } | undefined)?.name
@@ -146,13 +149,13 @@ export const commands: Command[] = [
     label: 'Artboard Options…',
     icon: 'tune',
     menu: { path: 'object/Artboards', order: 4 },
-    enabled: editable,
+    ...gate(editableWhy),
     run: (ctx, args) => ctx.set({ dialog: { id: 'artboard-options', props: { id: target(ctx, args).id } } })
   },
   {
     id: 'artboard.patch',
     label: 'Change artboard',
-    enabled: editable,
+    ...gate(editableWhy),
     run: (ctx, args) => {
       if (!guardArtboards(ctx)) return
       const { id, patch, label } = (args ?? {}) as { id?: string; patch?: Partial<DrawArtboard>; label?: string }
@@ -168,7 +171,7 @@ export const commands: Command[] = [
     label: 'Fit to Artwork Bounds',
     icon: 'fit_screen',
     menu: { path: 'object/Artboards', order: 100 },
-    enabled: (ctx) => editable(ctx) && artworkBounds(ctx.doc()) !== null,
+    ...gate(firstOf(editableWhy, unless((ctx) => artworkBounds(ctx.doc()) !== null, 'There is no artwork to fit the artboard to.'))),
     run: (ctx, args) => {
       if (!guardArtboards(ctx)) return
       const b = artworkBounds(ctx.doc())
@@ -182,7 +185,7 @@ export const commands: Command[] = [
     label: 'Fit to Selected Art',
     icon: 'crop_free',
     menu: { path: 'object/Artboards', order: 101 },
-    enabled: (ctx) => editable(ctx) && hasSelection(ctx),
+    ...gate(firstOf(editableWhy, unless(hasSelection, 'Select the artwork to fit the artboard to.'))),
     run: (ctx, args) => {
       if (!guardArtboards(ctx)) return
       const b = nodesWorldBounds(ctx.doc(), ctx.get().selection)
@@ -198,8 +201,7 @@ export const commands: Command[] = [
     label: 'Convert to Artboards',
     icon: 'transform',
     menu: { path: 'object/Artboards', order: 102 },
-    enabled: (ctx) => editable(ctx) && convertibleRectangles(ctx.doc(), ctx.get().selection).length > 0,
-    disabledReason: (ctx) => artboardsBlockedReason(ctx.get()) ?? (convertibleRectangles(ctx.doc(), ctx.get().selection).length ? null : 'select one or more rectangles'),
+    ...gate(firstOf(editableWhy, unless((ctx) => convertibleRectangles(ctx.doc(), ctx.get().selection).length > 0, 'Select one or more rectangles.'))),
     explainsWhenDisabled: true,
     run: (ctx) => {
       if (!guardArtboards(ctx)) return
@@ -216,7 +218,7 @@ export const commands: Command[] = [
     label: 'Rearrange All Artboards…',
     icon: 'grid_view',
     menu: { path: 'object/Artboards', order: 200 },
-    enabled: (ctx) => editable(ctx) && several(ctx),
+    ...gate(firstOf(editableWhy, unless(several, ONLY_ONE))),
     run: (ctx, args) => {
       if (args && typeof args === 'object' && 'layout' in (args as object)) {
         if (!guardArtboards(ctx)) return
@@ -231,7 +233,7 @@ export const commands: Command[] = [
   {
     id: 'artboard.reorder',
     label: 'Move artboard in the list',
-    enabled: editable,
+    ...gate(editableWhy),
     run: (ctx, args) => {
       if (!guardArtboards(ctx)) return
       const { id, index } = (args ?? {}) as { id?: string; index?: number }
@@ -271,7 +273,7 @@ export const commands: Command[] = [
     label: 'Next Artboard',
     icon: 'navigate_next',
     menu: { path: 'view', order: 150 },
-    enabled: several,
+    ...gate(unless(several, ONLY_ONE)),
     run: (ctx) => {
       const id = steppedArtboard(ctx.doc(), 1)
       if (id) goToArtboard(ctx, id)
@@ -282,7 +284,7 @@ export const commands: Command[] = [
     label: 'Previous Artboard',
     icon: 'navigate_before',
     menu: { path: 'view', order: 151 },
-    enabled: several,
+    ...gate(unless(several, ONLY_ONE)),
     run: (ctx) => {
       const id = steppedArtboard(ctx.doc(), -1)
       if (id) goToArtboard(ctx, id)

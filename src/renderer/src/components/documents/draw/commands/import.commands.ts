@@ -13,6 +13,8 @@ import { loadPlaceCursor, placeIntoDoc, showImportReport } from '../editor/place
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 import { documentCommand } from '../editor/session'
 import type { DocumentOps } from '../../editor/documentOps'
+import { v2BlockedReason } from '../editor/v2gate'
+import { firstOf, gate, notReadOnly, unless, writableGate } from './gate'
 
 /**
  * What the commands need from the app; tests replace it (setImportHost).
@@ -36,7 +38,6 @@ export function setImportHost(h: ImportHost | null): void {
   host = h ?? appHost
 }
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
 /** A PDF waiting for its page to be chosen (the Place PDF dialog). */
 let pendingPdf: { file: ImportFile; template: boolean } | null = null
@@ -254,7 +255,7 @@ export const commands: Command[] = [
     label: 'Place…',
     icon: 'add_photo_alternate',
     menu: { path: 'file', order: 250 },
-    enabled: writable,
+    ...writableGate,
     run: (ctx) => place(ctx, false)
   },
   {
@@ -263,7 +264,11 @@ export const commands: Command[] = [
     icon: 'layers',
     menu: { path: 'file', order: 251 },
     // A template layer is something only the newer drawing format stores.
-    enabled: (ctx) => writable(ctx) && importStructure(ctx.get()) === 'v2',
+    ...gate(
+      firstOf(notReadOnly, (ctx) =>
+        importStructure(ctx.get()) === 'v2' ? null : `Template layers need the newer drawing format: ${v2BlockedReason(ctx.get())}.`
+      )
+    ),
     run: (ctx) => place(ctx, true)
   },
   {
@@ -271,7 +276,7 @@ export const commands: Command[] = [
     label: 'Import SVG…',
     icon: 'polyline',
     menu: { path: 'file', order: 252 },
-    enabled: writable,
+    ...writableGate,
     run: (ctx) => importSvg(ctx)
   },
   {
@@ -279,17 +284,17 @@ export const commands: Command[] = [
     label: 'Replace image…',
     icon: 'swap_horiz',
     menu: { path: 'file', order: 253 },
-    enabled: (ctx) => writable(ctx) && selectedImage(ctx) !== null,
+    ...gate(firstOf(notReadOnly, unless((ctx) => selectedImage(ctx) !== null, 'Select one image to replace it.'))),
     run: (ctx) => replaceImage(ctx)
   },
-  { id: 'file.placePdfPage', label: 'Place PDF page', enabled: writable, run: (ctx, args) => placePdfPage(ctx, args) },
+  { id: 'file.placePdfPage', label: 'Place PDF page', ...writableGate, run: (ctx, args) => placePdfPage(ctx, args) },
   {
     id: 'edit.copySvgCode',
     label: 'SVG Code',
     icon: 'code',
     menu: { path: 'edit/Copy As', order: 0 },
     // Copying never edits: allowed on a read-only drawing too.
-    enabled: (ctx) => copyableIds(ctx).length > 0,
+    ...gate(unless((ctx) => copyableIds(ctx).length > 0, 'Select something to copy as SVG code.')),
     run: (ctx) => copySvgCode(ctx).then(() => undefined)
   }
 ]
