@@ -14,7 +14,7 @@
 // Anchoring to the bottom-right corner is covered by canvasSurfaceAnchor CS-1.
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -41,6 +41,24 @@ async function seedDesk(window: LaunchedApp['window'], title: string): Promise<s
 }
 
 async function openDesk(window: LaunchedApp['window'], title: string): Promise<void> {
+  // THE FEATURE-SPOTLIGHT CARD SITS EXACTLY WHERE THE MINIMAP DOES.
+  //
+  // This whole file is about the bottom-right corner, and it never adopted the
+  // harness requirement for it. _helpers puts it plainly: the card "docks
+  // bottom-right at z-[230] ... and intercepts their clicks", waitForReady's
+  // dismiss is best-effort only because "its init awaits two IPC calls", and
+  // "specs that drive the bottom-right corner should additionally call
+  // suppressFeatureSpotlights before reloading". 51 other specs do.
+  //
+  // Which is why MM-3 and MM-5 were red while MM-1, MM-2 and MM-4 were green:
+  // only MM-3 and MM-5 press the toggle, and the best-effort dismiss loses the
+  // race. MM-3 spent its whole 30s on "subtree intercepts pointer events" from
+  // <div data-testid="feature-spotlight-popup"> and timed out; MM-5's own
+  // hit-test named the same element outright, where it expects the pill.
+  //
+  // Before the reload, per the helper: the card is decided at boot, so marking
+  // the tours skipped afterwards would be read too late.
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: title }).first().click()

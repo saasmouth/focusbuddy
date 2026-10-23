@@ -1,5 +1,22 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { ACTIVE, CURRENT } from '../../src/shared/productDomains'
+
+// The signal server, by every name it answers to.
+//
+// THIS SPEC WENT RED ON A HOSTNAME. Its error filter already excluded live
+// signal traffic as "unrelated to this diff" — correctly, since the subject is
+// the mindmap card — but it named the host as a literal, 'focusbuddy-signal
+// .fly.dev'. productDomains then completed the api cutover to
+// api.plexiidesk.com, which is the SAME origin by a different name (DNS-only,
+// same IP, per the note on ACTIVE), so the filter stopped matching while the
+// traffic it was written for carried on exactly as before.
+//
+// Derived from productDomains instead, so it follows the next cutover on its
+// own. Both names are kept because both still answer, and a client or a stale
+// link can reach either.
+const SIGNAL_HOSTS = [new URL(ACTIVE.api).host, new URL(CURRENT.api).host]
+const fromSignal = (text: string): boolean => SIGNAL_HOSTS.some((h) => text.includes(h))
 
 // Regression check for plexi-4.5 commits 4b558f1 / 7305bde:
 //   - MindMap's proposal apply now runs on the shared resolvedIds +
@@ -34,8 +51,22 @@ test('Applied proposal card renders Go-to + Undo without console errors, and Go-
   window.on('pageerror', (err) => {
     consoleErrors.push(`pageerror: ${err.message}`)
   })
+  // A 404 on OUR OWN bundle is a defect: a missing icon, a dead asset path.
+  // A 404 from the signal server is deployment state, and the one this spec
+  // tripped on is intended — GET /public/server-features. LaunchSignInModal
+  // says so at the call site: "Today's server has no such route: the answer is
+  // a 404, the list stays empty and the link stays hidden", and capabilities.ts
+  // asks for it behind `if (res.ok)`, so the public feature list stays empty
+  // and the "restore your account" link is correctly withheld.
+  //
+  // Verified rather than assumed, with read-only GETs against the live API:
+  // /public/server-features answers Fastify's "Route GET:... not found", while
+  // /public/plans answers 200 and /conversations answers 401 — the server is up
+  // and routing, and that one route simply is not deployed yet.
   window.on('response', (res) => {
-    if (res.status() === 404) consoleErrors.push(`404: ${res.url()}`)
+    if (res.status() !== 404) return
+    if (fromSignal(res.url())) return
+    consoleErrors.push(`404: ${res.url()}`)
   })
 
   await window.waitForFunction(
@@ -165,7 +196,7 @@ test('Applied proposal card renders Go-to + Undo without console errors, and Go-
     (e) =>
       !e.includes('database connection is not open') && // known unrelated teardown noise
       !e.includes('ERR_CONNECTION_REFUSED') && // signal-server not reachable in this harness
-      !e.includes('focusbuddy-signal.fly.dev') && // live network call unrelated to this diff
+      !fromSignal(e) && // live network call unrelated to this diff — see SIGNAL_HOSTS
       !e.includes('Failed to load resource') // generic echo of the network 404 above
   )
   expect(relevantErrors).toEqual([])
