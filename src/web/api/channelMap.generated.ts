@@ -658,7 +658,8 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'tables.onRowsChanged': 'tables:rowsChanged',
   'update.onState': 'update:state',
   'webMenu.onCommand': 'webMenu:command',
-  'webview.onLinkClicked': 'webview:link-clicked'
+  'webview.onLinkClicked': 'webview:link-clicked',
+  'widgets.onExternalChange': 'widgets:externalChange'
 }
 
 /** What each desktop handler takes, so a browser handler can be held to it. */
