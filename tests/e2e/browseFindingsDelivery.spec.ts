@@ -96,10 +96,12 @@ test('the proposals a run’s findings produce build the table and fill it', asy
   expect(flat).toContain('https://pixelperfect.test')
 })
 
-// The no-fakery half: with no API key the delivery must fail out loud and
+// The no-fakery half: a delivery that cannot land must fail out loud and
 // leave NOTHING behind. A half-built or invented table would be worse than the
-// original bug, because it would look like it worked.
-test('with no API key, delivery fails honestly and builds nothing', async () => {
+// original bug, because it would look like it worked. Since ad53be71 delivery
+// plans the table in code (no model, so no API key to be missing) onto the
+// desk the caller names; what can be missing now is that desk.
+test('with no desk to land on, delivery fails honestly and builds nothing', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -137,12 +139,15 @@ test('with no API key, delivery fails honestly and builds nothing', async () => 
         }
       }
     })
-    await store.getState().deliver(runId)
-    return store.getState().runs[runId].delivery
+    const tablesBefore = (await (window as unknown as { api: Record<string, any> }).api.tables.list()).length
+    await store.getState().deliver(runId, undefined)
+    const tablesAfter = (await (window as unknown as { api: Record<string, any> }).api.tables.list()).length
+    return { ...store.getState().runs[runId].delivery, tablesBefore, tablesAfter }
   }, FINDINGS)
 
   expect(delivery.state).toBe('error')
-  expect(delivery.message).toMatch(/api key/i)
+  expect(delivery.message).toMatch(/0 of \d+ placed\. Open a desk first/)
+  expect(delivery.tablesAfter, 'a failed delivery must not leave an orphan table').toBe(delivery.tablesBefore)
 
   const widgets = await window.evaluate(async (id) => {
     const api = (window as unknown as { api: Record<string, any> }).api

@@ -135,10 +135,13 @@ test('CONTEXT-ENGINE — context:* handlers respond without error (window.api.co
     })
 
     const result = await app.evaluate(
-      async ({ ipcMain }, { aId, bId }) => {
+      async ({ ipcMain, BrowserWindow }, { aId, bId }) => {
         type Handler = (event: unknown, ...args: unknown[]) => unknown
         const handlers = (ipcMain as unknown as { _invokeHandlers: Map<string, Handler> })._invokeHandlers
-        const fakeEvent = { sender: null }
+        // Every handler checks its sender's URL since 5ef579b2 (IPC error
+        // boundary), so the reflected call carries the app window's own
+        // webContents: the sender a renderer call would have.
+        const fakeEvent = { sender: BrowserWindow.getAllWindows()[0]!.webContents }
         const related = (await handlers.get('context:related')?.(fakeEvent, aId)) as string[]
         const health = (await handlers.get('context:health')?.(fakeEvent, aId)) as { state: unknown }
         const markReviewed = await handlers.get('context:markReviewed')?.(fakeEvent, aId)

@@ -47,7 +47,8 @@ test('F1-1. projects-new button creates a folder and opens its Gantt', async () 
     const nodes = await window.evaluate(async () => window.api.nodes.list())
     const folders = (nodes as Array<{ kind: string; title: string }>).filter((n) => n.kind === 'folder')
     expect(folders.length).toBeGreaterThanOrEqual(1)
-    expect(folders[0].title).toBe('New project')
+    // New plans are titled 'New plan' since 9f72888e8 (Plans not Projects).
+    expect(folders[0].title).toBe('New plan')
   } finally {
     await dispose()
   }
@@ -65,11 +66,13 @@ test('F1-2. projects-add-task reveals input + confirm; confirming adds task to G
     await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({ timeout: 8_000 })
     await window.locator('[data-testid="projects-new"]').click()
     await expect(window.locator('[data-testid="projects-add-task"]')).toBeVisible({ timeout: 8_000 })
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
 
     // Capture the folder id from IPC so we can verify the task went under it
     const nodes0 = await window.evaluate(async () => window.api.nodes.list())
     const folder = (nodes0 as Array<{ kind: string; id: string; title: string }>)
-      .find((n) => n.kind === 'folder' && n.title === 'New project')
+      .find((n) => n.kind === 'folder' && n.title === 'New plan')
     const folderId = folder?.id ?? ''
     expect(folderId).not.toBe('')
 
@@ -128,6 +131,8 @@ test('F1-3. task-editor has all required controls including new task-add-succ pi
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator(`[data-testid="gantt-row-${taskAId}"]`)).toBeVisible({ timeout: 8_000 })
 
     // Click Task Alpha row to open editor
@@ -165,6 +170,8 @@ test('F1-4. task-title rename via Enter persists to IPC', async () => {
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await window.locator(`[data-testid="gantt-row-${taskId}"]`).click()
     await expect(window.locator('[data-testid="task-editor"]')).toBeVisible({ timeout: 5_000 })
 
@@ -217,6 +224,8 @@ test('F1-5. task-add-succ (successor picker) creates a link and engine honours i
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator(`[data-testid="gantt-row-${taskAId}"]`)).toBeVisible({ timeout: 8_000 })
 
     // Open Task A's editor and add Task B as a SUCCESSOR (A blocks B)
@@ -277,6 +286,8 @@ test('F1-6. gantt-bar drag commits new planStart; click (no-drag) opens editor',
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator(`[data-testid="gantt-bar-${taskId}"]`)).toBeVisible({ timeout: 8_000 })
 
     // ── Part A: click (no drag) opens editor ──────────────────────────────────
@@ -362,6 +373,8 @@ test('F1-7. task-delete removes the task from the Gantt', async () => {
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await window.locator(`[data-testid="gantt-row-${taskId}"]`).click()
     await expect(window.locator('[data-testid="task-editor"]')).toBeVisible({ timeout: 5_000 })
 
@@ -408,8 +421,8 @@ test('F2-1. PlexiFlow: module-dashboard-flows renders with create + customize bu
 
     // Customize button opens popover with real section checkboxes
     await window.locator('[data-testid="module-dashboard-customize-flows"]').click()
-    // The popover is a w-56 rounded-xl card. Identify it by the meta label inside it.
-    const popover = window.locator('.w-56.rounded-xl')
+    // The popover is a w-56 card (glass, not rounded-xl, since 471a1dec). Identify it by the meta label inside it.
+    const popover = window.locator('.w-56').filter({ hasText: 'Sections on this dashboard' })
     await expect(popover).toBeVisible({ timeout: 3_000 })
     await expect(popover.getByText('Overview tiles')).toBeVisible()
     await expect(popover.getByText('Your flows')).toBeVisible()
@@ -483,7 +496,7 @@ test('F2-4. PlexiBuild: module-dashboard-build renders with create + customize b
   }
 })
 
-test('F2-5. PlexiMeet: module-dashboard-meet renders with create + customize buttons', async () => {
+test('F2-5. PlexiMeet: module-dashboard-meet renders with create, and no Customize (embedded)', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -494,7 +507,8 @@ test('F2-5. PlexiMeet: module-dashboard-meet renders with create + customize but
     // Nothing selected → ModuleDashboard
     await expect(window.locator('[data-testid="module-dashboard-meet"]')).toBeVisible({ timeout: 5_000 })
     await expect(window.locator('[data-testid="module-dashboard-create-meet"]')).toBeVisible()
-    await expect(window.locator('[data-testid="module-dashboard-customize-meet"]')).toBeVisible()
+    // Meet's dashboard is embedded in its paper page and lost Customize in c9da6993 (DEC-119).
+    await expect(window.locator('[data-testid="module-dashboard-customize-meet"]')).toHaveCount(0)
   } finally {
     await dispose()
   }
@@ -546,8 +560,8 @@ test('F2-7. Customize popover: toggling a section checkbox hides/shows that sect
     // Open customize popover
     await window.locator('[data-testid="module-dashboard-customize-flows"]').click()
 
-    // Scope to the popover card (w-56 rounded-xl)
-    const popover = window.locator('.w-56.rounded-xl')
+    // Scope to the popover card (w-56; its rounded-xl went to glass in 471a1dec)
+    const popover = window.locator('.w-56').filter({ hasText: 'Sections on this dashboard' })
     await expect(popover).toBeVisible({ timeout: 3_000 })
 
     // "Overview tiles" must be a checkbox option in the popover
@@ -570,7 +584,7 @@ test('F2-7. Customize popover: toggling a section checkbox hides/shows that sect
 
     // Re-open customize and restore
     await window.locator('[data-testid="module-dashboard-customize-flows"]').click()
-    const popover2 = window.locator('.w-56.rounded-xl')
+    const popover2 = window.locator('.w-56').filter({ hasText: 'Sections on this dashboard' })
     await expect(popover2).toBeVisible({ timeout: 3_000 })
     const statsCheckbox2 = popover2.locator('label').filter({ hasText: 'Overview tiles' }).locator('input[type="checkbox"]')
     await statsCheckbox2.check()

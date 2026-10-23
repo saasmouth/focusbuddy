@@ -100,9 +100,9 @@ test('browser widget toolbar has back, forward, reload and URL bar (existing too
   await expect(
     widgetRoot.getByRole('button', { name: /^(reload|stop loading)$/i })
   ).toBeVisible({ timeout: 5_000 })
-  // URL bar input
+  // URL bar input: BrowserSurface's shared address bar since 7ad571c0c
   await expect(
-    widgetRoot.locator('input[placeholder="https://…"]')
+    widgetRoot.locator('[data-testid="browser-address"]')
   ).toBeVisible({ timeout: 5_000 })
 })
 

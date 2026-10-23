@@ -29,7 +29,8 @@ test('fb:command-new-task with kind:task opens the wizard, no blank node created
     await expect(dialog).toBeVisible()
     await expect(window.locator('[data-testid="newnode-name"]')).toBeVisible()
     await expect(dialog.getByText('Importance', { exact: false })).toBeVisible()
-    await expect(dialog.getByText('Due date', { exact: false })).toBeVisible()
+    // The field reads 'Due (optional)' since 7038f7526.
+    await expect(dialog.getByText(/^Due\b/).first()).toBeVisible()
 
     const nodeCountAfter = await window.evaluate(
       () => document.querySelectorAll('[data-widget-id]').length

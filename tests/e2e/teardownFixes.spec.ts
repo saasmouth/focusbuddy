@@ -76,27 +76,37 @@ test('a table widget has ONE title bar, and can still be renamed', async () => {
   expect(tableTitle).toBe('Release Timeline')
 })
 
-test('sidebar nav icons are one colour, with the accent only on the active row', async () => {
+// 7460783e reversed Teardown 3.1's one-colour rule on the owner's word ("every
+// option in the side menu is coloured and consistent"): one tone map, the same
+// hue for an option wherever it is drawn, and the active row keeps the accent.
+test('sidebar nav icons take one tone per option, with the accent on the active row', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  await window.waitForTimeout(1200)
+  // Stand somewhere the menu names, so one row is the active one.
+  await window.locator('.fb-nav-item.fb-nav-row', { hasText: /^Home$/ }).first().click()
+  await expect(window.locator('.fb-nav-item.fb-nav-row[class*="--accent))"]').first()).toBeVisible({ timeout: 5_000 })
 
-  const tones = await window.evaluate(() => {
-    const rows = [...document.querySelectorAll('.fb-nav-item')]
-    const classes = rows.map((r) => r.querySelector('span')?.className ?? '')
-    // Count DISTINCT per-area hues still applied to nav icons.
-    const hues = new Set(
-      classes
-        .flatMap((c) => c.split(/\s+/))
-        .filter((c) => /^text-(indigo|sky|teal|fuchsia|violet|emerald|amber|orange|rose|purple|pink|cyan)-500$/.test(c))
-    )
-    return { rows: rows.length, hues: [...hues] }
-  })
+  const rows = await window.evaluate(() =>
+    [...document.querySelectorAll('.fb-nav-item.fb-nav-row')].map((r) => {
+      const cls = (r.querySelector('span')?.className ?? '').split(/\s+/)
+      return {
+        label: (r.textContent ?? '').trim(),
+        active: r.className.includes('text-[rgb(var(--accent))]'),
+        hues: cls.filter((c) => /^text-[a-z]+-\d{3}$/.test(c))
+      }
+    })
+  )
 
-  expect(tones.rows).toBeGreaterThan(0)
-  // The defect was twelve hues carrying no meaning. None should remain.
-  expect(tones.hues).toEqual([])
+  expect(rows.length).toBeGreaterThan(0)
+  const active = rows.filter((r) => r.active)
+  expect(active.length, 'one row is where you are').toBeGreaterThan(0)
+  for (const r of active) expect(r.hues, `${r.label} wears the accent, not its hue`).toEqual([])
+  const idle = rows.filter((r) => !r.active)
+  for (const r of idle) expect(r.hues.length, `${r.label} has exactly one tone`).toBe(1)
+  const byLabel = new Map<string, Set<string>>()
+  for (const r of idle) byLabel.set(r.label, (byLabel.get(r.label) ?? new Set()).add(r.hues[0]))
+  for (const [label, hues] of byLabel) expect([...hues], `${label} is one colour wherever it is drawn`).toHaveLength(1)
 })
 
 test('widget controls are hidden at rest, revealed on hover, and still clickable', async () => {
