@@ -48,6 +48,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
   const skippedAt = useAccountStore((s) => s.skippedAt)
   const anonymousAllowed = useAccountStore((s) => s.anonymousAllowed)
   const cachedEmail = useAccountStore((s) => s.cachedEmail)
+  const updateName = useAccountStore((s) => s.updateName)
   const signupAction = useAccountStore((s) => s.signup)
   const loginAction = useAccountStore((s) => s.login)
   const restoreAction = useAccountStore((s) => s.restore)
@@ -163,7 +164,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
   //    truly in the "no thanks" state.
   //  - User dismissed in this session.
   if (bootStatus !== 'ready') return null
-  if (account && !restoreNotes) return null
+  // A signed-in account with NO NAME still has something to do here. The rule
+  // is both names (4.3.41), so a legacy account with only one is asked too —
+  // "First" alone is not what the people you share with will recognise.
+  const needsName =
+    !!account && (!(account.firstName ?? '').trim() || !(account.lastName ?? '').trim())
+  if (account && !restoreNotes && !needsName) return null
   // An account is required on every real launch; only the e2e harness may run
   // without one. Required, the skip, the weekly throttle and the per-session
   // dismiss all stop applying, because each is a way out.
@@ -213,6 +219,28 @@ export default function LaunchSignInModal(): JSX.Element | null {
     else setError(r.message ?? 'The code could not be sent.')
   }
 
+  // Both names, with whitespace discounted — " " is not a name. Mirrors the
+  // server's rule (accountNames.ts) so the button and the API agree; the
+  // server is still the one that enforces it.
+  const bothNamesGiven = !!firstName.trim() && !!lastName.trim()
+
+  /** Save the name for an account that predates the requirement. */
+  async function saveMyName(): Promise<void> {
+    if (busy || !bothNamesGiven) return
+    setBusy(true)
+    setError(null)
+    try {
+      const ok = await updateName({ firstName: firstName.trim(), lastName: lastName.trim() })
+      // The modal unmounts by itself once the account carries a name, because
+      // `needsName` goes false. A failure must NOT close it: the requirement
+      // is not satisfied, and silently continuing would leave the person
+      // believing it was saved.
+      if (!ok) setError('Your name could not be saved. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (busy) return
@@ -233,8 +261,8 @@ export default function LaunchSignInModal(): JSX.Element | null {
           : await signupAction({
               email: email.trim().toLowerCase(),
               password,
-              firstName: firstName.trim() || null,
-              lastName: lastName.trim() || null
+              firstName: firstName.trim(),
+              lastName: lastName.trim()
             })
       if (result.ok) {
         // Modal will unmount because `account` is now populated. No
@@ -334,6 +362,81 @@ export default function LaunchSignInModal(): JSX.Element | null {
               Continue
             </button>
           </div>
+        </div>
+      </div>,
+      document.body
+    )
+  }
+
+  // ── "Add your name", for an account that predates the requirement ────────
+  // REQUIRED and not skippable (owner's ruling): no close button, no skip, no
+  // Escape. The cost of that is a person stuck at a wall, so it is made as
+  // short as a wall can be — two fields, prefilled from whatever is known,
+  // and a sentence saying why rather than an instruction.
+  if (account && needsName) {
+    return createPortal(
+      <div
+        className="fb-scrim fixed inset-0 z-[280] flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add your name"
+        data-testid="add-your-name"
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl p-6 fb-glass-chrome border border-white/[0.08] shadow-2xl"
+          style={{ background: 'rgba(20, 28, 48, 0.96)' }}
+        >
+          <h2 className="text-[15px] font-semibold text-stone-100">Add your name</h2>
+          <p className="mt-1.5 text-[12px] text-stone-400 leading-snug" data-testid="add-your-name-why">
+            So people you share documents with know who commented. It is shown instead of your
+            username.
+          </p>
+          <form
+            className="mt-4 space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void saveMyName()
+            }}
+          >
+            <div className="flex gap-2 flex-wrap">
+              <input
+                autoFocus
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+                maxLength={40}
+                autoComplete="given-name"
+                data-testid="add-name-first"
+                className="flex-1 min-w-[8rem] px-3 py-2 rounded-md text-stone-100 placeholder:text-stone-500"
+                style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+                maxLength={40}
+                autoComplete="family-name"
+                data-testid="add-name-last"
+                className="flex-1 min-w-[8rem] px-3 py-2 rounded-md text-stone-100 placeholder:text-stone-500"
+                style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+            </div>
+            {error && (
+              <p className="text-[12px] text-red-300" data-testid="add-name-error">
+                {error}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={busy || !bothNamesGiven}
+              data-testid="add-name-save"
+              className="btn-primary !text-[12px] w-full disabled:opacity-50"
+            >
+              {busy ? 'Saving…' : 'Save and continue'}
+            </button>
+          </form>
         </div>
       </div>,
       document.body
@@ -462,8 +565,8 @@ export default function LaunchSignInModal(): JSX.Element | null {
             />
           </div>
           {mode === 'signup' && (
-            <div className="flex gap-2">
-              <div className="flex-1">
+            <div className="flex gap-2 flex-wrap">
+              <div className="flex-1 min-w-[8rem]">
                 <label className="block text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-1">
                   First name
                 </label>
@@ -479,7 +582,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
                   style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}
                 />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-[8rem]">
                 <label className="block text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-1">
                   Last name
                 </label>
@@ -495,6 +598,13 @@ export default function LaunchSignInModal(): JSX.Element | null {
                   style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}
                 />
               </div>
+              {/* Says WHY rather than just marking the fields required: a
+                  person deciding whether to give their real name deserves the
+                  reason, and the reason is specific — it is what the people
+                  they share with will see. */}
+              <p className="w-full text-[11px] text-stone-400 leading-snug" data-testid="signup-name-why">
+                Your name is shown to people you share documents with, so they know who commented.
+              </p>
             </div>
           )}
           {restoreVia !== 'code' && (
@@ -720,7 +830,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
                 busy ||
                 !email ||
                 (restoreVia === 'code' ? !/^\d{6}$/.test(restoreCode.trim()) : !password) ||
-                (mode === 'login' && twoFactor && !code.trim())
+                (mode === 'login' && twoFactor && !code.trim()) ||
+                // A real name is required to hold an account (4.3.41): the
+                // people you share with need to know who you are. Sign-up
+                // only — logging in must never be blocked by it, or an
+                // existing account with no name could not get in to add one.
+                (mode === 'signup' && !restoreVia && !bothNamesGiven)
               }
               data-testid="signin-submit"
               className="btn-primary !text-[12px] disabled:opacity-50"
