@@ -36,7 +36,8 @@ function ShapeBody({ node, selected, dragging }: { node: MapNode; selected: bool
   const ctx = useDiagramCtx()
   const def = getShape(node.shape)
   const { w, h } = nodeSize(node)
-  const geometry = useMemo(() => def.draw(w, h), [def, w, h])
+  const cells = node.cells
+  const geometry = useMemo(() => def.draw(w, h, { cells }), [def, w, h, cells])
   const editing = ctx.editingId === node.id
 
   const bound = useMemo(() => {

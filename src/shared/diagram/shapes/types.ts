@@ -61,6 +61,11 @@ export type ShapeSpecial =
   | 'sticky' // folded sticky note (paths + coloured fill)
   | 'lane' // container with a title band
 
+/** What a shape's geometry may read from the node it draws. */
+export interface ShapeDrawContext {
+  cells?: string[][]
+}
+
 export interface ShapeDef {
   id: string // stable, saved in documents — never rename
   label: string // palette name
@@ -71,7 +76,9 @@ export interface ShapeDef {
   minW?: number
   minH?: number
   aspectLocked?: boolean // resize keeps proportions by default (circles, icons)
-  draw: (w: number, h: number) => ShapeGeometry
+  // `node` is the shape being drawn, for the few shapes whose geometry depends
+  // on its contents (a table's grid follows its cells). Absent in the palette.
+  draw: (w: number, h: number, node?: ShapeDrawContext) => ShapeGeometry
   // Outline used for connector attachment and routing obstacles. Defaults to the
   // first 'fill' part. Must be a closed path.
   outline?: (w: number, h: number) => string

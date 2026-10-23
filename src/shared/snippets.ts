@@ -243,6 +243,14 @@ export interface SnippetTarget {
   /** What the user calls this place: "This document", "Marketing desk". */
   label: string
   accepts: SnippetKind[]
+  /**
+   * What kind of surface this is. A placed instance needs it to work out whether
+   * it is editable in place or live-read-only (instanceModeFor), and a converted
+   * insert needs it to know what to convert TO (primaryKindFor). Optional only
+   * because a target that has not declared one predates this; declare it on
+   * every content host.
+   */
+  host?: SnippetHostKind
   /** Link modes this surface genuinely supports. Must be non-empty. */
   supports: SnippetLink[]
   /**
@@ -259,10 +267,99 @@ export interface SnippetTarget {
   insert: (snippet: Snippet, link: SnippetLink) => Promise<SnippetInsertResult> | SnippetInsertResult
 }
 
-/** Which link modes are possible for this snippet in this target. */
+/**
+ * A surface that snippets can be placed into. Distinct from SnippetKind: a host
+ * is where content lives, a kind is what the content is, and most hosts can hold
+ * more than their own kind.
+ */
+export type SnippetHostKind = 'doc' | 'desk' | 'sheet' | 'slide' | 'design' | 'diagram' | 'draw'
+
+/**
+ * Which kinds each host renders AS ITSELF, with no conversion.
+ *
+ * Every host renders its own kind, and only its own kind, with ONE exception:
+ * a desk renders 'widget' because a desk's native content IS widgets.
+ *
+ * A Write document looks like a second exception and is not. It registers
+ * WidgetEmbedNode, so a document can certainly contain a work widget — but that
+ * node stores a `widgetId` and embeds an EXISTING widget by reference. A widget
+ * SNIPPET body is a template: no widget, no id. Rendering one natively would
+ * mean CREATING a widget, and resolving a live instance must stay read-only, or
+ * merely opening a document would mint rows. So a widget snippet landing in a
+ * document is a conversion, not a native render.
+ *
+ * That distinction cost an earlier version of this comment its accuracy, which
+ * is why it is spelled out: "this host can contain that thing" and "this host
+ * can render that BODY" are different claims.
+ *
+ * Anything absent here needs conversion to land, which is a different thing with
+ * different rules (see instanceModeFor).
+ */
+const NATIVE_KINDS: Record<SnippetHostKind, readonly SnippetKind[]> = {
+  doc: ['doc'],
+  desk: ['widget'],
+  sheet: ['sheet'],
+  slide: ['slide'],
+  design: ['design'],
+  diagram: ['diagram'],
+  draw: ['draw']
+}
+
+/** Can this host show this kind as itself, with nothing converted or flattened? */
+export function canRenderNatively(kind: SnippetKind, host: SnippetHostKind): boolean {
+  return NATIVE_KINDS[host].includes(kind)
+}
+
+/**
+ * Which link modes are possible for this snippet in this target.
+ *
+ * Both modes are offered wherever the target supports them, INCLUDING for a kind
+ * the host must convert. An earlier version withheld 'live' for converted pairs
+ * on the grounds that a conversion has no way back to the master — true, but the
+ * owner's answer is better: such an instance is live and READ-ONLY, re-converted
+ * from the master whenever it resolves, with "Open original" to edit the master
+ * where it really lives. So the master still cannot be written through a
+ * conversion, and the user still gets the thing they wanted, which is a placed
+ * copy that follows its source.
+ *
+ * The native/converted distinction therefore decides whether an instance can be
+ * EDITED IN PLACE, not whether it can be live. See instanceModeFor.
+ */
 export function linkModesFor(target: SnippetTarget, kind: SnippetKind): SnippetLink[] {
   if (!target.accepts.includes(kind)) return []
   return target.supports
+}
+
+/**
+ * How a placed instance behaves.
+ *
+ * 'editable' — a live instance of a kind the host renders natively. Editing it
+ *              edits the MASTER, and every live instance follows.
+ * 'readonly' — a live instance of a kind the host had to convert. It follows the
+ *              master (re-converted on each resolve) but cannot be edited here,
+ *              because writing back through a conversion would overwrite the
+ *              master with its own lossy form — edit the image of a diagram and
+ *              the diagram itself becomes an image. "Open original" instead.
+ * 'detached' — a duplicate. Plain content with no link and no chrome; the owner's
+ *              "a duplicate is simply editable content".
+ */
+export type SnippetInstanceMode = 'editable' | 'readonly' | 'detached'
+
+export function instanceModeFor(
+  kind: SnippetKind,
+  host: SnippetHostKind,
+  link: SnippetLink
+): SnippetInstanceMode {
+  if (link === 'duplicate') return 'detached'
+  return canRenderNatively(kind, host) ? 'editable' : 'readonly'
+}
+
+/**
+ * The kind a host holds natively — what a converted insert must become to land
+ * here. `convertSnippetBody(body, primaryKindFor(host))` is the re-convert hook.
+ */
+export function primaryKindFor(host: SnippetHostKind): SnippetKind {
+  return NATIVE_KINDS[host][0]!
 }
 
 /** Can this target take this snippet at all? */

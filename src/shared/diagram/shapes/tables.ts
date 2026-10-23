@@ -33,11 +33,16 @@ function table(
     minH: rows * 8,
     special: 'table',
     ports: PORTS_THIRDS,
-    draw: (w, h) => {
+    draw: (w, h, node) => {
+      // The grid follows the table's own cells once it has any (Table size, a
+      // converted sheet block); the id's counts are only a new table's default.
+      // Drawing the default grid over a resized table left stale lines.
+      const r = node?.cells?.length ? node.cells.length : rows
+      const c = node?.cells?.length ? Math.max(1, ...node.cells.map((x) => x.length)) : cols
       const parts = [fill(rect(0, 0, w, h))]
-      if (opts.headerRow) parts.push(shade(rect(0, 0, w, h / rows)))
-      if (opts.headerCol) parts.push(shade(rect(0, 0, w / cols, h)))
-      parts.push(stroke(gridLines(w, h, cols, rows)))
+      if (opts.headerRow) parts.push(shade(rect(0, 0, w, h / r)))
+      if (opts.headerCol) parts.push(shade(rect(0, 0, w / c, h)))
+      parts.push(stroke(gridLines(w, h, c, r)))
       return { parts, text: box(w, h, 0, 0, w, h) }
     }
   }
