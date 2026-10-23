@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import {
+  linkModesFor,
   snippetMatches,
   targetAccepts,
   type Snippet,
@@ -142,7 +143,7 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
       set({ error: 'That place is no longer open.' })
       return false
     }
-    if (!target.supports.includes(link)) {
+    if (!linkModesFor(target, snippet.kind).includes(link)) {
       set({ error: `${target.label} cannot take a ${link} snippet.` })
       return false
     }

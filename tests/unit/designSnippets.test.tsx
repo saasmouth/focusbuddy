@@ -448,8 +448,10 @@ describe('the design as a snippet target', () => {
     const target = useSnippetsStore.getState().targets[designSnippetTargetId(':r1:')]!
     expect(target).toBeTruthy()
     expect(linkModesFor(target, 'design')).toEqual(['duplicate'])
-    expect(linkModesFor(target, 'slide')).toEqual([])
-    expect(linkModesFor(target, 'draw')).toEqual([])
+    // Any-to-any: every kind with a conversion into page elements, as a copy.
+    expect(linkModesFor(target, 'slide')).toEqual(['duplicate'])
+    expect(linkModesFor(target, 'draw')).toEqual(['duplicate'])
+    expect(target.host).toBe('design')
     expect(target.label).toBe('“Spring brochure”')
   })
 

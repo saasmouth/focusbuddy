@@ -24,6 +24,7 @@ import WriteChrome from './WriteChrome'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import { docBodyFromSelection, docSnippetTargetId, suggestedSnippetName, useDocSnippetTarget } from './editor/docSnippets'
+import { officeAccepts } from '../../lib/officeSnippets'
 import type { DocSnippetBody } from '@shared/snippets'
 import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
@@ -1047,7 +1048,7 @@ export default function DocEditor({
 
       {snippetLibraryOpen && (
         <SnippetLibrary
-          kinds={['doc']}
+          kinds={officeAccepts('doc')}
           targetId={docSnippetTargetId(scopeClass)}
           onClose={() => setSnippetLibraryOpen(false)}
         />

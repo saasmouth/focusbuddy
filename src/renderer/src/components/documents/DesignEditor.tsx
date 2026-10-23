@@ -80,6 +80,8 @@ import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import type { DesignSnippetBody, Snippet } from '@shared/snippets'
 import { designBodyFromSelection, designSnippetTargetId, insertDesignSnippet, suggestedDesignSnippetName, useDesignSnippetTarget } from './design/designSnippets'
+import { officeAccepts } from '../../lib/officeSnippets'
+import type { SnippetKind } from '@shared/snippets'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -102,7 +104,8 @@ interface Props {
 
 
 /** Stable, so the library's refresh effect (keyed on kinds) runs once per open. */
-const DESIGN_KINDS: ['design'] = ['design']
+// Every kind with a conversion into this app, derived from the builders.
+const DESIGN_KINDS: SnippetKind[] = officeAccepts('design')
 
 // Which right-hand pane was last open, remembered per app like the other
 // office editors' (plexii.diagram.sidePane, plexii.slides.pinnedPanels).

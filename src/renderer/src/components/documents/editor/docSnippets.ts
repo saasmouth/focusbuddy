@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Editor } from '@tiptap/react'
-import type { DocSnippetBody, Snippet, SnippetLink, SnippetTarget } from '@shared/snippets'
+import type { DocSnippetBody, Snippet, SnippetInsertResult, SnippetKind, SnippetLink, SnippetTarget } from '@shared/snippets'
+import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
 import { registerSnippetTarget } from '../../../stores/snippets'
 
 // The document editor as a snippet surface: how a selection becomes a saved
@@ -66,6 +67,49 @@ export function insertSnippetIntoDoc(editor: Editor, snippet: Snippet, link: Sni
 }
 
 /**
+ * Whether a LIVE instance of a kind a document must convert is offered.
+ *
+ * SnippetEmbed renders such an instance read-only, re-converted from the
+ * master on every resolve, with "Open original" to edit the master where it
+ * lives. It is offered only once that whole path is proven in the app
+ * (tests/e2e/snippetsWriteConverted.spec.ts). Until then a converted kind is
+ * duplicate-only here, so the library never shows a Live button that would
+ * not work.
+ */
+export const DOC_LIVE_CONVERTED = false
+
+/**
+ * Any snippet into a document: a doc snippet as before (duplicate or live);
+ * any other kind converted to doc nodes and inserted as a duplicate through
+ * the same insertSnippetDuplicate, with the conversion's line returned for
+ * the store to show, or the builder's reason when the pair is refused.
+ */
+export function insertAnySnippetIntoDoc(editor: Editor, snippet: Snippet, link: SnippetLink): Promise<SnippetInsertResult> | SnippetInsertResult {
+  if (snippet.body.kind !== 'doc' && link === 'live') {
+    if (!DOC_LIVE_CONVERTED) return { ok: false, reason: 'This kind of snippet can only be inserted into a document as a copy for now.' }
+    if (!editor.isEditable) return false
+    return editor.chain().focus().insertSnippetLive(snippet.id).run()
+  }
+  return insertIntoOffice(snippet, link, 'doc', (s, l) => insertSnippetIntoDoc(editor, s, l))
+}
+
+/** The target a mounted document registers. Pure, so its contract is unit-testable. */
+export function docSnippetTarget(editor: Editor, instanceId: string, title: string): SnippetTarget {
+  return {
+    id: docSnippetTargetId(instanceId),
+    label: title?.trim() ? `“${title.trim()}”` : 'This document',
+    // Every kind with a conversion into a document, from the builders.
+    accepts: officeAccepts('doc'),
+    host: 'doc',
+    // A document can resolve a reference at render time, so it honours both
+    // for its own kind; a converted kind is live only once that is proven.
+    supports: ['duplicate', 'live'],
+    ...(DOC_LIVE_CONVERTED ? {} : { liveKinds: ['doc'] as SnippetKind[] }),
+    insert: (snippet, link) => insertAnySnippetIntoDoc(editor, snippet, link)
+  }
+}
+
+/**
  * Register the open document as an insertion target for as long as it is
  * mounted and editable.
  *
@@ -79,16 +123,7 @@ export function insertSnippetIntoDoc(editor: Editor, snippet: Snippet, link: Sni
 export function useDocSnippetTarget(editor: Editor | null, instanceId: string, title: string): void {
   useEffect(() => {
     if (!editor) return
-    const target: SnippetTarget = {
-      id: docSnippetTargetId(instanceId),
-      label: title?.trim() ? `“${title.trim()}”` : 'This document',
-      accepts: ['doc'],
-      host: 'doc',
-      // A document can resolve a reference at render time, so it honours both.
-      supports: ['duplicate', 'live'],
-      insert: (snippet, link) => insertSnippetIntoDoc(editor, snippet, link)
-    }
-    return registerSnippetTarget(target)
+    return registerSnippetTarget(docSnippetTarget(editor, instanceId, title))
   }, [editor, instanceId, title])
 }
 

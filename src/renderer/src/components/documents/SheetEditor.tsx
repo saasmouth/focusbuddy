@@ -62,6 +62,7 @@ import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import { markCellsCopy } from '../../lib/clipboardForms'
 import type { SheetSnippetBody, Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
+import { officeAccepts } from '../../lib/officeSnippets'
 import {
   cellsSnippetTargetId,
   insertSheetSnippet,
@@ -73,7 +74,8 @@ import {
 } from './sheet/cellsSnippets'
 
 /** The library opened from a spreadsheet shows only what a spreadsheet can take. */
-const SHEET_KINDS: SnippetKind[] = ['sheet']
+// Every kind with a conversion into this app, derived from the builders.
+const SHEET_KINDS: SnippetKind[] = officeAccepts('sheet')
 
 // Excel-class spreadsheet editor. The body is held locally as v2 (legacy v1
 // bodies are lifted on mount); every edit pushes an undo snapshot and flows to

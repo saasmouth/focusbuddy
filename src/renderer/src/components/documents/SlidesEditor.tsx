@@ -47,6 +47,8 @@ import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import type { Snippet, SlideSnippetBody } from '@shared/snippets'
 import { DECK_PAGE, deckSnippetTargetId, slideBodyFromSelection, slideElementsFromSnippet, suggestedSlideSnippetName, useDeckSnippetTarget } from './slides/deckSnippets'
+import { officeAccepts } from '../../lib/officeSnippets'
+import type { SnippetKind } from '@shared/snippets'
 
 // PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
 // held as v2 (element-based) in local state; legacy decks migrate on mount. The
@@ -76,7 +78,8 @@ const writePref = (k: string, v: unknown): void => {
 }
 
 /** Stable, so the library's refresh effect (keyed on kinds) runs once per open. */
-const SLIDE_KINDS: ['slide'] = ['slide']
+// Every kind with a conversion into this app, derived from the builders.
+const SLIDE_KINDS: SnippetKind[] = officeAccepts('slide')
 
 interface Props {
   body: SlidesBody

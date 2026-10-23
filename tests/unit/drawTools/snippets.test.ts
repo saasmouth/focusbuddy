@@ -313,13 +313,16 @@ describe('insertion: a duplicate, where a paste would land', () => {
 })
 
 describe('the target and the menus', () => {
-  it('claims Duplicate only, for draw snippets only', () => {
+  it('claims Duplicate only, for draw and every kind with a conversion into it', () => {
     const h = harness(v2([]))
     const target = drawSnippetTarget(h.ed.ctx, 'Poster')
     expect(DRAW_SNIPPET_LINKS).toEqual(['duplicate'])
     expect(linkModesFor(target, 'draw')).toEqual(['duplicate'])
-    expect(linkModesFor(target, 'design')).toEqual([])
-    expect(linkModesFor(target, 'doc')).toEqual([])
+    expect(linkModesFor(target, 'design')).toEqual(['duplicate'])
+    expect(linkModesFor(target, 'doc')).toEqual(['duplicate'])
+    // Draw has no tables.
+    expect(linkModesFor(target, 'sheet')).toEqual([])
+    expect(target.host).toBe('draw')
     expect(target.label).toBe('“Poster”')
     expect(drawSnippetTarget(h.ed.ctx, '').label).toBe('This drawing')
   })

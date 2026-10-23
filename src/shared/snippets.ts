@@ -257,6 +257,14 @@ export interface SnippetTarget {
   /** Link modes this surface genuinely supports. Must be non-empty. */
   supports: SnippetLink[]
   /**
+   * The kinds this surface can take LIVE, when that is fewer than everything it
+   * accepts. A document resolves a live doc snippet, but a kind it can only hold
+   * converted is live only once a converted instance really renders there; until
+   * then it is duplicate-only, and the library must not offer a Live button that
+   * would be refused. Absent: every accepted kind gets every mode in `supports`.
+   */
+  liveKinds?: SnippetKind[]
+  /**
    * Insert the snippet. Resolves false when the surface declined — a sheet with
    * no selection, a document that is read-only — so the caller can say why
    * instead of reporting a success that did not happen.
@@ -330,6 +338,7 @@ export function canRenderNatively(kind: SnippetKind, host: SnippetHostKind): boo
  */
 export function linkModesFor(target: SnippetTarget, kind: SnippetKind): SnippetLink[] {
   if (!target.accepts.includes(kind)) return []
+  if (target.liveKinds && !target.liveKinds.includes(kind)) return target.supports.filter((l) => l !== 'live')
   return target.supports
 }
 
