@@ -37,20 +37,49 @@ test.afterEach(async () => {
   }
 })
 
-async function openOrgView(window: LaunchedApp['window']): Promise<void> {
-  // Organisation used to be a standalone sidebar row; it now lives inside the
-  // Settings popover, whose "Manage organisation" button opens OrgAdminView and
-  // closes the popover. Open Settings, scroll the manage button into view, and
-  // click it.
-  const settingsBtn = window.getByRole('button', { name: /appearance settings/i })
-  await settingsBtn.click()
+/**
+ * OrgAdminView is TEAM-ONLY.
+ *
+ * 3a40a6ba ("comprehensive entitlement enforcement across all feature
+ * surfaces") put the organization view behind org_directory, which
+ * capabilityDefaults has as { free: false, pro: false, team: true }. These
+ * specs run unauthenticated, so MainPane renders the gate instead of the view
+ * and "Manage organisation" leads nowhere — the second of the two reasons they
+ * went red, the first being the tabbed Settings shell below.
+ *
+ * Seeded rather than worked around: what these three are for is that the view
+ * MOUNTS and renders its sections without throwing, which only happens on a
+ * tier entitled to open it.
+ */
+async function grantOrgEntitlement(window: LaunchedApp['window']): Promise<void> {
   await window.evaluate(() => {
-    const el = document.querySelector('[data-testid="settings-org-manage"]')
-    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+    const w = window as unknown as {
+      __fbCapabilities?: { setState: (s: object) => void; getState: () => { capabilities: Record<string, unknown> } }
+    }
+    const current = w.__fbCapabilities?.getState().capabilities ?? {}
+    w.__fbCapabilities?.setState({ capabilities: { ...current, org_directory: true } })
   })
-  await window.locator('[data-testid="settings-org-manage"]').click()
-  // React needs a tick to commit the view change.
-  await window.waitForTimeout(300)
+}
+
+async function openOrgView(window: LaunchedApp['window']): Promise<void> {
+  await grantOrgEntitlement(window)
+  // Organisation used to be a standalone sidebar row, then a section of the
+  // one long-scroll Settings popover. f03087b07 made Settings a TABBED shell,
+  // so OrganisationSection only mounts while its own tab is selected
+  // (`{tab === 'organisation' && <OrganisationSection …>}`): scrolling to
+  // "Manage organisation" and clicking it now waits on a node that is not in
+  // the document, which is the whole of why these three went red.
+  await window.getByRole('button', { name: /appearance settings/i }).click()
+  const tab = window.locator('[data-testid="settings-tab-organisation"]')
+  await expect(tab).toBeVisible({ timeout: 5_000 })
+  await tab.click()
+  await expect(window.locator('[data-testid="settings-pane-organisation"]')).toBeVisible({ timeout: 5_000 })
+  const manage = window.locator('[data-testid="settings-org-manage"]')
+  await manage.scrollIntoViewIfNeeded()
+  await manage.click()
+  // Waiting on the view, not on a timer: the popover closes and OrgAdminView
+  // mounts in the same commit, so there is state to wait for.
+  await expect(window.locator('[data-testid="org-admin"]')).toBeVisible({ timeout: 8_000 })
 }
 
 test('OrgAdminView: mounts without JS errors', async () => {

@@ -108,9 +108,13 @@ test('Free tier: 4th top-level desk is blocked with an upgrade prompt', async ()
   const skip2 = window.getByRole('button', { name: /Continue without account|Skip|Not now/i })
   if (await skip2.isVisible().catch(() => false)) await skip2.click().catch(() => {})
 
-  // Click "New top-level project" — at the limit, the upgrade prompt opens
+  // Click the sidebar's create button — at the limit, the upgrade prompt opens
   // and the create dialog does NOT.
-  await window.locator('button[title="New top-level project"]').first().click()
+  // Renamed by 4802064e4 (Rooms/Desks Phase 2-5): the sidebar's create
+  // button is "New desk" now, not "New top-level project". Matched on the
+  // accessible name rather than the title, because the title is a whole
+  // sentence of help text that will keep changing.
+  await window.getByRole('button', { name: /New desk/i }).first().click()
   await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible()
   await expect(window.locator('[data-testid="upgrade-reason"]')).toContainText(/desk limit/i)
 

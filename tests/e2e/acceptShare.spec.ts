@@ -17,7 +17,7 @@
  * not a mocked renderer path. No remote network calls are made.
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
@@ -32,6 +32,24 @@ test.afterEach(async () => {
 // ---------------------------------------------------------------------------
 // The full folder-share acceptance flow
 // ---------------------------------------------------------------------------
+/**
+ * Open "Shared with me".
+ *
+ * 24a61f93d removed the sidebar's inline Rooms/Desks and Shared trees and put
+ * a Shared index under the Rooms nav instead. The inbox row these tests probed
+ * for — a sidebar div carrying title="Shared by <handle>" — is gone with the
+ * tree; the same items are cards in SharedView now, and "Add to my workspace"
+ * went with them. Nothing about what is being tested changed, only where to
+ * look.
+ */
+async function openSharedView(window: Page): Promise<void> {
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { goShared: () => void } } }
+    w.__fbView?.getState().goShared()
+  })
+  await expect(window.locator('[data-testid="shared-view"]')).toBeVisible({ timeout: 8_000 })
+}
+
 test('accept copy-scope folder share reconstructs nodes + widgets + navigates', async () => {
   launched = await launchApp()
   const { window } = launched
@@ -115,20 +133,17 @@ test('accept copy-scope folder share reconstructs nodes + widgets + navigates', 
   await window.reload()
   await waitForReady(window)
 
-  // Step 4: Wait for the "Shared with me" inbox row to render in the sidebar.
-  // The sidebar renders a row for each item in sharedInbox; the row has
-  // title="Shared by <handle>" on its container div.
-  await window.waitForFunction(
-    () => {
-      const el = document.querySelector('[title="Shared by swift-otter"]')
-      return el !== null
-    },
-    { timeout: 8_000 }
-  )
+  // Step 4: the shared item shows as a card in "Shared with me", from the
+  // handle that sent it.
+  await openSharedView(window)
+  const card = window.locator('[data-testid^="shared-card-"]').filter({ hasText: 'swift-otter' })
+  await expect(card).toHaveCount(1, { timeout: 8_000 })
 
-  // The "Add to my workspace" button is on copy-scope rows only.
-  const addBtn = window.getByTitle('Add to my workspace')
+  // "Add to my workspace" is on copy-scope cards only — still the gate this
+  // test and the view-scope one below are about.
+  const addBtn = card.locator('[data-testid^="shared-accept-"]')
   await expect(addBtn).toBeVisible({ timeout: 5_000 })
+  await expect(addBtn).toContainText('Add to my workspace')
   await addBtn.click()
 
   // Step 5: Wait for reconstruction. acceptShareIntoWorkspace creates nodes
@@ -187,13 +202,14 @@ test('accept copy-scope folder share reconstructs nodes + widgets + navigates', 
 
   expect(widgetContent).toBe('hello from share')
 
-  // Step 6: The shared-badge must appear in the sidebar Projects tree for
-  // the reconstructed nodes. After accept + removeFromInbox the sidebar
-  // refreshes its node list and the SharedBadge renders for nodes whose
-  // sharedFromHandle is non-null.
-  await expect(
-    window.locator('[data-testid="shared-badge"]').first()
-  ).toBeVisible({ timeout: 8_000 })
+  // Step 6: the shared badge, on the Rooms index rather than in the sidebar.
+  // 24a61f93d took the inline trees out of the sidebar; SharedBadge is mounted
+  // in RoomsView and DesksView now, for any item whose sharedRootId is set.
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { goRooms?: () => void } } }
+    w.__fbView?.getState().goRooms?.()
+  })
+  await expect(window.locator('[data-testid="shared-badge"]').first()).toBeVisible({ timeout: 8_000 })
 
   // Step 7: Assert navigation. acceptIntoWorkspace calls goProject(rootNodeId)
   // for a folder share, which sets the view store to
@@ -246,18 +262,18 @@ test('view-scope inbox row does NOT show "Add to my workspace" button', async ()
   await window.reload()
   await waitForReady(window)
 
-  // Wait for the inbox row to appear.
-  await window.waitForFunction(
-    () => {
-      const el = document.querySelector('[title="Shared by red-eagle"]')
-      return el !== null
-    },
-    { timeout: 8_000 }
-  )
+  // The card appears in "Shared with me".
+  await openSharedView(window)
+  const card = window.locator('[data-testid^="shared-card-"]').filter({ hasText: 'red-eagle' })
+  await expect(card).toHaveCount(1, { timeout: 8_000 })
 
-  // The "Add to my workspace" button must NOT be present for a view-scope item.
-  // The Sidebar only renders it when item.scope === 'copy'.
-  const addBtn = window.getByTitle('Add to my workspace')
-  const isVisible = await addBtn.isVisible().catch(() => false)
-  expect(isVisible).toBe(false)
+  // POSITIVE CONTROL FIRST. "no button" passes just as well when nothing
+  // rendered at all, which is exactly how this spec could rot unnoticed, so
+  // assert the card really is the view-scope one before asserting an absence.
+  await expect(card).toContainText('view only')
+
+  // And then the gate: SharedView renders the accept button only when
+  // item.scope === 'copy'.
+  await expect(card.locator('[data-testid^="shared-accept-"]')).toHaveCount(0)
+  await expect(card).not.toContainText('Add to my workspace')
 })
