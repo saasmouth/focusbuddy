@@ -1,8 +1,8 @@
 // E2E: embedding a desk widget inside a document via DocMenuBar's Insert >
-// "Work widget from a desk" picker.
+// "Work widget from a desk…" picker.
 //
 // Contract:
-//   - DocMenuBar.tsx Insert menu item "Work widget from a desk" calls onInsertWidget,
+//   - DocMenuBar.tsx Insert menu item MENU.workWidgetFromDesk calls onInsertWidget,
 //     which DocEditor.tsx wires to open WidgetPickerDialog
 //     ([data-testid="widget-picker"]).
 //   - Picking an entry ([data-testid^="widget-picker-item-"]) runs
@@ -15,6 +15,7 @@
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { MENU } from '../../src/shared/menus/lexicon'
 
 let launched: LaunchedApp | null = null
 
@@ -56,7 +57,23 @@ async function openDoc(window: LaunchedApp['window'], docId: string): Promise<vo
 async function insertWidgetFromDesk(window: LaunchedApp['window'], widgetId: string): Promise<void> {
   await window.locator('[data-testid="doc-menu-insert"]').click()
   await expect(window.locator('[data-testid="doc-menu-insert-list"]')).toBeVisible({ timeout: 3_000 })
-  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Work widget from a desk', { exact: true }).click()
+  // THE LABEL IS READ FROM THE LEXICON, not spelled out here.
+  //
+  // This spec went red on a single character. ef1fba83 moved the item onto the
+  // shared menu lexicon, where SPEC §9.2's Insert tail is "Insert snippet… ·
+  // Work widget from a desk…" — an ellipsis, because the item opens a dialog,
+  // which this one does. The exact-text match here did not follow, so it
+  // waited for a label that no longer exists. (diagramEditor.spec.ts matches
+  // the same item WITH the ellipsis and stayed green throughout, which is what
+  // tells product from spec here.)
+  //
+  // Reading MENU means this can never drift again. It costs nothing: the
+  // WORDING is already pinned by officeMenuBarContract.test.tsx, which asserts
+  // the Insert tail verbatim. What this spec is for is the embed behaviour.
+  await window
+    .locator('[data-testid="doc-menu-insert-list"]')
+    .getByText(MENU.workWidgetFromDesk.label, { exact: true })
+    .click()
 
   await expect(window.locator('[data-testid="widget-picker"]')).toBeVisible({ timeout: 3_000 })
   await window.locator(`[data-testid="widget-picker-item-${widgetId}"]`).click()

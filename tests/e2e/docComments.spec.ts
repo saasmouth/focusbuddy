@@ -22,6 +22,27 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp, selectBarTab, chooseCloudAiSource, showDocPane } from './_helpers'
+import { signInWithFakeSignal } from './_fakeSignal'
+
+// COMMENTING REQUIRES AN ACCOUNT, ON A LOCAL DOCUMENT TOO (owner's ruling,
+// 4.3.41, enforced in DocumentEditorView). That is why these two tests went red
+// on the account-names merge 96bd8b8d, and the product is the right one: a
+// comment is attributed to a person, and a local document can be shared at any
+// time carrying its comments with it. So the FIXTURE changed, not the gate —
+// and the gate itself is now asserted directly, in the third test below.
+//
+// The account must be NAMED. An account with no first and last name is held by
+// the un-skippable "Add your name" wall (LaunchSignInModal, z-280) which covers
+// the app, so a nameless seed would swap one invisible button for another.
+const AS = { firstName: 'Dana', lastName: 'Reed' }
+
+/** Signed in as a named person, with nothing reaching the real signal server. */
+async function signInNamed(window: Page): Promise<void> {
+  await signInWithFakeSignal(window, { name: AS })
+  // The wall is gone — which is the precondition for everything below, and
+  // worth failing on here rather than as a mystery timeout 40 lines later.
+  await expect(window.locator('[data-testid="add-your-name"]')).toHaveCount(0)
+}
 
 let launched: LaunchedApp | null = null
 
@@ -64,6 +85,7 @@ test('add a comment on selected text, see the thread + highlight, and it persist
   // on the right its Add button lands in that band, and the click then never
   // arrives while the button reports visible, enabled and stable throughout.
   await chooseCloudAiSource(window)
+  await signInNamed(window)
 
   await openDocumentsHub(window)
   await startBlankDoc(window)
@@ -172,6 +194,7 @@ test('reply with an @mention: the autocomplete offers a real participant and the
   // on the right its Add button lands in that band, and the click then never
   // arrives while the button reports visible, enabled and stable throughout.
   await chooseCloudAiSource(window)
+  await signInNamed(window)
 
   await openDocumentsHub(window)
   await startBlankDoc(window)
@@ -186,7 +209,15 @@ test('reply with an @mention: the autocomplete offers a real participant and the
   await showDocPane(window, 'comments')
   await expect(window.locator('[data-testid="doc-comments-tab"]')).toBeVisible({ timeout: 5_000 })
 
-  // Seed a comment so its author becomes a real @mention candidate.
+  // Seed a comment so there is a thread to reply INTO — the reply box is the
+  // mention-aware input, and it only exists under a thread.
+  //
+  // It used to be seeded "so its author becomes a real @mention candidate",
+  // which was true only by accident: before names, a comment's author string
+  // WAS the handle, so the author pool happened to be handle-shaped. With a
+  // real name it is "Dana Reed", and a mention resolves against a handle. The
+  // candidate is now the signed-in account's handle, which is the same thing
+  // the live-doc panel offers (LiveDocEditorView's mentionHandles).
   await window.locator('[data-testid="doc-comments-add"]').click()
   const dialog = window.locator('[data-testid="prompt-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 5_000 })
@@ -218,4 +249,59 @@ test('reply with an @mention: the autocomplete offers a real participant and the
   await expect(window.locator('[data-testid="doc-comments-list"] [data-testid="mention"], [data-testid="doc-comments-list"] [data-testid="mention-me"]')).toHaveCount(1, {
     timeout: 5_000
   })
+})
+
+test('signed OUT: the action is replaced by "Sign in to comment", and comments already written stay readable', async () => {
+  // THE GATE, kept honest. The two tests above sign in, so without this one
+  // the requirement they were red on would no longer be covered anywhere, and
+  // a regression that let a nameless nobody comment would look like progress.
+  //
+  // Two halves, both of them product rulings (4.3.41):
+  //   - commenting needs an account, on a LOCAL document too; and
+  //   - the action is REPLACED rather than hidden, and existing comments stay
+  //     readable, so nobody is left wondering whether this document supports
+  //     comments at all.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await chooseCloudAiSource(window)
+  // Deliberately NOT signed in. The harness permits that; a real launch does
+  // not, which is why this is the one place the signed-out panel can be seen.
+
+  // A document that already carries a comment, written through the same IPC
+  // the panel writes through.
+  const docId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const doc = await api.documents.create({ docType: 'doc', title: 'Signed-out comments' } as never)
+    await api.documents.addComment({
+      docId: doc.id,
+      body: 'Written while signed in, read while signed out.',
+      author: 'Dana Reed'
+    })
+    return doc.id
+  })
+  await window.evaluate((id) => {
+    const w = window as unknown as { __fbView?: { getState: () => { goDocument: (id: string) => void } } }
+    w.__fbView?.getState().goDocument(id)
+  }, docId)
+  await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 8_000 })
+
+  await selectBarTab(window, 'doc-toolbar', 'review')
+  await showDocPane(window, 'comments')
+  await expect(window.locator('[data-testid="doc-comments-tab"]')).toBeVisible({ timeout: 5_000 })
+
+  // Readable: the comment is there to be read, signed out.
+  await expect(window.locator('[data-testid="doc-comments-list"]')).toContainText(
+    'Written while signed in, read while signed out.',
+    { timeout: 5_000 }
+  )
+
+  // Replaced, not hidden.
+  const signIn = window.locator('[data-testid="doc-comments-signin"]')
+  await expect(signIn).toBeVisible()
+  await expect(signIn).toContainText('Sign in to comment')
+  await expect(window.locator('[data-testid="doc-comments-add"]'), 'the Add action must be gone, not merely disabled').toHaveCount(0)
+
+  // And no reply box either: replying is commenting.
+  await expect(window.locator('input[data-testid^="doc-comment-reply-"]')).toHaveCount(0)
 })
