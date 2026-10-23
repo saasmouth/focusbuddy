@@ -409,6 +409,13 @@ export type DeskPlan =
   | { ok: true; widget: 'sticky'; text: string; width: number; height: number; lossy: string[] }
   | Refusal
 
+/** Only paragraphs of unstyled text: what plain text reads as. */
+export function isPlainProse(nodes: unknown[]): boolean {
+  const f = docFeatures(nodes)
+  if (f.marks.size || f.headings || f.lists || f.quotes || f.codeBlocks || f.tables || f.images || f.other.size) return false
+  return nodes.every((n) => (n as { type?: string })?.type === 'paragraph')
+}
+
 /** A table widget's starting size for this many rows and columns. */
 export function tableSize(rows: number, cols: number): { width: number; height: number } {
   return { width: Math.min(900, Math.max(360, 64 + 32 + cols * 160)), height: Math.min(560, Math.max(220, 120 + rows * 36)) }
@@ -437,6 +444,12 @@ export function planDesk(forms: Form[], ctx: AcceptContext): DeskPlan {
       }
       case 'docNodes': {
         if (!f.value.length) continue
+        // Plain lines off the clipboard (no styles, no lists, no tables) are
+        // text, and text on a desk is a sticky, not a page.
+        const text = !body ? ordered.find((t) => t.kind === 'text') : undefined
+        if (text && text.kind === 'text' && isPlainProse(f.value) && text.value.trim()) {
+          return { ok: true, widget: 'sticky', text: text.value.replace(/\r\n?/g, '\n').trim(), width: 240, height: 200, lossy: [...text.lossy] }
+        }
         const nodes = structuredClone(f.value)
         return { ok: true, widget: 'page', nodes, width: 480, height: 400, lossy: uniq([...f.lossy, ...pageLossy(nodes)]) }
       }

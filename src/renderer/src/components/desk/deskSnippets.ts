@@ -142,8 +142,12 @@ export function pasteBelongsElsewhere(el: Element | null): boolean {
 
 /** Paste the clipboard onto a desk as the work widget that holds it, and say what happened. */
 export async function pasteOntoDesk(taskId: string, snap: ReturnType<typeof snapshotPaste>, at?: DeskPlacement['at']): Promise<boolean> {
-  const forms = await readPasteForms(snap)
-  const placed = await placeOnDesk(forms, { verb: 'paste' }, { taskId, at: at ?? ((w, h) => spawnPositionFor(w, h)) })
+  const read = await readPasteForms(snap)
+  if (read.refused) {
+    announcePaste({ ok: false, reason: read.refused })
+    return false
+  }
+  const placed = await placeOnDesk(read.forms, read.ctx, { taskId, at: at ?? ((w, h) => spawnPositionFor(w, h)) })
   if (!placed.ok) {
     announcePaste(placed)
     return false

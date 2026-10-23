@@ -124,22 +124,43 @@ function fileDataUrl(f: File): Promise<string | null> {
 /** What a paste event's own data holds, captured synchronously (the event is gone after an await). */
 export interface PasteSnapshot {
   text: string
+  html: string
   images: File[]
 }
 
 export function snapshotPaste(dt: DataTransfer | null | undefined): PasteSnapshot {
-  if (!dt) return { text: '', images: [] }
+  if (!dt) return { text: '', html: '', images: [] }
+  const get = (t: string): string => {
+    try {
+      return dt.getData(t) ?? ''
+    } catch {
+      return ''
+    }
+  }
   const images = Array.from(dt.files ?? []).filter((f) => f.type.startsWith('image/'))
-  return { text: dt.getData('text/plain') ?? '', images }
+  return { text: get('text/plain'), html: get('text/html'), images }
 }
 
 /**
  * The same snapshot for a paste that has no event (a "Paste" menu item): the
- * system clipboard's text, read through the async Clipboard API.
+ * system clipboard's text, read through the async Clipboard API. The forms
+ * themselves come from readClipboardForms, which reads every flavour in main.
  */
 export async function snapshotFromSystem(): Promise<PasteSnapshot> {
   const text = await navigator.clipboard?.readText?.().catch(() => '')
-  return { text: text ?? '', images: [] }
+  return { text: text ?? '', html: '', images: [] }
+}
+
+/** The snapshot as a DataTransfer again, for readClipboardForms' browser fallback (the event's own is dead after an await). */
+function snapshotTransfer(snap: PasteSnapshot): DataTransfer | null {
+  try {
+    const dt = new DataTransfer()
+    if (snap.text) dt.setData('text/plain', snap.text)
+    if (snap.html) dt.setData('text/html', snap.html)
+    return dt
+  } catch {
+    return null
+  }
 }
 
 /** Plain text as forms: the text, and rows when it is tab-separated (a Cells range). */
@@ -152,27 +173,42 @@ export function textForms(text: string): Form[] {
   return forms
 }
 
+/** A paste read for the acceptors: forms best first, and the source body when one of our apps made the copy. */
+export interface PasteRead {
+  forms: Form[]
+  ctx: AcceptContext
+  /** The reader refused the clipboard (an unknown Draw version): shown verbatim, nothing inserted. */
+  refused?: string
+}
+
 /**
  * The clipboard as forms, best first, for a paste. readClipboardForms() is the
- * one reader (lib/clipboardForms.ts); when it finds nothing, the paste event's
- * own text and picture files are used, which is the same data seen through
- * the DOM rather than a guess.
+ * one reader (lib/clipboardForms.ts): a copy from one of our apps comes back as
+ * that app's own body's forms, so `ctx.body` is that body and the paste lands
+ * exactly as inserting a saved snippet of the same selection would. Only when
+ * it finds nothing at all are the paste event's own picture files and text
+ * used, which is the same data seen through the DOM rather than a guess.
  */
-export async function readPasteForms(snap: PasteSnapshot): Promise<Form[]> {
-  let forms: Form[] = []
+export async function readPasteForms(snap: PasteSnapshot): Promise<PasteRead> {
+  let read: Awaited<ReturnType<typeof readClipboardForms>> = { forms: [], source: null }
   try {
-    forms = (await readClipboardForms()).forms
+    read = await readClipboardForms(snapshotTransfer(snap))
   } catch {
-    forms = []
+    read = { forms: [], source: null }
   }
+  if (read.refused) return { forms: [], ctx: { verb: 'paste' }, refused: read.refused }
+  let forms = read.forms
   if (!forms.length) {
+    forms = []
     if (snap.images.length) {
       const src = await fileDataUrl(snap.images[0])
       if (src) forms.push({ kind: 'image', value: { src }, lossy: [] })
     }
     if (snap.text) forms.push(...textForms(snap.text))
   }
-  return pasteForms(forms)
+  const native = forms.find((f) => f.kind === 'native')
+  const body = native && native.kind === 'native' ? native.value : undefined
+  return body ? { forms, ctx: { body, verb: 'paste' } } : { forms: pasteForms(forms), ctx: { verb: 'paste' } }
 }
 
 /** Is this text a grid of two or more tab-separated columns? */

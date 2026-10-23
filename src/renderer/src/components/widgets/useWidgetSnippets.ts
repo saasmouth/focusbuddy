@@ -44,7 +44,6 @@ export interface WidgetSnippets {
 }
 
 const insertCtx = (s: Snippet): AcceptContext => ({ body: s.body, verb: 'insert' })
-const PASTE: AcceptContext = { verb: 'paste' }
 
 // ── Sticky and note: a textarea ──────────────────────────────────────────────
 
@@ -79,9 +78,10 @@ export function useTextWidgetSnippets(
       setText(next.text, next.caret)
       return
     }
-    const forms = await readPasteForms(snap)
-    if (!forms.length) return
-    announcePaste(land(forms, PASTE, at))
+    const read = await readPasteForms(snap)
+    if (read.refused) return announcePaste({ ok: false, reason: read.refused })
+    if (!read.forms.length) return
+    announcePaste(land(read.forms, read.ctx, at))
   }
   const targetId = useWidgetSnippetTarget(widget, kind, (s) => land(bodyForms(s.body), insertCtx(s), caret()))
   return {
@@ -157,9 +157,10 @@ export function useEditorWidgetSnippets(
     return tookIt(r.lossy)
   }
   const pasteSnap = async (snap: PasteSnapshot): Promise<void> => {
-    const forms = await readPasteForms(snap)
-    if (!forms.length) return
-    announcePaste(await land(forms, PASTE))
+    const read = await readPasteForms(snap)
+    if (read.refused) return announcePaste({ ok: false, reason: read.refused })
+    if (!read.forms.length) return
+    announcePaste(await land(read.forms, read.ctx))
   }
 
   const targetId = useWidgetSnippetTarget(widget, kind, (s) => land(bodyForms(s.body), insertCtx(s)), enabled)
@@ -208,9 +209,10 @@ export function useTableWidgetSnippets(widget: Widget, tableId: string | null): 
     return tookIt(r.lossy)
   }
   const pasteRows = async (): Promise<void> => {
-    const forms = await readPasteForms(await snapshotFromSystem())
-    if (!forms.length) return
-    announcePaste(await land(forms, PASTE))
+    const read = await readPasteForms(await snapshotFromSystem())
+    if (read.refused) return announcePaste({ ok: false, reason: read.refused })
+    if (!read.forms.length) return
+    announcePaste(await land(read.forms, read.ctx))
   }
   const targetId = useWidgetSnippetTarget(widget, 'table', (s) => land(bodyForms(s.body), insertCtx(s)), !!tableId)
   return { targetId, kinds: widgetAccepts('table'), onPaste: () => void pasteRows(), pasteRows }
@@ -230,9 +232,10 @@ export function useImageWidgetSnippets(widget: Widget): WidgetSnippets & { onBod
     return tookIt(r.lossy)
   }
   const pasteSnap = async (snap: PasteSnapshot): Promise<void> => {
-    const forms = await readPasteForms(snap)
-    if (!forms.length) return
-    announcePaste(await land(forms, PASTE))
+    const read = await readPasteForms(snap)
+    if (read.refused) return announcePaste({ ok: false, reason: read.refused })
+    if (!read.forms.length) return
+    announcePaste(await land(read.forms, read.ctx))
   }
   const targetId = useWidgetSnippetTarget(widget, 'image', (s) => land(bodyForms(s.body), insertCtx(s)))
   return {
