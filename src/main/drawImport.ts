@@ -4,20 +4,19 @@
 // Everything that INTERPRETS a file -- what kind it is, its size, the SVG
 // parser -- is shared, pure code (src/shared/draw/import) that runs in the
 // renderer. This side only reads bytes the user picked, with a size cap, and
-// renders a PDF page with the app's existing pdf-to-png-converter (pdf.js on
-// @napi-rs/canvas), so a PDF (or an Illustrator .ai saved with PDF
+// renders a PDF page with the app's existing PDF renderer (pdf.js on a native
+// canvas, reached only through pdfCanvasGlobals.ts), so a PDF (or an Illustrator .ai saved with PDF
 // compatibility) can be placed as an image of one page.
 //
 // Linked placement is deliberately not offered: a drawing that points at a
 // file on this disk would make every viewer of a shared drawing fetch it (see
 // isDrawImageSrc). Placed files are always embedded in the drawing.
 
-import { join } from 'node:path'
-import { createRequire } from 'node:module'
 import { BrowserWindow, dialog } from 'electron'
 import { readFile, stat } from 'fs/promises'
 import { basename } from 'path'
 import { MAX_PLACE_BYTES } from '@shared/draw/import/imageInfo'
+import { withPdfRenderer } from './pdfCanvasGlobals'
 
 export type DrawImportPurpose = 'place' | 'open' | 'import' | 'replace'
 
@@ -110,59 +109,11 @@ export const MAX_PDF_BYTES = 16 * 1024 * 1024
 const PDF_SCALE = 2
 const MAX_PDF_SIDE = 8000
 
-type PdfToPng = (data: Uint8Array, opts: Record<string, unknown>) => Promise<Array<{ content?: Buffer; width: number; height: number; pageNumber: number }>>
-
-async function loadPdfToPng(): Promise<PdfToPng> {
-  const mod = (await import('pdf-to-png-converter')) as unknown as { pdfToPng?: PdfToPng; default?: { pdfToPng: PdfToPng } }
-  const fn = mod.pdfToPng ?? mod.default?.pdfToPng
-  if (!fn) throw new Error('The PDF renderer is not available in this build.')
-  return fn
-}
-
-/**
- * pdf-parse and pdf-to-png-converter bundle different pdf.js versions that
- * share globalThis.pdfjsWorker (see ocr.ts); clear it around our call.
- *
- * They ALSO bring different @napi-rs/canvas builds (pdf-parse 0.1.x,
- * pdf-to-png-converter 1.x), and pdf.js on Node installs the canvas's Path2D,
- * DOMMatrix and ImageData as globals only when they are missing. Whichever
- * library loads first owns them for the life of the process. Files extracts
- * the text of every PDF it is given (fileText.ts, pdf-parse), so once that has
- * run, every page Draw rendered drew with the other build's Path2D and failed
- * ("Value is none of these types `String`, `Path`"): Place of a PDF, and a PDF
- * dropped from Files, silently became nothing. Our own build's classes are
- * swapped in for the call and the previous ones put back after.
- */
-const PDF_CANVAS_GLOBALS = ['Path2D', 'DOMMatrix', 'ImageData'] as const
-
-function pdfToPngCanvas(): Record<string, unknown> | null {
-  try {
-    const here = createRequire(typeof __filename === 'string' ? __filename : join(process.cwd(), 'index.js'))
-    const converterEntry = here.resolve('pdf-to-png-converter')
-    return createRequire(converterEntry)('@napi-rs/canvas') as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
-
-async function withOwnPdfWorker<T>(fn: () => Promise<T>): Promise<T> {
-  const g = globalThis as Record<string, unknown> & { pdfjsWorker?: unknown }
-  const prev = g.pdfjsWorker
-  delete g.pdfjsWorker
-  const canvas = pdfToPngCanvas()
-  const saved = PDF_CANVAS_GLOBALS.map((k) => [k, Object.prototype.hasOwnProperty.call(g, k), g[k]] as const)
-  if (canvas) for (const k of PDF_CANVAS_GLOBALS) if (canvas[k]) g[k] = canvas[k]
-  try {
-    return await fn()
-  } finally {
-    if (prev !== undefined) g.pdfjsWorker = prev
-    else delete g.pdfjsWorker
-    if (canvas) for (const [k, had, v] of saved) {
-      if (had) g[k] = v
-      else delete g[k]
-    }
-  }
-}
+// pdf-parse and pdf-to-png-converter share pdf.js's globals (Path2D,
+// DOMMatrix, ImageData, pdfjsWorker); after Files had extracted any PDF's
+// text, every page rendered here failed. The renderer is only reachable
+// through withPdfRenderer, which installs this renderer's globals for the
+// call and serialises against text extraction (pdfCanvasGlobals.ts).
 
 /** One page of a PDF as a PNG, with the page's size in points and the page count. */
 export async function renderDrawPdfPage(input: { bytes: Uint8Array; page?: number }): Promise<DrawPdfPageResult> {
@@ -172,8 +123,7 @@ export async function renderDrawPdfPage(input: { bytes: Uint8Array; page?: numbe
   if (bytes.byteLength > MAX_PDF_BYTES) return { ok: false, error: `The PDF is larger than ${MAX_PDF_BYTES / (1024 * 1024)} MB, too large to place.` }
   const page = Number.isInteger(input.page) && (input.page as number) >= 1 ? (input.page as number) : 1
   try {
-    const pdfToPng = await loadPdfToPng()
-    return await withOwnPdfWorker(async () => {
+    return await withPdfRenderer(async (pdfToPng) => {
       // Every page's size first (no rendering), for the count and the scale.
       const meta = await pdfToPng(new Uint8Array(bytes), { returnMetadataOnly: true, viewportScale: 1, verbosityLevel: 0 })
       const pages = meta.length

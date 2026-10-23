@@ -32,7 +32,19 @@ const QUESTION_START =
 // Verbs that address the assistant: the user is asking for work, not a page.
 const ASK_VERBS =
   /^(write|draft|summarize|summarise|plan|create|make|build|generate|explain|compare|translate|rewrite|brainstorm|outline|analyze|analyse|review|find me|give me|show me|tell me|remind me)\b/i
-const GOTO_PREFIX = /^(take me to|go to|open|show|goto)\s+(.+)$/i
+// Navigation verbs. The firm ones always mean "get me there", so in the
+// composer they search the web when they name nothing here; the soft ones
+// ("open a savings account") only navigate when they name something real.
+// 'goto' is the typo, never shown in copy.
+export const NAV_VERBS_FIRM = ['take me to', 'go to', 'goto'] as const
+export const NAV_VERBS_SOFT = ['open', 'show'] as const
+const GOTO_PREFIX = new RegExp(`^(${[...NAV_VERBS_FIRM, ...NAV_VERBS_SOFT].join('|')})\\s+(.+)$`, 'i')
+const FIRM_NAV = new RegExp(`^(${NAV_VERBS_FIRM.join('|')})\\b`, 'i')
+
+// The composer's limits: past either, input is a composed message, never a
+// command. Exported because the Auto pill's tooltip states them.
+export const COMPOSER_COMMAND_MAX_CHARS = 160
+export const COMPOSER_SHORT_PHRASE_MAX_WORDS = 6
 
 export function normalizeUrl(raw: string): string {
   const t = raw.trim()
@@ -176,7 +188,7 @@ export function composerOmniIntents(
 ): OmniIntent[] {
   const text = rawInput.trim()
   // Multiline or long input is a composed message, never a command.
-  if (!text || /\n/.test(text) || text.length > 160) return []
+  if (!text || /\n/.test(text) || text.length > COMPOSER_COMMAND_MAX_CHARS) return []
 
   if (!/\s/.test(text) && DOMAIN_RE.test(text)) {
     return [urlIntent(text), askIntent()]
@@ -194,7 +206,7 @@ export function composerOmniIntents(
     // Explicit navigation verbs that matched nothing local mean the WEB, now:
     // "take me to buffalo wild wings menu" searches the named thing
     // instantly. Softer verbs (open/show) fall through to the chat rules.
-    if (/^(take me to|go to|goto)\b/i.test(text)) {
+    if (FIRM_NAV.test(text)) {
       return [searchIntent(go[2]), askIntent()]
     }
   }
@@ -204,13 +216,48 @@ export function composerOmniIntents(
   // A short bare phrase reads searchy. On a fresh conversation the web leads
   // (the instant ruling); mid-conversation chat leads, because short phrases
   // there are usually replies — the web stays one Tab away either way.
-  if (text.split(/\s+/).length <= 6) {
+  if (text.split(/\s+/).length <= COMPOSER_SHORT_PHRASE_MAX_WORDS) {
     return opts.chatFirst
       ? [askIntent(), searchIntent(text)]
       : [searchIntent(text), askIntent()]
   }
   return []
 }
+
+// The Auto pill's tooltip: composerOmniIntents above, in words, in the order
+// it decides (first match wins). Built from the same constants, and
+// tests/unit/composerAutoTooltip.test.ts runs an example of every line through
+// composerOmniIntents, so the words and the routing cannot drift apart again
+// (the old tooltip said "everything else asks" long after a short phrase in a
+// new chat had started searching the web).
+const quoted = (verbs: readonly string[]): string => {
+  const q = verbs.map((v) => `“${v}”`)
+  return q.length <= 2 ? q.join(' or ') : `${q.slice(0, -1).join(', ')} or ${q[q.length - 1]}`
+}
+const SHOWN_FIRM = NAV_VERBS_FIRM.filter((v) => v !== 'goto')
+
+export const COMPOSER_AUTO_RULES = [
+  { id: 'composed', says: `A message on several lines, or over ${COMPOSER_COMMAND_MAX_CHARS} characters, asks Plexii.` },
+  { id: 'address', says: 'A web address opens the site.' },
+  {
+    id: 'goto-here',
+    says: `${quoted([...SHOWN_FIRM, ...NAV_VERBS_SOFT])} with the name of one of your desks, pages or documents goes there.`
+  },
+  { id: 'goto-web', says: `${quoted(SHOWN_FIRM)} anything else searches the web for it.` },
+  { id: 'question', says: 'A question, or a request like “write…” or “summarize…”, asks Plexii.' },
+  { id: 'short-new', says: `In a new chat, a phrase of up to ${COMPOSER_SHORT_PHRASE_MAX_WORDS} words searches the web.` },
+  { id: 'short-mid', says: 'Once the chat has started, a phrase that short asks Plexii.' },
+  { id: 'longer', says: 'Anything longer asks Plexii.' }
+] as const
+
+export type ComposerAutoRuleId = (typeof COMPOSER_AUTO_RULES)[number]['id']
+
+export const COMPOSER_AUTO_TOOLTIP = [
+  'Auto: Enter does the first of these that fits.',
+  ...COMPOSER_AUTO_RULES.map((r) => `• ${r.says}`),
+  'Plexii answers on this device or in the cloud, as set in Settings › AI.',
+  'When there is a choice, the chips above the box show what Enter will do, and Tab switches between them.'
+].join('\n')
 
 // The search engines the omnibar can hand a query to (AI-02 seeds). Keyless:
 // these are result-page URLs for the in-app browser panel, not APIs.

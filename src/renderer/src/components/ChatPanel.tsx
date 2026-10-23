@@ -21,7 +21,7 @@ import RetrievalTrace from './assistant/RetrievalTrace'
 import StreamingProse from './assistant/StreamingProse'
 import { cascadeDurationMs } from '../lib/traceView'
 import { useDocumentsStore } from '../stores/documents'
-import { composerOmniIntents, type OmniIntent, type OmniTarget } from '../lib/omniIntent'
+import { composerOmniIntents, COMPOSER_AUTO_TOOLTIP, type OmniIntent, type OmniTarget } from '../lib/omniIntent'
 import { performOmniIntent as performOmniIntentAct } from '../lib/omniPerform'
 import QuestionCard from './assistant/QuestionCard'
 import { activeQuestionFor } from '../lib/assistantQuestion'
@@ -1592,7 +1592,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                   aria-pressed={composerMode === m.id}
                   title={
                     m.id === 'auto'
-                      ? 'Smart: URLs open, take-me-to navigates, everything else asks'
+                      ? COMPOSER_AUTO_TOOLTIP
                       : m.id === 'search'
                         ? 'Type straight into your search engine — results open in Plexii'
                         : 'Everything goes to Plexii'
