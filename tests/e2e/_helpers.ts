@@ -431,6 +431,7 @@ const SEGMENT_OF: Record<string, ProductRoute> = {
   flow: { mode: 'seg', switch: 'plexibrain', app: 'flows' },
   api: { mode: 'seg', switch: 'plexibrain', app: 'api' },
   chat: { mode: 'comms', app: 'chat' },
+  inbox: { mode: 'comms', app: 'inbox' },
   // PlexiiCall is a PlexiiApps tile (office-sideapp-*), not a Tools one.
   meet: { mode: 'officeApp', app: 'meet' },
   build: { mode: 'direct', go: 'goApps' },
