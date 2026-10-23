@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ORG_SNIPPET_REACH_NOTE,
   snippetKindLabel,
@@ -7,7 +7,17 @@ import {
   type SnippetKind
 } from '@shared/snippets'
 import Icon from '../Icon'
-import SnippetDocSurface from './SnippetDocSurface'
+
+// Each kind's editor is loaded only when a snippet of that kind is opened. The
+// host would otherwise pull every office app into its own bundle — and
+// SnippetDocSurface reaches the document schema, which registers the snippet
+// node, which renders the embed, so that one has to be lazy regardless.
+const SnippetDocSurface = lazy(() => import('./SnippetDocSurface'))
+const SnippetSheetSession = lazy(() => import('./SnippetSheetSession'))
+
+function Loading(): JSX.Element {
+  return <div className="p-4 text-[12px] text-[var(--ink-50)]">Opening the editor…</div>
+}
 
 // A saved snippet opened as a document.
 //
@@ -60,11 +70,20 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
   doc: {
     render: ({ body, onChange }) =>
       body.kind === 'doc' ? (
-        <SnippetDocSurface
-          content={body.content}
-          onChange={(content, text) => onChange({ kind: 'doc', content, text })}
-        />
+        <Suspense fallback={<Loading />}>
+          <SnippetDocSurface
+            content={body.content}
+            onChange={(content, text) => onChange({ kind: 'doc', content, text })}
+          />
+        </Suspense>
       ) : null
+  },
+  sheet: {
+    render: ({ body, title, onChange }) => (
+      <Suspense fallback={<Loading />}>
+        <SnippetSheetSession body={body} title={title} onChange={onChange} />
+      </Suspense>
+    )
   }
 }
 
