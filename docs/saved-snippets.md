@@ -653,6 +653,57 @@ src/renderer/src/components/<app>/<app>Snippets.ts
 Then: a menu item calling the save dialog, a menu item opening
 `<SnippetLibrary kinds={[…]}>`, and the three tests. Nothing else.
 
+## Work widgets and the desk take any content
+
+Sticky, note, page, markdown, table and image work widgets are snippet
+targets while they are mounted, and the desk takes every kind. Each widget
+converts through ONE pure acceptor per kind (`shared/snippetWidgets.ts`) over
+the best-first forms (`formsOf(body)` for an insert, `readClipboardForms()` for
+⌘V), so an insert and a paste of the same thing land identically:
+
+| Widget | Holds | A sheet block | A drawing, diagram, slide or design |
+|---|---|---|---|
+| sticky, note | markdown-lite text | a GFM pipe table of its values | **refused**: "Stickies hold text. Insert it on the desk to add it as an image." (owner decision) |
+| page | TipTap nodes, pictures included | a table node | an image node |
+| markdown | markdown, `![alt](src)` pictures | a GFM table | `![Picture from …](fb-file://…)` |
+| table | rows in its fb_table | rows appended through the import wizard's planner | refused |
+| image | one picture | refused | the picture replaces the current one |
+| **desk** | work widgets | a real **table** work widget with its own fb_table (a markdown table, said so, if the table cannot be created) | an **image** work widget |
+
+On the desk a document becomes a page and text a sticky.
+
+- **Pictures are stored, not carried inline.** A converted picture is a data:
+  URL; it is put in the file store and referenced as `fb-file://<id>`
+  (`lib/widgetPictures.ts`). Markdown cannot hold an SVG data: URL at all
+  (markdown-it refuses it as a link), so without a store it gets a PNG from
+  `snippetRaster`, or a refusal, never a picture that comes back as text.
+  Page and markdown draw pictures through `WidgetImage`, Write's
+  `ResizableImage` with the src resolved by `resolveMediaSrc`.
+- **Never silently lossy.** A converted insert returns `{ ok: true, notice }`
+  with the lossy line; a paste shows the same line in the notice toast. A
+  refusal's reason reaches the person verbatim.
+- **Duplicate only, no `host`.** A work widget is not a `SnippetHostKind`
+  (it would claim to render kinds natively); the desk declares `host: 'desk'`
+  and takes `acceptsFor('desk')`. A widget's offered kinds are derived the same
+  way, by running its acceptor over the probe bodies; stickies and notes also
+  list the picture kinds so the refusal can be shown.
+- **Menus.** "Insert snippet…" sits beside "Save as snippet" (Advanced), and
+  "Paste" in the widget's menu; the desk's right-click menu has "Paste".
+- **⌘V.** A textarea keeps its own paste for ordinary text; a grid becomes a
+  pipe table and a picture is refused. Page and markdown keep the editor's
+  paste for text and HTML. A table with no cells selected appends rows; an
+  image widget's body is focusable and replaces its picture. The desk pastes
+  when nothing else has focus and the desk is what is showing; Chromium aims
+  that paste at whatever element last held the selection, so the decision
+  follows focus, not the event target.
+
+Tests: `tests/unit/snippetWidgets.test.ts` (every acceptor and the desk plan),
+`tests/unit/widgetSnippetInsert.test.ts` (pictures stored, page and markdown
+image round trip, rows into an fb_table, desk widgets created),
+`tests/unit/widgetPaste.test.ts` (the real reader, injected reads),
+`tests/unit/widgetSnippetTarget.test.tsx` (lifecycle, refusal verbatim, notice)
+and `tests/e2e/snippetsWidgets.spec.ts` (SW-1 Cells, SW-2 Draw, SW-3 paste).
+
 ## Honest failure states
 
 Each of these is a case where the plausible-looking behaviour is the wrong one.
