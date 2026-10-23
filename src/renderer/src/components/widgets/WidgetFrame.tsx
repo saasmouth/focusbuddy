@@ -10,7 +10,7 @@ import { snapEnabled } from '../../lib/gridPref'
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Rnd } from 'react-rnd'
-import { useWidgetSurface } from '../../lib/widgetSurface'
+import { useWidgetRemovable, useWidgetSurface } from '../../lib/widgetSurface'
 import { type CtxMenuItem } from '../CanvasContextMenu'
 import UnifiedWidgetMenu from '../contextMenu/UnifiedWidgetMenu'
 import WidgetSetupAffordance from './WidgetSetupAffordance'
@@ -144,6 +144,8 @@ export default function WidgetFrame({
   // tint rather than sitting inside it.
   const hasKindAsset = !!resolveEntityIcon('widget', widget.kind).asset
   const embedded = useWidgetSurface() === 'embedded'
+  // False inside a document embed: the host owns removal (lib/widgetSurface).
+  const removable = useWidgetRemovable()
   const linkedFileId = widgetFileIdFromGroup(widget.syncGroupId)
   // The header's link mark: only when the file is also on another desk (or a
   // plain synced copy), never merely because a work widget is its file's.
@@ -466,6 +468,7 @@ export default function WidgetFrame({
     else askAssistantAbout()
   }
   function runRemove(): void {
+    if (!removable) return
     // Remove from this desk, or delete the work widget everywhere
     // (docs/widget-files.md, "Remove or delete").
     void removeWorkWidget(widget)
@@ -478,7 +481,8 @@ export default function WidgetFrame({
   if (!titleEditing) presentActions.push('ai', 'rename')
   if (linkDrag) presentActions.push('link')
   if (!isChildOfSection) presentActions.push('pin', 'shrink', 'grow')
-  presentActions.push('expand', 'remove')
+  presentActions.push('expand')
+  if (removable) presentActions.push('remove')
   const fold = foldHeaderActions(presentActions, actionBudget)
   const shownActions = new Set<HeaderActionId>(fold.visible)
   const overflowItems: OverflowItem[] = fold.overflow.map((id): OverflowItem => {
