@@ -237,6 +237,11 @@ test('WC-5 — free canvas: custom sizes stick and editors keep their minimum; b
     await window.mouse.down()
     await window.mouse.move(b.x + b.width - 2 + dx, b.y + b.height - 2 + dy, { steps: 10 })
     await window.mouse.up()
+    // Let go and move on, as a person does. A pointer left resting within the
+    // canvas's edge margin pans the desk by design (edge-pan), which would carry
+    // every widget off screen under the next gesture.
+    const surface = (await window.locator('[data-canvas-surface="true"]').boundingBox())!
+    await window.mouse.move(surface.x + surface.width / 2, surface.y + surface.height / 2)
   }
   const geo = async (id: string): Promise<[number, number, number, number]> => (await canvasGeometry(window, seed.taskId))[id]!
   // A sticky made much taller than its text keeps its height (guard: auto-grow must not undo it).

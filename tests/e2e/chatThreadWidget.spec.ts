@@ -4,13 +4,27 @@
 //   1. Boot app, create a task, navigate to its canvas.
 //   2. Add the chat-thread widget via IPC (deterministic, avoids palette timing).
 //   3. Wait up to 15s for the widget frame to appear.
-//   4. Confirm the empty-state "Pin a conversation" header and "No conversations yet" body.
+//   4. Signed out it says so; signed in (through _fakeSignal, nothing reaches the
+//      real server) with no conversations, the empty-state "Pin a conversation"
+//      header and "No conversations yet" body.
 //
 // PCHAT-5b drives the user path on top: the Chat tile's "Add … to this desk"
 // (the hover palette it used was removed in 4.3.32).
 
 import { test, expect } from '@playwright/test'
-import { addWidgetToDesk, launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { type Page } from '@playwright/test'
+import { addWidgetToDesk, launchApp, waitForReady, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
+import { signInWithFakeSignal } from './_fakeSignal'
+
+// Open a desk by id (the sidebar no longer lists desks as tree items).
+async function openDesk(window: Page, taskId: string): Promise<void> {
+  await suppressFeatureSpotlights(window)
+  await window.reload()
+  await waitForReady(window)
+  await window.evaluate((id) => (window as unknown as { __fbView?: { getState: () => { goTask: (i: string) => void } } }).__fbView?.getState().goTask(id), taskId)
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
+  await window.waitForTimeout(500) // let the canvas and widget store settle
+}
 
 let launched: LaunchedApp | null = null
 
@@ -45,17 +59,9 @@ test('PCHAT-5a — chat-thread widget renders empty-state via IPC seed (no crash
     return task.id
   })
 
-  // Navigate to the task canvas by clicking it in the sidebar.
-  await window.reload()
-  await waitForReady(window)
-  await expect(
-    window.getByRole('treeitem', { name: /ChatThreadTest/ }).first()
-  ).toBeVisible({ timeout: 8_000 })
-  await window.getByRole('treeitem', { name: /ChatThreadTest/ }).first().click()
-  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
-  await window.waitForTimeout(500) // let the canvas and widget store settle
-
-  // Now seed the widget via IPC directly into the store/DB.
+  // Seed the widget via IPC into the database, then open the desk. (A widget
+  // written behind an open desk's back is not pushed to it; that is reported
+  // separately, and is not what this render test is about.)
   const widgetId = await window.evaluate(async (tid: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const widget = await api.widgets.create({
@@ -71,7 +77,9 @@ test('PCHAT-5a — chat-thread widget renders empty-state via IPC seed (no crash
     return widget.id
   }, taskId)
 
-  // The widget store should pick it up. Give it up to 15s.
+  await openDesk(window, taskId)
+
+  // The desk loads it. Give it up to 15s.
   const widgetAppeared = await window.waitForFunction(
     (wid: string) => !!document.querySelector(`[data-widget-id="${wid}"]`),
     widgetId,
@@ -109,6 +117,12 @@ test('PCHAT-5a — chat-thread widget renders empty-state via IPC seed (no crash
     document.querySelector(`[data-widget-id="${wid}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, widgetId)
   await window.waitForTimeout(400)
+
+  // Signed out, the widget is honest about needing an account.
+  await expect(window.locator(`[data-widget-id="${widgetId}"]`)).toContainText('Sign in to use chat on this desk.')
+  // Signed in with no conversations: the picker's empty state.
+  await signInWithFakeSignal(window, {})
+  await expect(window.locator(`[data-widget-id="${widgetId}"]`)).toContainText('Pin a conversation', { timeout: 5_000 })
 
   // The empty-state header and body must be present inside the widget frame.
   const widgetText = await window.evaluate((wid: string) => {
@@ -155,30 +169,18 @@ test('PCHAT-5b — chat-thread widget renders empty-state via palette add (real 
   await waitForReady(window)
 
   // Create task via IPC, then navigate to its canvas.
-  await window.evaluate(async () => {
+  const taskId = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
-    await api.nodes.create({ parentId: null, kind: 'task', title: 'ChatPaletteTest' })
+    return (await api.nodes.create({ parentId: null, kind: 'task', title: 'ChatPaletteTest' })).id
   })
-
-  await window.reload()
-  await waitForReady(window)
-  await expect(
-    window.getByRole('treeitem', { name: /ChatPaletteTest/ }).first()
-  ).toBeVisible({ timeout: 8_000 })
-  await window.getByRole('treeitem', { name: /ChatPaletteTest/ }).first().click()
-  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
-  await window.waitForTimeout(500)
+  await openDesk(window, taskId)
+  await signInWithFakeSignal(window, {})
 
   // The palette that held this tile was removed in 4.3.32. A chat thread is
   // what the Chat app IS on a desk, so it is added from the Chat tile under
   // Apps: right-click → "Add … to this desk" (the no-drag twin of dragging the
   // tile onto the desk).
-  const chatTile = window.locator('[data-testid="office-comms-app-chat"]').first()
-  if (!(await chatTile.isVisible().catch(() => false))) {
-    // The Chat app is gated off for this account. IPC path (PCHAT-5a) covers the render contract.
-    console.log('[PCHAT-5b] Chat app tile is not available — skipping, IPC path covers render.')
-    return
-  }
+  await expect(window.locator('[data-testid="office-comms-app-chat"]').first(), 'the Chat tile is on the desk').toBeVisible()
   await addWidgetToDesk(window, 'chat-thread')
 
   // Wait up to 15s for a chat-thread widget to appear on the canvas.

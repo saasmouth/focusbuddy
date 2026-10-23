@@ -9,6 +9,8 @@ import GalleryWidget from './GalleryWidget'
 import type { JSX } from 'react'
 import type { Widget } from '@shared/types'
 import WidgetErrorBoundary from '../WidgetErrorBoundary'
+import WidgetFrame from './WidgetFrame'
+import { catalogFor } from '../../lib/widgetCatalog'
 import StickyWidget from './StickyWidget'
 import ImageGenWidget from './ImageGenWidget'
 import CustomWidget from './CustomWidget'
@@ -90,12 +92,30 @@ function UnknownKindWidget({ widget }: { widget: Widget }): JSX.Element {
   )
 }
 
+// Kinds whose component renders only its body. Every other widget component
+// wraps itself in WidgetFrame (position, title bar, drag, resize, the
+// data-widget-id every canvas gesture finds it by); these four never did, so on
+// a desk they rendered unpositioned and could not be moved, resized or removed
+// (found by plexichatFeatures PCHAT-5). They keep rendering bare where a host
+// supplies its own chrome (renderWidgetInline), and get the standard frame
+// here. An unknown kind is framed too, so a widget from a newer build can at
+// least be moved and removed. tests/unit/renderWidgetFramed.test.ts guards it.
+export const BODY_ONLY_KINDS: ReadonlySet<string> = new Set(['chat-thread', 'mail-thread', 'image-gen', 'meeting-record'])
+
 export function renderWidget(w: Widget): JSX.Element | null {
   const inner = renderWidgetInner(w)
   if (inner === null) return null
+  const framed =
+    BODY_ONLY_KINDS.has(w.kind) || inner.type === UnknownKindWidget ? (
+      <WidgetFrame widget={w} headerLabel={(catalogFor(w.kind)?.label ?? w.kind).toLowerCase()}>
+        {inner}
+      </WidgetFrame>
+    ) : (
+      inner
+    )
   return (
     <WidgetErrorBoundary widgetId={w.id} label={w.title || w.kind}>
-      {inner}
+      {framed}
     </WidgetErrorBoundary>
   )
 }

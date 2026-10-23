@@ -58,7 +58,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': resolve(__dirname, 'src/shared'),
-      '@renderer': resolve(__dirname, 'src/renderer/src')
+      '@renderer': resolve(__dirname, 'src/renderer/src'),
+      // Mirrors electron.vite.config.ts, so a test can mount renderWidget (OfficeDocWidget imports it).
+      '@office': resolve(__dirname, 'src/renderer/src/office')
     }
   }
 })

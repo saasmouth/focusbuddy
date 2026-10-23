@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { renderInlineText as renderInline } from '../../lib/renderInlineText'
 import { useMentionAutocomplete } from '../../lib/useMentionAutocomplete'
-import { useGrowToFit, GROW_MAX_HEIGHT } from '../../lib/useGrowToFit'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
@@ -46,18 +45,16 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
   textRef.current = text
   const saveTimerRef = useRef<number | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const scrollRef = useRef<HTMLDivElement | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; selectionText?: string } | null>(null)
   // A sticky shows a rendered view (bold, bullets, tickable checkboxes) and
   // flips to a raw textarea while the user is editing. New / empty stickies
   // start in edit mode so they are immediately typeable.
   const [editing, setEditing] = useState(widget.content.trim() === '')
 
-  // Auto-grow: grow the note by whatever its content overflows, in whichever
-  // view is showing, so a longer note stays readable without manual resizing.
-  // The rule (grow-only, capped, skipped inline) now lives in useGrowToFit so
-  // every content widget behaves the same way — this was the original.
-  useGrowToFit(widget, scrollRef, { maxHeight: GROW_MAX_HEIGHT.sticky, disabled: inline }, [text, editing])
+  // Auto-grow: the frame grows a sticky to its content (useAutoGrowHeight in
+  // WidgetFrame), capped at GROW_MAX_HEIGHT.sticky. This component used to run
+  // useGrowToFit too, on a box that never overflows, so it never fired; the
+  // frame's hook did the growing, against its own 900 ceiling.
 
   // Adopt the store's content on a NEW widget, or on a genuine EXTERNAL change
   // (sync, AI, sync-group mirror). Never re-adopt the echo of our own debounced
@@ -355,7 +352,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
           <Icon name="checklist" size={13} />
         </button>
       </div>
-      <div ref={scrollRef} className="flex flex-col">
+      <div className="flex flex-col">
         {editing ? editor : rendered}
       </div>
       {ctxMenu && (
