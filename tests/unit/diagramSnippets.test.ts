@@ -210,12 +210,13 @@ describe('the target', () => {
   const host = (readOnly = false): DiagramSnippetHost & { insertBody: ReturnType<typeof vi.fn> } => ({ readOnly, insertBody: vi.fn(() => true) })
   const body = (): DiagramSnippetBody => diagramBodyFromSelection(page(), sel(['c', 'd']))!
 
-  it('claims exactly duplicate for diagram, and nothing for other kinds', () => {
+  it('claims exactly duplicate, for diagram and every kind with a conversion into it', () => {
     const t = diagramSnippetTarget('r1', 'Flow', host())
+    expect(t.host).toBe('diagram')
     expect(linkModesFor(t, 'diagram')).toEqual(['duplicate'])
-    expect(linkModesFor(t, 'doc')).toEqual([])
-    expect(linkModesFor(t, 'design')).toEqual([])
-    expect(linkModesFor(t, 'draw')).toEqual([])
+    expect(linkModesFor(t, 'doc')).toEqual(['duplicate'])
+    expect(linkModesFor(t, 'design')).toEqual(['duplicate'])
+    expect(linkModesFor(t, 'draw')).toEqual(['duplicate'])
   })
 
   it('is identified by the mounted surface, so two open diagrams are two destinations', () => {

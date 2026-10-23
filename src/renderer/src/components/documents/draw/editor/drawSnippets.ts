@@ -38,6 +38,7 @@ import type { DrawSnippetBody, Snippet, SnippetLink, SnippetTarget } from '@shar
 import type { DrawAsset, DrawDoc, DrawNode, DrawSwatch } from '@shared/draw/model'
 import { nodesBounds } from '@shared/draw/ops'
 import { registerSnippetTarget } from '../../../../stores/snippets'
+import { insertIntoOffice, officeAccepts } from '../../../../lib/officeSnippets'
 import { v2BlockedReason } from './v2gate'
 import { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION, copiedNodes, landPayload, parseClipboardValue, pasteStorageObstacle, placeIncoming, translateAll } from './clipboard'
 import type { EditorCtx } from './types'
@@ -204,9 +205,13 @@ export function drawSnippetTarget(ctx: EditorCtx, title: string): SnippetTarget 
   return {
     id: drawSnippetTargetId(ctx),
     label: title?.trim() ? `“${title.trim()}”` : 'This drawing',
-    accepts: ['draw'],
+    // Every kind with a conversion into Draw objects (a diagram as editable
+    // vectors, a page as a picture, text as a text object), converted and then
+    // landed through the same paste as a draw snippet.
+    accepts: officeAccepts('draw'),
+    host: 'draw',
     supports: DRAW_SNIPPET_LINKS,
-    insert: (snippet, link) => insertSnippetIntoDrawing(ctx, snippet, link)
+    insert: (snippet, link) => insertIntoOffice(snippet, link, 'draw', (s, l) => insertSnippetIntoDrawing(ctx, s, l))
   }
 }
 

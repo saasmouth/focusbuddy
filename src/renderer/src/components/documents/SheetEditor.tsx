@@ -60,7 +60,10 @@ import { useSheetAi } from './sheet/useSheetAi'
 import Icon from '../Icon'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import { markCellsCopy, readClipboardForms } from '../../lib/clipboardForms'
+import { fromAnotherApp, pasteConverted, pastedSnippet } from '../../lib/clipboardPaste'
 import type { SheetSnippetBody, Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
+import { officeAccepts } from '../../lib/officeSnippets'
 import {
   cellsSnippetTargetId,
   insertSheetSnippet,
@@ -72,7 +75,8 @@ import {
 } from './sheet/cellsSnippets'
 
 /** The library opened from a spreadsheet shows only what a spreadsheet can take. */
-const SHEET_KINDS: SnippetKind[] = ['sheet']
+// Every kind with a conversion into this app, derived from the builders.
+const SHEET_KINDS: SnippetKind[] = officeAccepts('sheet')
 
 // Excel-class spreadsheet editor. The body is held locally as v2 (legacy v1
 // bodies are lifted on mount); every edit pushes an undo snapshot and flows to
@@ -837,6 +841,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
       const text = rangeToTsv(tab, selection)
       await navigator.clipboard.writeText(text).catch(() => {})
       clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
+      markCellsCopy(text, { r: selection.r0, c: selection.c0 })
       return
     }
     if (mod && e.key.toLowerCase() === 'x') {
@@ -844,6 +849,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
       const text = rangeToTsv(tab, selection)
       await navigator.clipboard.writeText(text).catch(() => {})
       clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
+      markCellsCopy(text, { r: selection.r0, c: selection.c0 })
       mutateTab((t) => {
         let next = t
         for (let rr = selection.r0; rr <= selection.r1; rr++)
@@ -896,6 +902,18 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     if (mod && e.key.toLowerCase() === 'v') {
       e.preventDefault()
       const text = await navigator.clipboard.readText().catch(() => '')
+      // Another of our apps' content (a Write table, a Deck selection, a
+      // drawing) lands as a converted sheet snippet would: rows of values
+      // at the selection, or the reason it cannot (a picture). Cells' own
+      // copies and plain text from anywhere keep the paste below unchanged.
+      const ownCopy = !!clipboardCopy.current && clipboardCopy.current.text === text
+      if (!ownCopy) {
+        const read = await readClipboardForms()
+        if (fromAnotherApp(read, 'sheet') || (!text && read.forms.length > 0)) {
+          await pasteConverted('sheet', (body) => insertSnippetHere(pastedSnippet(body)), { read })
+          return
+        }
+      }
       if (!text) return
       const matrix = parseTsv(text)
       // Only shift formulas when the clipboard is still our own copy (we know its

@@ -13,6 +13,7 @@ import { normalizeContent, toPlainText, type ContentDoc } from '@shared/designCo
 import { defaultSwatches, swatchId as mintSwatchId, tintedColor, type DesignSwatch, type SwatchRef } from '@shared/designSwatches'
 import { DEFAULT_BRAND_KIT, type OrgBrandKit } from '@shared/brandKit'
 import { registerSnippetTarget } from '../../../stores/snippets'
+import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
 
 // PlexiiDesign as a snippet surface: how selected page elements become a saved
 // snippet, and how a saved one gets back onto a page.
@@ -432,16 +433,25 @@ export function insertDesignSnippet(design: DesignBody, snippet: Snippet, at: De
 export function useDesignSnippetTarget(instanceId: string, title: string, insert: (snippet: Snippet) => boolean): void {
   const ref = useRef(insert)
   ref.current = insert
-  useEffect(() => {
-    const target: SnippetTarget = {
-      id: designSnippetTargetId(instanceId),
-      label: title?.trim() ? `“${title.trim()}”` : 'This design',
-      accepts: ['design'],
-      supports: DESIGN_SNIPPET_LINKS,
-      insert: (snippet, link) => (link === 'duplicate' ? ref.current(snippet) : false)
-    }
-    return registerSnippetTarget(target)
-  }, [instanceId, title])
+  useEffect(() => registerSnippetTarget(designSnippetTarget(instanceId, title, (s) => ref.current(s))), [instanceId, title])
+}
+
+/**
+ * The target a mounted design registers. Pure, so its contract is
+ * unit-testable. Every kind with a conversion into page elements is accepted
+ * (a document as a text frame reading a new story, a sheet block as a table,
+ * art as a picture), converted and then inserted through the same path as a
+ * design snippet, which mints fresh element and story ids.
+ */
+export function designSnippetTarget(instanceId: string, title: string, insert: (snippet: Snippet) => boolean): SnippetTarget {
+  return {
+    id: designSnippetTargetId(instanceId),
+    label: title?.trim() ? `“${title.trim()}”` : 'This design',
+    accepts: officeAccepts('design'),
+    host: 'design',
+    supports: DESIGN_SNIPPET_LINKS,
+    insert: (snippet, link) => insertIntoOffice(snippet, link, 'design', (s, l) => (l === 'duplicate' ? insert(s) : false))
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

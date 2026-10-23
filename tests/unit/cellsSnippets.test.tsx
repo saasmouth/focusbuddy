@@ -404,8 +404,13 @@ describe('the spreadsheet as a snippet target', () => {
     expect(target).toBeTruthy()
     expect(target.id).toBe('sheet::r1:')
     expect(linkModesFor(target, 'sheet')).toEqual(['duplicate'])
-    expect(linkModesFor(target, 'doc')).toEqual([])
+    // Any-to-any: kinds with a conversion into cells (a document's table, a
+    // text work widget) are taken as a copy; pictures are not.
+    expect(linkModesFor(target, 'doc')).toEqual(['duplicate'])
+    expect(linkModesFor(target, 'widget')).toEqual(['duplicate'])
     expect(linkModesFor(target, 'slide')).toEqual([])
+    expect(linkModesFor(target, 'draw')).toEqual([])
+    expect(target.host).toBe('sheet')
     expect(target.label).toBe('“Budget”')
   })
 

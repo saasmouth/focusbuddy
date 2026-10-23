@@ -4,7 +4,7 @@ import type { ContentBlock, ContentDoc } from '../designContent'
 import { parseTiptap } from '../designContent'
 import { docFeatures, firstTableRows } from '../snippetForms/tiptap'
 import { paragraphNode } from '../snippetForms/rows'
-import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
+import { pictureLossy, svgDataUrl, usableElements } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
 import { REASON, estimateLines, ok, pick, refusal } from './common'
 import { imageElement, tableElement } from './elements'
@@ -44,10 +44,15 @@ function storyFrame(doc: ContentDoc): SlideTextElement {
  */
 export function toDesign(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body.kind === 'design') return ok(structuredClone(body), [])
-  if (body.kind === 'slide') {
-    if (!body.elements.length) return { ok: false, reason: REASON.empty }
-    return ok({ kind: 'design', elements: structuredClone(body.elements) }, [])
+  if (body?.kind === 'design') return ok(structuredClone(body), [])
+  if (body?.kind === 'slide') {
+    const { elements, dropped } = usableElements(body.elements)
+    if (!elements.length) return dropped ? { ok: false, reason: L.unsupportedImage } : { ok: false, reason: REASON.empty }
+    // Deck text boxes land as plain frames, each holding its own words. That
+    // is faithful, but a Design user expects text to flow, so say how.
+    const texts = elements.filter((e) => e.type === 'text').length
+    const lossy = [...(dropped ? [L.unsupportedImage] : []), ...(texts >= 2 ? [L.textBoxesSeparate] : [])]
+    return ok({ kind: 'design', elements: structuredClone(elements) }, lossy)
   }
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
   if (!f) return refusal(body, 'design')

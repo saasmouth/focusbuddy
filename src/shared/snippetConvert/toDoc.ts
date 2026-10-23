@@ -17,7 +17,7 @@ function imageNode(src: string, alt: string, width?: number): Record<string, unk
  */
 export function toDoc(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body.kind === 'doc') return ok(structuredClone(body), [])
+  if (body?.kind === 'doc') return ok(structuredClone(body), [])
   const f = pick(forms, ['docNodes', 'image', 'svg'], body)
   if (!f) return refusal(body, 'doc')
   if (f.kind === 'docNodes') {

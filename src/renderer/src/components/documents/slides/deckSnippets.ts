@@ -10,6 +10,7 @@ import {
   pasteElements
 } from '@shared/elementClipboard'
 import { registerSnippetTarget } from '../../../stores/snippets'
+import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
 
 // PlexiiDeck as a snippet surface: how selected slide elements become a saved
 // snippet, and how a saved one gets back onto a slide.
@@ -149,16 +150,24 @@ export function slideElementsFromSnippet(snippet: Snippet, at: SlideSnippetPlace
 export function useDeckSnippetTarget(instanceId: string, title: string, insert: (snippet: Snippet) => boolean): void {
   const ref = useRef(insert)
   ref.current = insert
-  useEffect(() => {
-    const target: SnippetTarget = {
-      id: deckSnippetTargetId(instanceId),
-      label: title?.trim() ? `“${title.trim()}”` : 'This deck',
-      accepts: ['slide'],
-      supports: DECK_SNIPPET_LINKS,
-      insert: (snippet, link) => (link === 'duplicate' ? ref.current(snippet) : false)
-    }
-    return registerSnippetTarget(target)
-  }, [instanceId, title])
+  useEffect(() => registerSnippetTarget(deckSnippetTarget(instanceId, title, (s) => ref.current(s))), [instanceId, title])
+}
+
+/**
+ * The target a mounted deck registers. Pure, so its contract is unit-testable.
+ * Every kind with a conversion into slide elements is accepted (a sheet block
+ * as Deck's table, a document as a text box, art as a picture), converted and
+ * then inserted through the same paste engine as a slide snippet.
+ */
+export function deckSnippetTarget(instanceId: string, title: string, insert: (snippet: Snippet) => boolean): SnippetTarget {
+  return {
+    id: deckSnippetTargetId(instanceId),
+    label: title?.trim() ? `“${title.trim()}”` : 'This deck',
+    accepts: officeAccepts('slide'),
+    host: 'slide',
+    supports: DECK_SNIPPET_LINKS,
+    insert: (snippet, link) => insertIntoOffice(snippet, link, 'slide', (s, l) => (l === 'duplicate' ? insert(s) : false))
+  }
 }
 
 /** The link modes a deck honours. Exported so the unit test asserts the real list. */

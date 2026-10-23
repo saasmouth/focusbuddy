@@ -44,6 +44,7 @@ import SaveSnippetDialog from '../../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../../snippets/SnippetLibrary'
 import { diagramSnippetTargetId, suggestedDiagramSnippetName, useDiagramSnippetTarget } from './diagramSnippets'
 import './diagram.css'
+import { officeAccepts } from '../../../lib/officeSnippets'
 
 // PlexiDiagrams — a Lucidchart-class diagram editor on React Flow. The saved
 // MapBody is the single source of truth; React Flow is only the interaction
@@ -877,7 +878,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         <SaveSnippetDialog body={snippetDraft} suggestedName={suggestedDiagramSnippetName(snippetDraft)} onClose={() => setSnippetDraft(null)} />
       )}
       {snippetLibraryOpen && (
-        <SnippetLibrary kinds={['diagram']} targetId={diagramSnippetTargetId(snippetSurface)} onClose={() => setSnippetLibraryOpen(false)} />
+        <SnippetLibrary kinds={officeAccepts('diagram')} targetId={diagramSnippetTargetId(snippetSurface)} onClose={() => setSnippetLibraryOpen(false)} />
       )}
     </DiagramCtx.Provider>
   )

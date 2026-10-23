@@ -21,7 +21,7 @@ function node(shape: string, x: number, y: number, extra: Partial<MapNode>, id: 
  */
 export function toDiagram(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body.kind === 'diagram') return ok(structuredClone(body), [])
+  if (body?.kind === 'diagram') return ok(structuredClone(body), [])
   const f = pick(forms, ['rows', 'image', 'svg', 'text'], body)
   if (!f) return refusal(body, 'diagram')
   switch (f.kind) {

@@ -37,7 +37,16 @@ import { formsOfWidget } from './snippetForms/fromWidget'
 export type FormKind = 'native' | 'docNodes' | 'markdown' | 'text' | 'rows' | 'svg' | 'image'
 
 /** The app that owns the editable original of a picture, as the user knows it. */
-export type SnippetAppName = 'PlexiiWrite' | 'PlexiiCells' | 'PlexiiDeck' | 'PlexiiDesign' | 'PlexiiDiagrams' | 'PlexiiDraw' | 'a work widget'
+export type SnippetAppName =
+  | 'PlexiiWrite'
+  | 'PlexiiCells'
+  | 'PlexiiDeck'
+  | 'PlexiiDesign'
+  | 'PlexiiDiagrams'
+  | 'PlexiiDraw'
+  | 'a work widget'
+  /** A picture pasted from outside our apps: its original is wherever it was copied from. */
+  | 'the app it came from'
 
 export interface RowsValue {
   rows: string[][]

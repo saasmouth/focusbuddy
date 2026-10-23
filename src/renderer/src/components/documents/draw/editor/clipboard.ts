@@ -33,27 +33,13 @@ import { addObject, editableIds, findLayer, getObjects, nodesBounds, primaryArtb
 import { drawDocToSvg } from '@shared/draw/svg'
 import { findNode, vectorLayersOf } from '@shared/draw/tree'
 import type { EditorCtx } from './types'
+import { readClipboardForms } from '../../../../lib/clipboardForms'
+import { convertClipboard, fromAnotherApp } from '../../../../lib/clipboardPaste'
+import { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION, type DrawClipboardPayload } from '@shared/draw/clipboardFormat'
 
 // ── The payload ──────────────────────────────────────────────────────────────
 
-export const DRAW_CLIPBOARD_KIND = 'plexiidraw/clipboard'
-export const DRAW_CLIPBOARD_VERSION = 1
-
-/** The native clipboard format: what a PlexiiDraw copy writes as JSON. */
-export interface DrawClipboardPayload {
-  kind: typeof DRAW_CLIPBOARD_KIND
-  version: number
-  /** Visible bounds of the copied art, document space. */
-  bounds: Box
-  /** The artboard the art was copied from (Paste in Place keeps the art where it sat on it). */
-  artboard: { x: number; y: number; w: number; h: number }
-  /** Top-level copied nodes, bottom first. Ids are the source's; a paste mints new ones. */
-  nodes: DrawNode[]
-  /** Exactly the assets the nodes use. */
-  assets: Record<string, DrawAsset>
-  /** Exactly the swatches the nodes reference. */
-  swatches: DrawSwatch[]
-}
+export { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION, type DrawClipboardPayload }
 
 /** Every swatch id a value references (paints anywhere inside it: fills, strokes, appearance). */
 function swatchRefs(v: unknown, out: Set<string>, depth = 0): void {
@@ -852,13 +838,43 @@ export function placeIncoming(ctx: EditorCtx, inc: Incoming, mode: PasteMode): {
   return { doc, ids }
 }
 
+/**
+ * Another of our apps' content on the clipboard, converted to Draw objects and
+ * landed like a paste from another app (no origin: it lands in view). Null when
+ * the clipboard holds none, so Draw's own paste runs as it always did.
+ */
+async function otherAppIncoming(ctx: EditorCtx): Promise<Incoming | { error: string } | null> {
+  const read = await readClipboardForms()
+  if (!fromAnotherApp(read, 'draw')) return null
+  const conv = convertClipboard(read, 'draw')
+  if (!conv) return null
+  if (!conv.ok) return { error: conv.reason }
+  if (conv.body.kind !== 'draw') return null
+  // Draw's own parser on the converted body, exactly as a draw snippet lands.
+  const parsed = parseClipboardValue({ kind: DRAW_CLIPBOARD_KIND, nodes: conv.body.objects, assets: conv.body.assets ?? {}, swatches: conv.body.swatches ?? [] })
+  if (!parsed || !parsed.nodes.length) return { error: 'Nothing on the clipboard can be pasted into a drawing.' }
+  const landed = landPayload(ctx.doc(), parsed)
+  return { doc: landed.doc, nodes: landed.nodes, origin: null, note: conv.notice }
+}
+
 /** Read the system clipboard and paste with `mode`; one undo step. */
 export async function pasteFromClipboard(ctx: EditorCtx, mode: PasteMode): Promise<boolean> {
   if (ctx.get().readOnly) return false
   // A copy made a moment ago must be on the clipboard before it is read.
   if (copyInFlight) await copyInFlight.catch(() => undefined)
   const read = await drawClipboardBackend().read()
-  const inc = await incomingFrom(ctx, read)
+  // Content another of our apps copied (a Deck/Design/Diagrams selection, a
+  // Cells range, a Write fragment) is not Draw's format; read as plain text it
+  // would land as a text object holding JSON or loose words. It goes through
+  // the any-to-any conversion instead: a diagram as editable vectors, a page
+  // as a picture, said so on the status line. Draw's own copies, files and
+  // other apps' SVG and pictures keep Draw's paste below, unchanged.
+  const other = !read.native && !read.files?.length ? await otherAppIncoming(ctx) : null
+  if (other && 'error' in other) {
+    ctx.status(other.error)
+    return false
+  }
+  const inc = other ?? (await incomingFrom(ctx, read))
   if ('error' in inc) {
     ctx.status(inc.error)
     return false

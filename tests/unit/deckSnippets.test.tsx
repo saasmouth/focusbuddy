@@ -231,8 +231,10 @@ describe('the deck as a snippet target', () => {
     const target = useSnippetsStore.getState().targets[deckSnippetTargetId(':r1:')]!
     expect(target).toBeTruthy()
     expect(linkModesFor(target, 'slide')).toEqual(['duplicate'])
-    expect(linkModesFor(target, 'doc')).toEqual([])
-    expect(linkModesFor(target, 'design')).toEqual([])
+    // Any-to-any: every kind with a conversion into slide elements, as a copy.
+    expect(linkModesFor(target, 'doc')).toEqual(['duplicate'])
+    expect(linkModesFor(target, 'design')).toEqual(['duplicate'])
+    expect(target.host).toBe('slide')
     expect(target.label).toBe('“Q3 review”')
   })
 

@@ -149,6 +149,56 @@ kind now has a surface. A kind whose surface is not open simply offers no
 destination, which is why the picker says "nothing open can take this" instead
 of failing.
 
+### Any snippet into any office app, and paste between them
+
+Every office target (Write, Cells, Deck, Design, Diagrams, Draw) declares its
+`host` and accepts **every kind with a non-refused conversion into it**, not
+just its own. The list is not written by hand: `acceptsFor(host)`
+(`shared/snippetConvert/accepts.ts`) runs the host's builder over
+representative bodies of each kind, and `officeAccepts(host)`
+(`renderer/src/lib/officeSnippets.ts`) caches it once per host, so the
+library's kind filter in each app shows exactly what conversion supports and
+can never drift from it. Today a sheet takes doc, widget and sheet (pictures
+are refused: "PlexiiCells holds values, not pictures."), Draw takes everything
+but a sheet ("PlexiiDraw has no tables…"), and the others take all seven.
+
+Insertion runs `insertIntoOffice`: a snippet of the host's own kind goes to
+the target's own insert untouched; any other kind is converted with
+`convertSnippetBody(body, primaryKindFor(host))` and goes through the **same**
+duplicate insert (which re-mints every id), and the target returns
+`{ ok: true, notice }`. `notice` is one plain line from the conversion's
+`lossy` ("It becomes a picture: edit it in PlexiiDraw."), and the store shows
+it in the house notice toast once the library has closed. A refused pair
+returns `{ ok: false, reason }` with the builder's reason, verbatim. Nothing
+is ever written back through a conversion.
+
+`SnippetTarget.liveKinds` lets a target be live for fewer kinds than it
+accepts; `linkModesFor`, the store and the library all honour it, so a Live
+button is never offered for a kind that would refuse it. Write offers Live
+for converted kinds (`DOC_LIVE_CONVERTED`): `SnippetEmbed` renders them
+read-only, re-converted from the master on every resolve. That is proven in
+the app by `tests/e2e/snippetsWriteConverted.spec.ts`; the other office
+targets stay duplicate-only for converted kinds.
+
+**Paste** uses the same matrix. `readClipboardForms()`
+(`renderer/src/lib/clipboardForms.ts`) reads the clipboard in the main process
+(`snippets:readClipboard`, `main/appClipboard.ts`): Draw's own flavours through
+`readDrawClipboard` (SVG through its raw OS flavour, never
+`getType('image/svg+xml')`), HTML, and Chromium's pickled web custom data,
+which is where Deck/Design's and Diagrams' private DataTransfer types live on
+the OS pasteboard. A copy from one of our apps becomes the body that app's
+**own** capture function makes of the selection, then `formsOf`, so a paste
+and a saved snippet of one selection land identically; a Draw envelope of a
+version this build does not know is refused. Cells marks what it copies
+(`markCellsCopy`) so its TSV is recognised, formulas and all, while it is
+still on the clipboard. Then SVG, PNG/JPEG, HTML (tables as rows), TSV, text.
+`convertForms(forms, to)` is the paste half of the converter; each app keeps
+its own same-app paste first, unchanged, and hands everything else to
+`pasteConverted` (`renderer/src/lib/clipboardPaste.ts`), which inserts through
+the app's converted-snippet insert and shows the same notice or reason.
+Deck and Design tag their element copies with the app, so a paste into the
+other of the two is known to be a conversion.
+
 ### Why a desk offers Duplicate only
 
 Not a limitation — a deliberate refusal to build a second mechanism for
@@ -692,6 +742,11 @@ Each of these is a case where the plausible-looking behaviour is the wrong one.
 | `.../documents/draw/commands/snippets.commands.ts` | Edit › Save selection as snippet… and Insert snippet… (also on the canvas context menu) |
 | `.../documents/draw/dialogs/{saveSnippet,snippetLibrary}.dialog.tsx` | the app's dialogs, shown `frameless` by the studio |
 | `lib/contextMenu/` | `FrameCallbacks.onSaveAsSnippet`, beside `onSaveAsFile` |
+| `src/shared/snippetConvert/accepts.ts` | `acceptsFor(host)`: what a host takes, derived from the builders |
+| `.../lib/officeSnippets.ts` | `officeAccepts`, `insertIntoOffice`: converted inserts into the office apps |
+| `.../lib/clipboardForms.ts`, `src/main/appClipboard.ts` | the clipboard as conversion forms, read in main |
+| `.../lib/clipboardPaste.ts` | `pasteConverted`: cross-app paste through the same inserts |
+| `src/shared/draw/clipboardFormat.ts` | PlexiiDraw's clipboard names and envelope, shared by Draw and the readers |
 
 The DDL lives in its own module rather than in `schema.ts` for the reason
 `migrations.ts` documents: the cloud runtime builds its database from `SCHEMA`

@@ -8,10 +8,10 @@ import { fitWithin, ok, pick, refusal } from './common'
 
 /** Marks a page work widget's editor holds (StarterKit, Link). */
 const PAGE_MARKS = new Set(['bold', 'italic', 'strike', 'code', 'link', 'underline'])
-/** Nodes a page work widget's editor holds (StarterKit, tasks, tables). */
+/** Nodes a page work widget's editor holds (StarterKit, tasks, tables, images). Pictures are kept: the page widget draws image nodes. */
 const PAGE_NODES = new Set([
   'paragraph', 'text', 'hardBreak', 'heading', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem',
-  'blockquote', 'codeBlock', 'horizontalRule', 'table', 'tableRow', 'tableHeader', 'tableCell'
+  'blockquote', 'codeBlock', 'horizontalRule', 'table', 'tableRow', 'tableHeader', 'tableCell', 'image'
 ])
 
 /** Is any block aligned other than to the left? (A page widget has no alignment.) */
@@ -37,7 +37,7 @@ function widget(widgetKind: string, content: string, width: number, height: numb
  */
 export function toWidget(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body.kind === 'widget') return ok(structuredClone(body), [])
+  if (body?.kind === 'widget') return ok(structuredClone(body), [])
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
   if (!f) return refusal(body, 'widget')
   switch (f.kind) {
@@ -46,7 +46,6 @@ export function toWidget(ctx: BuildContext): SnippetConversion {
     case 'docNodes': {
       const feat = docFeatures(f.value)
       const lossy = [...f.lossy]
-      if (feat.images) lossy.push(L.pictures)
       if ([...feat.marks].some((m) => !PAGE_MARKS.has(m))) lossy.push(L.colourSize)
       if ([...feat.other].some((t) => !PAGE_NODES.has(t))) lossy.push(L.embeds)
       if (hasAlignment(f.value)) lossy.push(L.alignment)

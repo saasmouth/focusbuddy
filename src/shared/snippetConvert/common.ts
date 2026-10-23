@@ -34,6 +34,11 @@ export const REASON = {
   empty: 'There is nothing in this snippet to insert.'
 } as const
 
+/** Why a paste with no source body cannot land: nothing in it is something `to` holds. */
+export function nothingUsable(to: SnippetKind): string {
+  return `Nothing that was copied is something ${DEST_APP[to]} can hold.`
+}
+
 const WIDGET_NAME: Record<string, string> = {
   'custom-block': 'custom block',
   'living-doc': 'living page',
@@ -56,8 +61,13 @@ export function widgetReason(widgetKind: string, to: SnippetKind): string {
   return `A ${name} work widget cannot be placed in ${DEST_APP[to]} yet. Insert it on a desk instead.`
 }
 
-/** The refusal for a body none of whose forms the destination can take. */
-export function refusal(body: SnippetBody, to: SnippetKind): SnippetConversion {
+/**
+ * The refusal for a body none of whose forms the destination can take. With no
+ * body (a paste of something that is not one of our apps' content: a web
+ * page's HTML, a picture, text) the refusal names the destination instead.
+ */
+export function refusal(body: SnippetBody | undefined, to: SnippetKind): SnippetConversion {
+  if (!body) return { ok: false, reason: nothingUsable(to) }
   if (body.kind === 'widget') {
     const k = body.widgetKind
     if ((TEXT_WIDGET_KINDS.has(k) || PAGE_WIDGET_KINDS.has(k)) && !String(body.content ?? '').trim()) {
@@ -80,8 +90,8 @@ const PICTURE_KINDS = new Set<SnippetKind>(['slide', 'design', 'diagram', 'draw'
  * would drop the art and call it a conversion. It is refused instead. The
  * text form stays for ⌘V's plain-text flavour.
  */
-export function pick(forms: Form[], takes: FormKind[], body: SnippetBody): Form | undefined {
-  const art = PICTURE_KINDS.has(body.kind)
+export function pick(forms: Form[], takes: FormKind[], body: SnippetBody | undefined): Form | undefined {
+  const art = body ? PICTURE_KINDS.has(body.kind) : false
   return forms.find((f) => f.kind !== 'native' && takes.includes(f.kind) && !(art && f.kind === 'text'))
 }
 

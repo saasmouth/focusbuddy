@@ -6,6 +6,7 @@ import { normalizeBody } from '@shared/diagram/normalize'
 import { copySelection, pasteClip, type Graph, type Sel } from '@shared/diagram/ops'
 import { fresh } from '@shared/diagram/sharedRefs'
 import { registerSnippetTarget } from '../../../stores/snippets'
+import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
 
 // PlexiiDiagrams as a snippet surface: how a selection on the canvas becomes a
 // saved diagram fragment, and how a saved fragment gets back onto a page.
@@ -168,11 +169,15 @@ export function diagramSnippetTarget(instanceId: string, title: string | undefin
   return {
     id: diagramSnippetTargetId(instanceId),
     label: t ? `“${t}”` : 'This diagram',
-    accepts: ['diagram'],
+    // Every kind with a conversion into shapes (a sheet block as a table
+    // shape, text as notes, art as an image shape), converted and then placed
+    // through the same paste as a diagram snippet.
+    accepts: officeAccepts('diagram'),
+    host: 'diagram',
     // See the note at the top: a diagram cannot carry a reference through
     // co-editing, export or connectors, so it honours Duplicate and says so.
     supports: ['duplicate'],
-    insert: (snippet, link) => insertSnippetIntoDiagram(host, snippet, link)
+    insert: (snippet, link) => insertIntoOffice(snippet, link, 'diagram', (s, l) => insertSnippetIntoDiagram(host, s, l))
   }
 }
 

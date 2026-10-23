@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import {
+  linkModesFor,
   snippetMatches,
   targetAccepts,
   type Snippet,
@@ -10,6 +11,7 @@ import {
   type SnippetQuery,
   type SnippetTarget
 } from '@shared/snippets'
+import { announceConverted } from '../lib/convertedNotice'
 
 // The saved-snippets store: the library the user reads, plus the registry of
 // places a snippet can currently go.
@@ -29,6 +31,8 @@ export interface SnippetsState {
   loading: boolean
   /** The last error from a write, for the surface to show. Cleared on success. */
   error: string | null
+  /** The last insert's conversion line ("It becomes a picture: edit it in PlexiiDraw."), null when it landed as itself. */
+  notice: string | null
   /** Mounted insertion targets, keyed by SnippetTarget.id. */
   targets: Record<string, SnippetTarget>
 
@@ -58,6 +62,7 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
   snippets: [],
   loading: false,
   error: null,
+  notice: null,
   targets: {},
 
   refresh: async (query) => {
@@ -138,7 +143,7 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
       set({ error: 'That place is no longer open.' })
       return false
     }
-    if (!target.supports.includes(link)) {
+    if (!linkModesFor(target, snippet.kind).includes(link)) {
       set({ error: `${target.label} cannot take a ${link} snippet.` })
       return false
     }
@@ -153,16 +158,20 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
       set({ error: (e as Error).message || 'The snippet could not be inserted.' })
       return false
     }
-    if (outcome !== true) {
+    const took = outcome === true || (typeof outcome === 'object' && outcome.ok === true)
+    if (!took) {
       // The surface declined. A target that knows WHY says so — which cell a
       // formula would have pointed off-sheet, which merge the block would have
       // split — and that reason reaches the user verbatim rather than being
       // flattened into a generic message it cannot act on.
-      const reason = typeof outcome === 'object' && outcome.reason ? outcome.reason : null
-      set({ error: reason ?? `${target.label} did not take the snippet.` })
+      const reason = typeof outcome === 'object' && !outcome.ok && outcome.reason ? outcome.reason : null
+      set({ error: reason ?? `${target.label} did not take the snippet.`, notice: null })
       return false
     }
-    set({ error: null })
+    // A converted insert says so, in one plain line, after the library closes.
+    const notice = typeof outcome === 'object' && outcome.ok ? (outcome.notice ?? null) : null
+    set({ error: null, notice })
+    announceConverted(notice)
     // Counted only on a real insertion, so usage figures mean something.
     void window.api.snippets.recordUse(snippet.id).catch(() => undefined)
     set((s) => ({

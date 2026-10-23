@@ -23,7 +23,9 @@ import DocMenuBar from './editor/DocMenuBar'
 import WriteChrome from './WriteChrome'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
-import { docBodyFromSelection, docSnippetTargetId, suggestedSnippetName, useDocSnippetTarget } from './editor/docSnippets'
+import { docBodyFromSelection, docSnippetTargetId, pasteIntoDoc, suggestedSnippetName, useDocSnippetTarget } from './editor/docSnippets'
+import { pasteNeedsConversion } from '../../lib/clipboardForms'
+import { officeAccepts } from '../../lib/officeSnippets'
 import type { DocSnippetBody } from '@shared/snippets'
 import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
@@ -337,6 +339,8 @@ export default function DocEditor({
   // Stable class to scope the injected heading CSS to this editor instance.
   const scopeClass = 'doc-hs-' + useId().replace(/[:]/g, '')
 
+  // The live editor for handlers built inside its own options (handlePaste).
+  const editorRef = useRef<Editor | null>(null)
   const editor = useEditor({
     extensions: buildDocExtensions({
       interactive: true,
@@ -369,6 +373,17 @@ export default function DocEditor({
           'prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[60vh] text-[15px] leading-relaxed',
         'data-testid': 'doc-editor-surface'
       },
+      handlePaste(_view, event) {
+        // Another of our apps' content (a Deck/Design selection, a diagram, a
+        // Cells range, a drawing or a picture) lands converted, the way a
+        // snippet of it would. HTML and text keep Write's own paste.
+        if (!pasteNeedsConversion(event.clipboardData)) return false
+        const ed = editorRef.current
+        if (!ed) return false
+        event.preventDefault()
+        void pasteIntoDoc(ed, { data: event.clipboardData })
+        return true
+      },
       handleKeyDown(_view, event) {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
           event.preventDefault()
@@ -386,6 +401,7 @@ export default function DocEditor({
       }
     }
   })
+  editorRef.current = editor
 
   const ai = useDocAi(editor)
 
@@ -1047,7 +1063,7 @@ export default function DocEditor({
 
       {snippetLibraryOpen && (
         <SnippetLibrary
-          kinds={['doc']}
+          kinds={officeAccepts('doc')}
           targetId={docSnippetTargetId(scopeClass)}
           onClose={() => setSnippetLibraryOpen(false)}
         />

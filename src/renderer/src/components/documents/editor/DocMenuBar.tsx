@@ -9,6 +9,7 @@ import type { FbDocument } from '@shared/types'
 import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
 import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
+import { menuPasteIntoDoc } from './docSnippets'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
 // Insert / Format / Tools / Help, each a dropdown of real actions. Every item is
@@ -125,6 +126,9 @@ export default function DocMenuBar({
   }
 
   async function paste(): Promise<void> {
+    // Another of our apps' content, or a picture, lands converted (as a
+    // snippet of it would); text keeps the menu's own paste below.
+    if ((await menuPasteIntoDoc(editor).catch(() => null)) !== null) return
     try {
       const text = await navigator.clipboard.readText()
       if (text) editor.chain().focus().insertContent(text).run()
