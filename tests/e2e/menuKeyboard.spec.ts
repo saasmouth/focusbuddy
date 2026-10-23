@@ -64,11 +64,10 @@ test('KB-1 — drive the unified menu by keyboard to create a sticky', async () 
   const widgetId = await seedNote(launched, 'keyboard nav test', 'MenuKeyboardTest')
   await openTask(launched, 'MenuKeyboardTest')
 
-  // Open the menu from the note content.
+  // Open the menu from the note as read (not its editing textarea: text gets
+  // the native text menu, SPEC §9.3, E-5).
   await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { timeout: 8_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`)
-  await window.waitForSelector(`[data-widget-id="${widgetId}"] textarea`, { timeout: 4_000 })
-  await window.click(`[data-widget-id="${widgetId}"] textarea`, { button: 'right' })
+  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu][role="menu"]', { timeout: 4_000 })
 
   // Make sure the menu panel has keyboard focus.
