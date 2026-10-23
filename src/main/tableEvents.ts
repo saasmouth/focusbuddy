@@ -8,12 +8,19 @@ import { BrowserWindow } from 'electron'
 // affected table's cache. Renderer-initiated writes also pass through, which
 // costs one redundant refetch and guarantees convergence.
 export function notifyRowsChanged(tableId: string): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (win.isDestroyed()) continue
-    try {
-      win.webContents.send('tables:rowsChanged', tableId)
-    } catch {
-      // window may have closed mid-broadcast — ignore
+  // Guarded as a whole, like notifyDocumentChanged: a write that already
+  // succeeded must never fail because there is no Electron to notify (tests,
+  // other hosts). Degrading to silence is the safe failure.
+  try {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue
+      try {
+        win.webContents.send('tables:rowsChanged', tableId)
+      } catch {
+        // window may have closed mid-broadcast — ignore
+      }
     }
+  } catch {
+    // no Electron here, or no windows yet: nothing to tell.
   }
 }

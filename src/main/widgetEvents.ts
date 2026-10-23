@@ -45,8 +45,19 @@ export function createWidgetChangeNotifier(
 }
 
 const live = createWidgetChangeNotifier((taskIds) => {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send(WIDGETS_EXTERNAL_CHANGE, { taskIds })
+  // Guarded like notifyDocumentChanged: never fail a widget write because there
+  // is no Electron to notify.
+  try {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue
+      try {
+        win.webContents.send(WIDGETS_EXTERNAL_CHANGE, { taskIds })
+      } catch {
+        // window may have closed mid-broadcast — ignore
+      }
+    }
+  } catch {
+    // no Electron here, or no windows yet: nothing to tell.
   }
 })
 
