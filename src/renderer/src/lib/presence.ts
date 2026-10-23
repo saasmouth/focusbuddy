@@ -67,3 +67,24 @@ export function collaborators(
   out.sort((a, b) => (a.editing === b.editing ? a.name.localeCompare(b.name) : a.editing ? -1 : 1))
   return out
 }
+
+/**
+ * The name to SHOW for one account, from a resolved collaborator list.
+ *
+ * Here rather than inside a view because it is the decision that was wrong:
+ * the live-document comment panel read `.handle`, so a person who HAD entered
+ * their first and last name still appeared as a routing handle. A helper in a
+ * component cannot be tested without mounting the component, and a test that
+ * re-implements it is testing its own copy — which is how a wrong field gets
+ * asserted as right.
+ *
+ * An EMPTY name counts as absent. `collaborators()` builds `name` as
+ * personDisplayName(member, member.handle), so a member with neither a name
+ * nor a handle yields '' — and `??` does not catch '', which rendered a blank
+ * author. Blank reads as a rendering fault; 'Someone' reads as an account
+ * nobody has named, which is the truth.
+ */
+export function displayNameFor(people: readonly Collaborator[], accountId: string): string {
+  const found = people.find((p) => p.accountId === accountId)?.name?.trim()
+  return found || personDisplayName(null)
+}
