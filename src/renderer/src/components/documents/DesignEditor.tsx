@@ -98,6 +98,7 @@ import type { SnippetKind } from '@shared/snippets'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
 import { barProps, ctxRow } from '../../lib/menus/officeCommand'
+import { runCommandKey } from '../../lib/menus/commandKeys'
 import { buildDesignCommands, type DesignCommands } from './design/designCommands'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
@@ -773,13 +774,7 @@ export default function DesignEditor({
       const t = e.target as HTMLElement | null
       const editing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       const key = e.key.toLowerCase()
-      if (mod && key === 'z') {
-        if (editing) return
-        e.preventDefault()
-        if (e.shiftKey) redo()
-        else undo()
-        return
-      }
+      // ⌘Y also redoes (E-13: ⇧⌘Z is the Redo shown, run from the registry below).
       if (mod && key === 'y') {
         if (editing) return
         e.preventDefault()
@@ -816,39 +811,17 @@ export default function DesignEditor({
         }
       }
 
-      if (mod && key === 'd') {
+      // Every keyed Design command, from its definition (design/designCommands,
+      // lib/menus/commandKeys): the key a menu or the ribbon shows is the key
+      // that runs it, and a command that is off is not run. ⌘Z / ⇧⌘Z, ⌘D, ⌫,
+      // ⌘A, ⌘G / ⇧⌘G, ⇧⌘] / ⇧⌘[ and ⌘B / ⌘I / ⌘U all arrive here.
+      const c = dcmdsRef.current
+      if (c && runCommandKey(Object.values(c), e)) {
         e.preventDefault()
-        duplicateSelected()
         return
       }
-      // ⌘B / ⌘I / ⌘U on the selected text frame: the keys the ribbon shows.
-      if (mod && !e.shiftKey && (key === 'b' || key === 'i' || key === 'u')) {
-        const c = dcmdsRef.current
-        const cmd = key === 'b' ? c?.bold : key === 'i' ? c?.italic : c?.underline
-        if (cmd && cmd.enabled?.() !== false) {
-          e.preventDefault()
-          cmd.run()
-        }
-        return
-      }
-      if (mod && key === 'g') {
-        e.preventDefault()
-        if (e.shiftKey) ungroup()
-        else group()
-        return
-      }
-      // ⇧⌘] / ⇧⌘[ by code: Shift turns the key into } and { on most layouts.
-      if (mod && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
-        e.preventDefault()
-        reorderSelected(e.code === 'BracketRight' ? 'front' : 'backmost')
-        return
-      }
-      if (mod && key === 'a' && !e.shiftKey) {
-        e.preventDefault()
-        selectAll()
-        return
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length) {
+      // Forward-delete does what ⌫ does.
+      if (e.key === 'Delete' && selectedIds.length) {
         e.preventDefault()
         deleteSelected()
       }

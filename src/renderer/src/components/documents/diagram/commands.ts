@@ -780,7 +780,11 @@ function makeCommands(d: Deps) {
       const mod = isMac ? e.metaKey : e.ctrlKey
       const k = shortcutKey(e)
       const step = e.shiftKey ? 10 : 1
-      if (k === 'delete' || k === 'backspace') return cmds.deleteSelection(), true
+      // Keys that a menu or the ribbon shows run from the command registry first
+      // (diagramCommands via commandKeys, in DiagramEditor's listener). What is
+      // left here has no shown key: forward-delete, Esc, Enter, arrows, ⌘Y,
+      // ⌘= (Zoom in's unshifted twin) and the tool letters.
+      if (k === 'delete') return cmds.deleteSelection(), true
       // Esc first disarms a tool (SPEC §3.2), then clears the selection.
       if (k === 'escape') return ui.tool !== 'select' ? ui.setTool('select') : cmds.clearSelection(), true
       if (k === 'enter' && !mod) return cmds.editSelected(), true
@@ -791,26 +795,9 @@ function makeCommands(d: Deps) {
       if (mod) {
         if (k === 'z' && !e.shiftKey) return cmds.undo(), true
         if ((k === 'z' && e.shiftKey) || k === 'y') return cmds.redo(), true
-        if (k === 'a') return cmds.selectAll(), true
-        if (k === 'd') return cmds.duplicate(), true
-        if (k === 'g' && !e.shiftKey) return cmds.group(), true
-        if (k === 'g' && e.shiftKey) return cmds.ungroup(), true
-        if (k === 'l' && e.shiftKey) return cmds.toggleLock(), true
-        if (k === ']') return cmds.order(e.shiftKey ? 'front' : 'forward'), true
-        if (k === '[') return cmds.order(e.shiftKey ? 'back' : 'backward'), true
-        if (k === 'b') return cmds.toggleTextStyle('bold'), true
-        if (k === 'i') return cmds.toggleTextStyle('italic'), true
-        if (k === 'u') return cmds.toggleTextStyle('underline'), true
-        if (k === '=' || k === '+') return cmds.zoomIn(), true
-        if (k === '-') return cmds.zoomOut(), true
-        if (k === '0') return cmds.zoomTo(1), true
-        if (e.altKey && k === 'c') return cmds.copyStyle(), true
-        if (e.altKey && k === 'v') return cmds.pasteStyle(), true
+        if (k === '=' && !e.shiftKey) return cmds.zoomIn(), true
         return false
       }
-      if (e.shiftKey && k === '!') return cmds.fit(), true
-      if (e.shiftKey && (k === '1' || e.code === 'Digit1')) return cmds.fit(), true
-      if (e.shiftKey && (k === '2' || e.code === 'Digit2' || k === '@')) return cmds.zoomToSelection(), true
       if (k === 'v') return ui.setTool('select'), true
       if (k === 'h') return ui.setTool('pan'), true
       if (k === 't') return ui.setTool('text'), true

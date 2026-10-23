@@ -69,6 +69,9 @@ function keyMatches(keys: ShortcutKeys, e: KeyLikeEvent): boolean {
   if ((EVENT_KEY[raw] ?? raw) === e.key.toLowerCase()) return true
   if (!e.code) return false
   if (BY_CODE[raw] === e.code) return true
+  // With Option/Alt held, macOS reports the COMPOSED character (⌥⌘C arrives as
+  // "ç"), so a letter is read by its physical key there, and only there.
+  if (e.altKey && /^[a-z]$/.test(raw) && e.code === `Key${raw.toUpperCase()}`) return true
   return /^[0-9]$/.test(raw) && e.code === `Digit${raw}`
 }
 

@@ -44,6 +44,8 @@ import { useDiagramCommands, type Commands } from './commands'
 import { DiagramChrome } from './DiagramChrome'
 import { QuickShapeMenu } from './QuickShapeMenu'
 import { ContextMenu, type ContextTarget } from './ContextMenu'
+import { buildDiagramCommands } from './diagramCommands'
+import { runCommandKey } from '../../../lib/menus/commandKeys'
 import type { DiagramSnippetBody } from '@shared/snippets'
 import SaveSnippetDialog from '../../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../../snippets/SnippetLibrary'
@@ -625,6 +627,20 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   )
 
   // ── keyboard, clipboard, drag-and-drop ──────────────────────────────────
+  // The shared actions with their keys (the same record the menus render),
+  // current every render, for the key listener below.
+  const selNodes = page.nodes.filter((n) => sel.nodes.has(n.id))
+  const selEdges = page.edges.filter((e) => sel.edges.has(e.id))
+  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined }))
+  keyCmdsRef.current = buildDiagramCommands({
+    cmd,
+    nodes: selNodes.length,
+    edges: selEdges.length,
+    locked: selNodes.some((n) => n.locked) || selEdges.some((e) => e.locked),
+    grouped: selNodes.some((n) => n.groupId),
+    // Find's keys are the menu bar's (keyOwner); the listener never runs it.
+    openFind: () => undefined
+  })
   const isTyping = (t: EventTarget | null): boolean => {
     const el = t as HTMLElement | null
     return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
@@ -635,6 +651,13 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     const inEditor = (): boolean => wrap.contains(document.activeElement) || document.activeElement === document.body
     const onKey = (e: KeyboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
+      // Every key a menu or the ribbon shows runs from its definition
+      // (diagramCommands, lib/menus/commandKeys); a command that is off is not run.
+      if (runCommandKey(Object.values(keyCmdsRef.current), e)) {
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
       if (cmd.handleKey(e, { setTool, tool })) {
         e.preventDefault()
         e.stopPropagation()

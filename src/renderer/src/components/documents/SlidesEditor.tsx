@@ -15,6 +15,7 @@ import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import SlidesMenuBar from './editor/SlidesMenuBar'
 import { buildDeckCommands } from './slides/deckCommands'
 import { barProps, ctxRow, paletteEntries } from '../../lib/menus/officeCommand'
+import { runCommandKey } from '../../lib/menus/commandKeys'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
@@ -375,25 +376,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     onChange(next)
   }
 
-  // Deck-level undo/redo on Cmd/Ctrl+Z (and Shift for redo), except while editing
-  // text in an input or textarea (where the browser's own text undo should win).
-  // A document listener rather than a div handler so it fires regardless of which
-  // child has focus.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent): void {
-      // ⇧⌘Z is the Redo the menu shows; ⌘Y stays bound too (E-13).
-      const k = e.key.toLowerCase()
-      if (!(e.metaKey || e.ctrlKey) || (k !== 'z' && k !== 'y')) return
-      const tag = (document.activeElement?.tagName ?? '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea') return
-      e.preventDefault()
-      if (k === 'y' || e.shiftKey) redoLast()
-      else undoLast()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body])
+  // Undo / Redo keys run from the command registry in the editor's key
+  // handler below (one binding per key; SPEC §9.9).
 
   // ── Slide rail ops ────────────────────────────────────────────────────────
   // Insert a new slide built from a starter template, right after the current
@@ -865,10 +849,18 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
           return
         }
       }
-      // ⌘A Select all on this slide: the key Edit › Select all shows (SPEC §9.2).
-      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a') {
+      // Every keyed Deck command, from its definition (slides/deckCommands,
+      // lib/menus/commandKeys): the key a menu or the ribbon shows is the key
+      // that runs it, and a command that is off is not run. ⌘Z / ⇧⌘Z, ⌘A, ⌘D,
+      // ⌫, ⌘G / ⇧⌘G, ⇧⌘] / ⇧⌘[ and ⌘B / ⌘I / ⌘U all arrive here.
+      if (runCommandKey(Object.values(cmdsRef.current), e)) {
         e.preventDefault()
-        selectMany((slide?.elements ?? []).map((el) => el.id))
+        return
+      }
+      // ⌘Y also redoes (E-13: ⇧⌘Z is the Redo shown; ⌘Y stays bound, unshown).
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redoLast()
         return
       }
       if (!selectedIds.length) return
@@ -877,37 +869,10 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         setSelectedIds([])
         return
       }
-      if (mod && e.key.toLowerCase() === 'g') {
+      // Forward-delete does what ⌫ does.
+      if (e.key === 'Delete') {
         e.preventDefault()
-        if (e.shiftKey) doUngroup()
-        else doGroup()
-        return
-      }
-      if (mod && e.key.toLowerCase() === 'd') {
-        e.preventDefault()
-        duplicateSelection()
-        return
-      }
-      // ⌘B / ⌘I / ⌘U on the selected text box: the keys the ribbon shows.
-      if (mod && !e.shiftKey && !e.altKey && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
-        const c = cmdsRef.current
-        const cmd = e.key.toLowerCase() === 'b' ? c.bold : e.key.toLowerCase() === 'i' ? c.italic : c.underline
-        if (cmd.enabled?.() !== false) {
-          e.preventDefault()
-          cmd.run()
-        }
-        return
-      }
-      // ⇧⌘] / ⇧⌘[ Bring to front / Send to back (SPEC §9.3). By code: Shift
-      // turns the key into } and { on most layouts.
-      if (mod && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
-        e.preventDefault()
-        reorderSelection(e.code === 'BracketRight' ? 'front' : 'backmost')
-        return
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        deleteSelection()
+        cmdsRef.current.remove.run()
         return
       }
       const step = e.shiftKey ? 10 : 1
