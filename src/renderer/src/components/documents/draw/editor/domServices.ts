@@ -10,7 +10,7 @@ import { fontShorthand, layoutText } from '../textMeasure'
 import { clampZoom } from '../viewport'
 import { createCanvasRaster } from './canvasRaster'
 import type { EditorServices } from './editor'
-import type { EditorState, UiService } from './types'
+import type { DrawSession, EditorState, UiService } from './types'
 
 export interface StudioRefs {
   canvases: Map<string, HTMLCanvasElement>
@@ -22,6 +22,8 @@ export interface StudioRefs {
   liveUndo: { current: LiveUndo | undefined }
   /** The host's Save, when it saves only on request (DrawStudio's `onSaveRequest`). */
   onSaveRequest?: { current: (() => void) | undefined }
+  /** What the studio edits when it is not a document (DrawStudio's `session`). */
+  session?: { current: DrawSession | undefined }
   /**
    * How much of the viewport's left edge pinned overlay panels cover, in
    * screen px. Fit and Paste work in the visible part, so ⌘0 centres the art
@@ -131,6 +133,8 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
       emit: (stored) => refs.onChange.current(stored),
       liveUndo: () => refs.liveUndo.current,
       saveRequest: () => refs.onSaveRequest?.current,
+      session: () => refs.session?.current,
+      title: () => refs.title.current,
       exportAs: async (format, opts) => {
         const s = store()
         // A drawing this build cannot fully show cannot be honestly exported:

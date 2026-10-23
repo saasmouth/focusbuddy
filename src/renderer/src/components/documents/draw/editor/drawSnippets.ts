@@ -37,6 +37,7 @@ import { useEffect } from 'react'
 import type { DrawSnippetBody, Snippet, SnippetLink, SnippetTarget } from '@shared/snippets'
 import type { DrawAsset, DrawDoc, DrawNode, DrawSwatch } from '@shared/draw/model'
 import { nodesBounds } from '@shared/draw/ops'
+import { drawAssetIdsIn, drawSwatchIdsIn } from '@shared/draw/snippetBody'
 import { registerSnippetTarget } from '../../../../stores/snippets'
 import { insertIntoOffice, officeAccepts } from '../../../../lib/officeSnippets'
 import { v2BlockedReason } from './v2gate'
@@ -48,27 +49,9 @@ export const DRAW_SNIPPET_LINKS: SnippetLink[] = ['duplicate']
 
 // ── Capture ──────────────────────────────────────────────────────────────────
 
-/** Every asset id the nodes use, anywhere in the tree. */
-function assetIdsIn(nodes: DrawNode[], out: Set<string> = new Set()): Set<string> {
-  for (const n of nodes) {
-    if (n.type === 'image') out.add(n.assetId)
-    else if (n.type === 'group') assetIdsIn(n.children, out)
-  }
-  return out
-}
-
-/** Every swatch id a value's paints reference (fills, strokes, appearance stacks, gradients). */
-function swatchIdsIn(v: unknown, out: Set<string> = new Set(), depth = 0): Set<string> {
-  if (!v || typeof v !== 'object' || depth > 200) return out
-  if (Array.isArray(v)) {
-    for (const x of v) swatchIdsIn(x, out, depth + 1)
-    return out
-  }
-  const o = v as Record<string, unknown>
-  if (o.type === 'swatch' && typeof o.id === 'string') out.add(o.id)
-  for (const k of Object.keys(o)) if (k !== 'raw') swatchIdsIn(o[k], out, depth + 1)
-  return out
-}
+// The asset and swatch rules are shared with the edit session's inverse
+// (shared/draw/snippetBody.ts snippetFromDrawBody), so a snippet saved from a
+// selection and one saved from an edit session carry exactly the same things.
 
 /**
  * Turn the selected objects of a drawing into a draw snippet body.
@@ -87,8 +70,8 @@ export function drawBodyFromSelection(doc: DrawDoc, ids: string[]): DrawSnippetB
   const box = nodesBounds(nodes)
   const objects = structuredClone(translateAll(nodes, -box.x, -box.y))
   const assets: Record<string, DrawAsset> = {}
-  for (const id of assetIdsIn(objects)) if (Object.prototype.hasOwnProperty.call(doc.assets, id)) assets[id] = structuredClone(doc.assets[id])
-  const refs = swatchIdsIn(objects)
+  for (const id of drawAssetIdsIn(objects)) if (Object.prototype.hasOwnProperty.call(doc.assets, id)) assets[id] = structuredClone(doc.assets[id])
+  const refs = drawSwatchIdsIn(objects)
   const swatches: DrawSwatch[] = doc.swatches.filter((s) => refs.has(s.id)).map((s) => structuredClone(s))
   return { kind: 'draw', objects, assets, swatches }
 }

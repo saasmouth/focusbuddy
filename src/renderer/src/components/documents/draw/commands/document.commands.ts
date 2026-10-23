@@ -7,6 +7,7 @@ import { relayPaint } from '../editor/artboards'
 import { launchMeeting } from '../../../../lib/startMeeting'
 import { useDocumentsStore } from '../../../../stores/documents'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import { documentCommand } from '../editor/session'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
@@ -78,7 +79,8 @@ export const commands: Command[] = [
       run: (ctx) => ctx.history.commit(setArtboardBackground(ctx.doc(), b.paint), 'Background')
     })
   ),
-  {
+  // A meeting about the documents store's active document: off in a snippet edit session (editor/session.ts).
+  documentCommand({
     id: 'document.meeting',
     label: 'Meeting',
     icon: 'videocam',
@@ -88,5 +90,5 @@ export const commands: Command[] = [
       const title = active?.title ?? 'Untitled artwork'
       void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Artwork review' })
     }
-  }
+  })
 ]
