@@ -27,7 +27,8 @@ const body = (t: SheetTab): SheetBodyV2 => ({ version: 2, sheets: [t], activeShe
 /** Which page (0-based) holds a cell, from the rendered HTML. */
 function pageOf(html: string, key: string): number {
   const sections = html.split('<section class="page"').slice(1)
-  return sections.findIndex((s) => s.includes(`data-cell="${key}"`) && new RegExp(`data-cell="${key}"[^>]*>[^<]+<`).test(s))
+  // The cell's own <td> on that page holds text (inside its value span).
+  return sections.findIndex((s) => new RegExp(`data-cell="${key}"[^>]*>(?:<[^>]+>)*[^<]+<`).test(s))
 }
 
 describe('paper', () => {
@@ -183,7 +184,7 @@ describe('page setup on the body', () => {
     const before = body(tab([['a']]))
     const after = setShowGridlines(setPrintArea(setPrintArea(setShowGridlines(before, 0, false), 0, 'A1:B2'), 0, null), 0, true)
     expect(after).toEqual(before)
-    expect(pageSetupOf(after.sheets[0])).toEqual({ showGridlines: true, printArea: null })
+    expect(pageSetupOf(after.sheets[0])).toEqual({ showGridlines: true, printArea: null, repeatRows: null })
   })
 
   it('touches only the tab it is given', () => {

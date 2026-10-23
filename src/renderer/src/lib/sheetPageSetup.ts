@@ -1,5 +1,5 @@
-// PlexiiCells page setup: the two settings Print… and Download ▸ PDF read
-// (SheetTab.showGridlines / SheetTab.printArea, shared/types.ts).
+// PlexiiCells page setup: the settings Print… and Download ▸ PDF read
+// (SheetTab.showGridlines / printArea / repeatRows, shared/types.ts).
 //
 // Pure body mutators for the page setup UI (Cells registry: print area from
 // the selection, a gridlines toggle). Each returns a NEW body and leaves the
@@ -10,6 +10,7 @@
 import type { SheetBodyV2, SheetTab } from '@shared/types'
 import { colLabel } from './sheetBody'
 import { parseA1Range } from './sheetCond'
+import { parseRowRange } from './sheetPrintModel'
 
 function patchTab(body: SheetBodyV2, tabIndex: number, patch: (t: SheetTab) => SheetTab): SheetBodyV2 {
   if (!Number.isInteger(tabIndex) || tabIndex < 0 || tabIndex >= body.sheets.length) return body
@@ -55,9 +56,32 @@ export function setShowGridlines(body: SheetBodyV2, tabIndex: number, show: bool
   })
 }
 
+/** One-based A1 row text for zero-based rows: {r1:0,r2:1} → "1:2" (one row → "1:1"). */
+export function rowsToA1(r: { r1: number; r2: number }): string {
+  return `${Math.min(r.r1, r.r2) + 1}:${Math.max(r.r1, r.r2) + 1}`
+}
+
+/**
+ * Set or clear the rows printed at the top of every page. `rows` is an A1 row
+ * range ("1:2", "$1:$1", "3") or zero-based rows (the selection's rows); null
+ * clears it (no repeated rows). An unparseable range is refused: the body comes
+ * back unchanged.
+ */
+export function setRepeatRows(body: SheetBodyV2, tabIndex: number, rows: string | { r1: number; r2: number } | null): SheetBodyV2 {
+  if (rows === null) {
+    return patchTab(body, tabIndex, (t) => {
+      const { repeatRows: _drop, ...rest } = t
+      return rest
+    })
+  }
+  const parsed = typeof rows === 'string' ? parseRowRange(rows) : rows.r1 >= 0 && rows.r2 >= 0 ? rows : null
+  if (!parsed) return body
+  return patchTab(body, tabIndex, (t) => ({ ...t, repeatRows: rowsToA1(parsed) }))
+}
+
 /** A tab's page setup as the UI shows it (defaults filled in). */
-export function pageSetupOf(tab: SheetTab): { showGridlines: boolean; printArea: string | null } {
-  return { showGridlines: tab.showGridlines !== false, printArea: tab.printArea ?? null }
+export function pageSetupOf(tab: SheetTab): { showGridlines: boolean; printArea: string | null; repeatRows: string | null } {
+  return { showGridlines: tab.showGridlines !== false, printArea: tab.printArea ?? null, repeatRows: tab.repeatRows ?? null }
 }
 
 type IndexMap = (i: number) => number | null
@@ -95,14 +119,37 @@ export function remapPrintArea(area: string | undefined, mapRow: IndexMap, mapCo
 }
 
 /**
- * A tab with its print area remapped (see remapPrintArea): for the structural
- * wrappers beside fixFormulas. A cleared area deletes the field; a tab with no
- * print area is returned as it is.
+ * Repeat rows after a structural edit, through the row map: the rows that
+ * survive, as one range; cleared (undefined) when all of them are deleted.
  */
-export function remapTabPrintArea(t: SheetTab, mapRow: IndexMap, mapCol: IndexMap): SheetTab {
-  if (!t.printArea) return t
-  const next = remapPrintArea(t.printArea, mapRow, mapCol)
-  if (next === t.printArea) return t
-  const { printArea: _drop, ...rest } = t
-  return next === undefined ? rest : { ...rest, printArea: next }
+export function remapRepeatRows(rows: string | undefined, mapRow: IndexMap): string | undefined {
+  if (!rows) return rows
+  const parsed = parseRowRange(rows)
+  if (!parsed) return rows
+  let lo = Infinity
+  let hi = -Infinity
+  for (let r = parsed.r1; r <= parsed.r2; r++) {
+    const j = mapRow(r)
+    if (j === null || j < 0) continue
+    lo = Math.min(lo, j)
+    hi = Math.max(hi, j)
+  }
+  return Number.isFinite(lo) ? rowsToA1({ r1: lo, r2: hi }) : undefined
 }
+
+/**
+ * A tab's page setup remapped through a structural edit (print area AND repeat
+ * rows): the one call for the wrappers beside fixFormulas. A cleared setting
+ * deletes its field; a tab with nothing to remap is returned as it is.
+ */
+export function remapTabPageSetup(t: SheetTab, mapRow: IndexMap, mapCol: IndexMap): SheetTab {
+  if (!t.printArea && !t.repeatRows) return t
+  const area = remapPrintArea(t.printArea, mapRow, mapCol)
+  const rows = remapRepeatRows(t.repeatRows, mapRow)
+  if (area === t.printArea && rows === t.repeatRows) return t
+  const { printArea: _a, repeatRows: _r, ...rest } = t
+  return { ...rest, ...(area !== undefined ? { printArea: area } : {}), ...(rows !== undefined ? { repeatRows: rows } : {}) }
+}
+
+/** The earlier name for remapTabPageSetup (it now remaps the repeat rows too). */
+export const remapTabPrintArea = remapTabPageSetup

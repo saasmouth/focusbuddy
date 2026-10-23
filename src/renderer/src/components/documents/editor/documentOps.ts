@@ -172,7 +172,7 @@ export function createDocumentOps(input: DocumentOpsInput): DocumentOps {
   const notify = (text: string): void => useNoticeStore.getState().show({ text, icon: 'print' })
   if (PRINTABLE_DOC_TYPES.has(docType) && canPrintHere()) {
     ops.print = async () => {
-      const request = printSourceOf(ops)?.()
+      const request = await printSourceOf(ops)?.()
       if (!request) {
         notify(`This ${noun} is still opening. Try Print again in a moment.`)
         return
@@ -182,7 +182,7 @@ export function createDocumentOps(input: DocumentOpsInput): DocumentOps {
     }
     if (docType === 'sheet') {
       ops.exportPdf = async () => {
-        const request = printSourceOf(ops)?.()
+        const request = await printSourceOf(ops)?.()
         if (!request || request.app !== 'cells') return
         const res = await window.api.print.sheetPdf({ title: request.title, sheet: request.sheet, paper: request.paper })
         if (res.ok && res.path) notify(`Saved ${res.path}`)

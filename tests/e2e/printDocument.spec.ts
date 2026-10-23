@@ -43,7 +43,7 @@ async function pdfPages(buf: Buffer): Promise<Array<{ w: number; h: number; text
     const vp = page.getViewport({ scale: 1 })
     const tc = await page.getTextContent()
     const text = tc.items.map((it) => ('str' in it ? it.str : '')).join(' ').replace(/\s+/g, ' ').trim()
-    out.push({ w: Math.round(vp.width), h: Math.round(vp.height), text })
+    out.push({ w: Math.round(vp.width), h: Math.round(vp.height), text, wPt: vp.width, hPt: vp.height } as never)
   }
   return out
 }
@@ -170,12 +170,17 @@ test.describe('Print…', () => {
     expect(exported.map((p) => [p.w, p.h])).toEqual(printed.map((p) => [p.w, p.h]))
   })
 
-  for (const [name, docType, body, pages] of [
-    ['PRT-3 Deck: one slide per page', 'slides', { slides: [{ id: 'a', elements: [] }, { id: 'b', elements: [] }, { id: 'c', elements: [] }] }, 3],
-    ['PRT-4 Design: the design at its own size', 'design', { schemaVersion: 1, width: 800, height: 600, background: { type: 'solid', color: '#ffffff' }, elements: [] }, 1],
+  // Custom page sizes: the strongest proof short of a printer. The print job's
+  // PDF is printToPDF of the very window print() prints, so its page size is
+  // the paper's. A 1280×720 px slide is 960×540 pt (16:9); a 1080×1350 px
+  // design (a 4:5 social post) is 810×1012.5 pt.
+  for (const [name, docType, body, pages, sizePt] of [
+    ['PRT-3 Deck: one slide per page, at 16:9', 'slides', { slides: [{ id: 'a', elements: [] }, { id: 'b', elements: [] }, { id: 'c', elements: [] }] }, 3, [960, 540]],
+    ['PRT-4 Design: the design at its own size', 'design', { schemaVersion: 1, width: 800, height: 600, background: { type: 'solid', color: '#ffffff' }, elements: [] }, 1, [600, 450]],
+    ['PRT-4b Design: a custom 1080×1350 page', 'design', { schemaVersion: 1, width: 1080, height: 1350, background: { type: 'solid', color: '#ffffff' }, elements: [] }, 1, [810, 1012.5]],
     // One page for a one-page diagram: the PDF export ran onto a blank second
     // page before 4.3.41 (an inline svg's baseline gap); print now matches 1.
-    ['PRT-5 Diagrams: the page fitted to the paper', 'map', { nodes: [{ id: 'n1', label: 'Start', x: 0, y: 0, w: 140, h: 60, shape: 'rect' }], edges: [] }, 1]
+    ['PRT-5 Diagrams: the page fitted to the paper', 'map', { nodes: [{ id: 'n1', label: 'Start', x: 0, y: 0, w: 140, h: 60, shape: 'rect' }], edges: [] }, 1, null]
   ] as const) {
     test(name as string, async () => {
       const { window, app } = launched!
@@ -186,8 +191,46 @@ test.describe('Print…', () => {
       expect(job.options.margins).toEqual({ marginType: 'none' })
       // A custom-sized page takes its size from the render's CSS @page.
       expect(job.options.pageSize).toBeUndefined()
-      const printed = await pdfPages(Buffer.from(job.pdfBase64, 'base64'))
+      const printed = (await pdfPages(Buffer.from(job.pdfBase64, 'base64'))) as unknown as Array<{ wPt: number; hPt: number }>
       expect(printed.length).toBe(pages)
+      if (sizePt) {
+        for (const p of printed) {
+          expect(Math.abs(p.wPt - sizePt[0]), `width ${p.wPt}`).toBeLessThan(1)
+          expect(Math.abs(p.hPt - sizePt[1]), `height ${p.hPt}`).toBeLessThan(1)
+        }
+      }
     })
   }
+
+  test('PRT-6 Cells: a drawn chart, a pivot and a placed widget reach the paper (named box, never nothing)', async () => {
+    const { window, app } = launched!
+    const rows = [['Region', 'Sales'], ['North', '10'], ['South', '20'], ['East', '15']]
+    const id = await openForPrint(window, 'sheet', 'Regional sales', {
+      version: 2,
+      activeSheet: 0,
+      sheets: [
+        {
+          id: 's1',
+          name: 'Sales',
+          columns: ['A', 'B'],
+          rows,
+          charts: [{ id: 'ch1', type: 'bar', range: 'A1:B4', title: 'Sales by region', headerRow: true, headerCol: true }],
+          pivots: [{ id: 'pv1', range: 'A1:B4', rowField: 0, valueField: 1, agg: 'sum', title: 'Sales pivot' }],
+          widgets: [{ id: 'pl1', widgetId: 'w-missing', mode: 'cell', r: 1, c: 0, w: 160, h: 60 }]
+        }
+      ]
+    })
+    // The chart is drawn by the editor before it can be snapshotted.
+    await expect(window.locator('[data-chart-id="ch1"] .recharts-wrapper svg.recharts-surface').first()).toBeVisible({ timeout: 10_000 })
+    expect(await printNow(window, id)).toBe(true)
+    const [job] = await jobs(app)
+    const printed = await pdfPages(Buffer.from(job.pdfBase64, 'base64'))
+    const all = printed.map((p) => p.text).join(' | ')
+    expect(all).toContain('Sales by region')
+    expect(all).toMatch(/North[\s\S]*South[\s\S]*East/)
+    expect(all).toContain('Sales pivot')
+    expect(all).toContain('Grand total')
+    expect(all).toContain('45')
+    expect(all).toContain('Work widget · live work widget, not printed')
+  })
 })

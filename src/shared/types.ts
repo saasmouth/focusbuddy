@@ -2936,6 +2936,8 @@ export interface SheetTab {
   showGridlines?: boolean
   /** The A1 range to print (e.g. "A1:H40"). Absent = the used range. */
   printArea?: string
+  /** Rows printed at the top of every page, as an A1 row range ("1:2"). Absent = none. */
+  repeatRows?: string
 }
 
 export interface SheetBodyV2 {

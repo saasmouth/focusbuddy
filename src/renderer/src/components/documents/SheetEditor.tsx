@@ -1594,12 +1594,38 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   // Print… and Download ▸ PDF (DocumentOps.print / exportPdf) both print the
   // active tab as the grid shows it, paged over-then-down on the locale's paper
   // (lib/sheetPrintModel.ts, shared/sheetPrint.ts).
-  usePrintSource(documentOps, () => ({
-    app: 'cells',
-    title: title || 'spreadsheet',
-    sheet: sheetPrintModel(body),
-    paper: paperForLocale(navigator.language)
-  }))
+  usePrintSource(documentOps, async () => {
+    const t = activeTab(body)
+    // Charts print as the editor drew them: a snapshot of each one's rendered
+    // PlexiChart in the chart list below the grid (SheetChart, data-chart-id).
+    const chartSnapshots: Record<string, { html: string; w: number; h: number }> = {}
+    for (const spec of t.charts ?? []) {
+      const drawn = document.querySelector<HTMLElement>(`[data-chart-id="${CSS.escape(spec.id)}"] .recharts-wrapper`)
+      if (!drawn) continue
+      const box = drawn.getBoundingClientRect()
+      if (box.width > 0 && box.height > 0) chartSnapshots[spec.id] = { html: drawn.outerHTML, w: Math.round(box.width), h: Math.round(box.height) }
+    }
+    // Placed work widgets print as named boxes: their names, by id.
+    const widgetNames: Record<string, string> = {}
+    await Promise.all(
+      (t.widgets ?? []).map(async (pl) => {
+        try {
+          const w = pl.widgetId.startsWith('wf:')
+            ? await window.api.widgetFiles.get(pl.widgetId.slice(3))
+            : await window.api.widgets.get(pl.widgetId)
+          if (w?.title) widgetNames[pl.widgetId] = w.title
+        } catch {
+          // A name we cannot read prints as "Work widget"; the box still prints.
+        }
+      })
+    )
+    return {
+      app: 'cells',
+      title: title || 'spreadsheet',
+      sheet: sheetPrintModel(body, undefined, { chartSnapshots, widgetNames }),
+      paper: paperForLocale(navigator.language)
+    }
+  })
 
   // The sheet's operations, built once. SheetMenuBar takes them as its
   // `actions`, and the ribbon reads the same object through CellsChrome —
