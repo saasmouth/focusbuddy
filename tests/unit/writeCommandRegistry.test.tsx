@@ -21,12 +21,16 @@
 //
 // Written against the REAL registry and the REAL surfaces, never a lookalike.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Editor } from '@tiptap/react'
 import type { MenuDef, MenuItem } from '../../src/renderer/src/components/documents/editor/menuBarKit'
-import { commandHint, paletteEntries } from '../../src/renderer/src/lib/menus/officeCommand'
+import { commandHint, documentCommands, paletteEntries } from '../../src/renderer/src/lib/menus/officeCommand'
+import { runCommandKey } from '../../src/renderer/src/lib/menus/commandKeys'
+import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
 import { READ_ONLY_REASON } from '../../src/renderer/src/components/office/shell'
 import { writeCommandsFor } from './_writeCommands'
 
@@ -96,7 +100,7 @@ afterEach(async () => {
 
 const mountMenuBar = async (commands = writeCommandsFor(stubEditor())): Promise<void> => {
   await act(async () => {
-    root.render(<DocMenuBar commands={commands} />)
+    root.render(<DocMenuBar commands={commands} doc={null} />)
   })
 }
 
@@ -376,5 +380,99 @@ describe('no surface may grow a hand-written copy', () => {
       (tip) => tip && !formsOf(tip).some((f) => known.has(f) || RIBBON_ONLY.includes(f))
     )
     expect(strays, `hand-written in the ${id} tab — put it in writeCommands.ts, or name it in RIBBON_ONLY`).toEqual([])
+  })
+})
+
+const ops = (over: Partial<DocumentOps> = {}): DocumentOps =>
+  ({
+    id: 'doc-1',
+    newDocument: vi.fn(),
+    makeCopy: vi.fn(),
+    rename: vi.fn(),
+    openHistory: vi.fn(),
+    startMeeting: vi.fn(),
+    moveToTrash: vi.fn(),
+    ...over
+  }) as unknown as DocumentOps
+
+describe('⌘P', () => {
+  // The gap this closes (found by session 19 reading registry-41): Print
+  // carries ⌘P through sharedCommand, so every File menu SHOWS the hint, and
+  // outside PlexiiDraw nothing matched the key. The menu bar used to build its
+  // own copy of documentCommands, so the object the hint came from was not an
+  // object any matcher could see. The host builds them once now and hands the
+  // same array to the menu and to the key handler.
+  it('Print… ⌘P is the menu bar\u2019s key: present where the host can print, never also run by the editor', () => {
+    // MenuBarShell binds ⌘P to the bar's own Print… row in every office app
+    // (printKeys.spec presses it for real). The editor's matcher leaves it
+    // alone (keyOwner), so one press is one print job.
+    const print = vi.fn()
+    const canPrint = documentCommands(ops({ print } as unknown as Partial<DocumentOps>), 'doc')
+    expect(canPrint).not.toBeNull()
+    expect(canPrint!.print?.keyOwner).toBe('menubar')
+    expect(runCommandKey(Object.values(canPrint!), { key: 'p', metaKey: true }, 'darwin')).toBe(false)
+    expect(print).not.toHaveBeenCalled()
+    canPrint!.print!.run()
+    expect(print).toHaveBeenCalledTimes(1)
+
+    // Without the op there is no Print command at all, so ⌘P matches nothing
+    // rather than reaching a row that cannot print.
+    const cannot = documentCommands(ops(), 'doc')
+    expect(cannot).not.toBeNull()
+    expect(Object.values(cannot!).some((c) => c.id === 'file.print')).toBe(false)
+    expect(runCommandKey(Object.values(cannot!), { key: 'p', metaKey: true }, 'darwin')).toBe(false)
+  })
+
+  it('shows \u2318P as the hint, from the same command the key matched', () => {
+    const doc = documentCommands(ops({ print: vi.fn() } as unknown as Partial<DocumentOps>), 'doc')
+    expect(commandHint(doc!.print!, 'darwin')).toBe('\u2318P')
+  })
+
+  it('leaves a viewer alone, because moving to trash is not bound to a key', () => {
+    // Positive control for the matcher's scope: the other document actions are
+    // keyless, so passing the whole group to the matcher cannot fire them.
+    const del = vi.fn()
+    const doc = documentCommands(ops({ moveToTrash: del }), 'doc')
+    for (const key of ['t', 'Backspace', 'Delete']) {
+      expect(runCommandKey(Object.values(doc!), { key, metaKey: true }, 'darwin')).toBe(false)
+    }
+    expect(del).not.toHaveBeenCalled()
+  })
+})
+
+describe('the hosts really hand their document commands to the key matcher', () => {
+  // A source guard, like tests/unit/officeShellStackingGuard.test.ts. The ⌘P
+  // tests above prove documentCommands + runCommandKey together, but they
+  // cannot see whether DocEditor and SheetEditor actually pass the document
+  // commands into the matcher — and that hookup is the whole fix. An end-to-end
+  // press needs ops.print, which arrives with the print engine (print-41), so
+  // until then this is what holds the wiring in place.
+  const read = (p: string): string => readFileSync(join(process.cwd(), p), 'utf8')
+
+  it('DocEditor matches the document commands alongside the editor ones', () => {
+    const src = read('src/renderer/src/components/documents/DocEditor.tsx')
+    expect(src, 'DocEditor builds the document commands itself').toContain("documentCommands(documentOps, 'doc')")
+    // The matched array must carry both halves. Sliced to the call rather than
+    // matched with a lazy regex: the array literal contains `[]` of its own,
+    // which a non-greedy match stops at.
+    const from = src.indexOf('const bound = [')
+    const to = src.indexOf('runCommandKey(bound', from)
+    expect(from, 'DocEditor builds a `bound` array').toBeGreaterThan(-1)
+    expect(to, '…and passes it to runCommandKey').toBeGreaterThan(from)
+    const call = src.slice(from, to)
+    expect(call, 'the editor commands are matched').toContain('KEY_BOUND_HERE')
+    expect(call, 'the document commands are matched too — this is what binds ⌘P').toContain('docKeysRef.current')
+    expect(src).toContain('runCommandKey(bound, event)')
+  })
+
+  it('SheetEditor matches the document commands alongside the sheet ones', () => {
+    const src = read('src/renderer/src/components/documents/SheetEditor.tsx')
+    expect(src, 'SheetEditor builds the document commands itself').toContain("documentCommands(documentOps, 'sheet')")
+    const from = src.indexOf('runCommandKey([')
+    const to = src.indexOf(', e)', from)
+    expect(from, 'SheetEditor matches keys in its grid handler').toBeGreaterThan(-1)
+    const call = src.slice(from, to)
+    expect(call, 'the sheet commands are matched').toContain('Object.values(commands)')
+    expect(call, 'the document commands are matched too — this is what binds ⌘P').toContain('docRef.current')
   })
 })

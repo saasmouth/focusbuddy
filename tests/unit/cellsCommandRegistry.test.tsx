@@ -31,7 +31,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MenuDef, MenuItem } from '../../src/renderer/src/components/documents/editor/menuBarKit'
 import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
 import { runCommandKey } from '../../src/renderer/src/lib/menus/commandKeys'
-import { commandHint, paletteEntries } from '../../src/renderer/src/lib/menus/officeCommand'
+import { commandHint, documentCommands, paletteEntries } from '../../src/renderer/src/lib/menus/officeCommand'
 import { READ_ONLY_REASON } from '../../src/renderer/src/components/office/shell'
 import { cellsCommandsFor, sheetActionSpies } from './_cellsCommands'
 
@@ -94,7 +94,7 @@ afterEach(async () => {
 
 const mountMenuBar = async (commands = cellsCommandsFor(), documentOps?: DocumentOps): Promise<void> => {
   await act(async () => {
-    root.render(<SheetMenuBar commands={commands} documentOps={documentOps} />)
+    root.render(<SheetMenuBar commands={commands} doc={documentCommands(documentOps, 'sheet')} />)
   })
 }
 
@@ -391,5 +391,50 @@ describe('no surface may grow a hand-written copy', () => {
       (tip) => tip && !formsOf(tip).some((f) => known.has(f) || RIBBON_ONLY.includes(f))
     )
     expect(strays, `hand-written in the ${id} tab — put it in cellsCommands.ts, or name it in RIBBON_ONLY`).toEqual([])
+  })
+})
+
+describe('⌘P', () => {
+  // The gap this closes (found by session 19 reading registry-41): Print
+  // carries ⌘P through sharedCommand, so every File menu SHOWS the hint, and
+  // outside PlexiiDraw nothing matched the key. The menu bar used to build its
+  // own copy of documentCommands, so the object the hint came from was not an
+  // object any matcher could see. The host builds them once now and hands the
+  // same array to the menu and to the key handler.
+  it('Print… ⌘P is the menu bar\u2019s key: present where the host can print, never also run by the editor', () => {
+    // MenuBarShell binds ⌘P to the bar's own Print… row in every office app
+    // (printKeys.spec presses it for real). The editor's matcher leaves it
+    // alone (keyOwner), so one press is one print job.
+    const print = vi.fn()
+    const canPrint = documentCommands(ops({ print } as unknown as Partial<DocumentOps>), 'sheet')
+    expect(canPrint).not.toBeNull()
+    expect(canPrint!.print?.keyOwner).toBe('menubar')
+    expect(runCommandKey(Object.values(canPrint!), { key: 'p', metaKey: true }, 'darwin')).toBe(false)
+    expect(print).not.toHaveBeenCalled()
+    canPrint!.print!.run()
+    expect(print).toHaveBeenCalledTimes(1)
+
+    // Without the op there is no Print command at all, so ⌘P matches nothing
+    // rather than reaching a row that cannot print.
+    const cannot = documentCommands(ops(), 'sheet')
+    expect(cannot).not.toBeNull()
+    expect(Object.values(cannot!).some((c) => c.id === 'file.print')).toBe(false)
+    expect(runCommandKey(Object.values(cannot!), { key: 'p', metaKey: true }, 'darwin')).toBe(false)
+  })
+
+  it('shows \u2318P as the hint, from the same command the key matched', () => {
+    const doc = documentCommands(ops({ print: vi.fn() } as unknown as Partial<DocumentOps>), 'sheet')
+    expect(commandHint(doc!.print!, 'darwin')).toBe('\u2318P')
+  })
+
+  it('leaves a viewer alone, because moving to trash is not bound to a key', () => {
+    // Positive control for the matcher's scope: the other document actions are
+    // keyless, so passing the whole group to the matcher cannot fire them.
+    const del = vi.fn()
+    const doc = documentCommands(ops({ moveToTrash: del }), 'sheet')
+    for (const key of ['t', 'Backspace', 'Delete']) {
+      expect(runCommandKey(Object.values(doc!), { key, metaKey: true }, 'darwin')).toBe(false)
+    }
+    expect(del).not.toHaveBeenCalled()
   })
 })

@@ -43,8 +43,19 @@ import { runCommandKey } from '../../lib/menus/commandKeys'
 
 // The registry ids whose keys Write binds itself, in match order (see
 // handleKeyDown). Everything else with a key is bound by TipTap's own keymap.
+//
+// Three of these overlap with MenuBarShell's own window listeners, and the
+// overlap resolves cleanly rather than firing twice:
+//   ⌘F / ⇧⌘H — MenuBarShell listens on BUBBLE and returns early on
+//     `e.defaultPrevented`, so this handler wins and MenuBarShell stands down.
+//   ⌘/ — MenuBarShell listens on CAPTURE and stopPropagation()s, so IT wins and
+//     this is the fallback for when its Help row is missing or its hint differs
+//     (its `run` requires the row on screen with a matching shortcut).
+// Either way exactly one of the two fires. Print is NOT in this list and must
+// not be: MenuBarShell does not bind ⌘P at all, so the only thing binding it is
+// the document commands the host passes to the matcher below.
 const KEY_BOUND_HERE = ['doc-find-replace', 'doc-find', 'doc-clear-format', 'doc-shortcuts']
-import { paletteEntries } from '../../lib/menus/officeCommand'
+import { documentCommands, paletteEntries, type OfficeCommand } from '../../lib/menus/officeCommand'
 import { docSidePanes, type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
 import { useDocAi } from './editor/useDocAi'
 import { useRegisterEditorCommands } from '../../stores/editorCommands'
@@ -504,7 +515,11 @@ export default function DocEditor({
         // ahead of TipTap Highlight's unadvertised default for the same key;
         // Highlight stays on the toolbar.
         const live = commandsRef.current
-        if (live && runCommandKey(KEY_BOUND_HERE.map((id) => live[id]).filter(Boolean), event)) {
+        const bound = [
+          ...(live ? KEY_BOUND_HERE.map((id) => live[id]).filter(Boolean) : []),
+          ...docKeysRef.current
+        ]
+        if (runCommandKey(bound, event)) {
           event.preventDefault()
           return true
         }
@@ -610,12 +625,23 @@ export default function DocEditor({
       })
     : null
 
+  // File's document actions, built ONCE here from the host-bound ops. The menu
+  // bar renders these and handleKeyDown matches them, so Print's ⌘P hint and
+  // Print's binding are the same object — a copy built inside the menu bar
+  // would show the hint while nothing bound the key, which is how every other
+  // advertised-but-unbound key in these apps happened.
+  const doc = documentCommands(documentOps, 'doc')
+
   // The palette reads through a ref so every row runs the CURRENT closures,
   // while the row LIST is rebuilt when the editor or view-only access changes:
   // paletteEntries drops whatever is disabled, because a palette row cannot
   // show why it is off, and that membership depends on readOnly.
   const commandsRef = useRef<WriteCommands | null>(commands)
   commandsRef.current = commands
+  // Keyless document actions never match, so passing the whole group costs
+  // nothing and means a key added to one of them is bound the same day.
+  const docKeysRef = useRef<OfficeCommand[]>([])
+  docKeysRef.current = doc ? Object.values(doc) : []
 
   // Publish this editor's commands to the global palette (Cmd+K) while it is
   // mounted.
@@ -1189,7 +1215,7 @@ export default function DocEditor({
           readOnly={readOnly}
           commands={commands}
           menuBar={
-            <DocMenuBar commands={commands} documentOps={documentOps} />
+            <DocMenuBar commands={commands} doc={doc} />
           }
           styleLabel={styleLabel}
           currentHeadingLevel={currentHeadingLevel}

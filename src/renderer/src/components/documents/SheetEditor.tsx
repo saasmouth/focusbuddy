@@ -45,9 +45,10 @@ import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
 import { buildCellsCommands } from './sheet/cellsCommands'
+import type { OfficeCommand } from '../../lib/menus/officeCommand'
 import { runCommandKey } from '../../lib/menus/commandKeys'
 import ShortcutsModal from './editor/ShortcutsModal'
-import { paletteEntries } from '../../lib/menus/officeCommand'
+import { documentCommands, paletteEntries } from '../../lib/menus/officeCommand'
 import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
@@ -267,6 +268,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   const [queryOpen, setQueryOpen] = useState(false)
   // Help ▸ Keyboard shortcuts, owned here so the menu bar holds no state.
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  // Declared up here so onGridKeyDown, defined above where `doc` is built, can
+  // close over a stable ref rather than a value that does not exist yet.
+  const docRef = useRef<OfficeCommand[]>([])
   // The right-side AI Assistant panel is shown by default and is collapsible.
   const [aiPanelOpen, setAiPanelOpen] = useState(true)
   const [liveWidth, setLiveWidth] = useState<{ c: number; w: number } | null>(null)
@@ -1163,7 +1167,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     // nowhere. Driven from the same `keys` the hint is formatted from, so the
     // menu and the keyboard cannot disagree, and a view-only sheet runs none
     // of them because the command reports itself disabled.
-    if (runCommandKey(Object.values(commands), e)) {
+    // The document actions join the sheet's own, so ⌘P is bound wherever the
+    // host can really print. Keyless ones never match.
+    if (runCommandKey([...Object.values(commands), ...(docRef.current ?? [])], e)) {
       e.preventDefault()
       return
     }
@@ -1723,12 +1729,19 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
         : undefined
   })
 
+  // File's document actions, built ONCE here from the host-bound ops. The menu
+  // bar renders these and the grid's key handler matches them, so Print's ⌘P
+  // hint and Print's binding are the same object — a copy built inside the menu
+  // bar would show the hint while nothing bound the key.
+  const doc = documentCommands(documentOps, 'sheet')
+
   // The palette reads through a ref so every row runs the CURRENT closures,
   // while the row LIST is rebuilt when view-only access changes: paletteEntries
   // drops whatever is disabled, because a palette row cannot show why it is
   // off. PlexiiCells had no palette entries at all before this.
   const commandsRef = useRef(commands)
   commandsRef.current = commands
+  docRef.current = doc ? Object.values(doc) : []
   // Every input a command's `enabled` or `label` reads: paletteEntries takes a
   // SNAPSHOT, so a missing dep leaves a stale list — Undo absent from ⌘K after
   // the first edit made it possible, or the filter row still reading "Create a
@@ -1744,7 +1757,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
       actions={sheetActions}
       readOnly={readOnly}
       commands={commands}
-      menuBar={<SheetMenuBar commands={commands} documentOps={documentOps} />}
+      menuBar={<SheetMenuBar commands={commands} doc={doc} />}
       activeFormat={cellFormat(tab, focus.r, focus.c)}
       activeFont={cellFormat(tab, focus.r, focus.c)?.fontFamily}
       isMerged={selectionIsMerged}

@@ -1,9 +1,8 @@
 import type { Editor } from '@tiptap/react'
-import type { DocumentOps } from './documentOps'
 import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
-import { documentCommands, menuItemOf, menuRow, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import { menuItemOf, menuRow, type DocumentCommands, type OfficeCommand } from '../../../lib/menus/officeCommand'
 import type { WriteCommands } from './writeCommands'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
@@ -30,14 +29,18 @@ interface Props {
    */
   commands: WriteCommands
   /**
-   * The document on screen, bound to its id by whichever host mounted this
-   * editor. Absent where there is no document — a snippet session — and then
-   * none of the document items are shown at all.
+   * File's document actions, built by DocEditor from the ops the host bound.
+   * Null where there is no document — a snippet session — and then none of the
+   * document rows are shown at all.
+   *
+   * Built by the HOST, not here, because the keyboard has to match the very
+   * same commands: Print carries ⌘P, and a copy built in this file would show
+   * the hint while nothing bound the key.
    */
-  documentOps?: DocumentOps
+  doc: DocumentCommands | null
 }
 
-export default function DocMenuBar({ commands, documentOps }: Props): JSX.Element {
+export default function DocMenuBar({ commands, doc }: Props): JSX.Element {
   // A missing id is a programming error, not an empty menu: fail loudly at
   // render rather than quietly dropping the row.
   const c = (id: string): OfficeCommand => {
@@ -48,8 +51,6 @@ export default function DocMenuBar({ commands, documentOps }: Props): JSX.Elemen
   const item = (id: string, extra?: Partial<MenuItem & { kind: 'item' }>): MenuItem => menuItemOf(c(id), extra)
   /** A row under a menu whose title supplies the verb (Insert ▸ Image, Download ▸ …). */
   const row = (id: string): MenuItem => menuRow(c(id))
-
-  const doc = documentCommands(documentOps, 'doc')
 
   const MENUS: MenuDef[] = [
     {
