@@ -148,6 +148,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
 })
 
 describe('a desk that is temporarily unavailable', () => {
@@ -440,12 +441,25 @@ describe('a returning visitor does not download the desk again (L2)', () => {
     routes[`/public/shares/${A}`] = offerBody('desk-A', t0)
     routes[`/public/shares/${A}/bundle`] = bundleBody('desk-A', 'v1')
     const created = vi.fn(() => 'blob:desk')
-    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() })
+    const revoked = vi.fn()
+    // URL's statics and the anchor click are put back by restoreAllMocks.
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(created)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revoked)
+    // The click is what hands the file over -- and in happy-dom it also
+    // NAVIGATES the window to blob:desk, after which every later test's
+    // pushState('/s/<token>') resolves against that and lands on about:blank:
+    // no token, the download page, and the whole rest of the file failing in
+    // any order that ran this test first. Record the click; do not follow it.
+    const clicked: Array<{ href: string; download: string }> = []
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      clicked.push({ href: this.getAttribute('href') ?? '', download: this.download })
+    })
     await boot(`/s/${A}`)
     await ready()
     expect(bundleFetches(A)).toBe(0)
     await act(async () => button('Save desk file')!.click())
     await until(() => created.mock.calls.length === 1, 'the file to be handed over')
     expect(bundleFetches(A)).toBe(1)
+    expect(clicked).toEqual([{ href: 'blob:desk', download: 'Desk desk-A.plexii-desk.json' }])
   })
 })

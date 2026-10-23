@@ -15,7 +15,7 @@
 // So this pins the property that matters and that neither earlier version had:
 // a file row without bytes is discoverable from the database alone, no matter
 // how it got there or what has been forgotten since.
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import { initSqlite, openMemoryDatabase, type SqliteDb } from '../../src/web/worker/sqlite'
 import { MAX_SYNCED_FILE_BYTES } from '../../src/shared/fileSyncLimits'
 
@@ -60,11 +60,20 @@ const addFile = (id: string, sizeBytes: number, trashed = false): void => {
 
 beforeAll(async () => {
   await initSqlite()
+  ;({ filesMissingBytes } = await import('../../src/main/db/files'))
+})
+
+// Every test gets an empty database and an empty blob store. They used to
+// share both, which made each one depend on what the others had left: run
+// "honours the limit" first and its twenty bulk rows crowd 'missing-1' out of
+// a limit of 10; run "drains completely" first and every row is already
+// marked present, so the missing file is never reported at all.
+beforeEach(async () => {
   db = openMemoryDatabase()
   db.pragma('foreign_keys = ON')
   const { applySchemaAndMigrations } = await import('../../src/main/db/migrations')
   applySchemaAndMigrations(db as never)
-  ;({ filesMissingBytes } = await import('../../src/main/db/files'))
+  present.clear()
 })
 
 describe('filesMissingBytes', () => {
@@ -74,6 +83,8 @@ describe('filesMissingBytes', () => {
   })
 
   it('stops reporting it once the bytes arrive', async () => {
+    addFile('missing-1', 1024)
+    expect(await filesMissingBytes(10)).toContain('missing-1')
     present.add('missing-1')
     expect(await filesMissingBytes(10)).not.toContain('missing-1')
   })
@@ -109,12 +120,18 @@ describe('filesMissingBytes', () => {
     // The real loop calls this each cycle and fetches what it gets. Marking
     // those as present must eventually empty the set -- if it did not, a Drive
     // would never finish arriving.
+    for (let i = 0; i < 20; i++) addFile(`bulk-${i}`, 1024)
+    addFile('too-big', MAX_SYNCED_FILE_BYTES + 1)
+    addFile('binned', 512, true)
     let guard = 0
+    let fetched = 0
     while (guard++ < 50) {
       const batch = await filesMissingBytes(6)
       if (batch.length === 0) break
       for (const id of batch) present.add(id)
+      fetched += batch.length
     }
+    expect(fetched).toBe(20)
     expect(await filesMissingBytes(50)).toEqual([])
     expect(guard).toBeLessThan(50)
   })

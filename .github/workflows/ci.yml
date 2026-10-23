@@ -45,6 +45,15 @@ jobs:
         env:
           CI: 'true'
 
+      # The same suite in two fixed shuffled orders (seeds in the script). A
+      # test that passes only after a particular other test is invisible to the
+      # run above; seven were, at once. On a failure the log names the seed --
+      # scripts/test-shuffle.mjs says how to reproduce it in one file.
+      - name: Unit tests, shuffled order
+        run: npm run test:shuffle
+        env:
+          CI: 'true'
+
       # The browser runtime, which plexiidesk.com's /share/ app is built from.
       # Nothing else here builds it, so a desktop-only import reaching it broke
       # the site's compose step for three integration tips before anyone saw.

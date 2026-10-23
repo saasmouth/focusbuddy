@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import {
   createObject,
   registerObjectType,
+  unregisterObjectType,
   isRegisteredObjectType,
   handlingProfile,
   authoritativeSourceOf,
@@ -13,6 +14,13 @@ import { inferredObjective, isConfirmedObjective, confidence } from '../../src/s
 import { isUuidV7 } from '../../src/shared/plexiId'
 
 // The universal Object model + runtime type registry (spec §32, §34, REQ-PRD/DOM).
+
+// The type registry is process-wide. plx_dom_020 registers 'gantt' too, so
+// whenever it ran before plx_prd_011, "gantt is not registered yet" was false.
+// Each test starts from the built-ins only.
+afterEach(() => {
+  unregisterObjectType('gantt')
+})
 
 function baseInput(over: Partial<CreateObjectInput> = {}): CreateObjectInput {
   return {
@@ -53,6 +61,19 @@ describe('plx_prd_011 — the Object type registry is extensible at runtime', ()
     expect(isRegisteredObjectType('gantt')).toBe(true)
     const o = createObject(baseInput({ objectType: 'gantt', currentState: { bars: [] } }))
     expect(o.objectType).toBe('gantt')
+  })
+})
+
+describe('plx_prd_011 — an extension type can be removed again, a built-in cannot', () => {
+  it('unregisterObjectType undoes registerObjectType and refuses built-ins', () => {
+    registerObjectType({ id: 'gantt' })
+    expect(unregisterObjectType('gantt')).toBe(true)
+    expect(isRegisteredObjectType('gantt')).toBe(false)
+    expect(unregisterObjectType('gantt')).toBe(false) // already gone
+    for (const id of BUILTIN_OBJECT_TYPES) {
+      expect(unregisterObjectType(id)).toBe(false)
+      expect(isRegisteredObjectType(id)).toBe(true)
+    }
   })
 })
 

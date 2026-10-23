@@ -12,7 +12,7 @@
 //
 // The engine is SQLite-WASM because better-sqlite3 is built for Electron's ABI;
 // the schema, the migrations and applyRemote are the desktop's own.
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import { initSqlite, openMemoryDatabase, type SqliteDb } from '../../src/web/worker/sqlite'
 
 let db: SqliteDb
@@ -55,11 +55,19 @@ const node = (id: string, parentId: string | null, title: string) => ({
 
 beforeAll(async () => {
   await initSqlite()
+  ;({ applyRemote } = await import('../../src/main/db/workspaceSync'))
+})
+
+// A new, empty database for every test -- the web sign-in case each one
+// describes. Sharing one across the file made the tests depend on each other:
+// "lands the orphan once its parent turns up" leaves 'nowhere' and 'orphan'
+// behind, so whichever test ran after it saw extra rows (the exact-row check in
+// the first test) or a parent that was meant to be missing (the orphan test).
+beforeEach(async () => {
   db = openMemoryDatabase()
   db.pragma('foreign_keys = ON')
   const { applySchemaAndMigrations } = await import('../../src/main/db/migrations')
   applySchemaAndMigrations(db as never)
-  ;({ applyRemote } = await import('../../src/main/db/workspaceSync'))
 })
 
 describe('applying a batch whose children arrive before their parents', () => {

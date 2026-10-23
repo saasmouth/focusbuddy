@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import {
   registerModel,
+  unregisterModel,
   routeTask,
   assemblePrompt,
   invocationRecord,
@@ -23,6 +24,14 @@ const sonnet: ModelDef = { id: 'claude-sonnet-5', version: '2026-01', capabiliti
 const tiny: ModelDef = { id: 'tiny', version: '1', capabilities: { toolCalling: false, structuredOutput: false, contextWindow: 8000, promptCaching: false, vision: false } }
 registerModel(sonnet)
 registerModel(tiny)
+
+// The model registry is process-wide. plx_ai_044 registers a 2M-window model to
+// show routing changes without a caller changing -- and left it registered, so
+// plx_ai_003's "no model has a 1M window, refuse" found one whenever it ran
+// second. Each test starts from the two models above.
+afterEach(() => {
+  unregisterModel('future-model')
+})
 
 describe('plx_ai_002 / plx_ai_003 — capability matrix + routing refusal', () => {
   it('test_plx_ai_003_routes_to_capable_refuses_otherwise', () => {
@@ -47,6 +56,16 @@ describe('plx_ai_044 — model replacement without application change', () => {
     // The same routing call now succeeds purely because a new model was registered;
     // no caller changed.
     expect(r.ok).toBe(true)
+  })
+})
+
+describe('plx_ai_044 — a model can be retired from the registry', () => {
+  it('unregisterModel removes it from routing', () => {
+    registerModel({ id: 'future-model', version: '2027', capabilities: { toolCalling: true, structuredOutput: true, contextWindow: 2_000_000, promptCaching: true, vision: true } })
+    expect(routeTask({ taskType: 'huge', needs: ['structuredOutput'], minContextWindow: 1_000_000 }, 'org').ok).toBe(true)
+    expect(unregisterModel('future-model')).toBe(true)
+    expect(unregisterModel('future-model')).toBe(false)
+    expect(routeTask({ taskType: 'huge', needs: ['structuredOutput'], minContextWindow: 1_000_000 }, 'org').ok).toBe(false)
   })
 })
 
