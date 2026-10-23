@@ -83,10 +83,11 @@ describe('convertForms', () => {
     expect(el.src).toBe(F.PNG)
   })
 
-  it('refuses a picture into PlexiiCells and rows into PlexiiDraw with the same reasons a snippet gets', () => {
+  it('refuses a picture into PlexiiCells with the reason a snippet gets; rows into PlexiiDraw are a picture of the table', () => {
     expect(convertForms([svgForm], 'sheet')).toEqual({ ok: false, reason: REASON.cellsNoPictures })
     expect(convertForms([imageForm], 'sheet')).toEqual({ ok: false, reason: REASON.cellsNoPictures })
-    expect(convertForms([rowsForm], 'draw')).toEqual({ ok: false, reason: REASON.drawNoTables })
+    const drawn = convertForms([rowsForm], 'draw')
+    expect(drawn.ok && drawn.body.kind === 'draw' && (drawn.body.objects[0] as { type: string }).type).toBe('image')
   })
 
   it('rows become a Diagrams table shape; text becomes notes, one per paragraph', () => {
@@ -141,7 +142,7 @@ describe('acceptsFor: derived from the builders', () => {
     slide: ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw'],
     design: ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw'],
     diagram: ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw'],
-    draw: ['doc', 'widget', 'slide', 'design', 'diagram', 'draw']
+    draw: ['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw']
   }
 
   it('is the matrix the builders produce, with the renderer deps', () => {

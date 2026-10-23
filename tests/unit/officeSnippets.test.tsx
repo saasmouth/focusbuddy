@@ -126,7 +126,7 @@ describe('each target’s cross-kind insert', () => {
     expect(ro.insert(snip(F.sheet()), 'duplicate')).toBe(false)
   })
 
-  it('PlexiiDraw: a slide lands in the drawing as a picture object with its bytes; a sheet is refused', () => {
+  it('PlexiiDraw: a slide lands in the drawing as a picture object with its bytes; a sheet as a picture of its table', () => {
     const h = harness({ schemaVersion: 2, minWriterVersion: 2, artboards: [{ id: 'ab1', name: 'A', x: 0, y: 0, w: 400, h: 300, background: { type: 'solid', color: '#fff' } }], activeLayerId: 'L1', layers: [{ id: 'L1', kind: 'vector', name: 'L', visible: true, locked: false, opacity: 1, blend: 'normal', objects: [] }], assets: {}, swatches: [], guides: [], settings: {} })
     const t = drawSnippetTarget(h.ed.ctx, 'Poster')
     expect(t.accepts).toEqual(acceptsFor('draw', snippetConvertDeps()))
@@ -137,7 +137,13 @@ describe('each target’s cross-kind insert', () => {
     expect(objs[0].type).toBe('image')
     const assetId = (objs[0] as { assetId: string }).assetId
     expect(h.doc().assets[assetId].dataUrl.startsWith('data:image/svg+xml')).toBe(true)
-    expect(t.insert(snip(F.sheet()), 'duplicate')).toEqual({ ok: false, reason: REASON.drawNoTables })
+    const sheet = t.insert(snip(F.sheet()), 'duplicate')
+    expect(sheet).toMatchObject({ ok: true })
+    expect((sheet as { notice?: string }).notice).toContain('It becomes a picture: edit it in PlexiiCells.')
+    const after = h.objects()
+    expect(after).toHaveLength(2)
+    expect(after[1].type).toBe('image')
+    expect(h.doc().assets[(after[1] as { assetId: string }).assetId].dataUrl.startsWith('data:image/svg+xml')).toBe(true)
   })
 
   it('PlexiiWrite: a drawing lands as an image node and a sheet as a table, in a real editor', () => {

@@ -17,7 +17,7 @@ import { SNIPPET_KINDS, primaryKindFor } from '../snippets'
 import { PDF_FIRST_PAGE, type ConvertDeps, type Form } from '../snippetForms'
 import { convertForms, convertSnippetBody, type SnippetConversion } from '../snippetConvert'
 import { formsOfWidget } from '../snippetForms/fromWidget'
-import { looksLikeHeader, rowsToGfm, rowsToTableNode } from '../snippetForms/rows'
+import { textFileForms } from '../fileForms'
 
 const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
@@ -160,16 +160,9 @@ export function probeFileForms(probe: FileProbe): Form[] {
       const body: WidgetSnippetBody = { kind: 'widget', widgetKind: 'markdown', title: '', content: '# Plan\n\n- Call the bank\n- **Pay** the rent', width: 2, height: 2, color: null }
       return formsOfWidget(body).filter((f) => f.kind !== 'native')
     }
-    case 'csv': {
-      const rows = [['Item', 'Price'], ['Pens', '3']]
-      const header = looksLikeHeader(rows)
-      return [
-        { kind: 'rows', value: { rows, header }, lossy: [] },
-        { kind: 'docNodes', value: [rowsToTableNode(rows, header)], lossy: [] },
-        { kind: 'markdown', value: rowsToGfm(rows), lossy: [] },
-        { kind: 'text', value: rows.map((r) => r.join(',')).join('\n'), lossy: [] }
-      ]
-    }
+    case 'csv':
+      // Read exactly as the Files drop reader reads a .csv (rows, a table, markdown, its picture, its text).
+      return textFileForms({ entryId: PROBE_FILE_ID, kind: 'file', name: 'Prices.csv', mimeType: 'text/csv', ext: 'csv' }, 'Item,Price\nPens,3\n')
     case 'txt':
       return [
         { kind: 'docNodes', value: [p('Call the bank'), p('Pay the rent')], lossy: [] },

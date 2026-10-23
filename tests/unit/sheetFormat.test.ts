@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatValue, type NumberFormat } from '@renderer/lib/sheetFormat'
+import { formatValue, type NumberFormat } from '@shared/sheetFormat'
 
 // Display formatting must never turn a non-numeric value into a fabricated
 // number. Numbers format as asked; anything that does not fit is returned as-is.

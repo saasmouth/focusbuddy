@@ -415,8 +415,18 @@ describe('→ draw (PlexiiDraw)', () => {
     expect(b.objects).toEqual([{ id: 'text-0', type: 'text', x: 0, y: 0, w: 480, text: 'Payment terms\nPay within 30 days of the invoice.\nBank transfer\nCard\nItem\tPrice\nDesign\t1200', fontSize: 18, lineHeight: 1.3, fill: { type: 'solid', color: '#111827' } }])
   })
 
-  it('sheet: refused, Draw has no tables', () => {
-    expect(refused(F.sheet(), 'draw')).toBe('PlexiiDraw has no tables; insert it into PlexiiWrite or a page instead.')
+  it('sheet: a picture of its table (computed values), bytes in the asset store', () => {
+    const s = conv(F.sheet(), 'draw')
+    expect(s.lossy).toEqual([pic('PlexiiCells'), 'Formulas become their values.'])
+    const b = s.body as DrawSnippetBody
+    expect(b.objects).toHaveLength(1)
+    const node = b.objects[0] as DrawObj
+    expect(node.type).toBe('image')
+    const asset = (b.assets as Record<string, { mime: string; dataUrl: string }>)[node.assetId!]
+    expect(asset.mime).toBe('image/svg+xml')
+    const svg = Buffer.from(asset.dataUrl.split(',')[1], 'base64').toString('utf8')
+    expect(svg).toContain('>26</text>')
+    expect(svg).not.toContain('SUM(')
   })
 
   it('slide and design: a picture (their HTML cannot be imported as vectors), bytes in the asset store', () => {

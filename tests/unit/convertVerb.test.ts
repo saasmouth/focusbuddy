@@ -26,6 +26,9 @@ const TODAY: Array<ConvertVerb | undefined> = [undefined, 'insert', 'paste']
 const opts = (verb: ConvertVerb | undefined) => (verb ? { verb } : undefined)
 const reasonOf = (r: { ok: boolean; reason?: string }): string => (r.ok ? '' : (r.reason as string))
 const rowsOnly: Form[] = [{ kind: 'rows', value: { rows: [['a', 'b']], header: false }, lossy: [] }]
+/** A sheet with no text: it has no picture, so PlexiiDraw refuses it as empty, worded by verb. */
+const blankSheet: SnippetBody = { kind: 'sheet', rows: [['', ''], ['', '']] }
+const blankRows: Form[] = [{ kind: 'rows', value: { rows: [['', '']], header: false }, lossy: [] }]
 const calendar: SnippetBody = { kind: 'widget', widgetKind: 'calendar', title: '', content: 'x', width: 2, height: 2, color: null }
 const emptySticky: SnippetBody = { kind: 'widget', widgetKind: 'sticky', title: '', content: '   ', width: 2, height: 2, color: null }
 
@@ -65,13 +68,17 @@ describe('refusals of a body, by verb', () => {
     expect(reasonOf(convertSnippetBody({ kind: 'design', elements: [] }, 'slide', {}, { verb: 'drop' }))).toBe(REASON.emptyDrop)
   })
 
-  it('PlexiiDraw has no tables, from a body and from rows alone', () => {
-    for (const verb of TODAY) {
-      expect(reasonOf(convertSnippetBody(F.sheet(), 'draw', {}, opts(verb)))).toBe('PlexiiDraw has no tables; insert it into PlexiiWrite or a page instead.')
-      expect(reasonOf(convertForms(rowsOnly, 'draw', {}, undefined, opts(verb)))).toBe(REASON.drawNoTables)
+  it('PlexiiDraw takes a sheet, or rows alone, as a picture of the table; a blank one is refused as empty, by verb', () => {
+    for (const verb of [...TODAY, 'drop' as const]) {
+      expect(convertSnippetBody(F.sheet(), 'draw', {}, opts(verb)).ok).toBe(true)
+      expect(convertForms(rowsOnly, 'draw', {}, undefined, opts(verb)).ok).toBe(true)
     }
-    expect(reasonOf(convertSnippetBody(F.sheet(), 'draw', {}, { verb: 'drop' }))).toBe('PlexiiDraw has no tables; drop it into PlexiiWrite or a page instead.')
-    expect(reasonOf(convertForms(rowsOnly, 'draw', {}, undefined, { verb: 'drop' }))).toBe(REASON.drawNoTablesDrop)
+    for (const verb of TODAY) {
+      expect(reasonOf(convertSnippetBody(blankSheet, 'draw', {}, opts(verb)))).toBe(REASON.empty)
+      expect(reasonOf(convertForms(blankRows, 'draw', {}, undefined, opts(verb)))).toBe('Nothing that was copied is something PlexiiDraw can hold.')
+    }
+    expect(reasonOf(convertSnippetBody(blankSheet, 'draw', {}, { verb: 'drop' }))).toBe(REASON.emptyDrop)
+    expect(reasonOf(convertForms(blankRows, 'draw', {}, undefined, { verb: 'drop' }))).toBe('Nothing that was dropped is something PlexiiDraw can hold.')
   })
 
   it('the work widget acceptors pass their verb into the shared refusal', () => {
@@ -106,8 +113,8 @@ describe('the verb is wording only', () => {
 
 describe('wired from a drop read into the office paste path', () => {
   it('convertClipboard words by the read\'s verb; the clipboard (no verb) keeps today\'s line', () => {
-    expect(convertClipboard({ forms: rowsOnly, source: null }, 'draw')).toEqual({ ok: false, reason: REASON.drawNoTables })
-    expect(convertClipboard({ forms: rowsOnly, source: null, verb: 'drop' }, 'draw')).toEqual({ ok: false, reason: REASON.drawNoTablesDrop })
+    expect(convertClipboard({ forms: blankRows, source: null }, 'draw')).toEqual({ ok: false, reason: 'Nothing that was copied is something PlexiiDraw can hold.' })
+    expect(convertClipboard({ forms: blankRows, source: null, verb: 'drop' }, 'draw')).toEqual({ ok: false, reason: 'Nothing that was dropped is something PlexiiDraw can hold.' })
     const text: Form[] = [{ kind: 'text', value: 'Hi', lossy: [] }]
     expect(convertClipboard({ forms: text, source: null }, 'doc')).toEqual({ ok: false, reason: 'Nothing that was copied is something PlexiiWrite can hold.' })
     expect(convertClipboard({ forms: text, source: null, verb: 'drop' }, 'doc')).toEqual({ ok: false, reason: 'Nothing that was dropped is something PlexiiWrite can hold.' })

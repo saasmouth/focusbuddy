@@ -100,7 +100,8 @@ const WIDGET_TAKES: Record<WidgetTargetKind, FileProbe[]> = {
   page: ALL,
   markdown: ALL,
   table: ['md', 'csv'],
-  image: PICTURES
+  // A CSV is a picture of its table too (snippetForms/sheetPicture.ts).
+  image: [...PICTURES, 'csv']
 }
 
 const WIDGET_REFUSES: Record<WidgetTargetKind, Partial<Record<FileProbe, string>>> = {
@@ -134,7 +135,6 @@ const WIDGET_REFUSES: Record<WidgetTargetKind, Partial<Record<FileProbe, string>
     linkDocument: IMAGE_NEEDS_PICTURE,
     linkFolder: 'A folder cannot go into an image work widget. Drop it on a desk for a Drive work widget.',
     md: IMAGE_NEEDS_PICTURE,
-    csv: IMAGE_NEEDS_PICTURE,
     txt: IMAGE_NEEDS_PICTURE
   }
 }
@@ -170,9 +170,13 @@ function carries(body: SnippetBody, probe: FileProbe): void {
     case 'md':
       expect(json).toMatch(/Call the bank/)
       return
-    case 'csv':
-      expect(json).toMatch(/Pens/)
+    case 'csv': {
+      // PlexiiDraw holds the table as a picture: its words are inside the SVG bytes.
+      const asset = body.kind === 'draw' ? (Object.values(body.assets ?? {})[0] as { dataUrl?: string } | undefined) : undefined
+      const text = asset?.dataUrl ? Buffer.from(asset.dataUrl.split(',')[1], 'base64').toString('utf8') : json
+      expect(text).toMatch(/Pens/)
       return
+    }
     case 'txt':
       expect(json).toMatch(/Pay the rent/)
   }

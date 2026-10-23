@@ -3,7 +3,8 @@
 
 import { gfmTable, padRows } from './tiptap'
 
-const NUMERIC = /^[-+]?[$€£¥]?\s*\(?[-+]?\d[\d,]*(\.\d+)?\)?\s*%?$/
+/** A cell that reads as a number: signs, a currency mark, thousands commas, decimals, brackets, a percent. */
+export const NUMERIC = /^[-+]?[$€£¥]?\s*\(?[-+]?\d[\d,]*(\.\d+)?\)?\s*%?$/
 
 /**
  * Does the first row read as column headings? Every filled cell is text that

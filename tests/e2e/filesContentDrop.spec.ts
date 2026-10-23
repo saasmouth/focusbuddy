@@ -21,6 +21,8 @@
 //         read-only drawing refuses with its line
 //   CD-7  work widgets: page (.md), markdown (.csv), sticky (.txt, a picture
 //         refused), note (.txt), table (.csv rows), image (the same file row)
+//   CD-8  PlexiiDraw: a Cells document and a .csv land as a picture of their
+//         table (computed values, the sheet's column width), said so
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, addWidgetToDesk, type LaunchedApp } from './_helpers'
@@ -57,8 +59,8 @@ function onePagePdf(): string {
 
 type Seed = {
   taskId: string
-  f: { png: string; csv: string; md: string; txt: string; pdf: string; mp4: string; folder: string; docB: string; selfEntry: string }
-  d: { write: string; writeB: string; sheet: string; slides: string; design: string; map: string; draw: string; drawRo: string }
+  f: { png: string; csv: string; md: string; txt: string; pdf: string; mp4: string; folder: string; docB: string; selfEntry: string; budget: string }
+  d: { write: string; writeB: string; sheet: string; slides: string; design: string; map: string; draw: string; drawRo: string; budget: string }
 }
 
 async function boot(): Promise<{ window: Page; seed: Seed }> {
@@ -80,7 +82,8 @@ async function boot(): Promise<{ window: Page; seed: Seed }> {
         mp4: (await ing('demo.mp4', 'video/mp4', new Uint8Array(64).buffer)).id,
         folder: (await api.fileManager.createFolder(null, 'Brand assets')).id,
         docB: '',
-        selfEntry: ''
+        selfEntry: '',
+        budget: ''
       }
       const mk = async (docType: string, title: string, body?: unknown) => ((await api.documents.create({ docType, title, ...(body ? { body } : {}) } as never)) as { id: string }).id
       const d = {
@@ -92,13 +95,33 @@ async function boot(): Promise<{ window: Page; seed: Seed }> {
         map: await mk('map', 'Target diagram'),
         draw: await mk('draw', 'Target art'),
         // A drawing written by a newer PlexiiDraw opens read-only.
-        drawRo: await mk('draw', 'Newer art', { schemaVersion: 2, minWriterVersion: 999, layers: [{ id: 'l1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, objects: [] }], artboards: [{ id: 'a1', name: 'Artboard 1', x: 0, y: 0, w: 800, h: 600 }], assets: {}, swatches: [] })
+        drawRo: await mk('draw', 'Newer art', { schemaVersion: 2, minWriterVersion: 999, layers: [{ id: 'l1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, objects: [] }], artboards: [{ id: 'a1', name: 'Artboard 1', x: 0, y: 0, w: 800, h: 600 }], assets: {}, swatches: [] }),
+        // A spreadsheet with a formula and a column the owner widened.
+        budget: await mk('sheet', 'Budget', {
+          version: 2,
+          sheets: [
+            {
+              id: 't1',
+              name: 'Sheet1',
+              columns: ['A', 'B', 'C', 'D'],
+              rows: [
+                ['Item', 'Qty', 'Price', 'Total'],
+                ['Pens & markers', '2', '3', '=B2*C2'],
+                ['Pads', '4', '5', '=B3*C3'],
+                ['Sum', '', '', '=SUM(D2:D3)']
+              ],
+              colWidths: { 0: 170 }
+            }
+          ]
+        })
       }
+      await api.fileManager.fileDocument(d.budget, null)
       await api.fileManager.fileDocument(d.writeB, null)
       await api.fileManager.fileDocument(d.write, null)
       const root = await api.fileManager.list(null)
       f.docB = root.find((e) => e.kind === 'doc' && e.docId === d.writeB)!.id
       f.selfEntry = root.find((e) => e.kind === 'doc' && e.docId === d.write)!.id
+      f.budget = root.find((e) => e.kind === 'doc' && e.docId === d.budget)!.id
       return { taskId: task.id, f, d }
     },
     { png: PNG, pdf: onePagePdf() }
@@ -325,4 +348,37 @@ test('CD-7 work widgets take content through their own drop: page, markdown, sti
   await expect.poll(tableText, { timeout: 8_000 }).toContain('Grace')
   // Every drop landed IN its widget: the desk placed nothing beside them.
   expect(await countWidgets()).toBe(n0)
+})
+
+/** The SVG text of every picture asset in a saved drawing. */
+const drawingPictures = (window: Page, id: string): Promise<string[]> =>
+  window.evaluate(async (i: string) => {
+    const body = (await (window as unknown as { api: typeof window.api }).api.documents.get(i))?.body as { assets?: Record<string, { dataUrl?: string }> } | null
+    return Object.values(body?.assets ?? {})
+      .map((a) => a.dataUrl ?? '')
+      .filter((u) => u.startsWith('data:image/svg+xml;base64,'))
+      .map((u) => new TextDecoder().decode(Uint8Array.from(atob(u.split(',')[1]!), (c) => c.charCodeAt(0))))
+  }, id)
+
+test('CD-8 PlexiiDraw: a Cells document and a .csv land as a picture of their table, said so', async () => {
+  test.setTimeout(150_000)
+  const { window, seed } = await boot()
+  await openDoc(window, seed.d.draw, '[data-testid="draw-canvas-scroll"]')
+
+  await dropRow(window, seed.f.budget, '[data-testid="draw-canvas-scroll"]')
+  await expect(notice(window)).toContainText('It becomes a picture: edit it in PlexiiCells.')
+  await expect(notice(window)).toContainText('Formulas become their values.')
+  await expect.poll(async () => (await drawingPictures(window, seed.d.draw)).length, { timeout: 10_000 }).toBe(1)
+  const [sheet] = await drawingPictures(window, seed.d.draw)
+  // What the cells SHOW: computed values, escaped text, the widened column.
+  expect(sheet).toContain('>26</text>')
+  expect(sheet).toContain('>Pens &amp; markers</text>')
+  expect(sheet).not.toContain('SUM(')
+  expect(sheet).toContain('<rect x="0" y="0" width="170" height="24"')
+
+  await dropRow(window, seed.f.csv, '[data-testid="draw-canvas-scroll"]', { dx: 80, dy: 80 })
+  await expect.poll(async () => (await drawingPictures(window, seed.d.draw)).length, { timeout: 10_000 }).toBe(2)
+  const csv = (await drawingPictures(window, seed.d.draw)).find((s) => s.includes('>Grace</text>'))
+  expect(csv, 'the .csv is a picture of its table, not a line of commas').toBeTruthy()
+  expect(await saved(window, seed.d.draw)).not.toContain('name,score')
 })

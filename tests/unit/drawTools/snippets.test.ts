@@ -320,8 +320,8 @@ describe('the target and the menus', () => {
     expect(linkModesFor(target, 'draw')).toEqual(['duplicate'])
     expect(linkModesFor(target, 'design')).toEqual(['duplicate'])
     expect(linkModesFor(target, 'doc')).toEqual(['duplicate'])
-    // Draw has no tables.
-    expect(linkModesFor(target, 'sheet')).toEqual([])
+    // Draw has no tables, so a sheet comes in as a picture of its table.
+    expect(linkModesFor(target, 'sheet')).toEqual(['duplicate'])
     expect(target.host).toBe('draw')
     expect(target.label).toBe('“Poster”')
     expect(drawSnippetTarget(h.ed.ctx, '').label).toBe('This drawing')
