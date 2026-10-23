@@ -50,6 +50,9 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
   const goDocuments = useViewStore((s) => s.goDocuments)
   const goDocument = useViewStore((s) => s.goDocument)
   const conflict = useDocumentsStore((s) => s.conflict)
+  // In every editor's key: an external body change must REMOUNT the editor,
+  // because none of them re-seed from a prop (see the store's bodyEpoch).
+  const bodyEpoch = useDocumentsStore((s) => s.bodyEpoch)
   const resolveConflict = useDocumentsStore((s) => s.resolveConflict)
   const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   const goDesign = useViewStore((s) => s.goDesign)
@@ -266,7 +269,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
       <div className="flex-1 overflow-auto min-h-0">
         {active.docType === 'doc' && (
           <DocEditor
-            key={active.id}
+            key={`${active.id}:${bodyEpoch}`}
             content={active.body}
             title={active.title}
             onChange={(json) => saveBody(json)}
@@ -284,7 +287,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
         )}
         {active.docType === 'sheet' && (
           <SheetEditor
-            key={active.id}
+            key={`${active.id}:${bodyEpoch}`}
             body={active.body as SheetBody}
             title={active.title}
             onChange={(b) => saveBody(b)}
@@ -292,14 +295,14 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           />
         )}
         {active.docType === 'slides' && (
-          <SlidesEditor key={active.id} body={active.body as SlidesBody} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
+          <SlidesEditor key={`${active.id}:${bodyEpoch}`} body={active.body as SlidesBody} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
         )}
         {active.docType === 'map' && (
-          <MapEditor key={active.id} body={active.body as MapBody} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
+          <MapEditor key={`${active.id}:${bodyEpoch}`} body={active.body as MapBody} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
         )}
         {active.docType === 'design' && (
           <DesignEditor
-            key={active.id}
+            key={`${active.id}:${bodyEpoch}`}
             content={active.body}
             title={active.title}
             onChange={(b) => saveBody(b)}
@@ -307,7 +310,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           />
         )}
         {active.docType === 'draw' && (
-          <DrawStudio key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
+          <DrawStudio key={`${active.id}:${bodyEpoch}`} content={active.body} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
         )}
       </div>
       {/* Below the surface, not over it: the text being decided about has to
