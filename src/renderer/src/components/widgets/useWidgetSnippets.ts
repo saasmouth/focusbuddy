@@ -4,7 +4,7 @@
 // hook for its kind and hands the result to WidgetFrame's `snippets` prop,
 // which puts "Insert snippet…" and "Paste" in its menus.
 
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
 import type { Widget } from '@shared/types'
@@ -117,6 +117,22 @@ export function useEditorWidgetSnippets(
 ): WidgetSnippets & { handlePaste: (event: ClipboardEvent) => boolean } {
   const editorRef = useRef(editor)
   editorRef.current = editor
+  // Where an insert lands: at the cursor once the person has put one in this
+  // editor, otherwise at the end. A fresh editor's selection sits at the very
+  // start, and landing a picture ABOVE what someone wrote reads as a mistake.
+  const touched = useRef(false)
+  useEffect(() => {
+    if (!editor) return
+    touched.current = false
+    const mark = (): void => {
+      touched.current = true
+    }
+    editor.on('focus', mark)
+    return () => {
+      editor.off('focus', mark)
+    }
+  }, [editor])
+  const at = (ed: Editor) => (touched.current ? ed.chain().focus() : ed.chain().focus('end'))
 
   const land = async (forms: Form[], ctx: AcceptContext): Promise<SnippetInsertResult> => {
     const ed = editorRef.current
@@ -127,7 +143,7 @@ export function useEditorWidgetSnippets(
       if (!r.ok) return r
       const nodes = await pageNodesReady(r.nodes)
       if (ed.isDestroyed) return { ok: false, reason: 'This work widget is not open.' }
-      ed.chain().focus().insertContent(nodes as never).run()
+      at(ed).insertContent(nodes as never).run()
       return tookIt(r.lossy)
     }
     const r = acceptForMarkdown(forms, ctx)
@@ -137,7 +153,7 @@ export function useEditorWidgetSnippets(
     if (ed.isDestroyed) return { ok: false, reason: 'This work widget is not open.' }
     // tiptap-markdown parses a string given to insertContent as markdown, so
     // what lands is exactly what the widget will save and read back.
-    ed.chain().focus().insertContent(ready.markdown).run()
+    at(ed).insertContent(ready.markdown).run()
     return tookIt(r.lossy)
   }
   const pasteSnap = async (snap: PasteSnapshot): Promise<void> => {
