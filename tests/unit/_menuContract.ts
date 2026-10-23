@@ -21,7 +21,7 @@ export const RETIRED_LABELS: Record<string, string> = {
 }
 
 // Words that keep their capital inside a sentence-case label (§9.4).
-const PROPER = /^(Plexii\w*|Focus|Trash|PDF|SVG|PNG|CSV|URL|AI|Markdown|Apps|Assist|Files|Finder|Google|Drive|Slack|Gmail|Outlook|Notion|GitHub|Figma|Excel|Word|I|Mermaid|Room|Desk)$/
+const PROPER = /^(Plexii\w*|Focus|Trash|PDF|SVG|PNG|CSV|URL|AI|Markdown|Apps|Home|Plans|Assist|Files|Finder|Google|Drive|Slack|Gmail|Outlook|Notion|GitHub|Figma|Excel|Word|I|Mermaid|Room|Desk)$/
 
 /** A label as it reads, without the submenu arrow some renderers append. */
 const clean = (l: string): string => l.replace(/\s*▸$/, '').trim()
@@ -47,7 +47,8 @@ export function expectMenuContract(items: CtxMenuItem[], opts: ContractOptions =
 
   // Destructive rows last, behind their own separator (§9.3 group 6).
   const firstDanger = items.findIndex((i) => i.danger)
-  if (firstDanger >= 0) {
+  // A menu that is only destructive rows has nothing to be separated from.
+  if (firstDanger > 0) {
     expect(items[firstDanger - 1]?.separator, `${path}: destructive group is not behind a separator`).toBe(true)
     const after = items.slice(firstDanger).filter((i) => !i.separator)
     expect(after.every((i) => i.danger), `${path}: a non-destructive row follows a destructive one`).toBe(true)
