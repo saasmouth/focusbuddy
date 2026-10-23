@@ -47,7 +47,22 @@ export interface SnippetKindEditor {
   render: (args: {
     body: SnippetBody
     title: string
-    onChange: (next: SnippetBody) => void
+    /**
+     * Hand back the snippet-shaped body, plus anything the snippet CANNOT HOLD.
+     *
+     * `lost` exists because a session editor is a full app and a snippet body is
+     * narrower than the document it edits. A user can make something the snippet
+     * has no field for — d1's examples in Draw are a paint layer or a second
+     * artboard — and the choice is then between dropping it silently and saying
+     * so. Silently is not a choice: the save reports success and the work is
+     * gone.
+     *
+     * Entries should still PREVENT the loss where they can, which is strictly
+     * better: 84 hid the page tabs in a diagram session so a second page cannot
+     * be made, rather than reporting one that was. `lost` is for what cannot be
+     * prevented. Each string is user-facing copy, in the destination's terms.
+     */
+    onChange: (next: SnippetBody, lost?: string[]) => void
   }) => ReactNode
 }
 
@@ -147,6 +162,8 @@ export default function SnippetEditSessionView({
   // remounting then would throw away undo history and scroll position for no
   // reason, since the body on screen is already the body that was saved.
   const [seed, setSeed] = useState(0)
+  // What the current body cannot keep, as reported by the editor entry.
+  const [lost, setLost] = useState<string[]>([])
 
   // The latest body lives in a ref, not state: it is written by every keystroke
   // and read only by Save, so re-rendering the editor on each change would be
@@ -281,6 +298,7 @@ export default function SnippetEditSessionView({
               latest.current = save.theirs.body
               baseRevision.current = save.theirs.revision
               setDirty(false)
+              setLost([])
               setSave({ phase: 'idle' })
               setLoad({ phase: 'ready', snippet: save.theirs })
               // Forces the editor to remount and re-seed from their body. The
@@ -317,8 +335,9 @@ export default function SnippetEditSessionView({
             {editor.render({
               body: latest.current ?? snippet.body,
               title: snippet.name,
-              onChange: (next) => {
+              onChange: (next, losing) => {
                 latest.current = next
+                setLost(losing ?? [])
                 if (!dirty) setDirty(true)
               }
             })}
@@ -329,6 +348,26 @@ export default function SnippetEditSessionView({
           </p>
         )}
       </div>
+
+      {lost.length > 0 && (
+        // Beside Save, not after it. The user is about to decide, and this is
+        // the only moment the information is useful — afterwards the work is
+        // already gone. Saving is still allowed: it is their call, not ours.
+        <div
+          className="flex items-start gap-2 border-t border-[var(--edge-soft)] bg-amber-500/10 px-3 py-1.5 text-[11px] text-[var(--ink-70)]"
+          data-testid="snippet-session-lost"
+        >
+          <Icon name="warning" size={13} className="mt-0.5 shrink-0 text-amber-600" />
+          <span>
+            Saving will not keep:
+            <ul className="list-disc pl-4">
+              {lost.map((what) => (
+                <li key={what}>{what}</li>
+              ))}
+            </ul>
+          </span>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 border-t border-[var(--edge-soft)] px-3 py-1.5">
         <button

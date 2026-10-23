@@ -78,6 +78,17 @@ function StubEditor({
       >
         type
       </button>
+      <button
+        data-testid="stub-change-lossy"
+        onClick={() =>
+          onChange({ kind: 'doc', content: [{ type: 'paragraph' }], text: 'edited' } as SnippetBody, [
+            'a paint layer',
+            '2 extra artboards'
+          ])
+        }
+      >
+        type something the snippet cannot hold
+      </button>
     </>
   )
 }
@@ -255,5 +266,43 @@ describe('a conflict offers both ways out, explicitly', () => {
     await click('snippet-session-save')
     await click('snippet-session-overwrite')
     expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('v1')
+  })
+})
+
+describe('what a snippet cannot hold is said, not dropped', () => {
+  it('names each loss, beside Save, before the decision is made', async () => {
+    await mount()
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).toBeNull()
+    await click('stub-change-lossy')
+    const warn = host.querySelector('[data-testid="snippet-session-lost"]')!
+    expect(warn.textContent).toContain('a paint layer')
+    expect(warn.textContent).toContain('2 extra artboards')
+  })
+
+  it('still allows the save, because it is the user\'s call', async () => {
+    // Refusing would be worse: the alternative to saving a lossy body is losing
+    // the whole edit. The warning informs the decision rather than making it.
+    await mount()
+    await click('stub-change-lossy')
+    const save = host.querySelector('[data-testid="snippet-session-save"]') as HTMLButtonElement
+    expect(save.disabled).toBe(false)
+    await click('snippet-session-save')
+    expect(update).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears when a later change loses nothing', async () => {
+    // Otherwise the warning would outlive the thing it warned about, and a stale
+    // warning teaches people to ignore the real one.
+    await mount()
+    await click('stub-change-lossy')
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).not.toBeNull()
+    await click('stub-change')
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).toBeNull()
+  })
+
+  it('says nothing when there is nothing to say', async () => {
+    await mount()
+    await click('stub-change')
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).toBeNull()
   })
 })
