@@ -7,10 +7,12 @@
 // considered, so pdf-parse always won. A scan made only of a picture still
 // rasterised (no paths), but a scanned page with ANY vector mark on it -- a
 // frame, a redaction bar, a signature line, which scanners and PDF tools add
-// all the time -- failed with "Value is none of these types `String`, `Path`"
-// inside OCR, which fileText.ts honestly swallows: the scan's words never
-// reached search, the brain or the assistant. Before the fix this spec failed
-// on the OCR tokens; through pdfCanvasGlobals.ts it passes.
+// all the time -- drew the renderer's paths with pdf-parse's Path2D. In plain
+// Node that throws "Value is none of these types `String`, `Path`"
+// (tests/unit/pdfCanvasGlobals.test.ts); inside Electron's main process it is
+// worse: at 011ee86e this spec took the whole app down with SIGSEGV, twice out
+// of two runs, so a user who added one such scan lost the app, not just the
+// scan's words. Through pdfCanvasGlobals.ts it passes.
 
 import { test, expect } from '@playwright/test'
 import { createCanvas } from '@napi-rs/canvas'
