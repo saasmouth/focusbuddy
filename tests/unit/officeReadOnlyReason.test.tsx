@@ -508,6 +508,14 @@ describe('the read-only sentence is one string, from one place', () => {
     expect(src).not.toMatch(/READ_ONLY_REASON\s*=/)
   })
 
+  it('READ_ONLY_REASON has exactly one definition, the shell primitives\' (the rail and Draw import it)', () => {
+    const src = join(__dirname, '../../src')
+    const defs = execFileSync('grep', ['-rnE', '(const|let|var) READ_ONLY_REASON\\b', src], { encoding: 'utf8' }).split('\n').filter(Boolean)
+    expect(defs.map((d) => d.slice(src.length + 1).replace(/:\d+:.*$/, ''))).toEqual(['renderer/src/components/office/shell/primitives.tsx'])
+    const rail = readFileSync(join(src, 'renderer/src/components/office/shell/ToolRail.tsx'), 'utf8')
+    expect(rail).toMatch(/import \{ READ_ONLY_REASON \} from '\.\/primitives'/)
+  })
+
   it('no office source writes a read-only sentence of its own', () => {
     // Every tooltip, menu reason and decline says it through READ_ONLY_REASON.
     // Status lines may say it inside a longer sentence ("..., so files can't be
