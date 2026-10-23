@@ -5,6 +5,7 @@ import type { CtxMenuItem } from '../../components/CanvasContextMenu'
 import type { EditorCommand } from '../../stores/editorCommands'
 import { menuPlatform } from './menuAction'
 import type { DocumentOps } from '../../components/documents/editor/documentOps'
+import { READ_ONLY_REASON } from '../../components/office/shell/primitives'
 
 // One definition per office action (SPEC §9, "no repeats"): label, key, icon,
 // enabled state with its reason, and what it does. The menu bar, the ribbon,
@@ -153,15 +154,43 @@ export function paletteEntries(cs: OfficeCommand[]): EditorCommand[] {
   return cs.filter((c) => !c.enabled || c.enabled()).map(paletteEntry)
 }
 
-/** Ribbon props for BarButton / BarToggle / BarDialogButton: label, icon, hint and the off state with its reason. */
-export function barProps(c: OfficeCommand): { label: string; icon?: string; shortcut?: string; disabled?: boolean; disabledReason?: string } {
+/**
+ * The gate of a command that CHANGES the document: off in a read-only
+ * document, saying the suite's one sentence first, else the command's own
+ * gate (`gate`, when it has one). The registries build every writing command
+ * through this, so a viewer's menu row, right-click row, key and ribbon
+ * control all refuse alike (SPEC §9.5), and `readOnlySafe` below can be read
+ * straight off the gate rather than declared beside it.
+ */
+export function writeGate(readOnly: boolean, gate?: Pick<OfficeCommand, 'enabled' | 'reason'>): Required<Pick<OfficeCommand, 'enabled' | 'reason'>> {
+  return {
+    enabled: () => !readOnly && (gate?.enabled ? gate.enabled() : true),
+    reason: () => (readOnly ? READ_ONLY_REASON : gate?.reason?.())
+  }
+}
+
+/**
+ * The registry's answer to "may this run in a read-only document?": yes,
+ * unless its gate refuses with the read-only sentence. A command with no gate
+ * changes nothing (ec's rule for Cells and Write), and one gated only on the
+ * selection (Save selection as snippet, Copy style) reads the document without
+ * changing it. Built read-only, a writing command answers no; the bar takes its
+ * `readOnlySafe` from here (barProps), never from a flag set by hand.
+ */
+export function readOnlySafeOf(c: OfficeCommand): boolean {
+  return !(c.enabled && !c.enabled() && c.reason?.() === READ_ONLY_REASON)
+}
+
+/** Ribbon props for BarButton / BarToggle / BarDialogButton: label, icon, hint, the off state with its reason, and readOnlySafe from the gate. */
+export function barProps(c: OfficeCommand): { label: string; icon?: string; shortcut?: string; disabled?: boolean; disabledReason?: string; readOnlySafe?: boolean } {
   const { off, reason } = offState(c)
   return {
     label: c.barLabel ?? c.label,
     ...(c.icon ? { icon: c.icon } : {}),
     ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
     ...(c.enabled ? { disabled: off } : {}),
-    ...(reason ? { disabledReason: reason } : {})
+    ...(reason ? { disabledReason: reason } : {}),
+    ...(readOnlySafeOf(c) ? { readOnlySafe: true } : {})
   }
 }
 

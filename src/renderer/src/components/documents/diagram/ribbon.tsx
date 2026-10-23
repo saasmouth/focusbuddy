@@ -82,6 +82,7 @@ export function diagramCtx(base: Omit<DCtx, 'nodes' | 'edges' | 'palette' | 'cmd
     palette: getTheme(base.themeId).palette,
     cmds: buildDiagramCommands({
       cmd: base.cmd,
+      readOnly: base.readOnly,
       nodes: nodes.length,
       edges: edges.length,
       locked: nodes.some((n) => n.locked) || edges.some((e) => e.locked),
@@ -424,9 +425,9 @@ const viewTab: BarTab<DCtx> = {
   render: (c) => {
     return (
       <>
-        <BarButton {...barProps(c.cmds.fit)} showLabel onClick={c.cmds.fit.run} readOnlySafe />
-        <BarButton {...barProps(c.cmds.zoomToSelection)} onClick={c.cmds.zoomToSelection.run} readOnlySafe />
-        <BarButton {...barProps(c.cmds.actualSize)} onClick={c.cmds.actualSize.run} readOnlySafe />
+        <BarButton {...barProps(c.cmds.fit)} showLabel onClick={c.cmds.fit.run} />
+        <BarButton {...barProps(c.cmds.zoomToSelection)} onClick={c.cmds.zoomToSelection.run} />
+        <BarButton {...barProps(c.cmds.actualSize)} onClick={c.cmds.actualSize.run} />
         <BarSep />
         <BarToggle icon="category" label="Shape library" pressed={c.isPanelOpen('library')} onChange={() => c.togglePanel('library')} readOnlySafe testid="diagram-view-library" controls={shellPanelDomId('library')} />
         <BarToggle icon="layers" label="Layers" pressed={c.isPanelOpen('layers')} onChange={() => c.togglePanel('layers')} readOnlySafe testid="diagram-view-layers" controls={shellPanelDomId('layers')} />

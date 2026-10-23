@@ -481,8 +481,8 @@ export function DiagramChrome({
             }
             rightSlot={
               <>
-                <BarButton {...barProps(c.find)} onClick={c.find.run} testid="diagram-find" readOnlySafe />
-                <BarButton {...barProps(c.zoomOut)} icon="remove" onClick={c.zoomOut.run} readOnlySafe />
+                <BarButton {...barProps(c.find)} onClick={c.find.run} testid="diagram-find" />
+                <BarButton {...barProps(c.zoomOut)} icon="remove" onClick={c.zoomOut.run} />
                 <BarMenu
                   label="Zoom"
                   testid="diagram-zoom"
@@ -490,8 +490,8 @@ export function DiagramChrome({
                   valueLabel={<span className="fb-tabular w-[38px] text-center">{Math.round(zoom * 100)}%</span>}
                   items={[...zoomItems, 'sep', barMenuItem(c.fit), barMenuItem(c.zoomToSelection)]}
                 />
-                <BarButton {...barProps(c.zoomIn)} icon="add" onClick={c.zoomIn.run} readOnlySafe />
-                <BarButton {...barProps(c.fit)} onClick={c.fit.run} testid="diagram-fit" readOnlySafe />
+                <BarButton {...barProps(c.zoomIn)} icon="add" onClick={c.zoomIn.run} />
+                <BarButton {...barProps(c.fit)} onClick={c.fit.run} testid="diagram-fit" />
                 <BarToggle icon="right_panel_open" label="Side pane" pressed={sidePane !== null} onChange={(v) => setSidePane(v ? 'ai' : null)} controls={SIDE_PANE_DOM_ID} testid="diagram-sidepane-toggle" readOnlySafe />
               </>
             }

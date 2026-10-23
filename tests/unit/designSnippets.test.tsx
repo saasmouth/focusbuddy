@@ -33,6 +33,7 @@ import { defaultSwatches, type DesignSwatch } from '../../src/shared/designSwatc
 import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { DESIGN_TABS, type DesignCtx } from '../../src/renderer/src/components/documents/design/ribbon'
 import { buildDesignCommands, type DesignCommandDeps } from '../../src/renderer/src/components/documents/design/designCommands'
+import { expectNotReadOnly } from './_notReadOnly'
 import type { SlideElement, SlideTextElement } from '../../src/shared/types'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -497,11 +498,11 @@ describe('where the commands live on the shell', () => {
     // The ribbon renders Design's command record (design/designCommands); its
     // snippet commands reach the same functions the old `cmd` hooks did.
     const deps = new Proxy(
-      { selected: selected.length, grouped: false, canPaste: false, textMarks: null, saveSnippet: cmds.saveSnippet ?? noop, insertSnippet: cmds.insertSnippet ?? noop } as Record<string, unknown>,
+      { readOnly: false, selected: selected.length, grouped: false, canPaste: false, textMarks: null, saveSnippet: cmds.saveSnippet ?? noop, insertSnippet: cmds.insertSnippet ?? noop } as Record<string, unknown>,
       { get: (t, k) => (k in t ? t[k as string] : noop) }
     ) as unknown as DesignCommandDeps
     return {
-      cmds: buildDesignCommands(deps),
+      cmds: expectNotReadOnly('designSnippets', buildDesignCommands(deps)),
       design,
       selected,
       first: selected[0] ?? null,

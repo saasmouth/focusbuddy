@@ -869,10 +869,12 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         setSelectedIds([])
         return
       }
-      // Forward-delete does what ⌫ does.
+      // Forward-delete does what ⌫ does, through the same gate (off for a viewer).
       if (e.key === 'Delete') {
+        const del = cmdsRef.current.remove
+        if (del.enabled && !del.enabled()) return
         e.preventDefault()
-        cmdsRef.current.remove.run()
+        del.run()
         return
       }
       const step = e.shiftKey ? 10 : 1
@@ -897,6 +899,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // Every Deck action, defined once (SPEC §9): the menu bar, the ribbon, the
   // right-click menu and the palette all render from this record.
   const cmds = buildDeckCommands({
+    readOnly,
     selected: selectedIds.length,
     anyGrouped,
     canUndo: undo.current.length > 0,
@@ -1052,6 +1055,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             testid="slides-toolbar"
             tabs={DECK_TABS}
             ctx={ctx}
+            readOnly={readOnly}
             activeTab={chrome.tab}
             onTabChange={chrome.setTab}
             collapsed={chrome.collapsed}
@@ -1088,6 +1092,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             testid="slides-rail"
             items={railItems}
             ctx={ctx}
+            readOnly={readOnly}
             activeId={railIdForTool(tool)}
             openPanels={[...openPanels, ...(sidePane === 'ai' ? ['ai'] : [])]}
             lastUsed={chrome.lastUsed}

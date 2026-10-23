@@ -144,16 +144,19 @@ export default function DesignMenuBar({
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: a.undo },
-        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: a.redo },
+        // From Design's registry (designCommands), the same definitions the
+        // ribbon and the right-click menu use: one gate, so a viewer's Edit menu
+        // is off where the bar is, with the shell's READ_ONLY_REASON.
+        menuItemOf(a.cmds.undo, { icon: 'undo' }),
+        menuItemOf(a.cmds.redo, { icon: 'redo' }),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
-        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
-        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
-        { kind: 'item', ...menuAction('duplicate'), icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
-        { kind: 'item', ...menuAction('delete'), icon: 'delete', run: a.deleteSelected, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        menuItemOf(a.cmds.cut, { icon: 'content_cut' }),
+        menuItemOf(a.cmds.copy, { icon: 'content_copy' }),
+        menuItemOf(a.cmds.paste, { icon: 'content_paste' }),
+        menuItemOf(a.cmds.duplicate, { icon: 'file_copy' }),
+        menuItemOf(a.cmds.remove, { icon: 'delete' }),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: a.selectAll },
+        menuItemOf(a.cmds.selectAll, { icon: 'select_all' }),
         { kind: 'item', ...menuAction('find'), icon: 'search', run: a.find },
         { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: a.findAndReplace },
         { kind: 'sep' },
@@ -189,7 +192,7 @@ export default function DesignMenuBar({
         // Add page lives once in the bar, with the other page actions (Layout).
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: a.insertSnippet },
+        menuItemOf(a.cmds.insertSnippet, { icon: 'bookmarks' }),
         { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: a.addWidget },
         // A meeting invites other people to a document by id. With no document
         // bound there is nothing to meet about, so the item is absent rather

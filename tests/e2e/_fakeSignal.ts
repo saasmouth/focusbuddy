@@ -51,7 +51,19 @@ export interface FakeName {
 
 export async function signInWithFakeSignal(
   window: Page,
-  seed: { conversation?: FakeConversation; messages?: object[]; name?: FakeName }
+  seed: {
+    conversation?: FakeConversation
+    messages?: object[]
+    name?: FakeName
+    /**
+     * Play the server's part on the realtime socket (a spec that needs the
+     * live-document room, say). Default: accepted and silent. NOTE the route
+     * only takes effect for a socket the page opens after a navigation that
+     * follows this call (Playwright installs it with the page's init script),
+     * so a spec that needs it reloads and signs in again.
+     */
+    onSocket?: Parameters<Page['routeWebSocket']>[1]
+  }
 ): Promise<FakeSignal> {
   // No conversation seeded = a signed-in account with an empty conversation list.
   const conv = seed.conversation
@@ -92,9 +104,13 @@ export async function signInWithFakeSignal(
       return json({ ok: true })
     }
   )
-  await window.routeWebSocket((u) => u.host === API.host, () => {
-    // Accepted and silent: no server is connected, so nothing is sent or received.
-  })
+  await window.routeWebSocket(
+    (u) => u.host === API.host,
+    seed.onSocket ??
+      (() => {
+        // Accepted and silent: no server is connected, so nothing is sent or received.
+      })
+  )
 
   const ok = await window.evaluate(
     ({ conv, messages, name }) => {

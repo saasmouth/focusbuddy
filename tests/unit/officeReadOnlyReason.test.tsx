@@ -45,7 +45,11 @@ const rec = vi.hoisted(() => ({
   /** Every command a bar control rendered from (`barProps`), by the label it shows. */
   bar: new Map<string, string>(),
   /** Menus as each menu bar handed them to MenuBarShell. */
-  menus: {} as Record<string, unknown>
+  menus: {} as Record<string, unknown>,
+  /** The registry's read-only answer for each command a bar control rendered from (barProps). */
+  answer: new Map<string, boolean>(),
+  /** Each registry-backed bar control as rendered: its command and the readOnlySafe it was given. */
+  safe: [] as Array<{ cmd: string; label: string; readOnlySafe: boolean }>
 }))
 
 // Tag what the registry adapters produce with the command they came from, so
@@ -56,11 +60,27 @@ vi.mock('../../src/renderer/src/lib/menus/officeCommand', async (importOriginal)
     ...real,
     barProps: (c: Parameters<typeof real.barProps>[0]) => {
       rec.bar.set(c.barLabel ?? c.label, c.id)
-      return real.barProps(c)
+      rec.answer.set(c.id, real.readOnlySafeOf(c))
+      // Tagged so the primitive it lands on can say which command it renders.
+      return { ...real.barProps(c), __cmd: c.id }
     },
     menuItemOf: (c: Parameters<typeof real.menuItemOf>[0], extra?: Parameters<typeof real.menuItemOf>[1]) => ({ ...real.menuItemOf(c, extra), cmdId: c.id }),
     menuRow: (c: Parameters<typeof real.menuRow>[0], extra?: Parameters<typeof real.menuRow>[1]) => ({ ...real.menuRow(c, extra), cmdId: c.id })
   }
+})
+
+// Every registry-backed bar control, as it is finally rendered: whatever
+// readOnlySafe reached the primitive (from barProps, or set beside it by hand).
+vi.mock('../../src/renderer/src/components/office/shell/primitives', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../src/renderer/src/components/office/shell/primitives')>()
+  const seen =
+    <P extends { readOnlySafe?: boolean; label?: string }>(C: (p: P) => JSX.Element) =>
+    (p: P & { __cmd?: string }): JSX.Element => {
+      const { __cmd, ...rest } = p
+      if (__cmd) rec.safe.push({ cmd: __cmd, label: String(rest.label ?? ''), readOnlySafe: !!rest.readOnlySafe })
+      return C(rest as P)
+    }
+  return { ...real, BarButton: seen(real.BarButton), BarToggle: seen(real.BarToggle), BarDialogButton: seen(real.BarDialogButton) }
 })
 
 vi.mock('../../src/renderer/src/components/documents/editor/menuBarKit', async (importOriginal) => {
@@ -94,7 +114,7 @@ vi.mock('../../src/renderer/src/components/documents/draw/bar/controls', async (
 
 import { ContextBar, READ_ONLY_REASON, ToolRail, type BarTab, type RailItem } from '../../src/renderer/src/components/office/shell'
 import type { MenuDef, MenuItem } from '../../src/renderer/src/components/documents/editor/menuBarKit'
-import { documentCommands, menuItemOf, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
+import { ctxRow, documentCommands, menuItemOf, readOnlySafeOf, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
 import { WRITE_TABS, writeRailItems, type WCtx } from '../../src/renderer/src/components/documents/editor/writeRibbon'
 import { CELLS_TABS, cellsRailItems, type CCtx } from '../../src/renderer/src/components/documents/sheet/cellsRibbon'
 import { DECK_TABS, deckRailItems, type DeckCtx } from '../../src/renderer/src/components/documents/slides/ribbon'
@@ -168,7 +188,7 @@ const cellsCtx = anyFn<CCtx>({ a: sheetA, readOnly: true, fmt: undefined, active
 // Deck: a text box selected, then a shape (its contextual tab).
 const textEl = { id: 't', type: 'text', x: 0, y: 0, w: 200, h: 60, z: 1, paragraphs: [{ runs: [{ text: 'Hi', fontSize: 24 }] }] } as unknown as SlideElement
 const shapeEl = { id: 'sh', type: 'shape', shape: 'rect', x: 0, y: 0, w: 100, h: 100, z: 2, fill: '#2563eb' } as unknown as SlideElement
-const deckCmds = buildDeckCommands(anyFn<DeckCommandDeps>({ selected: 1, anyGrouped: false, canUndo: true, canRedo: false, canPaste: false, singleSlide: false, textMarks: {} }))
+const deckCmds = buildDeckCommands(anyFn<DeckCommandDeps>({ readOnly: true, selected: 1, anyGrouped: false, canUndo: true, canRedo: false, canPaste: false, singleSlide: false, textMarks: {} }))
 const deckCtx = (el: SlideElement): DeckCtx =>
   anyFn<DeckCtx>({
     slide: { id: 's1', notes: '', layout: 'title-content', elements: [el], transition: 'none', schemaVersion: 2 } as Slide,
@@ -185,7 +205,7 @@ const deckCtx = (el: SlideElement): DeckCtx =>
   })
 
 // Design: a text frame selected.
-const designCmds = buildDesignCommands(anyFn<DesignCommandDeps>({ selected: 1, grouped: false, canPaste: false, textMarks: {} }))
+const designCmds = buildDesignCommands(anyFn<DesignCommandDeps>({ readOnly: true, selected: 1, grouped: false, canPaste: false, textMarks: {} }))
 const designCtx: DesignCtx = {
   cmds: designCmds,
   design: normalizeDesignBody({ width: 794, height: 1123, elements: [textEl] }),
@@ -413,7 +433,7 @@ const APPS: App[] = [
         <SlidesMenuBar actions={actions({ title: 'Deck', hasSelection: true, canPaste: false, canUndo: true, canRedo: false, slideOps: true, activePage: 0, documentOps: ops(), cmds: deckCmds })} />
       ),
     min: 60,
-    minKept: 5, // Group, Ungroup, Distribute: their selection reasons
+    minKept: 2, // Play order, Border width: their own reasons (Group and the rest now say the sentence, from the registry)
     minFromCommand: 0
   },
   {
@@ -565,26 +585,67 @@ describe.each(APPS.map((a) => [a.name, a] as const))('%s on a read-only document
     }
     expect(disagree, app.name).toEqual([])
     expect(new Set(both).size, `${app.name}: commands found in both the bar and a menu`).toBeGreaterThanOrEqual(3)
-    // A menu row LIVE in a read-only document while the bar is off: pinned in
-    // LIVE_IN_MENU_ONLY (below, with why), so it can only shrink, never grow unseen.
-    expect([...new Set(liveInMenuOnly)].sort(), `${app.name}: live in the menu, off in the bar`).toEqual(LIVE_IN_MENU_ONLY[app.name] ?? [])
+    // No menu row is LIVE in a read-only document while the bar has it off:
+    // every registry gates read-only (Deck, Design and Diagrams since
+    // readonly-menus-41; before it, 22 commands were live in their menus).
+    expect([...new Set(liveInMenuOnly)].sort(), `${app.name}: live in the menu, off in the bar`).toEqual([])
+    // And the commands that only READ the document stay live in both places.
+    // (Off only for their own reason, such as nothing selected; never for read-only.)
+    for (const id of READ_SAFE[app.name] ?? []) {
+      const bar = v.pairs.filter((p) => p.cmd === id)
+      expect(bar.length, `${app.name}: ${id} is on the bar`).toBeGreaterThan(0)
+      for (const p of bar) expect(reasonOf(p.tip), `${app.name}: ${id} on the bar`).not.toBe(SENTENCE)
+      expect(bar.some((p) => !p.off), `${app.name}: ${id} is live on the bar in some state`).toBe(true)
+      // By id; or a hand-written row for the same action (Design's Save selection as snippet…), by label.
+      const rows = byState.flat().filter((r) => r.cmdId === id || (!r.cmdId && bar.some((p) => p.label === r.label)))
+      expect(rows.length, `${app.name}: ${id} is in a menu`).toBeGreaterThan(0)
+      for (const r of rows) expect(r.hint, `${app.name}: ${id} in the menu`).not.toBe(SENTENCE)
+      expect(rows.some((r) => !r.disabled), `${app.name}: ${id} is live in the menu in some state`).toBe(true)
+    }
+  })
+
+  it.runIf(app.registry)('every registry-backed bar control is readOnlySafe exactly when its command says so', () => {
+    rec.safe.length = 0
+    rec.answer.clear()
+    verdicts.delete(app.name)
+    verdict(app)
+    const wrong = rec.safe.filter((r) => r.readOnlySafe !== rec.answer.get(r.cmd)).map((r) => `${r.cmd} (${r.label}): bar ${r.readOnlySafe}, registry ${rec.answer.get(r.cmd)}`)
+    expect([...new Set(wrong)], app.name).toEqual([])
+    // Not vacuous: both answers occur.
+    expect(rec.safe.filter((r) => r.readOnlySafe).length, `${app.name}: safe controls`).toBeGreaterThan(0)
+    expect(rec.safe.filter((r) => !r.readOnlySafe).length, `${app.name}: unsafe controls`).toBeGreaterThan(0)
   })
 })
 
-// Commands whose menu row is LIVE in a read-only document while the bar has
-// the control off with the sentence. Found by this test (4.3.41) and left for
-// the apps' owners, because the fix is command wiring, not wording:
-//  - Deck, Design and Diagrams build their registries without `readOnly`
-//    (deckCommands, designCommands, diagramCommands); their editors refuse the
-//    edit when it runs, but the menu offers it. Write and Cells gate it in the
-//    registry, so their menus and bars agree on every row.
-//  - Some of these only READ the document, and Write and Cells keep them live
-//    for a viewer: Check accessibility (sl-a11y), Save selection as snippet…
-//    (sl-save-snippet, ds-save-snippet), Copy style (dg-copy-style). Their bar
-//    controls lack `readOnlySafe`, so there the BAR is the one that is wrong.
-// The list can only shrink: a fix that makes a pair agree must delete its id.
-const LIVE_IN_MENU_ONLY: Record<string, string[]> = {
-  Deck: ['sl-a11y', 'sl-chart', 'sl-del', 'sl-dup', 'sl-image', 'sl-save-snippet', 'sl-snippet', 'sl-table', 'sl-text', 'sl-widget'],
-  Design: ['ds-add-page', 'ds-delete', 'ds-duplicate', 'ds-insert-snippet', 'ds-save-snippet'],
-  Diagrams: ['dg-back', 'dg-backward', 'dg-copy-style', 'dg-forward', 'dg-front', 'dg-hide', 'dg-lock']
+// Read-only-safe commands that a viewer keeps, live in the menu AND the bar:
+// they read the document without changing it (Write and Cells already keep
+// theirs live, for the same reason).
+const READ_SAFE: Record<string, string[]> = {
+  Deck: ['sl-a11y', 'sl-save-snippet'],
+  Design: ['ds-save-snippet'],
+  Diagrams: ['dg-copy-style']
 }
+
+describe('a read-only right-click', () => {
+  // ctxRow THROWS in tests on an off row with no reason (SPEC §9.5), so a
+  // gate without a reason would crash a viewer's right-click. Every command of
+  // the three read-only registries becomes a row; the writing ones are off
+  // with the sentence, the reading ones are not.
+  it.each([
+    ['Deck', () => deckCmds],
+    ['Design', () => designCmds],
+    ['Diagrams', () => diagCtx('node').cmds]
+  ] as const)('%s: every command makes a row, and the writing ones say the sentence', (_n, cmds) => {
+    const all = Object.values(cmds() as unknown as Record<string, OfficeCommand>)
+    let writing = 0
+    for (const c of all) {
+      const r = ctxRow(c)
+      if (readOnlySafeOf(c)) expect(r.hint, c.id).not.toBe(SENTENCE)
+      else {
+        writing++
+        expect([c.id, r.disabled, r.hint]).toEqual([c.id, true, SENTENCE])
+      }
+    }
+    expect(writing, 'not vacuous').toBeGreaterThan(5)
+  })
+})

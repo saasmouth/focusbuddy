@@ -634,9 +634,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // current every render, for the key listener below.
   const selNodes = page.nodes.filter((n) => sel.nodes.has(n.id))
   const selEdges = page.edges.filter((e) => sel.edges.has(e.id))
-  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined }))
+  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, readOnly, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined }))
   keyCmdsRef.current = buildDiagramCommands({
     cmd,
+    readOnly,
     nodes: selNodes.length,
     edges: selEdges.length,
     locked: selNodes.some((n) => n.locked) || selEdges.some((e) => e.locked),

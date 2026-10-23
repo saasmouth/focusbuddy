@@ -820,8 +820,8 @@ export default function DesignEditor({
         e.preventDefault()
         return
       }
-      // Forward-delete does what ⌫ does.
-      if (e.key === 'Delete' && selectedIds.length) {
+      // Forward-delete does what ⌫ does, through the same gate (off for a viewer).
+      if (e.key === 'Delete' && selectedIds.length && (c?.remove.enabled?.() ?? true)) {
         e.preventDefault()
         deleteSelected()
       }
@@ -1486,6 +1486,7 @@ export default function DesignEditor({
   // menu bar and the right-click menu render from this record.
   const firstText = selectedEls[0]?.type === 'text' ? selectedEls[0] : null
   const dcmds = buildDesignCommands({
+    readOnly,
     selected: selectedIds.length,
     textMarks: firstText ? (firstText.paragraphs[0]?.runs[0] ?? {}) : null,
     grouped: canvasElements.some((el) => selectedIds.includes(el.id) && el.groupId),

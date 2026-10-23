@@ -24,6 +24,7 @@ import { blank, harness, withDocument } from './drawTools/harness'
 import { stubEditor, writeCommandsFor } from './_writeCommands'
 import { cellsCommandsFor } from './_cellsCommands'
 import { READ_ONLY_REASON } from '../../src/renderer/src/components/office/shell'
+import { expectNotReadOnly } from './_notReadOnly'
 
 vi.stubGlobal('window', Object.assign(globalThis.window ?? {}, { api: { platform: 'darwin' } }))
 
@@ -33,9 +34,9 @@ const stub = <T>(flags: Record<string, unknown>): T =>
 
 const cmdStub = stub<Parameters<typeof buildDiagramCommands>[0]['cmd']>({ hasStyleClipboard: () => true, textStyleOn: () => false })
 const APPS: Record<string, OfficeCommand[]> = {
-  Deck: Object.values(buildDeckCommands(stub({ selected: 3, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))),
-  Design: Object.values(buildDesignCommands(stub({ selected: 3, grouped: true, canPaste: true, textMarks: {} }))),
-  Diagrams: Object.values(buildDiagramCommands({ cmd: cmdStub, nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined })),
+  Deck: Object.values(buildDeckCommands(stub({ readOnly: false, selected: 3, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))),
+  Design: Object.values(buildDesignCommands(stub({ readOnly: false, selected: 3, grouped: true, canPaste: true, textMarks: {} }))),
+  Diagrams: Object.values(buildDiagramCommands({ cmd: cmdStub, readOnly: false, nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined })),
   File: Object.values(documentCommands(stub({ id: 'doc-1', print: () => undefined }), 'doc')!).filter(Boolean) as OfficeCommand[],
   // PlexiiDraw keeps its command registry; the adapter shows it as OfficeCommands.
   Draw: drawOfficeCommands(withDocument(harness(blank())).ed.ctx),
@@ -62,6 +63,12 @@ const REASONS = [...Object.entries(APPS), ...Object.entries(READ_ONLY_APPS)].fla
     return typeof text === 'string' && text ? [{ app, id: c.id, text }] : []
   })
 )
+
+describe('the fixtures are editable documents (readOnly: false, not a proxy\'s function)', () => {
+  it('Deck, Design and Diagrams build their command records NOT read-only', () => {
+    for (const app of ['Deck', 'Design', 'Diagrams']) expectNotReadOnly(app, APPS[app]!)
+  })
+})
 
 describe('one definition per action', () => {
   it('every id is unique within its app', () => {

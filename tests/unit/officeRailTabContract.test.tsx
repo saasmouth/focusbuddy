@@ -39,6 +39,7 @@ import { normalizeDesignBody } from '../../src/shared/design'
 import { resolveTheme } from '../../src/shared/slideThemes'
 import type { MapNode, Slide, SlideElement } from '../../src/shared/types'
 import { blank, harness, rect } from './drawTools/harness'
+import { expectNotReadOnly } from './_notReadOnly'
 
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
@@ -81,11 +82,11 @@ const deckCtx: DeckCtx = anyFn<DeckCtx>({
   sidePane: null,
   ed: anyFn({}),
   // The ribbon's shared buttons render Deck's command record (SPEC §9.9).
-  cmds: buildDeckCommands(anyFn<DeckCommandDeps>({ selected: 1, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: {} }))
+  cmds: buildDeckCommands(anyFn<DeckCommandDeps>({ readOnly: false, selected: 1, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: {} }))
 })
 const designCtx: DesignCtx = (() => {
   const design = normalizeDesignBody({ width: 794, height: 1123, elements: [textEl] })
-  const cmds = buildDesignCommands(anyFn<DesignCommandDeps>({ selected: 1, grouped: false, canPaste: false, textMarks: {} }))
+  const cmds = buildDesignCommands(anyFn<DesignCommandDeps>({ readOnly: false, selected: 1, grouped: false, canPaste: false, textMarks: {} }))
   return { cmds, design, selected: [textEl], first: textEl, fonts: ['Inter'], palette: ['#000000'], cmd: anyFn({}), startFrom: null, guidesVisible: true, facing: false, bleed: 0, layers: [] }
 })()
 const node = (id: string): MapNode => ({ id, x: 0, y: 0, label: id, shape: 'process', color: '#2563eb' })
@@ -141,6 +142,14 @@ const APPS: App<never>[] = [
   { name: 'Diagrams', rail: diagramRailItems, railCtx: diagCtx, tabs: DIAGRAM_TABS, ctx: diagCtx, textTab: 'home', exceptions: [], bound: { bold: true, italic: true, underline: true } },
   { name: 'Draw', rail: drawRailItems, railCtx: drawCtx, tabs: drawTabs, ctx: drawCtx, textTab: 'type', exceptions: CONTROL_EXCEPTIONS.Draw!, bound: {} }
 ] as unknown as App<never>[]
+
+describe('the fixtures are editable documents (readOnly: false, not a proxy\'s function)', () => {
+  it('Deck, Design and Diagrams build their command records NOT read-only', () => {
+    expectNotReadOnly('Deck', deckCtx.cmds)
+    expectNotReadOnly('Design', designCtx.cmds)
+    expectNotReadOnly('Diagrams', diagCtx.cmds)
+  })
+})
 
 describe('the rail contract (SPEC §3.9): Navigate · Create · Insert (Image first) · App · panels · AI last', () => {
   for (const app of APPS)
