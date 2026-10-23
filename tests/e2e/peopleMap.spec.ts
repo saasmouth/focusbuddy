@@ -3,7 +3,7 @@
  *
  * Boot scope: hermetic test DB (no signed-in session, no org, no people).
  * Goals:
- *   1. The "People Map" sidebar nav item exists and is clickable.
+ *   1. The map is reachable from People Home in the PlexiiPeople area.
  *   2. After navigation data-testid="people-map" is visible.
  *   3. All three tab buttons are present (offices / global / hierarchy).
  *   4. With no session the view shows the honest "Sign in" empty state and
@@ -11,7 +11,7 @@
  *   5. Clicking each tab button does not throw a JS error.
  */
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, waitForReady, switchArea } from './_helpers'
 
 test('People Map: mounts with honest empty state and no fake data in unauthenticated session', async () => {
   const { window, dispose } = await launchApp()
@@ -20,17 +20,37 @@ test('People Map: mounts with honest empty state and no fake data in unauthentic
   try {
     await waitForReady(window)
 
-    // --- Navigate to People Map via sidebar ---
-    // The Sidebar renders a NavRow (button) with text "People Map".
-    // The HomeDashboard now also has a "People Map" quick-action button, so we
-    // scope to the one that is NOT inside [data-testid="home-dashboard"] to
-    // avoid a strict-mode violation.
-    const navItem = window
-      .getByRole('button', { name: 'People Map' })
-      .filter({ hasNot: window.locator('[data-testid="home-dashboard"]') })
-      .first()
-    await expect(navItem).toBeVisible({ timeout: 8_000 })
-    await navItem.click()
+    // PEOPLE MAP IS TEAM-ONLY NOW. 3a40a6ba ("comprehensive entitlement
+    // enforcement across all feature surfaces") put the view behind
+    // people_map, which capabilityDefaults has as { free: false, pro: false,
+    // team: true } — so on the free tier this spec was testing a view the
+    // product correctly refuses to show, and the entry point is hidden by
+    // design (PeopleHomeView only renders it when viewEnabled('people-map')).
+    //
+    // The entitlement is seeded rather than the gate worked around, because
+    // what this spec is actually for is further in: that the map mounts with
+    // an HONEST EMPTY STATE and invents no people when there is no session.
+    // That is worth keeping, and it only happens on a tier that can open it.
+    await window.evaluate(() => {
+      const w = window as unknown as {
+        __fbCapabilities?: { setState: (s: object) => void; getState: () => { capabilities: Record<string, unknown> } }
+      }
+      const current = w.__fbCapabilities?.getState().capabilities ?? {}
+      w.__fbCapabilities?.setState({ capabilities: { ...current, people_map: true, org_directory: true } })
+    })
+
+    // --- Navigate to People Map the way a person now does ---
+    // There is no "People Map" row in the sidebar any more. The map lives in
+    // the PlexiiPeople area: People Home carries the entry point, labelled
+    // "Organisation map" (data-testid people-open-map). Driven through the
+    // area switcher rather than calling goPeopleMap() on the store, so this
+    // still proves the view is REACHABLE and not merely mountable — which is
+    // what the spec's own header says it is for.
+    await switchArea(window, 'plexipeople')
+    await expect(window.locator('[data-testid="people-home"]')).toBeVisible({ timeout: 8_000 })
+    const openMap = window.locator('[data-testid="people-open-map"]')
+    await expect(openMap).toBeVisible({ timeout: 8_000 })
+    await openMap.click()
 
     // --- View root must be visible ---
     const root = window.locator('[data-testid="people-map"]')
