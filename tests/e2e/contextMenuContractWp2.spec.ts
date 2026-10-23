@@ -189,13 +189,16 @@ test('WP2 tray tab menu by keyboard: arrows, Enter, Escape, focus back on the ta
   await tab.click({ button: 'right' })
   const menu = window.locator('[data-canvas-ctx-menu][role="menu"]').first()
   await expect(menu).toBeFocused()
-  // ArrowDown lands on the first row; ArrowDown again moves to the next; ArrowUp back.
+  // Home lands on the first row; ArrowDown moves to the next; ArrowUp back.
   const active = (): Promise<string> =>
     menu.evaluate((m) => {
       const b = Array.from(m.querySelectorAll('button')).find((x) => x.className.split(/\s+/).includes('bg-[var(--surface-sunken)]'))
       return (b?.querySelector('span.flex-1')?.childNodes[0]?.textContent ?? '').trim()
     })
-  await window.keyboard.press('ArrowDown')
+  // The menu may open under the pointer, and hovering a row highlights it;
+  // park the pointer, then drive by keys only. Home lands on the first row.
+  await window.mouse.move(5, 5)
+  await window.keyboard.press('Home')
   expect(await active()).toBe('Pin tab')
   await window.keyboard.press('ArrowDown')
   expect(await active()).toBe('Close tab')

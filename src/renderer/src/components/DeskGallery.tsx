@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FbNode, Widget } from '@shared/types'
 import { useNodeStore } from '../stores/nodes'
 import { requestNewDesk } from '../lib/newDesk'
+import { useViewStore } from '../stores/view'
 import DeskMiniature from './DeskMiniature'
 import Icon from './Icon'
 import CanvasContextMenu from './CanvasContextMenu'
 import ShareDialog from './ShareDialog'
-import { deskMenuItems, openNode } from '../lib/deskLifecycleMenu'
+import { deskMenuItems } from '../lib/deskLifecycleMenu'
 import { focusInvoker } from '../lib/objectMenu'
 import { DashboardHeader, PLEXI_CARD } from './plexi'
 
@@ -18,6 +19,9 @@ import { DashboardHeader, PLEXI_CARD } from './plexi'
 export default function DeskGallery(): JSX.Element {
   const nodes = useNodeStore((s) => s.nodes)
   const nodesLoaded = useNodeStore((s) => s.loaded)
+  const setActive = useNodeStore((s) => s.setActive)
+  const goProject = useViewStore((s) => s.goProject)
+  const goTask = useViewStore((s) => s.goTask)
   const [widgetsByDesk, setWidgetsByDesk] = useState<Record<string, Widget[]>>({})
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; desk: FbNode } | null>(null)
   // The universal ShareDialog, opened from the menu's Share….
@@ -55,8 +59,15 @@ export default function DeskGallery(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deskIdsKey])
 
-  // The same opener the menu's Open uses: a room opens as its desks.
-  const openDesk = openNode
+  // A click keeps the gallery's own behaviour (a top-level room opens on its
+  // canvas, which the gallery has always done). The menu's Open is the shared
+  // node opener (lib/deskLifecycleMenu openNode: a room opens as its desks),
+  // the same Open the index pages offer.
+  function openDesk(n: FbNode): void {
+    setActive(n.id)
+    if (n.kind === 'folder') goProject(n.id)
+    else goTask(n.id)
+  }
 
   function newDesk(): void {
     // Reuse the sidebar's create flow (opens the new-desk dialog).
