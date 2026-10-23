@@ -107,6 +107,25 @@ interface DocumentsStore {
    * choose. Anything that silently picked one would be the bug this replaced.
    */
   conflict: { id: string; theirs: FbDocument } | null
+  /**
+   * Bumped whenever `active.body` is replaced from OUTSIDE the editor — a catch-up
+   * from another editor's save, a body from sync, or taking theirs after a
+   * conflict. The view puts it in each editor's key so the editor REMOUNTS and
+   * re-seeds.
+   *
+   * It is not cosmetic, and OfficeDocWidget already learned this the hard way:
+   * every office editor builds its content on mount and never re-seeds, so
+   * swapping `active` alone moved this store's base revision forward while the
+   * editor still displayed its mount-time text. The next keystroke then saved
+   * STALE text against a CURRENT revision, the compare-and-set passed, and the
+   * other editor's work was destroyed anyway — the guard defeated by its own
+   * catch-up. The widget got a bodyEpoch for this; the Documents view did not,
+   * and had the identical hole.
+   *
+   * Remounting costs the undo stack and the cursor, which is the right trade:
+   * it only happens when there is nothing unsaved, so nobody is mid-sentence.
+   */
+  bodyEpoch: number
 
   refresh: () => Promise<void>
   refreshTrashed: () => Promise<void>
@@ -149,6 +168,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   saving: false,
   saveError: false,
   conflict: null,
+  bodyEpoch: 0,
 
   refresh: async () => {
     set({ loadingList: true })
@@ -333,7 +353,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       const t = saveTimers.get(id)
       if (t) clearTimeout(t)
       saveTimers.delete(id)
-      set({ active: get().active?.id === id ? theirs : get().active, conflict: null, saveError: false })
+      set({
+        active: get().active?.id === id ? theirs : get().active,
+        conflict: null,
+        saveError: false,
+        // Taking theirs is only real if the editor shows theirs.
+        bodyEpoch: get().bodyEpoch + 1
+      })
       return
     }
 
@@ -538,7 +564,14 @@ if (typeof window !== 'undefined' && window.api?.documents?.onChanged) {
       // refetch was in flight.
       if (!doc || cur.active?.id !== id || pendingBodies.has(id)) return
       pendingBaseRev.set(id, doc.bodyRev)
-      useDocumentsStore.setState({ active: doc, conflict: null })
+      // The epoch is what makes this a catch-up rather than a trap: without it
+      // the base revision advances and the editor does not, which is strictly
+      // worse than never refreshing at all.
+      useDocumentsStore.setState({
+        active: doc,
+        conflict: null,
+        bodyEpoch: useDocumentsStore.getState().bodyEpoch + 1
+      })
     })
   })
 }
