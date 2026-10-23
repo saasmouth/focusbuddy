@@ -1,15 +1,34 @@
 import { expect, type Page } from '@playwright/test'
 import { ACTIVE } from '../../src/shared/productDomains'
 
-// A signed-in PlexiiChat session for e2e, with NOTHING reaching the real server.
+// A signed-in PlexiiChat session for e2e, answered locally.
 //
 // The built app talks to the production signal server (shared/productDomains
-// ACTIVE). A spec that seeds a session token and lets the renderer use it would
-// send that token to production: conversation refreshes, the realtime socket,
-// attachment uploads. So every renderer request to the signal origin is answered
-// here, from the conversations and messages the spec seeds, and the socket is
-// accepted locally and kept silent. Unmatched paths get an honest empty
-// `{ ok: true }` and are recorded, so a spec can see what the app asked for.
+// ACTIVE). A spec that seeds a session token lets the renderer use it, so every
+// renderer request to the signal origin is answered here, from the
+// conversations and messages the spec seeds, and the realtime socket is
+// accepted locally and kept silent (or played by `onSocket`). Unmatched paths
+// get an honest empty `{ ok: true }` and are recorded, so a spec can see what
+// the app asked for.
+//
+// WHAT IS GUARANTEED, AND BY WHAT. Until e2e-hermetic-41 this header said
+// "NOTHING reaching the real server", and it was false: `window.routeWebSocket`
+// only reaches documents created after it, so the app's first socket went to
+// wss://api.plexiidesk.com/ws carrying the fake token. Now:
+//
+//  - launchApp holds the first window until the net guard (_netGuard.ts) has
+//    put context.route + context.routeWebSocket in place, so Playwright's
+//    WebSocket mock is in the page from its first document. The page routes
+//    below are added BEFORE the session is seeded, so the first socket the
+//    seeded session opens is already theirs. No reload is needed.
+//  - Anything that still reaches for a production host — a socket opened before
+//    a route, a path this file does not answer that falls through to the
+//    network, main-process traffic — is aborted by the guard's session and Node
+//    layers and FAILS the spec, naming the URL.
+//
+// That is proven, not asserted: tests/e2e/netGuard.spec.ts (NG-6 signs in
+// through this helper and checks the socket was answered here and nothing
+// reached production), and the guard's mutation proofs in that spec's header.
 //
 // The session is seeded into the RENDERER's stores only (__fbAccount and
 // __fbMessaging, thin handles to the real stores). The main process never
@@ -57,10 +76,10 @@ export async function signInWithFakeSignal(
     name?: FakeName
     /**
      * Play the server's part on the realtime socket (a spec that needs the
-     * live-document room, say). Default: accepted and silent. NOTE the route
-     * only takes effect for a socket the page opens after a navigation that
-     * follows this call (Playwright installs it with the page's init script),
-     * so a spec that needs it reloads and signs in again.
+     * live-document room, say). Default: accepted and silent. It takes effect
+     * for the first socket the seeded session opens: launchApp's net guard has
+     * Playwright's WebSocket mock in the page from its first document, so a
+     * page route added here applies without a reload.
      */
     onSocket?: Parameters<Page['routeWebSocket']>[1]
   }
@@ -143,4 +162,55 @@ export async function signInWithFakeSignal(
   )
   expect(ok, 'the renderer exposes __fbAccount and __fbMessaging').toBe(true)
   return fake
+}
+
+/**
+ * For specs that sign in with a STUB token through the real deep-link path
+ * (auth:incoming-token) and stub only the routes they assert on. Every other
+ * signal call the signed-in app makes — inbox, conversations, sync, orgs, the
+ * realtime socket — used to go to PRODUCTION with that stub token and get
+ * refused there. This answers them here, exactly as the deployed server
+ * answers an unknown token (focusbuddy-signal at signal-v126):
+ *
+ *  - HTTP: requireAccount fails, the route sets 401 and returns
+ *    `{ ok: false, error: 'Not authenticated.' }` (server.ts requireAccount
+ *    4780; e.g. GET /conversations 7574) — the body 155 of its routes return.
+ *  - Socket: the upgrade is accepted, and `authenticate` with an unknown token
+ *    gets `{ type: 'error', payload: { message: 'Session expired.' } }` and
+ *    nothing else (server.ts 9048-9052).
+ *
+ * Register it FIRST: Playwright tries the most recently added route first, so
+ * the spec's own stubs (accounts/me, capabilities) still answer theirs.
+ */
+export async function answerAsServerForUnknownToken(window: Page): Promise<string[]> {
+  const asked: string[] = []
+  await window.route(
+    (u) => isSignal(u),
+    async (route) => {
+      const req = route.request()
+      asked.push(`${req.method()} ${new URL(req.url()).pathname}`)
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'Not authenticated.' })
+      })
+    }
+  )
+  await window.routeWebSocket(
+    (u) => u.host === API.host,
+    (ws) => {
+      ws.onMessage((raw) => {
+        let msg: { type?: string }
+        try {
+          msg = JSON.parse(String(raw))
+        } catch {
+          return
+        }
+        if (msg.type === 'authenticate') {
+          ws.send(JSON.stringify({ type: 'error', payload: { message: 'Session expired.' } }))
+        }
+      })
+    }
+  )
+  return asked
 }

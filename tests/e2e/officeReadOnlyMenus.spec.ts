@@ -93,13 +93,10 @@ async function openAsViewer(app: App): Promise<{ w: Page; writes: string[] }> {
       if (msg.type === 'yjsUpdate') writes.push('yjsUpdate')
     })
   }
-  const signIn = (): Promise<unknown> => signInWithFakeSignal(w, { name: { firstName: 'Vera', lastName: 'Viewer' }, onSocket })
-  // A socket route applies to sockets opened after the NEXT navigation, so:
-  // route, reload, then seed the session (the stores do not survive a reload).
-  await signIn()
-  await w.reload()
-  await waitForReady(w)
-  await signIn()
+  // The socket route takes effect for the first socket the seeded session
+  // opens (launchApp's net guard puts the WebSocket mock in the page from its
+  // first document), so there is no reload-and-sign-in-again any more.
+  await signInWithFakeSignal(w, { name: { firstName: 'Vera', lastName: 'Viewer' }, onSocket })
   // Registered after the fake signal's catch-all, so these answer first.
   await w.route(
     (u) => u.origin === API.origin && u.pathname.startsWith(`/livedocs/${id}`),

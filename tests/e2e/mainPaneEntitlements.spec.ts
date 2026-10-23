@@ -16,6 +16,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { answerAsServerForUnknownToken } from './_fakeSignal'
 import { CAPABILITY_DEFAULTS, type CapabilityValue } from '../../src/renderer/src/lib/capabilityDefaults'
 
 let launched: LaunchedApp | null = null
@@ -42,6 +43,9 @@ async function stubAuthAndCaps(
   capsMap: Record<string, CapabilityValue>,
   sources: Record<string, string>
 ): Promise<() => number> {
+  // Everything else the signed-in app asks the signal server, answered here as
+  // the deployed server answers this stub token (it used to go to production).
+  await answerAsServerForUnknownToken(window)
   await window.route('**/accounts/me', async (route) => {
     await route.fulfill({
       status: 200,
