@@ -29,6 +29,7 @@ import { resolveKey, setKeyPlatform } from '../../src/renderer/src/components/do
 import { blank, harness, withDocument } from './drawTools/harness'
 import { writeCommandsFor } from './_writeCommands'
 import { cellsCommandsFor } from './_cellsCommands'
+import { expectNotReadOnly } from './_notReadOnly'
 
 vi.stubGlobal('window', Object.assign(globalThis.window ?? {}, { api: { platform: 'darwin' } }))
 
@@ -39,12 +40,26 @@ const anyEditor = new Proxy({}, { get: () => () => anyEditor })
 const APPS: Record<string, OfficeCommand[]> = {
   Write: Object.values(writeCommandsFor(anyEditor)),
   Cells: Object.values(cellsCommandsFor()),
-  Deck: Object.values(buildDeckCommands(stub({ selected: 3, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))),
-  Design: Object.values(buildDesignCommands(stub({ selected: 3, grouped: true, canPaste: true, textMarks: {} }))),
+  Deck: Object.values(buildDeckCommands(stub({ readOnly: false, selected: 3, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))),
+  Design: Object.values(buildDesignCommands(stub({ readOnly: false, selected: 3, grouped: true, canPaste: true, textMarks: {} }))),
   Diagrams: Object.values(
-    buildDiagramCommands({ cmd: stub({ hasStyleClipboard: () => true, textStyleOn: () => false }), nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined })
+    buildDiagramCommands({
+      cmd: stub({ hasStyleClipboard: () => true, textStyleOn: () => false }),
+      readOnly: false,
+      nodes: 3,
+      edges: 1,
+      locked: false,
+      grouped: true,
+      openFind: () => undefined,
+      canUndo: true,
+      canRedo: true
+    })
   )
 }
+// The stub deps say readOnly: false; held to it, or every gated key would test the wrong state.
+it('the Deck, Design and Diagrams fixtures are NOT read-only', () => {
+  for (const app of ['Deck', 'Design', 'Diagrams']) expectNotReadOnly(app, APPS[app]!)
+})
 const FILE = Object.values(documentCommands(stub({ id: 'd', print: () => undefined }), 'doc')!).filter(Boolean) as OfficeCommand[]
 
 // What a keyboard sends for a combination: event.key as typed (Shift and
@@ -116,7 +131,9 @@ describe('every editor dispatches its registry through the matcher', () => {
     Cells: ['SheetEditor.tsx', /runCommandKey\(|matchCommand\(/],
     Deck: ['SlidesEditor.tsx', /runCommandKey\(Object\.values\(cmdsRef\.current\)/],
     Design: ['DesignEditor.tsx', /runCommandKey\(Object\.values\(c\)/],
-    Diagrams: ['diagram/DiagramEditor.tsx', /runCommandKey\(Object\.values\(keyCmdsRef\.current\)/]
+    // Through dispatchDiagramKey (below): the registry first, then handleKey's gated keys.
+    Diagrams: ['diagram/DiagramEditor.tsx', /dispatchDiagramKey\(e, keyCmdsRef\.current,/],
+    'Diagrams (dispatch)': ['diagram/diagramCommands.ts', /runCommandKey\(Object\.values\(keys\), e\)/]
   }
   it.each(Object.keys(EDITORS))('%s', (app) => {
     const [file, pattern] = EDITORS[app]!

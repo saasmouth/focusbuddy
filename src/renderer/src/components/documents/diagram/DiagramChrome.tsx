@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapBody } from '@shared/types'
 import { hiddenCount, type Graph, type Sel } from '@shared/diagram/ops'
 import type { PageInfo } from '@shared/diagram/pages'
-import { SHAPES, SHAPE_CATEGORIES } from '@shared/diagram/shapes'
 import DrawMenuBar from '../editor/DrawMenuBar'
 import type { DocumentOps } from '../editor/documentOps'
-import type { MenuItem } from '../editor/menuBarKit'
 import Icon from '../../Icon'
 import { BarButton, BarMenu, BarToggle, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, useShellChrome } from '../../office/shell'
 import type { Commands } from './commands'
@@ -15,8 +13,8 @@ import { LayersPanel } from './LayersPanel'
 import { AiPane, DataDialog, FindPanel, MermaidDialog, ShortcutsDialog, TemplatesDialog } from './dialogs'
 import { Binding, CustomData, IconInput } from './parts'
 import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DiagramDialog, type DiagramPanel, type DiagramSidePane } from './ribbon'
-import { menuAction } from '../../../lib/menus/menuAction'
-import { barMenuItem, barProps, menuItemOf } from '../../../lib/menus/officeCommand'
+import { diagramMenus } from './diagramMenus'
+import { barMenuItem, barProps } from '../../../lib/menus/officeCommand'
 
 // The PlexiiDiagrams frame on the shared office shell (SPEC §6.1): the menu bar
 // and ribbon tabs on one row, the active tab's controls under them, the tool
@@ -204,183 +202,39 @@ export function DiagramChrome({
         pickImage: (replaceNodeId) => {
           imageReplace.current = replaceNodeId
           imageRef.current?.click()
-        }
+        },
+        canUndo,
+        canRedo,
+        importFile: (kind) => {
+          fileKind.current = kind
+          fileRef.current?.click()
+        },
+        openAi: () => setSidePane('ai'),
+        insertSnippet: onInsertSnippet
       }),
-    [cmd, page, sel, settings, readOnly, singlePage, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus]
+    [cmd, page, sel, settings, readOnly, singlePage, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus, canUndo, canRedo, setSidePane, onInsertSnippet]
   )
   // Every shared action, defined once (diagramCommands): menus, ribbon and zoom controls render from it.
   const c = ctx.cmds
   const railItems = useMemo(() => diagramRailItems(), [])
 
-  const menus = {
-    file: (): MenuItem[] => [
-      {
-        kind: 'submenu',
-        label: 'Import',
-        icon: 'upload_file',
-        items: [
-          { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
-          // draw.io and PlexiiDiagrams JSON can carry several pages (JSON replaces
-          // the whole diagram); a single-page editor would keep page one and drop
-          // the rest, so neither is offered there.
-          ...(singlePage ? [] : [{ kind: 'item' as const, label: 'draw.io / diagrams.net file…', icon: 'draw', run: () => ((fileKind.current = 'drawio'), fileRef.current?.click()) }]),
-          { kind: 'item', label: 'Visio (.vsdx)…', icon: 'schema', run: () => void cmd.importVsdx().then((e) => e && setStatus(e)) },
-          ...(singlePage ? [] : [{ kind: 'item' as const, label: 'PlexiiDiagrams JSON…', icon: 'data_object', run: () => ((fileKind.current = 'json'), fileRef.current?.click()) }])
-        ]
-      },
-      {
-        kind: 'submenu',
-        label: menuAction('download').label,
-        icon: 'download',
-        items: [
-          { kind: 'item', label: 'PNG image', run: () => void exportFmt('png') },
-          { kind: 'item', label: 'SVG (vector)', run: () => void exportFmt('svg') },
-          { kind: 'item', label: 'JPG image', run: () => void exportFmt('jpg') },
-          { kind: 'item', label: 'PDF', run: () => void exportFmt('pdf') },
-          { kind: 'sep' },
-          { kind: 'item', label: 'Selection as PNG', run: () => void exportFmt('png', 'selection'), disabled: !hasSel },
-          { kind: 'item', label: 'Selection as SVG', run: () => void exportFmt('svg', 'selection'), disabled: !hasSel },
-          { kind: 'sep' },
-          { kind: 'item', label: 'Mermaid (.mmd)', run: () => cmd.exportText('mermaid') },
-          { kind: 'item', label: 'Copy as Mermaid', run: () => (cmd.copyMermaid(), setStatus('Mermaid copied to the clipboard.')) },
-          { kind: 'item', label: 'draw.io (.drawio), all pages', run: () => cmd.exportText('drawio') },
-          { kind: 'item', label: 'PlexiiDiagrams JSON', run: () => cmd.exportText('json') }
-        ]
-      }
-    ],
-    edit: (): MenuItem[] => [
-      { kind: 'item', ...menuAction('undo'), icon: 'undo', run: cmd.undo, disabled: !canUndo },
-      { kind: 'item', ...menuAction('redo'), icon: 'redo', run: cmd.redo, disabled: !canRedo },
-      { kind: 'sep' },
-      menuItemOf(c.cut),
-      menuItemOf(c.copy),
-      menuItemOf(c.paste),
-      menuItemOf(c.duplicate),
-      menuItemOf(c.remove),
-      { kind: 'sep' },
-      menuItemOf(c.selectAll),
-      menuItemOf(c.find),
-      menuItemOf(c.findAndReplace),
-      ...(onSaveSnippet ? [{ kind: 'sep' as const }, { kind: 'item' as const, ...menuAction('saveAsSnippet'), icon: 'bookmark_add', run: onSaveSnippet }] : []),
-      { kind: 'sep' },
-      menuItemOf(c.copyStyle),
-      menuItemOf(c.pasteStyle)
-    ],
-    view: (): MenuItem[] => [
-      menuItemOf(c.fit),
-      menuItemOf(c.zoomToSelection),
-      menuItemOf(c.zoomIn),
-      menuItemOf(c.zoomOut),
-      menuItemOf(c.actualSize),
-      { kind: 'sep' },
-      { kind: 'item', label: 'Shape library', icon: 'category', run: () => togglePanel('library'), active: isOpen('library') },
-      { kind: 'item', label: 'Layers', icon: 'layers', run: () => togglePanel('layers'), active: isOpen('layers') },
-      { kind: 'item', label: 'Ribbon', icon: 'view_day', run: () => changeCollapsed(!collapsed), active: !collapsed },
-      { kind: 'sep' },
-      { kind: 'item', label: 'Grid', icon: 'grid_on', run: () => cmd.setSettings({ grid: settings.grid === false ? undefined : false }), active: settings.grid !== false },
-      { kind: 'item', label: 'Snap to grid', icon: 'grid_goldenratio', run: () => cmd.setSettings({ snap: settings.snap === false ? undefined : false }), active: settings.snap !== false },
-      { kind: 'item', label: 'Smart guides', icon: 'straighten', run: () => cmd.setSettings({ guides: settings.guides === false ? undefined : false }), active: settings.guides !== false },
-      { kind: 'item', label: 'Line jumps', icon: 'u_turn_right', run: () => cmd.setSettings({ lineJumps: settings.lineJumps ? undefined : true }), active: !!settings.lineJumps },
-      { kind: 'item', label: 'Minimap', icon: 'map', run: () => cmd.setSettings({ minimap: settings.minimap === false ? undefined : false }), active: settings.minimap !== false }
-    ],
-    insert: (): MenuItem[] => [
-      ...(['process', 'decision', 'terminator', 'data', 'database', 'circle'] as const).map((id) => {
-        const s = SHAPES.find((x) => x.id === id)!
-        return { kind: 'item' as const, label: s.label, run: () => void cmd.addShape(id) }
-      }),
-      { kind: 'sep' },
-      ...SHAPE_CATEGORIES.filter((c) => SHAPES.some((s) => s.category === c)).map((c) => ({
-        kind: 'submenu' as const,
-        label: `${c} shapes`,
-        icon: 'category',
-        items: SHAPES.filter((s) => s.category === c).map((s) => ({ kind: 'item' as const, label: s.label, run: () => void cmd.addShape(s.id) }))
-      })),
-      { kind: 'sep' },
-      { kind: 'item', label: 'Text', icon: 'title', shortcut: 'T', run: () => setTool('text') },
-      { kind: 'item', label: 'Table', icon: 'table', run: () => void cmd.addShape(SHAPES.find((s) => s.special === 'table')?.id ?? 'process') },
-      { kind: 'item', label: 'Sticky note', icon: 'sticky_note_2', run: () => void cmd.addShape(SHAPES.find((s) => s.special === 'sticky')?.id ?? 'note') },
-      { kind: 'item', label: 'Swimlane', icon: 'view_column', run: () => void cmd.addShape('lane') },
-      { kind: 'item', label: 'Image…', icon: 'image', run: () => ctx.pickImage() },
-      { kind: 'sep' },
-      { kind: 'item', label: 'From a Plexii table…', icon: 'table_chart', run: () => setDialog('data') },
-      { kind: 'item', label: 'Template…', icon: 'dashboard', run: () => setDialog('templates') },
-      { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
-      { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setSidePane('ai') },
-      ...(singlePage ? [] : [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'New page', icon: 'note_add', run: cmd.addPage }]),
-      // The shared tail (SPEC §9.2): Insert snippet… · Work widget from a desk…, then Meeting (DrawMenuBar).
-      { kind: 'sep' },
-      ...(onInsertSnippet ? [{ kind: 'item' as const, ...menuAction('insertSnippet'), icon: 'bookmarks', run: onInsertSnippet, disabled: readOnly }] : []),
-      { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: () => setDialog('data-widgets') }
-    ],
-    arrange: (): MenuItem[] => [
-      menuItemOf(c.bringToFront),
-      menuItemOf(c.bringForward),
-      menuItemOf(c.sendBackward),
-      menuItemOf(c.sendToBack),
-      { kind: 'sep' },
-      menuItemOf(c.group),
-      menuItemOf(c.ungroup),
-      menuItemOf(c.lock),
-      menuItemOf(c.hide),
-      { kind: 'item', label: `Show all hidden${hiddenOnPage ? ` (${hiddenOnPage})` : ''}`, icon: 'visibility', run: cmd.showAllHidden, disabled: !hiddenOnPage },
-      { kind: 'sep' },
-      {
-        kind: 'submenu',
-        label: 'Align',
-        icon: 'align_horizontal_left',
-        items: (
-          [
-            ['left', 'Left'],
-            ['hcenter', 'Centre'],
-            ['right', 'Right'],
-            ['top', 'Top'],
-            ['vcenter', 'Middle'],
-            ['bottom', 'Bottom']
-          ] as const
-        ).map(([e, l]) => ({ kind: 'item' as const, label: l, run: () => cmd.align(e), disabled: sel.nodes.size < 2 }))
-      },
-      {
-        kind: 'submenu',
-        label: 'Distribute',
-        icon: 'horizontal_distribute',
-        items: [
-          { kind: 'item', label: 'Horizontally', run: () => cmd.distribute('h'), disabled: sel.nodes.size < 3 },
-          { kind: 'item', label: 'Vertically', run: () => cmd.distribute('v'), disabled: sel.nodes.size < 3 }
-        ]
-      },
-      {
-        kind: 'submenu',
-        label: 'Rotate & flip',
-        icon: 'rotate_right',
-        items: [
-          { kind: 'item', label: 'Rotate 90° right', run: () => cmd.rotate(90), disabled: !hasSel },
-          { kind: 'item', label: 'Rotate 90° left', run: () => cmd.rotate(-90), disabled: !hasSel },
-          { kind: 'item', label: 'Flip horizontally', run: () => cmd.flip('x'), disabled: !hasSel },
-          { kind: 'item', label: 'Flip vertically', run: () => cmd.flip('y'), disabled: !hasSel }
-        ]
-      },
-      { kind: 'sep' },
-      { kind: 'item', label: 'Tidy connections', icon: 'cleaning_services', run: () => setStatus(cmd.tidyConnections()) },
-      {
-        kind: 'submenu',
-        label: 'Auto layout',
-        icon: 'account_tree',
-        items: [
-          { kind: 'item', label: 'Hierarchy, top to bottom', run: () => cmd.layout('layered', 'TB') },
-          { kind: 'item', label: 'Hierarchy, left to right', run: () => cmd.layout('layered', 'LR') },
-          { kind: 'item', label: 'Tree', run: () => cmd.layout('tree', 'TB') },
-          { kind: 'item', label: 'Mind map', run: () => cmd.layout('mindmap', 'LR') },
-          { kind: 'item', label: 'Radial', run: () => cmd.layout('radial', 'TB') },
-          { kind: 'item', label: 'Organic', run: () => cmd.layout('organic', 'TB') },
-          { kind: 'item', label: 'Grid', run: () => cmd.layout('grid', 'TB') }
-        ]
-      }
-    ],
-    help: (): MenuItem[] => [
-      { kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setDialog('shortcuts') },
-      { kind: 'item', label: 'How to diagram', icon: 'help', run: () => setDialog('shortcuts') }
-    ]
-  }
+  // Every menu row, from the registry where it changes the diagram (diagramMenus).
+  const menus = diagramMenus({
+    c,
+    cmd,
+    singlePage,
+    hasSel,
+    hiddenOnPage,
+    exportFmt: (f, scope) => void exportFmt(f, scope),
+    setStatus,
+    openShortcuts: () => setDialog('shortcuts'),
+    togglePanel,
+    isOpen,
+    collapsed,
+    setCollapsed: chrome.setCollapsed,
+    onSaveSnippet,
+    onInsertSnippet
+  })
 
   const changeTab = chrome.setTab
   const changeCollapsed = chrome.setCollapsed
@@ -475,8 +329,9 @@ export function DiagramChrome({
             menuBar={<DrawMenuBar actions={{ ...menus, documentOps }} />}
             pinnedStart={
               <>
-                <BarButton icon="undo" {...menuAction('undo')} disabled={!canUndo} onClick={cmd.undo} testid="diagram-undo" />
-                <BarButton icon="redo" {...menuAction('redo')} disabled={!canRedo} onClick={cmd.redo} testid="diagram-redo" />
+                {/* Edit's Undo / Redo commands: off with "Nothing to undo." or, for a viewer, the read-only sentence. */}
+                <BarButton {...barProps(c.undo)} onClick={c.undo.run} testid="diagram-undo" />
+                <BarButton {...barProps(c.redo)} onClick={c.redo.run} testid="diagram-redo" />
               </>
             }
             rightSlot={

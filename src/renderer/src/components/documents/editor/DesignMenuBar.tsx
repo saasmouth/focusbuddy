@@ -19,64 +19,18 @@ export interface DesignMenuActions {
   /** The shared actions, defined once (design/designCommands). */
   cmds: DesignCommands
   title: string
-  undo: () => void
-  redo: () => void
-  deleteSelected: () => void
-  addText: () => void
-  addShape: (shape: 'rect' | 'ellipse' | 'roundRect' | 'triangle') => void
-  addLine: () => void
-  addImageFromFile: () => void
-  addWidget: () => void
-  removeBgSelected: () => void
   exportAs: (format: 'png' | 'pdf') => void
-  // ── Page layout ────────────────────────────────────────────────────────────
-  openLayout: () => void
-  addPage: () => void
-  toggleFacing: () => void
-  facing: boolean
-  addMaster: () => void
+  // ── Master pages: one Edit row per master, each from cmds.editMaster ──────
   editMaster: (id: string | null) => void
   masters: Array<{ id: string; name: string }>
   editingMasterId: string | null
-  linkFrames: () => void
-  unlinkFrame: () => void
-  canLink: boolean
-  canUnlink: boolean
-  insertPageNumber: () => void
-  toggleAids: () => void
-  aidsVisible: boolean
   exportPrint: () => void
   /** Open the print check: what would go wrong on press, measured. */
   openPreflight: () => void
-  /** Open the named styles: the sheet the whole document sets by. */
-  openStyles: () => void
-  /** Open the palette: named colours and spot inks. */
-  openSwatches: () => void
-  // ── Clipboard ──────────────────────────────────────────────────────────────
-  // The same three functions the DOM clipboard events run, so Edit › Copy and
-  // ⌘C cannot drift apart.
-  copySelection: () => void
-  cutSelection: () => void
-  pasteClipboard: () => void
-  /** Whether a menu-driven paste has anything to paste. */
-  canPaste: boolean
-  duplicateSelection: () => void
-  /** Select everything a person could click on the page being edited. */
-  selectAll: () => void
-  /** Open Find… (⌘F) over every piece of text in the design. */
-  find: () => void
-  /** Open the same panel with its Replace row showing (⇧⌘H). */
-  findAndReplace: () => void
   /** Save the selected elements as a reusable snippet. */
   saveSelectionAsSnippet: () => void
-  /** Open the saved-snippets library to insert one onto the page being edited. */
-  insertSnippet: () => void
   /** Something is selected on the page, so the selection items are live. */
   hasSelection: boolean
-  /** Copy the current page, with everything on it, and put it straight after. */
-  duplicatePage: (index: number) => void
-  /** Which page is showing, for the page items. */
-  activePage: number
   /**
    * The print check's standing verdict ("Ready to print", "2 warnings"), shown
    * on the menu item itself. InDesign keeps preflight in the status bar for a
@@ -157,8 +111,8 @@ export default function DesignMenuBar({
         menuItemOf(a.cmds.remove, { icon: 'delete' }),
         { kind: 'sep' },
         menuItemOf(a.cmds.selectAll, { icon: 'select_all' }),
-        { kind: 'item', ...menuAction('find'), icon: 'search', run: a.find },
-        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: a.findAndReplace },
+        menuItemOf(a.cmds.find),
+        menuItemOf(a.cmds.findAndReplace),
         { kind: 'sep' },
         {
           kind: 'item',
@@ -174,26 +128,23 @@ export default function DesignMenuBar({
       id: 'insert',
       label: 'Insert',
       build: () => [
-        { kind: 'item', label: 'Text', icon: 'title', run: a.addText },
-        { kind: 'item', label: 'Image', icon: 'image', run: a.addImageFromFile },
+        // Every row from Design's registry (designCommands), so a viewer's
+        // Insert menu is off with the shell's READ_ONLY_REASON, as the bar is.
+        menuItemOf(a.cmds.insertText),
+        menuItemOf(a.cmds.insertImage),
         {
           kind: 'submenu',
           label: 'Shape',
           icon: 'category',
-          items: [
-            { kind: 'item', label: 'Rectangle', run: () => a.addShape('rect') },
-            { kind: 'item', label: 'Rounded rectangle', run: () => a.addShape('roundRect') },
-            { kind: 'item', label: 'Ellipse', run: () => a.addShape('ellipse') },
-            { kind: 'item', label: 'Triangle', run: () => a.addShape('triangle') }
-          ]
+          items: [menuItemOf(a.cmds.insertRect), menuItemOf(a.cmds.insertRoundRect), menuItemOf(a.cmds.insertEllipse), menuItemOf(a.cmds.insertTriangle)]
         },
-        { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
+        menuItemOf(a.cmds.insertLine),
         { kind: 'sep' },
         // Add page lives once in the bar, with the other page actions (Layout).
-        { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
+        menuItemOf(a.cmds.insertPageNumber),
         { kind: 'sep' },
         menuItemOf(a.cmds.insertSnippet, { icon: 'bookmarks' }),
-        { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: a.addWidget },
+        menuItemOf(a.cmds.insertWidget),
         // A meeting invites other people to a document by id. With no document
         // bound there is nothing to meet about, so the item is absent rather
         // than starting a meeting about id ''.
@@ -206,34 +157,39 @@ export default function DesignMenuBar({
       id: 'layout',
       label: 'Layout',
       build: () => [
-        { kind: 'item', label: 'Margins, columns & layers…', icon: 'grid_on', run: a.openLayout },
-        { kind: 'item', label: 'Paragraph styles…', icon: 'format_paint', run: a.openStyles },
-        { kind: 'item', label: 'Swatches & spot inks…', icon: 'palette', run: a.openSwatches },
-        { kind: 'item', label: 'Show layout guides', icon: a.aidsVisible ? 'visibility' : 'visibility_off', run: a.toggleAids, active: a.aidsVisible },
-        { kind: 'item', label: 'Facing pages', icon: 'auto_stories', run: a.toggleFacing, active: a.facing },
+        // From the registry too: the panels, Facing pages, the master pages and
+        // the page and story rows change the design (off for a viewer); Show
+        // layout guides is the viewer's own view and stays live.
+        menuItemOf(a.cmds.layoutPanel),
+        menuItemOf(a.cmds.stylesPanel),
+        menuItemOf(a.cmds.swatchesPanel),
+        menuItemOf(a.cmds.toggleGuides),
+        menuItemOf(a.cmds.facing),
         { kind: 'sep' },
         {
           kind: 'submenu',
           label: 'Master pages',
           icon: 'auto_stories',
           items: [
-            { kind: 'item', label: 'New master page', icon: 'add', run: a.addMaster },
+            menuItemOf(a.cmds.newMaster),
             ...(a.masters.length ? [{ kind: 'sep' as const }] : []),
-            ...a.masters.map((m) => ({
-              kind: 'item' as const,
-              label: `Edit ${m.name}`,
-              run: () => a.editMaster(a.editingMasterId === m.id ? null : m.id),
-              active: a.editingMasterId === m.id
-            })),
-            ...(a.editingMasterId ? [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'Stop editing master', run: () => a.editMaster(null) }] : [])
+            // One row per master, each from the one Edit-master definition: its gate, this master's label and run.
+            ...a.masters.map((m) =>
+              menuItemOf(a.cmds.editMaster, {
+                label: `Edit ${m.name}`,
+                run: () => a.editMaster(a.editingMasterId === m.id ? null : m.id),
+                active: a.editingMasterId === m.id
+              })
+            ),
+            ...(a.editingMasterId ? [{ kind: 'sep' as const }, menuItemOf(a.cmds.stopEditingMaster)] : [])
           ]
         },
         { kind: 'sep' },
         menuItemOf(a.cmds.addPage),
-        { kind: 'item', label: 'Duplicate this page', icon: 'file_copy', run: () => a.duplicatePage(a.activePage) },
+        menuItemOf(a.cmds.duplicatePage),
         { kind: 'sep' },
-        { kind: 'item', label: 'Link text frames into one story', icon: 'link', run: a.linkFrames, disabled: !a.canLink },
-        { kind: 'item', label: 'Unlink frame from its story', icon: 'link_off', run: a.unlinkFrame, disabled: !a.canUnlink }
+        menuItemOf(a.cmds.linkFrames),
+        menuItemOf(a.cmds.unlinkFrame)
       ]
     },
     {
@@ -244,6 +200,8 @@ export default function DesignMenuBar({
         { kind: 'sep' },
         // Before the export, because it is what you do before the export.
         { kind: 'item', label: 'Preflight for print…', icon: 'fact_check', hint: a.preflightHint, run: a.openPreflight },
+        // Reads the design: live for a viewer, here and on the bar's Review tab.
+        menuItemOf(a.cmds.checkA11y),
         { kind: 'item', label: 'Print PDF (bleed + crop marks)', icon: 'print', run: a.exportPrint }
       ]
     },

@@ -69,6 +69,13 @@ export interface DCtx {
   toggleSidePane: (p: DiagramSidePane) => void
   setStatus: (msg: string) => void
   pickImage: (replaceNodeId?: string) => void
+  /** Edit's Undo / Redo rows: is there a step (read strictly, `=== true`). */
+  canUndo?: boolean
+  canRedo?: boolean
+  /** The chrome's own: File ▸ Import's pickers, the AI pane, the snippets library (absent: none offered). */
+  importFile?: (kind: 'drawio' | 'json') => void
+  openAi?: () => void
+  insertSnippet?: () => void
 }
 
 /** Build the per-render context from the editor's state. Pure. */
@@ -87,7 +94,20 @@ export function diagramCtx(base: Omit<DCtx, 'nodes' | 'edges' | 'palette' | 'cmd
       edges: edges.length,
       locked: nodes.some((n) => n.locked) || edges.some((e) => e.locked),
       grouped: nodes.some((n) => n.groupId),
-      openFind: () => base.openDialog('find')
+      openFind: () => base.openDialog('find'),
+      canUndo: base.canUndo === true,
+      canRedo: base.canRedo === true,
+      settings: base.settings,
+      hidden: hiddenCount(base.page),
+      ui: {
+        setTool: (t) => base.setTool(t),
+        openDialog: (d) => base.openDialog(d),
+        pickImage: () => base.pickImage(),
+        openAi: base.openAi,
+        importFile: base.importFile,
+        setStatus: base.setStatus,
+        insertSnippet: base.insertSnippet
+      }
     })
   }
 }

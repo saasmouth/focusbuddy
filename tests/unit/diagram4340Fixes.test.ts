@@ -71,7 +71,9 @@ describe('4a: hidden draw.io content is recoverable', () => {
     expect(d('diagramCommands.ts')).toContain('run: cmd.hideSelection')
     expect(d('ContextMenu.tsx')).toContain('ctxRow(c.hide')
     expect(d('LayersPanel.tsx')).toContain('data-testid="diagram-show-hidden"')
-    expect(d('DiagramChrome.tsx')).toContain('run: cmd.showAllHidden')
+    // Arrange ▸ Show all hidden: a registry command (viewer-registry-41), rendered by the menu bar's rows.
+    expect(d('diagramCommands.ts')).toContain('run: cmd.showAllHidden')
+    expect(d('diagramMenus.ts')).toContain('menuItemOf(c.showAllHidden')
   })
 })
 
