@@ -10,6 +10,7 @@
 // widget file.
 
 import type { DocType, WidgetKind } from './types'
+import { XLSX_EXT, XLSX_MIME } from './xlsxSheet'
 
 /** Lowercase: DataTransfer lowercases every type it stores. */
 export const FILES_DRAG_MIME = 'application/x-plexii-files'
@@ -51,10 +52,12 @@ export type FileSourceKind =
   | 'video'
   | 'audio'
   | 'text'
+  /** An Excel workbook (.xlsx, .xlsm): a file in Files, not a PlexiiCells document. */
+  | 'sheet'
   | 'generic'
   | 'folder'
 
-export type FilesDragMarker = 'image' | 'svg' | 'pdf' | 'doc' | 'widget' | 'media' | 'text' | 'other' | 'folder'
+export type FilesDragMarker = 'image' | 'svg' | 'pdf' | 'doc' | 'widget' | 'media' | 'text' | 'sheet' | 'other' | 'folder'
 
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'])
 const TEXT_EXT = new Set(['txt', 'md', 'markdown', 'csv', 'tsv', 'json'])
@@ -83,6 +86,7 @@ export function sourceKindOf(ref: FileDragRef): FileSourceKind {
   if (mime === 'application/pdf' || ext === 'pdf') return 'pdf'
   if (mime.startsWith('video/') || VIDEO_EXT.has(ext)) return 'video'
   if (mime.startsWith('audio/') || AUDIO_EXT.has(ext)) return 'audio'
+  if (XLSX_EXT.has(ext) || XLSX_MIME.has(mime)) return 'sheet'
   if (TEXT_EXT.has(ext) || mime === 'text/plain' || mime === 'text/markdown' || mime === 'text/csv' || mime === 'application/json')
     return 'text'
   return 'generic'

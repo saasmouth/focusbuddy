@@ -10,9 +10,15 @@
 // shared/fileForms.ts. Bytes are read only when the target will use them
 // (never for a link), through files.read, under the caps. A PDF's first page
 // is rendered here with PlexiiDraw's own PDF renderer (the one Place uses),
-// never inside the pure conversion.
+// never inside the pure conversion. An Excel workbook is read in the MAIN
+// process (files:readSheet, main/sheetXlsxRead.ts, over SheetJS) into the
+// first sheet's PlexiiCells body; here it only becomes forms. The drop waits
+// for that read, like the PDF page: nothing lands until there is something to
+// land, and a workbook that cannot be read is refused with why.
 
 import { formsOf } from '@shared/snippetForms'
+import { formsOfSheet } from '@shared/snippetForms/fromSheet'
+import { XLSX_DROP_MAX_BYTES } from '@shared/xlsxSheet'
 import type { Form } from '@shared/snippetForms'
 import { sourceKindOf, type FileDragRef } from '@shared/filesDragPayload'
 import {
@@ -97,6 +103,7 @@ export async function readFileContent(ref: FileDragRef, o: TargetOptions): Promi
 
   if (!needsBytes(kind)) return content
   const size = ref.sizeBytes ?? 0
+  if (kind === 'sheet') return size > XLSX_DROP_MAX_BYTES ? content : readWorkbook(ref, content)
   if (kind === 'text' && size > MAX_TEXT_INSERT_BYTES) return content
   const cap = pictureCap(o.target)
   if ((kind === 'image' || kind === 'svg') && cap !== null && size > cap) return content
@@ -135,6 +142,23 @@ export async function readFileContent(ref: FileDragRef, o: TargetOptions): Promi
 }
 
 /**
+ * An Excel workbook: its first sheet, read and checked in the main process,
+ * as the forms a PlexiiCells range has. What the workbook has that the sheet
+ * body does not keep ("First sheet of 3.", "Charts are not kept.") goes on
+ * EVERY form, the native one included, so PlexiiCells says it too.
+ */
+async function readWorkbook(ref: FileDragRef, content: FileContent): Promise<FileContent> {
+  const r = await window.api.files.readSheet(ref.entryId)
+  if (!r.ok) {
+    if (r.code === 'bytes') return { ...content, bytesMissing: true }
+    return { ...content, sheetRefused: { reason: r.reason, tooLarge: r.code === 'too-large' } }
+  }
+  const forms = formsOfSheet(r.body, snippetConvertDeps(), { app: 'the original file' })
+  content.docForms = r.notes.length ? forms.map((f): Form => ({ ...f, lossy: [...r.notes, ...f.lossy] }) as Form) : forms
+  return content
+}
+
+/**
  * One ref, read for one target: a FormsRead with verb 'drop' for the target's
  * existing paste or dropForms. `refused` set means nothing goes in and that
  * sentence is shown verbatim.
@@ -148,5 +172,8 @@ export async function readFilesDragForms(ref: FileDragRef, o: TargetOptions): Pr
   const content = await readFileContent(ref, o)
   const r = formsForTarget(ref, content, o)
   if (r.refused) return { forms: [], source: null, refused: r.refused, verb: 'drop' }
-  return { forms: r.forms, source: null, kind: (nativeKind(r.forms) as SnippetKind | null) ?? null, verb: 'drop' }
+  // A workbook's sheet body is not one of our apps' content: no "Converted
+  // from PlexiiCells", and its notes are said in PlexiiCells too.
+  const kind = sourceKindOf(ref) === 'sheet' ? null : ((nativeKind(r.forms) as SnippetKind | null) ?? null)
+  return { forms: r.forms, source: null, kind, verb: 'drop' }
 }

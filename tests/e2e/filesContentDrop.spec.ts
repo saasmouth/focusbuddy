@@ -23,9 +23,13 @@
 //         refused), note (.txt), table (.csv rows), image (the same file row)
 //   CD-8  PlexiiDraw: a Cells document and a .csv land as a picture of their
 //         table (computed values, the sheet's column width), said so
+//   CD-9  an Excel workbook (.xlsx, a file in Files): a picture of its first
+//         sheet in PlexiiDraw, a real table in PlexiiDeck and PlexiiWrite,
+//         "First sheet of 3." said; a password-protected one refused
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, addWidgetToDesk, type LaunchedApp } from './_helpers'
+import { budgetWorkbook, encryptedWorkbook } from '../unit/xlsxDropFixtures'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -59,16 +63,19 @@ function onePagePdf(): string {
 
 type Seed = {
   taskId: string
-  f: { png: string; csv: string; md: string; txt: string; pdf: string; mp4: string; folder: string; docB: string; selfEntry: string; budget: string }
+  f: { png: string; csv: string; md: string; txt: string; pdf: string; mp4: string; folder: string; docB: string; selfEntry: string; budget: string; extra: string[] }
   d: { write: string; writeB: string; sheet: string; slides: string; design: string; map: string; draw: string; drawRo: string; budget: string }
 }
 
-async function boot(): Promise<{ window: Page; seed: Seed }> {
+/** Files the test adds to Files besides the usual seed (their entry ids come back in seed.f.extra, in order). */
+type ExtraFile = { name: string; mime: string; bytes: number[] }
+
+async function boot(extra: ExtraFile[] = []): Promise<{ window: Page; seed: Seed }> {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
   const seed = (await window.evaluate(
-    async ({ png, pdf }) => {
+    async ({ png, pdf, extra }) => {
       const api = (window as unknown as { api: typeof window.api }).api
       const enc = (s: string) => new TextEncoder().encode(s).buffer
       const ing = (name: string, mime: string, buf: ArrayBuffer) => api.files.ingestBuffer({ buffer: buf, originalName: name, mimeType: mime, parentId: null })
@@ -83,8 +90,10 @@ async function boot(): Promise<{ window: Page; seed: Seed }> {
         folder: (await api.fileManager.createFolder(null, 'Brand assets')).id,
         docB: '',
         selfEntry: '',
-        budget: ''
+        budget: '',
+        extra: [] as string[]
       }
+      for (const x of extra) f.extra.push((await ing(x.name, x.mime, new Uint8Array(x.bytes).buffer)).id)
       const mk = async (docType: string, title: string, body?: unknown) => ((await api.documents.create({ docType, title, ...(body ? { body } : {}) } as never)) as { id: string }).id
       const d = {
         write: await mk('doc', 'Target doc', { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start here.' }] }] }),
@@ -124,7 +133,7 @@ async function boot(): Promise<{ window: Page; seed: Seed }> {
       f.budget = root.find((e) => e.kind === 'doc' && e.docId === d.budget)!.id
       return { taskId: task.id, f, d }
     },
-    { png: PNG, pdf: onePagePdf() }
+    { png: PNG, pdf: onePagePdf(), extra }
   )) as Seed
   await suppressFeatureSpotlights(window)
   await window.reload()
@@ -381,4 +390,57 @@ test('CD-8 PlexiiDraw: a Cells document and a .csv land as a picture of their ta
   const csv = (await drawingPictures(window, seed.d.draw)).find((s) => s.includes('>Grace</text>'))
   expect(csv, 'the .csv is a picture of its table, not a line of commas').toBeTruthy()
   expect(await saved(window, seed.d.draw)).not.toContain('name,score')
+})
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+test('CD-9 an Excel workbook: a picture in PlexiiDraw, a real table in PlexiiDeck and PlexiiWrite; a protected one refused', async () => {
+  test.setTimeout(180_000)
+  const { window, seed } = await boot([
+    { name: 'Budget.xlsx', mime: XLSX_MIME, bytes: Array.from(budgetWorkbook()) },
+    { name: 'Locked.xlsx', mime: XLSX_MIME, bytes: Array.from(encryptedWorkbook()) }
+  ])
+  const [xlsx, locked] = seed.f.extra as [string, string]
+
+  // PlexiiDraw: a picture of the first sheet, its values and formats shown.
+  await openDoc(window, seed.d.draw, '[data-testid="draw-canvas-scroll"]')
+  await dropRow(window, xlsx, '[data-testid="draw-canvas-scroll"]')
+  await expect(notice(window)).toContainText('First sheet of 3.', { timeout: 15_000 })
+  await expect(notice(window)).toContainText('It becomes a picture: edit it in the original file.')
+  await expect.poll(async () => (await drawingPictures(window, seed.d.draw)).length, { timeout: 10_000 }).toBe(1)
+  const [pic] = await drawingPictures(window, seed.d.draw)
+  expect(pic).toContain('>Pens</text>')
+  expect(pic).toContain('>$1.50</text>')
+  expect(pic).toContain('>12</text>')
+  expect(pic).not.toContain('SUM(')
+  await window.waitForTimeout(400)
+  await window.screenshot({ path: test.info().outputPath('xlsx-in-draw.png') })
+
+  // A password-protected workbook is refused with why, and nothing lands.
+  await dropRow(window, locked, '[data-testid="draw-canvas-scroll"]', { dx: 80, dy: 80 })
+  await expect(notice(window)).toContainText('This workbook is password-protected, so it cannot be read.', { timeout: 15_000 })
+  expect((await drawingPictures(window, seed.d.draw)).length).toBe(1)
+
+  // PlexiiDeck: a table element with the values the sheet shows.
+  await openDoc(window, seed.d.slides, '[data-testid="slide-canvas"]')
+  await dropRow(window, xlsx, '[data-testid="slide-canvas"]')
+  await expect
+    .poll(async () => {
+      const els = JSON.parse(await saved(window, seed.d.slides)).slides[0].elements as Array<{ type: string; cells?: string[][] }>
+      return JSON.stringify(els.find((e) => e.type === 'table')?.cells ?? null)
+    }, { timeout: 15_000 })
+    .toContain('"Pens","2","$1.50","3"')
+  await window.waitForTimeout(400)
+  await window.screenshot({ path: test.info().outputPath('xlsx-in-deck.png') })
+
+  // PlexiiWrite: a real table (not a link, not a line of text).
+  await openDoc(window, seed.d.write, '.ProseMirror')
+  await dropRow(window, xlsx, '[data-testid="doc-editor-surface"]', { dx: 40, dy: 12 })
+  await expect.poll(() => saved(window, seed.d.write), { timeout: 15_000 }).toContain('"type":"table"')
+  const doc = await saved(window, seed.d.write)
+  expect(doc).toContain('"text":"Pens"')
+  expect(doc).toContain('"text":"12"')
+  expect(doc).not.toContain(`plexii://file/${xlsx}`)
+  await window.waitForTimeout(400)
+  await window.screenshot({ path: test.info().outputPath('xlsx-in-write.png') })
 })

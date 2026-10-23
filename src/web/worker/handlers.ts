@@ -376,6 +376,9 @@ export const HANDLERS: Record<string, Handler> = {
       mimeType: input.mimeType,
       parentId: input.parentId ?? null
     })),
+  // The same reader the desktop runs (main/sheetXlsxRead.ts is Electron-free),
+  // over this tab's own file store. Loaded on first use: it brings SheetJS.
+  'files:readSheet': h(async (id: string) => (await import('../../main/sheetXlsxRead')).readXlsxSheetForDrop(id)),
   'files:read': h(async (id: string) => {
     const r = await readFileBytes(id)
     if (!r) return null

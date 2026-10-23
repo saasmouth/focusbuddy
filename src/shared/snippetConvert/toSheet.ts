@@ -9,7 +9,10 @@ import { REASON, linkRefusal, ok, pick, refusal } from './common'
  */
 export function toSheet(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body?.kind === 'sheet') return ok(structuredClone(body), [])
+  // A sheet lands as itself. Its native form's notes still stand: a workbook
+  // dropped from Files carries what the workbook had that the block does not
+  // keep ("First sheet of 3."); a Cells range or snippet carries none.
+  if (body?.kind === 'sheet') return ok(structuredClone(body), forms.find((f) => f.kind === 'native')?.lossy ?? [])
   if (body?.kind === 'slide' || body?.kind === 'design' || body?.kind === 'diagram' || body?.kind === 'draw') {
     return { ok: false, reason: REASON.cellsNoPictures }
   }

@@ -26,9 +26,10 @@ import { dialog, BrowserWindow } from 'electron'
 import { basename } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 import * as XLSX from 'xlsx'
-import type { SheetBodyV2, SheetTab, SheetNumberFormat, SheetValidation, SheetValidationRule, SheetCondRule, SheetCondOp } from '@shared/types'
-import { mapNumFmt, toExcelNumFmt } from '@shared/sheetNumFmt'
+import type { SheetBodyV2, SheetTab, SheetValidation, SheetValidationRule, SheetCondRule, SheetCondOp } from '@shared/types'
+import { toExcelNumFmt } from '@shared/sheetNumFmt'
 import { buildStyledXlsx } from './sheetXlsxWriter'
+import { worksheetToTab } from './sheetXlsxRead'
 
 export interface SheetImportResult {
   ok: boolean
@@ -44,93 +45,6 @@ export interface SheetExportResult {
 
 function focusedWindow(): BrowserWindow | undefined {
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-}
-
-let seq = 0
-function tabId(): string {
-  seq += 1
-  return `imp-${seq}`
-}
-
-
-function worksheetToTab(ws: XLSX.WorkSheet, name: string): SheetTab {
-  const ref = ws['!ref']
-  if (!ref) return { id: tabId(), name, columns: ['A'], rows: [['']] }
-  const range = XLSX.utils.decode_range(ref)
-  const nCols = range.e.c - range.s.c + 1
-  const nRows = range.e.r - range.s.r + 1
-  const columns = Array.from({ length: nCols }, (_, i) => XLSX.utils.encode_col(range.s.c + i))
-  const rows: string[][] = []
-  const formats: Record<string, SheetNumberFormat> = {}
-
-  for (let r = 0; r < nRows; r++) {
-    const row: string[] = []
-    for (let c = 0; c < nCols; c++) {
-      const addr = XLSX.utils.encode_cell({ r: range.s.r + r, c: range.s.c + c })
-      const cell = ws[addr] as XLSX.CellObject | undefined
-      if (!cell) {
-        row.push('')
-        continue
-      }
-      // Prefer the formula (so it stays live in our engine); else the value.
-      if (cell.f) row.push(`=${cell.f}`)
-      else if (cell.w != null) row.push(String(cell.w))
-      else if (cell.v != null) row.push(String(cell.v))
-      else row.push('')
-      const nf = mapNumFmt(cell.z as string | undefined)
-      if (nf) formats[`${r},${c}`] = nf
-    }
-    rows.push(row)
-  }
-
-  const tab: SheetTab = { id: tabId(), name, columns, rows }
-  if (Object.keys(formats).length) {
-    tab.formats = Object.fromEntries(Object.entries(formats).map(([k, numFmt]) => [k, { numFmt }]))
-  }
-
-  // Column widths (Excel gives char units or px; we store px). Indexed relative
-  // to the tab's first column so it lines up with our columns[] array.
-  const cols = ws['!cols'] as XLSX.ColInfo[] | undefined
-  if (cols) {
-    const colWidths: Record<number, number> = {}
-    for (let i = 0; i < nCols; i++) {
-      const ci = cols[range.s.c + i]
-      if (!ci) continue
-      // Prefer char width (wch) * 7 to invert our writer's px→char (px/7); wpx is
-      // SheetJS's own conversion at a different metric, so it drifts.
-      const px =
-        ci.wch != null ? Math.round(ci.wch * 7) : ci.width != null ? Math.round(ci.width * 7) : ci.wpx != null ? ci.wpx : null
-      if (px != null && px > 0) colWidths[i] = px
-    }
-    if (Object.keys(colWidths).length) tab.colWidths = colWidths
-  }
-
-  // Merged cell ranges. SheetJS exposes these as absolute-coordinate ranges; we
-  // store them relative to the tab's own origin.
-  const merges = ws['!merges'] as XLSX.Range[] | undefined
-  if (merges?.length) {
-    const rel = merges
-      .map((m) => ({ r1: m.s.r - range.s.r, c1: m.s.c - range.s.c, r2: m.e.r - range.s.r, c2: m.e.c - range.s.c }))
-      .filter((m) => m.r1 >= 0 && m.c1 >= 0 && (m.r2 > m.r1 || m.c2 > m.c1))
-    if (rel.length) tab.merges = rel
-  }
-
-  // Row heights (Excel gives px or points; we store px).
-  const rowInfos = ws['!rows'] as XLSX.RowInfo[] | undefined
-  if (rowInfos) {
-    const rowHeights: Record<number, number> = {}
-    for (let r = 0; r < nRows; r++) {
-      const ri = rowInfos[range.s.r + r]
-      if (!ri) continue
-      // Prefer points (hpt) converted to px to invert our writer's px→pt; SheetJS's
-      // hpx echoes the point value rather than a true 96dpi px.
-      const px = ri.hpt != null ? Math.round((ri.hpt * 96) / 72) : ri.hpx != null ? ri.hpx : null
-      if (px != null && px > 0) rowHeights[r] = px
-    }
-    if (Object.keys(rowHeights).length) tab.rowHeights = rowHeights
-  }
-
-  return tab
 }
 
 // Exposed for unit tests: convert a SheetJS worksheet to our tab model. Pure.

@@ -1,6 +1,7 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { AppClipboardRead } from '@shared/appClipboard'
+import type { XlsxSheetRead } from '@shared/xlsxSheet'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -1305,6 +1306,10 @@ const api = {
       id: string
     ): Promise<{ mimeType: string; buffer: ArrayBuffer } | null> =>
       ipcRenderer.invoke('files:read', id),
+    // An Excel workbook (.xlsx, .xlsm) in Files as its first sheet's snippet
+    // body, for a drop into an office app. Read and checked in main (the id,
+    // the size cap, the package); a refusal says why (shared/xlsxSheet.ts).
+    readSheet: (id: string): Promise<XlsxSheetRead> => ipcRenderer.invoke('files:readSheet', id),
     // Open the native file picker + ingest the chosen file in one round-trip.
     // Returns null when the user cancels.
     pickAndIngest: (opts?: {

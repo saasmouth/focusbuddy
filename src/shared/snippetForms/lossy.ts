@@ -33,8 +33,22 @@ export const L = {
   unsupportedImage: 'An image with an unsupported address was left out.',
   cellsCut: 'Long cells are cut short.',
   cellFonts: 'Cell fonts become the standard one.',
-  textBoxesSeparate: 'Text boxes arrive as separate frames; to make the text flow, select them and use Link text frames on the Text tab.'
+  textBoxesSeparate: 'Text boxes arrive as separate frames; to make the text flow, select them and use Link text frames on the Text tab.',
+  // What an Excel workbook dropped from Files leaves behind (main/sheetXlsxRead.ts
+  // detects each in the package; a line is said only for what is there).
+  charts: 'Charts are not kept.',
+  shapes: 'Shapes and text boxes are not kept.',
+  pivotTables: 'Pivot tables become plain cells.',
+  macros: 'Macros are not kept.',
+  comments: 'Comments are not kept.',
+  conditionalFormatting: 'Conditional formatting is not kept.',
+  otherSheetFormulas: 'Formulas that read other sheets become their saved values.'
 } as const
+
+/** A workbook with more than one sheet: only the first comes in. "First sheet of 3." */
+export function firstSheetOf(n: number): string {
+  return `First sheet of ${n}.`
+}
 
 /** How many formulas could not be computed from the saved cells alone. */
 export function outsideRefs(n: number): string {

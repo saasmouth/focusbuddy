@@ -719,6 +719,7 @@ import {
 import type { DesignBrief } from '@shared/designAdvicePrompt'
 import { importDocx, exportDocx, exportPdf, pickImage, type PageSetupInput } from '../officeDocx'
 import { importSheet, exportSheet } from '../sheetIo'
+import { readXlsxSheetForDrop } from '../sheetXlsxRead'
 import { runSheetMacro } from '../sheetMacro'
 import { exportSlides, importPptx } from '../slidesIo'
 import {getModelMode, setModelMode, MODEL_HAIKU} from '../ai/modelRouting'
@@ -2774,6 +2775,11 @@ export function registerIpcHandlers(): void {
       )
     }
   })
+  // An Excel workbook in Files as its first sheet's snippet body, for a drop
+  // into an office app (renderer/src/lib/filesDragForms.ts). Only an id comes
+  // in: the row, its type, the size cap and the package are all checked here
+  // (main/sheetXlsxRead.ts), and a refusal says why.
+  ipcMain.handle('files:readSheet', (_e, id: string) => readXlsxSheetForDrop(id))
   // pickAndIngest: opens the native file picker AND copies the chosen file
   // into userData/files in one round-trip. Returns the new FbFile or null
   // if the user cancelled.
