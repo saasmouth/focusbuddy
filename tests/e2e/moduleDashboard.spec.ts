@@ -241,7 +241,12 @@ test('Customize — toggling "Overview tiles" checkbox hides/shows the stats gri
 
   // Open customize popover
   await window.locator('[data-testid="module-dashboard-customize-reports"]').click()
-  const popover = window.locator('.w-56.rounded-xl')
+  // STALE: located by `.w-56.rounded-xl`, and the panel's radius became the
+  // design token `rounded-[var(--radius-row)]` at 471a1dec ("Edges 1a: floating
+  // chrome earns glass, content gives it back"), so the selector matched
+  // nothing. Anchored to the popover's own heading instead — Tailwind classes
+  // are styling and will move again; this text is what the panel IS.
+  const popover = window.locator('div').filter({ hasText: 'Sections on this dashboard' }).last()
   await expect(popover).toBeVisible({ timeout: 3_000 })
   await expect(popover.getByText('Overview tiles')).toBeVisible()
 
@@ -258,7 +263,7 @@ test('Customize — toggling "Overview tiles" checkbox hides/shows the stats gri
 
   // Re-open and restore
   await window.locator('[data-testid="module-dashboard-customize-reports"]').click()
-  const popover2 = window.locator('.w-56.rounded-xl')
+  const popover2 = window.locator('div').filter({ hasText: 'Sections on this dashboard' }).last()
   await expect(popover2).toBeVisible({ timeout: 3_000 })
   const cb2 = popover2.locator('label').filter({ hasText: 'Overview tiles' }).locator('input[type="checkbox"]')
   await cb2.check()

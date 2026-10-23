@@ -24,19 +24,16 @@ test('ST-1 — New task dialog shows starter chips including Daily Focus and Pro
   const { window } = launched
   await waitForReady(window)
 
-  // The starter chips render in the TASK create dialog. Create a folder, reload so
-  // the sidebar shows its row, then open that folder's "Add task" dialog. This is
-  // deterministic and does not depend on sidebar button layout.
-  await window.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    await api.nodes.create({ parentId: null, kind: 'folder', title: 'Chip Test Desk' })
-  })
-  await window.reload()
-  await waitForReady(window)
-  const row = window.getByText('Chip Test Desk', { exact: true }).first()
-  await expect(row).toBeVisible({ timeout: 8000 })
-  await row.hover()
-  await window.getByRole('button', { name: 'Add task' }).first().click()
+  // STALE: this created a folder, reloaded, then hovered the folder's SIDEBAR
+  // row for an "Add task" button. Neither exists now — the accordion lists no
+  // individual rooms (b7dae811 "One menu: the four area menus merge into a
+  // vertical accordion"), and "Add task" survives only in Messages and Plans,
+  // so `getByText('Chip Test Desk')` never resolved.
+  //
+  // The chips live in NewNodeDialog, and the sidebar's "New desk" opens exactly
+  // that dialog with kind 'task' (Sidebar.requestCreateDesk) — one stable
+  // control, no folder, no reload, no hover.
+  await window.getByRole('button', { name: 'New desk' }).first().click()
 
   // Wait for the dialog itself to render before checking its chips.
   await expect(window.locator('[data-testid="newnode-name"]')).toBeVisible({ timeout: 5000 })
