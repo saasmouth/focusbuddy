@@ -95,12 +95,18 @@ describe('generated Plexii icon assets', () => {
     expect(indexSrc).toMatch(/PLEXII_ICON_MISSING: Readonly<Record<string, string>> = \{\n\}/)
   })
 
-  it('builds the place sets as glyphs and the product/action sets as tiles', () => {
+  it('builds every set of the 23 Oct gradient revision as tiles', () => {
     const entries = [...indexSrc.matchAll(/^ {2}'([a-z-]+)\/([a-z0-9-]+)': \{[^\n]*style: '(\w+)'/gm)].map((m) => ({ cat: m[1], style: m[3] }))
     const by = (cat: string): string[] => [...new Set(entries.filter((e) => e.cat === cat).map((e) => e.style))]
+    // 22 Oct these eight were line glyphs; the owner's 23 Oct revision made
+    // every one a distinct symbol on an opaque gradient tile.
     for (const cat of ['side-menu', 'focus-filters', 'section-headers', 'people', 'plexiibrain', 'bring-in', 'areas', 'onboarding']) {
-      expect(by(cat), cat).toEqual(['glyph'])
+      expect(by(cat), cat).toEqual(['tile'])
     }
+    // The revision's items in the mixed categories are tiles too.
+    const styleOf = (key: string): string | undefined => indexSrc.match(new RegExp(`^ {2}'${key}': \\{[^\\n]*style: '(\\w+)'`, 'm'))?.[1]
+    for (const key of ['apps/plexiichat', 'widgets/app-launcher', 'widgets/attention', 'widgets/browser', 'widgets/custom-block', 'widgets/custom-work-widget', 'widgets/markdown', 'widgets/minimap', 'widgets/task-link'])
+      expect(styleOf(key), key).toBe('tile')
     for (const cat of ['suite', 'home-actions']) expect(by(cat), cat).toEqual(['tile'])
     const count = (cat: string): number => entries.filter((e) => e.cat === cat).length
     expect(count('side-menu') + count('focus-filters') + count('section-headers') + count('people') + count('plexiibrain') + count('bring-in') + count('areas') + count('onboarding')).toBe(41)

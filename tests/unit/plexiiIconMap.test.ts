@@ -148,7 +148,7 @@ describe('Plexii entity icon coverage', () => {
     for (const f of ATTENTION_FILTERS) {
       const ent = attentionFilterEntity(f.id)
       expect(ent, f.id).not.toBeNull()
-      expect(resolveEntityIcon(ent!.kind, ent!.id).asset?.style, f.id).toBe('glyph')
+      expect(resolveEntityIcon(ent!.kind, ent!.id).asset?.style, f.id).toBe('tile')
     }
     for (const [id, ent] of Object.entries(NAV_SECTION_ENTITY)) expect(resolveEntityIcon(ent.kind, ent.id).asset, id).not.toBeNull()
     for (const [id, ent] of Object.entries(OFFICE_LIBRARY_ENTITY)) expect(resolveEntityIcon(ent.kind, ent.id).asset, id).not.toBeNull()
@@ -158,7 +158,7 @@ describe('Plexii entity icon coverage', () => {
     for (const m of ONBOARDING_MODULES) {
       const ent = tourModuleEntity(m.id)
       expect(ent, m.id).not.toBeNull()
-      expect(resolveEntityIcon(ent!.kind, ent!.id).asset?.style, m.id).toBe('glyph')
+      expect(resolveEntityIcon(ent!.kind, ent!.id).asset?.style, m.id).toBe('tile')
     }
   })
 

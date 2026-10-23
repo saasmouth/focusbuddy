@@ -745,7 +745,7 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid, entity }: N
           active ? '' : (tone ?? 'text-[var(--ink-50)]')
         }`}
       >
-        {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
+        {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} tileSize={22} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
       </span>
       <span className="flex-1 min-w-0 truncate text-left leading-tight">{label}</span>
       {badge && (

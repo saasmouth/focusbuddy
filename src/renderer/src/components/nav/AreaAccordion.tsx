@@ -356,7 +356,7 @@ function Row({
           active ? '' : (tone ?? 'text-[var(--ink-60)]')
         }`}
       >
-        {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
+        {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} tileSize={22} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
       </span>
       <span className="min-w-0 truncate text-left whitespace-nowrap">{label}</span>
     </button>
