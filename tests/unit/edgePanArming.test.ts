@@ -16,56 +16,113 @@ describe('edge-pan arming (pure)', () => {
 
   it('a stationary pointer the zone slides under does not arm', () => {
     const a = createEdgePanArming()
-    expect(a.observe(at(400, 300, 3, 0), false)).toBe(false) // resting outside the zone
+    expect(a.observe(at(400, 300, 3, 0), 'interior')).toBe(false) // resting outside the zone
     // The surface shifts: Chromium's fake mousemove, same screen point, no delta.
-    expect(a.observe(at(400, 300), true)).toBe(false)
-    expect(a.observe(at(400, 300), true)).toBe(false)
+    expect(a.observe(at(400, 300), 'zone')).toBe(false)
+    expect(a.observe(at(400, 300), 'zone')).toBe(false)
     expect(a.armed).toBe(false)
   })
 
   it('a pointer that moves into the zone arms, and holding still there keeps it armed', () => {
     const a = createEdgePanArming()
-    a.observe(at(400, 300, 2, 0), false)
-    expect(a.observe(at(330, 300, -70, 0), true)).toBe(true)
+    a.observe(at(400, 300, 2, 0), 'interior')
+    expect(a.observe(at(330, 300, -70, 0), 'zone')).toBe(true)
     // Holding a dragged widget still at the edge: dragover repeats at the same point.
-    expect(a.observe(at(330, 300), true)).toBe(true)
-    expect(a.observe(at(330, 300), true)).toBe(true)
+    expect(a.observe(at(330, 300), 'zone')).toBe(true)
+    expect(a.observe(at(330, 300), 'zone')).toBe(true)
   })
 
   it('leaving the zone disarms, however it happened, and a shift back does not re-arm', () => {
     const a = createEdgePanArming()
-    a.observe(at(400, 300, 1, 0), false)
-    a.observe(at(330, 300, -70, 0), true)
-    expect(a.observe(at(330, 300), false)).toBe(false) // the zone moved away from a still pointer
-    expect(a.observe(at(330, 300), true)).toBe(false) // and back again: still a still pointer
+    a.observe(at(400, 300, 1, 0), 'interior')
+    a.observe(at(330, 300, -70, 0), 'zone')
+    expect(a.observe(at(330, 300), 'interior')).toBe(false) // the zone moved away from a still pointer
+    expect(a.observe(at(330, 300), 'zone')).toBe(false) // and back again: still a still pointer
   })
 
   it('a clientX change counts as movement even when the OS delta is missing (dragover)', () => {
     const a = createEdgePanArming()
-    a.observe(at(400, 300), false)
-    expect(a.observe(at(395, 300), true)).toBe(true)
+    a.observe(at(400, 300), 'interior')
+    expect(a.observe(at(395, 300), 'zone')).toBe(true)
   })
 
   it('the first event with no delta does not arm (a fake move when a desk mounts under the cursor)', () => {
     const a = createEdgePanArming()
-    expect(a.observe(at(300, 300), true)).toBe(false)
+    expect(a.observe(at(300, 300), 'zone')).toBe(false)
     const b = createEdgePanArming()
-    expect(b.observe(at(300, 300, 4, 0), true)).toBe(true)
+    expect(b.observe(at(300, 300, 4, 0), 'zone')).toBe(true)
   })
 
   it('moves noted off the canvas are the reference for the next canvas event', () => {
     const a = createEdgePanArming()
     a.note(at(250, 300)) // over the dock
-    expect(a.observe(at(250, 300), true)).toBe(false) // same point: no move
+    expect(a.observe(at(250, 300), 'zone')).toBe(false) // same point: no move
     a.note(at(240, 300))
-    expect(a.observe(at(290, 300), true)).toBe(true)
+    expect(a.observe(at(290, 300), 'zone')).toBe(true)
   })
 
   it('disarm() stops an armed pan', () => {
     const a = createEdgePanArming()
-    a.observe(at(10, 10, 5, 5), true)
+    a.observe(at(10, 10, 5, 5), 'zone')
     a.disarm()
     expect(a.armed).toBe(false)
+  })
+
+  it('a drag from off the desk crossing the edge zone does not arm, however it moves', () => {
+    const a = createEdgePanArming()
+    a.dragBegan(false) // the Files panel, the side menu
+    a.note(at(250, 300)) // over the dock
+    expect(a.observe(at(290, 300, 40, 0), 'zone')).toBe(false)
+    expect(a.observe(at(330, 300, 40, 0), 'zone')).toBe(false)
+    expect(a.observe(at(330, 300), 'zone')).toBe(false) // held still on the way in
+    expect(a.enteringFromOutside).toBe(true)
+  })
+
+  it('once that drag reaches the interior it is an ordinary pointer: a real move back to an edge arms and holds', () => {
+    const a = createEdgePanArming()
+    a.dragBegan(false)
+    a.observe(at(330, 300, 40, 0), 'zone')
+    expect(a.observe(at(600, 300, 270, 0), 'interior')).toBe(false)
+    expect(a.enteringFromOutside).toBe(false)
+    expect(a.observe(at(330, 300, -270, 0), 'zone')).toBe(true)
+    expect(a.observe(at(330, 300), 'zone')).toBe(true) // dragover repeating at a still point
+  })
+
+  it('passing off the canvas (dock, header) is not the interior: the entry is still pending', () => {
+    const a = createEdgePanArming()
+    a.dragBegan(false)
+    a.observe(at(200, 300, 10, 0), 'off')
+    expect(a.enteringFromOutside).toBe(true)
+    expect(a.observe(at(300, 300, 100, 0), 'zone')).toBe(false)
+  })
+
+  it('a hover-armed pan stops when a drag from off the desk begins', () => {
+    const a = createEdgePanArming()
+    a.observe(at(400, 300, 2, 0), 'interior')
+    expect(a.observe(at(330, 300, -70, 0), 'zone')).toBe(true)
+    a.dragBegan(false)
+    expect(a.armed).toBe(false)
+  })
+
+  it('a drag that starts on the desk arms on a real move into the zone, as hover does', () => {
+    const a = createEdgePanArming()
+    a.dragBegan(true) // a row out of a sheet on the desk
+    expect(a.enteringFromOutside).toBe(false)
+    a.observe(at(400, 300, 2, 0), 'interior')
+    expect(a.observe(at(330, 300, -70, 0), 'zone')).toBe(true)
+  })
+
+  it('disarm() keeps a pending entry; dragEnded() clears it and disarms', () => {
+    const a = createEdgePanArming()
+    a.dragBegan(false)
+    a.disarm() // the pointer left the canvas mid-drag
+    expect(a.enteringFromOutside).toBe(true)
+    a.dragEnded()
+    expect(a.enteringFromOutside).toBe(false)
+    expect(a.armed).toBe(false)
+    // The next pointer (no drag) is judged by the movement rule alone.
+    a.observe(at(400, 300, 2, 0), 'interior')
+    expect(a.observe(at(330, 300, -70, 0), 'zone')).toBe(true)
   })
 
   it('zone test matches the pan loop (strictly inside the margin on any edge)', () => {
@@ -258,6 +315,70 @@ describe('useEdgePan pans only for a pointer that moved into the zone', () => {
     move(300, 450)
     step(10)
     expect(panBy).not.toHaveBeenCalled()
+    h.unmount()
+  })
+
+  // HTML5 drags: the hook reads dragover (mousemove does not fire during one).
+  function dragEvent(type: 'dragstart' | 'dragover' | 'dragend', target: Element, x = 0, y = 0): void {
+    act(() => {
+      target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }))
+    })
+  }
+
+  it('a drag from beside the desk crossing the left zone does not pan until it has reached the interior', async () => {
+    const h = await mount()
+    const panel = document.createElement('div') // the Files panel: not inside the canvas
+    document.body.appendChild(panel)
+    dragEvent('dragstart', panel, 200, 450)
+    dragEvent('dragover', panel, 230, 450) // over the dock, off the visible canvas
+    dragEvent('dragover', el, 290, 450) // 18 px into the desk: in the zone, really moving
+    dragEvent('dragover', el, 320, 450)
+    step(20)
+    expect(panBy).not.toHaveBeenCalled()
+    expect(h.result.current.left).toBe(0)
+    dragEvent('dragover', el, 700, 450) // the interior
+    step(5)
+    expect(panBy).not.toHaveBeenCalled()
+    dragEvent('dragover', el, 300, 450) // carried back to the edge on purpose
+    step(5)
+    expect(panBy).toHaveBeenCalled()
+    panBy.mockClear()
+    dragEvent('dragover', el, 300, 450) // held still there: dragover repeats
+    step(10)
+    expect(panBy.mock.calls.length).toBeGreaterThanOrEqual(9)
+    dragEvent('dragend', panel)
+    panBy.mockClear()
+    step(10)
+    expect(panBy).not.toHaveBeenCalled()
+    panel.remove()
+    h.unmount()
+  })
+
+  it('a drag that starts on the desk pans on a real move into the zone, with no interior step', async () => {
+    const h = await mount()
+    const row = document.createElement('div') // a row in a sheet widget on the desk
+    el.appendChild(row)
+    dragEvent('dragstart', row, 500, 450)
+    dragEvent('dragover', el, 500, 450)
+    dragEvent('dragover', el, 300, 450)
+    step(5)
+    expect(panBy).toHaveBeenCalled()
+    dragEvent('dragend', row)
+    h.unmount()
+  })
+
+  it('after a drag from beside the desk ends, plain hover into the zone pans again', async () => {
+    const h = await mount()
+    const panel = document.createElement('div')
+    document.body.appendChild(panel)
+    dragEvent('dragstart', panel, 200, 450)
+    dragEvent('dragover', el, 300, 450)
+    dragEvent('dragend', panel) // dropped in the zone, never reached the interior
+    move(500, 450, 3, 0)
+    move(300, 450, -200, 0)
+    step(5)
+    expect(panBy).toHaveBeenCalled()
+    panel.remove()
     h.unmount()
   })
 })

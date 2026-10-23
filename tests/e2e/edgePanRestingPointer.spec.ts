@@ -213,11 +213,21 @@ test('ERP-4 a resting pointer near the dock survives scroll attempts and scrollI
 
 test('ERP-5 a real drag of a widget into the right edge zone still pans, held still too', async () => {
   await parkMidCanvas()
+  // Grab the header by its grab strip (data-testid="widget-grab"), the part of
+  // it kept free to pick a widget up. This used to press 40 px into the header,
+  // which in the current header is the title: click-to-rename, `widget-nodrag`,
+  // so react-rnd refused the press, no widget drag began, and the test failed
+  // on "is a widget drag" without ever reaching edge-pan. The check below makes
+  // a future header change fail here, by name, instead.
   const handle = await window.evaluate((id) => {
-    const h = document.querySelector(`[data-widget-id="${id}"] .widget-handle`) ?? document.querySelector(`[data-widget-id="${id}"]`)
-    const b = h!.getBoundingClientRect()
-    return { x: b.left + Math.min(40, b.width / 2), y: b.top + b.height / 2 }
+    const g = document.querySelector(`[data-widget-id="${id}"] [data-testid="widget-grab"]`)
+    if (!g) throw new Error('ERP-5: the anchor widget has no grab strip')
+    const b = g.getBoundingClientRect()
+    const p = { x: b.left + b.width / 2, y: b.top + b.height / 2 }
+    const hit = document.elementFromPoint(p.x, p.y)
+    return { ...p, grabbable: !!hit?.closest('.widget-handle') && !hit.closest('.widget-nodrag') }
   }, anchorId)
+  expect(handle.grabbable, 'the press point is on the header and not on a no-drag control').toBe(true)
   const r = await surfaceRect()
   const target = { x: r.right - 25, y: handle.y }
   const start = await readPan()

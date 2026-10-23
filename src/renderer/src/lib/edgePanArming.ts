@@ -18,6 +18,18 @@
 // cursor stays in the zone (holding a dragged widget still at the edge keeps
 // panning, which is the point of edge-pan), and disarms the moment the cursor
 // is outside the zone or gone, however that happened.
+//
+// One more question, for an HTML5 drag that STARTED OFF the desk (a row out of
+// the Files panel beside the menu, a work widget out of the side menu): has it
+// been in the desk's interior yet? Such a drag can only arrive across an edge,
+// and every edge is a zone, so by the rule above its own real movement armed
+// the pan on the way in: the desk scrolled away under the pointer before it got
+// anywhere, and the drop missed what it was aimed at (found with real OS drags
+// from the Files panel, _filesRealInput REAL-3). Until it reaches the interior
+// it cannot arm; after that it is judged like any other pointer, so carrying
+// it back out to an edge pans the desk as it should. A drag that starts on the
+// desk (a widget, a row out of a sheet on the desk) and plain hover are not
+// affected: they arm on a real move into the zone, as above.
 
 export interface PointerSample {
   clientX: number
@@ -27,23 +39,39 @@ export interface PointerSample {
   movementY?: number
 }
 
+/**
+ * Where an event puts the pointer on the canvas's visible area: inside the
+ * edge zone, in the interior clear of it, or off the canvas (over the dock,
+ * the header, anything beside the desk).
+ */
+export type PointerPlace = 'zone' | 'interior' | 'off'
+
 export interface EdgePanArming {
   /**
-   * Feed one pointer event that landed on the canvas. `inZone` says whether
-   * the position it implies is inside the edge zone. Returns whether edge-pan
-   * is armed after this event.
+   * Feed one pointer event. `place` is where the position it implies falls.
+   * Returns whether edge-pan is armed after this event.
    */
-  observe(sample: PointerSample, inZone: boolean): boolean
+  observe(sample: PointerSample, place: PointerPlace): boolean
   /** Record where the pointer is without judging the zone (events off the canvas). */
   note(sample: PointerSample): void
-  /** The cursor left the canvas, a drag ended, or the surface changed: disarm. */
+  /** The cursor left the canvas or the surface changed: disarm. A drag's entry state is kept. */
   disarm(): void
+  /**
+   * An HTML5 drag began. `startedOnDesk` is whether its source is inside the
+   * canvas; one that is not must reach the interior before it can arm.
+   */
+  dragBegan(startedOnDesk: boolean): void
+  /** The HTML5 drag ended (dropped or cancelled): disarm and forget its entry state. */
+  dragEnded(): void
   readonly armed: boolean
+  /** A drag that started off the desk has not reached the interior yet. */
+  readonly enteringFromOutside: boolean
 }
 
 export function createEdgePanArming(): EdgePanArming {
   let last: { x: number; y: number } | null = null
   let armed = false
+  let enteringFromOutside = false
 
   function moved(s: PointerSample): boolean {
     if (last) return s.clientX !== last.x || s.clientY !== last.y
@@ -53,10 +81,13 @@ export function createEdgePanArming(): EdgePanArming {
   }
 
   return {
-    observe(sample, inZone) {
+    observe(sample, place) {
       const didMove = moved(sample)
       last = { x: sample.clientX, y: sample.clientY }
-      if (!inZone) armed = false
+      // Only the interior ends an outside drag's entry: passing over the dock
+      // or the header on the way in is still "on the way in".
+      if (place === 'interior') enteringFromOutside = false
+      if (place !== 'zone' || enteringFromOutside) armed = false
       else if (didMove) armed = true
       // In the zone without moving: keep whatever state we had. An armed pan
       // carries on (the hand is holding still at the edge); an unarmed cursor
@@ -69,8 +100,22 @@ export function createEdgePanArming(): EdgePanArming {
     disarm() {
       armed = false
     },
+    dragBegan(startedOnDesk) {
+      // A drag from the desk keeps the hover state it began with (a press does
+      // not move the pointer, so nothing about the zone changed).
+      if (startedOnDesk) return
+      enteringFromOutside = true
+      armed = false
+    },
+    dragEnded() {
+      enteringFromOutside = false
+      armed = false
+    },
     get armed() {
       return armed
+    },
+    get enteringFromOutside() {
+      return enteringFromOutside
     }
   }
 }
