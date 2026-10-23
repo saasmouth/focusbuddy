@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { CORNER_PRIORITY, useCornerSlot } from '../lib/cornerStack'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { openAiSettings, useAiCreditsStore } from '../stores/aiCredits'
@@ -29,6 +30,11 @@ let missingDismissedThisSession = false
 export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
+  // The notice docks bottom-right, so it takes a slot in the corner stack
+  // (lib/cornerStack) instead of landing on the minimap and on whatever else
+  // is already there. Quieter than a call or an invite, louder than a toast.
+  const noticeRef = useRef<HTMLDivElement>(null)
+  const noticeCorner = useCornerSlot('local-ai-notice', CORNER_PRIORITY.notice, !!notice, noticeRef)
   const [noticeAction, setNoticeAction] = useState<'upgrade' | 'topup' | 'keys'>('upgrade')
   const [grounding, setGrounding] = useState<GroundingReport | null>(null)
   // AI set to run on this computer, with the model not here (it was chosen by
@@ -415,10 +421,12 @@ export default function LocalAiPrompts(): JSX.Element | null {
           )}
         </div>
       )}
-      {notice && (
+      {notice && noticeCorner.visible && (
         <div
+          ref={noticeRef}
+          style={{ bottom: noticeCorner.bottom }}
           role="status"
-          className="fixed bottom-4 right-4 z-[9997] max-w-xs fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug flex gap-2 items-start"
+          className="fixed right-4 z-[9997] max-w-xs fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug flex gap-2 items-start"
           data-testid="local-ai-notice"
         >
           <span className="flex-1">

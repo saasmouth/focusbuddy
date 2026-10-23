@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { CORNER_PRIORITY, useCornerSlot } from '../lib/cornerStack'
 import Icon from './Icon'
 import { useCallStore } from '../stores/call'
 import { useVideoBlocked, CAMERA_BLOCKED_HINT } from '../lib/useVideoBlocked'
@@ -95,13 +96,28 @@ export default function CallOverlay(): JSX.Element | null {
   // DEC-078 — OS-refused frames render as an honest note, not a black box.
   const cameraBlocked = useVideoBlocked(localStream)
 
+  // The bottom-right corner is a stack (lib/cornerStack): a live call is
+  // priority 0, so it takes the slot just above the desk's controls and is
+  // never pushed off by anything that arrives later. Above the early return,
+  // every render — a hook behind a condition crashes the tree.
+  //
+  // One slot for both surfaces below: the incoming card and the active window
+  // are the same call and never show together, so they share the ref.
+  const cornerRef = useRef<HTMLDivElement>(null)
+  const corner = useCornerSlot('call', CORNER_PRIORITY.call, status !== 'idle', cornerRef)
+
   if (status === 'idle') return null
 
   // Incoming call: a compact card with accept / decline.
   if (status === 'incoming') {
     return (
       // Video stage: forced-dark chrome; white hairlines are relative to the stage, not the theme.
-      <div className="fixed bottom-5 right-5 z-[200] w-[300px] rounded-2xl bg-stone-900 text-white shadow-2xl border border-white/10 p-4" data-testid="call-incoming">
+      <div
+        ref={cornerRef}
+        style={{ bottom: corner.bottom }}
+        className="fixed right-5 z-[200] w-[300px] rounded-2xl bg-stone-900 text-white shadow-2xl border border-white/10 p-4"
+        data-testid="call-incoming"
+      >
         <div className="flex items-center gap-3">
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[15px] font-semibold uppercase">
             {personInitials(peer)}
@@ -156,7 +172,12 @@ export default function CallOverlay(): JSX.Element | null {
   // Active call window (outgoing/connecting/connected/ended).
   return (
     // Video stage: forced-dark chrome; white hairlines are relative to the stage, not the theme.
-    <div className="fixed bottom-5 right-5 z-[200] w-[360px] rounded-2xl bg-stone-900 text-white shadow-2xl border border-white/10 overflow-hidden" data-testid="call-window">
+    <div
+      ref={cornerRef}
+      style={{ bottom: corner.bottom }}
+      className="fixed right-5 z-[200] w-[360px] rounded-2xl bg-stone-900 text-white shadow-2xl border border-white/10 overflow-hidden"
+      data-testid="call-window"
+    >
       <div className="relative aspect-video bg-stone-950">
         {media === 'video' && remoteStream ? (
           <Video stream={remoteStream} />
