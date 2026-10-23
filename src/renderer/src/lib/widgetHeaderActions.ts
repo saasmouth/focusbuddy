@@ -11,10 +11,10 @@
 //
 // MODIFIER CLICKS. Shift on a work widget means "add to / remove from the
 // selection" and ⌘/Ctrl while zoomed out means "dive in" (WidgetFrame's
-// mousedown capture). A header button used to honour the modifier on mousedown
-// AND run its own action on the click that followed, so shift-clicking "Rewrite
-// with AI" both selected the widget and opened the dialog. The modifier now
-// wins outright: the selection (or dive) happens and the button does nothing.
+// mousedown capture). Since 55ea2b30 the frame's click capture swallows a
+// shift-click so the control it lands on does not also run; that same capture
+// now swallows the ⌘/Ctrl dive too, and both decisions come from
+// resolveModifierClick below, shared with the mousedown handler.
 
 /** Every tool the header row can carry. */
 export type HeaderActionId = 'ai' | 'rename' | 'link' | 'pin' | 'shrink' | 'grow' | 'expand' | 'remove'
@@ -143,22 +143,17 @@ export interface ModifierClick {
 /**
  * What a click with these modifiers means on a work widget.
  *
- * Shift is the selection gesture everywhere on the desk, so a shift-click on a
- * header tool NEVER runs the tool — even on a widget that cannot join the
- * selection (a pinned one or a section child), where it simply does nothing,
- * rather than meaning "select" on one widget and "rewrite" on the next.
- * ⌘/Ctrl dives into the widget only when zoomed out, matching the frame; at
- * ordinary zoom it has no desk meaning and the click is plain. Alt has no desk
- * meaning on a widget, so it is plain too.
+ * Shift is the selection gesture on the desk: on a widget that can join the
+ * selection it toggles it and the clicked control does NOT run. A pinned
+ * widget or a section child cannot join the selection, so there shift has no
+ * desk meaning and the click is plain (WidgetFrame's rule since 55ea2b30).
+ * ⌘/Ctrl dives into the widget only when zoomed out below 80%, matching the
+ * frame; at ordinary zoom it has no desk meaning and the click is plain. Alt
+ * has no desk meaning on a widget, so it is plain too.
  */
 export function resolveModifierClick(mods: ModifierState, ctx: ModifierContext): ModifierClick {
-  if (mods.shiftKey) {
-    return {
-      kind: 'select',
-      toggleSelection: !ctx.isChildOfSection && !ctx.isPinned,
-      dive: false,
-      runAction: false
-    }
+  if (mods.shiftKey && !ctx.isChildOfSection && !ctx.isPinned) {
+    return { kind: 'select', toggleSelection: true, dive: false, runAction: false }
   }
   if ((mods.metaKey || mods.ctrlKey) && ctx.zoom < 0.8 && !ctx.isChildOfSection) {
     return { kind: 'dive', toggleSelection: false, dive: true, runAction: false }
@@ -166,36 +161,21 @@ export function resolveModifierClick(mods: ModifierState, ctx: ModifierContext):
   return { kind: 'plain', toggleSelection: false, dive: false, runAction: true }
 }
 
-/** The parts of a click event the guard reads and acts on (a React or DOM MouseEvent). */
-export interface GuardableClick extends ModifierState {
-  /** 0 for a keyboard-activated click (Enter / Space), which had no mousedown. */
-  detail: number
+/** The parts of a click event the capture handler reads and acts on. */
+export interface SwallowableClick extends ModifierState {
   preventDefault(): void
   stopPropagation(): void
 }
 
 /**
- * The header's click guard, run in the CAPTURE phase on the header so it sees
- * every control's click before the control does. Returns true when the click
- * was a modifier gesture and has been stopped — the control's own onClick then
- * never runs.
- *
- * A pointer click already selected (or dived) on mousedown, in WidgetFrame's
- * mousedown capture, so here it is only stopped. A keyboard-activated click had
- * no mousedown, so the selection or dive happens here.
+ * WidgetFrame's click CAPTURE handler: stop a modifier click that already did
+ * its desk job on mousedown (select, or dive), so the control it landed on —
+ * a header button, a "…" menu item, a picker option — never runs its action.
+ * A plain click passes through untouched. Returns true when it stopped one.
  */
-export function guardHeaderClick(
-  e: GuardableClick,
-  ctx: ModifierContext,
-  on: { toggleSelection: () => void; dive: () => void }
-): boolean {
-  const mod = resolveModifierClick(e, ctx)
-  if (mod.runAction) return false
-  e.preventDefault()
+export function swallowModifierClick(e: SwallowableClick, ctx: ModifierContext): boolean {
+  if (resolveModifierClick(e, ctx).runAction) return false
   e.stopPropagation()
-  if (e.detail === 0) {
-    if (mod.toggleSelection) on.toggleSelection()
-    else if (mod.dive) on.dive()
-  }
+  e.preventDefault()
   return true
 }

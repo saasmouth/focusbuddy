@@ -70,9 +70,9 @@ import { minSizeFor } from '../../lib/widgetSizing'
 import WidgetHeaderOverflow, { type OverflowItem } from './WidgetHeaderOverflow'
 import {
   foldHeaderActions,
-  guardHeaderClick,
   headerActionBudget,
   resolveModifierClick,
+  swallowModifierClick,
   type HeaderActionId
 } from '../../lib/widgetHeaderActions'
 
@@ -1175,7 +1175,7 @@ export default function WidgetFrame({
           // suppresses the drag. Body clicks fall through to onClick as before.
           // The meaning of the modifier is decided in one place
           // (lib/widgetHeaderActions → resolveModifierClick), shared with the
-          // header's click guard below.
+          // click capture below.
           const mod = resolveModifierClick(e, { zoom, isChildOfSection, isPinned })
           if (mod.toggleSelection) {
             e.stopPropagation()
@@ -1196,22 +1196,22 @@ export default function WidgetFrame({
         // a full-screen setup modal, which then ate the next shift-click and
         // made multi-select impossible on a narrow widget, where the header
         // controls reach the title's left edge.
+        //
+        // The same holds for ⌘/Ctrl-click while zoomed out (< 80%), which
+        // dives into the widget on mousedown: its click must not also run a
+        // header control. Both cases are decided by resolveModifierClick
+        // (lib/widgetHeaderActions), the rule the mousedown handler above uses,
+        // and this one capture handler covers every control in the frame —
+        // the header buttons, the "…" overflow menu and the pin / expand
+        // pickers (portalled, but React routes their events through this tree).
         onClickCapture={(e) => {
-          if (e.shiftKey && !isChildOfSection && !isPinned) {
-            e.stopPropagation()
-            e.preventDefault()
-          }
+          swallowModifierClick(e, { zoom, isChildOfSection, isPinned })
         }}
         onClick={(e) => {
           e.stopPropagation()
-          // Cmd/⌘-click while zoomed out (< 80%) → dive into this widget: jump
-          // to 100% with it centred. A fast way to go from an overview to one
-          // thing without reaching for the zoom controls.
-          if ((e.metaKey || e.ctrlKey) && zoom < 0.8) {
-            e.preventDefault()
-            zoomToWidget(widget.id)
-            return
-          }
+          // Cmd/⌘-click while zoomed out (< 80%) dives into this widget (jump
+          // to 100% with it centred) on mousedown, above; its click is
+          // swallowed in capture, so it never reaches here.
           // Suppress the click that fires immediately after a drag-end —
           // react-rnd doesn't natively distinguish them.
           if (performance.now() - dragJustEnded.current < 250) return
@@ -1285,22 +1285,6 @@ export default function WidgetFrame({
           ref={headerRef}
           data-widget-header
           className={`${draggableHandleClass} ${headerAccent} fb-widget-header flex items-center px-2 py-1 cursor-move select-none border-b border-[color:var(--edge-soft)] backdrop-blur-sm`}
-          // THE modifier-click guard for every header control — the buttons,
-          // the bell and completion check, the title, the "…" menu and the
-          // pin / expand pickers (portalled, but React routes their events
-          // through this tree). Capture phase, so it runs before any control's
-          // own onClick: a shift-click (or ⌘/Ctrl-click while zoomed out) has
-          // already selected or dived on mousedown (the frame's capture
-          // handler above) and must not ALSO run the control's action.
-          // A keyboard-activated click (detail 0, e.g. Shift+Enter) had no
-          // mousedown, so the selection / dive happens here instead.
-          onClickCapture={(e) => {
-            guardHeaderClick(
-              e,
-              { zoom, isChildOfSection, isPinned },
-              { toggleSelection: shiftToggle, dive: () => zoomToWidget(widget.id) }
-            )
-          }}
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()

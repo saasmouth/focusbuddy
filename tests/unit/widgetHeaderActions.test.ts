@@ -5,13 +5,12 @@
 // the widget by and no title at all. The rule keeps a minimum title and grab
 // area and folds the lower-priority tools into "…", the same way for every kind.
 //
-// Guard: shift-clicking a header button selected the widget AND ran the button
-// (shift-click "Rewrite with AI" opened the dialog). The modifier now wins.
+// Modifier clicks: a shift-click (or ⌘/Ctrl-click while zoomed out) did its
+// desk job on mousedown and must not also run the control it landed on.
 
 import { describe, expect, it, vi } from 'vitest'
 import {
   foldHeaderActions,
-  guardHeaderClick,
   headerActionBudget,
   HEADER_ACTION_ORDER,
   HEADER_ACTION_PRIORITY,
@@ -19,6 +18,7 @@ import {
   HEADER_MIN_TITLE_PX,
   resolveModifierClick,
   rowWidth,
+  swallowModifierClick,
   type HeaderActionId
 } from '../../src/renderer/src/lib/widgetHeaderActions'
 
@@ -116,14 +116,15 @@ describe('resolveModifierClick — what a modifier means on a work widget', () =
     })
   })
 
-  it('shift on a widget that cannot join the selection still never runs the action', () => {
+  it('shift on a widget that cannot join the selection is a plain click (the frame rule since 55ea2b30)', () => {
     for (const ctx of [
       { ...free, isPinned: true },
       { ...free, isChildOfSection: true }
     ]) {
       expect(resolveModifierClick({ ...none, shiftKey: true }, ctx)).toMatchObject({
+        kind: 'plain',
         toggleSelection: false,
-        runAction: false
+        runAction: true
       })
     }
   })
@@ -150,63 +151,56 @@ describe('resolveModifierClick — what a modifier means on a work widget', () =
   })
 })
 
-describe('guardHeaderClick — the header capture guard, on a real DOM tree', () => {
-  // The same wiring as WidgetFrame: a header with the guard in the CAPTURE
-  // phase, a button inside it with its own click handler.
+describe('swallowModifierClick — the frame click capture, on a real DOM tree', () => {
+  // The same wiring as WidgetFrame: the frame with the handler in the CAPTURE
+  // phase, a header button inside it with its own click handler.
   function mount(ctx = { zoom: 1, isChildOfSection: false, isPinned: false }) {
-    const header = document.createElement('div')
+    const frame = document.createElement('div')
     const button = document.createElement('button')
-    header.appendChild(button)
-    document.body.appendChild(header)
+    frame.appendChild(button)
+    document.body.appendChild(frame)
     const action = vi.fn()
-    const toggleSelection = vi.fn()
-    const dive = vi.fn()
-    header.addEventListener('click', (e) => guardHeaderClick(e, ctx, { toggleSelection, dive }), true)
+    frame.addEventListener('click', (e) => swallowModifierClick(e, ctx), true)
     button.addEventListener('click', action)
-    const click = (init: MouseEventInit & { detail?: number }): void => {
-      button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1, ...init }))
+    const click = (init: MouseEventInit): MouseEvent => {
+      const ev = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1, ...init })
+      button.dispatchEvent(ev)
+      return ev
     }
-    return { action, toggleSelection, dive, click, cleanup: () => header.remove() }
+    return { action, click, cleanup: () => frame.remove() }
   }
 
   it('plain click: the button runs', () => {
     const t = mount()
     t.click({})
     expect(t.action).toHaveBeenCalledTimes(1)
-    expect(t.toggleSelection).not.toHaveBeenCalled()
     t.cleanup()
   })
 
-  it('shift pointer click: the button does NOT run (mousedown already selected)', () => {
+  it('shift-click: the button does NOT run (mousedown already selected)', () => {
     const t = mount()
-    t.click({ shiftKey: true })
+    expect(t.click({ shiftKey: true }).defaultPrevented).toBe(true)
     expect(t.action).not.toHaveBeenCalled()
-    // Selection happened on mousedown in the frame; the click must not toggle it back.
-    expect(t.toggleSelection).not.toHaveBeenCalled()
     t.cleanup()
   })
 
-  it('Shift+Enter (keyboard click, detail 0): selects here, button does not run', () => {
-    const t = mount()
-    t.click({ shiftKey: true, detail: 0 })
-    expect(t.action).not.toHaveBeenCalled()
-    expect(t.toggleSelection).toHaveBeenCalledTimes(1)
-    t.cleanup()
-  })
-
-  it('⌘-click while zoomed out: the button does not run', () => {
+  it('⌘ / Ctrl-click while zoomed out: the button does NOT run (mousedown already dived)', () => {
     const t = mount({ zoom: 0.5, isChildOfSection: false, isPinned: false })
     t.click({ metaKey: true })
+    t.click({ ctrlKey: true })
     expect(t.action).not.toHaveBeenCalled()
-    t.click({ metaKey: true, detail: 0 })
-    expect(t.dive).toHaveBeenCalledTimes(1)
     t.cleanup()
   })
 
-  it('Alt-click: the button runs', () => {
+  it('⌘-click at ordinary zoom, Alt-click, and shift on a pinned widget: the button runs', () => {
     const t = mount()
+    t.click({ metaKey: true })
     t.click({ altKey: true })
-    expect(t.action).toHaveBeenCalledTimes(1)
+    expect(t.action).toHaveBeenCalledTimes(2)
     t.cleanup()
+    const pinned = mount({ zoom: 1, isChildOfSection: false, isPinned: true })
+    pinned.click({ shiftKey: true })
+    expect(pinned.action).toHaveBeenCalledTimes(1)
+    pinned.cleanup()
   })
 })
