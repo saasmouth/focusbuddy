@@ -6,6 +6,7 @@ import type { DrawBody } from '@shared/draw'
 import type { Box } from '@shared/drawGeometry'
 import { artboardsBounds, primaryArtboard, rasterFrame, rasterLayerFrame } from '@shared/draw/ops'
 import type { LiveUndo } from '../../../../lib/yjsKeyedJson'
+import type { DocumentOps } from '../../editor/documentOps'
 import { fontShorthand, layoutText } from '../textMeasure'
 import { clampZoom } from '../viewport'
 import { createCanvasRaster } from './canvasRaster'
@@ -24,6 +25,8 @@ export interface StudioRefs {
   onSaveRequest?: { current: (() => void) | undefined }
   /** What the studio edits when it is not a document (DrawStudio's `session`). */
   session?: { current: DrawSession | undefined }
+  /** The document on screen, bound by the host to its id (DrawStudio's `documentOps`). */
+  documentOps?: { current: DocumentOps | undefined }
   /**
    * How much of the viewport's left edge pinned overlay panels cover, in
    * screen px. Fit and Paste work in the visible part, so ⌘0 centres the art
@@ -135,6 +138,7 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
       saveRequest: () => refs.onSaveRequest?.current,
       session: () => refs.session?.current,
       title: () => refs.title.current,
+      docOps: () => refs.documentOps?.current,
       exportAs: async (format, opts) => {
         const s = store()
         // A drawing this build cannot fully show cannot be honestly exported:

@@ -1,24 +1,36 @@
 // File menu: new, copy, presets, export, rename, history, trash.
 
 import { DRAW_SIZES, blankDrawBody } from '@shared/draw'
-import { openDocHistory } from '../../DocHistoryPanel'
-import { confirmDialog, promptText } from '../../../plexi/PromptDialog'
-import { useDocumentsStore } from '../../../../stores/documents'
-import { useViewStore } from '../../../../stores/view'
+import { drawDocForStorage } from '@shared/draw/compat'
 import type { Command, EditorCtx, ExportOptions, MenuSpec } from '../editor/types'
 import { documentCommand } from '../editor/session'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
 /**
- * The name of what is being edited. For a drawing, the documents store's
- * active document (whose title the document commands below act on). In a
- * snippet edit session the store's active document is NOT what is on screen,
- * so the studio's own title is used: a label never names the wrong thing.
+ * The name of what is on screen, for anything that names it. For a drawing,
+ * the title the HOST bound with the document (DocumentOps.title), so a desk
+ * widget names its own drawing. In a snippet edit session, the studio's own
+ * title. Never the documents store's `active` document, which on a desk is a
+ * different one: a label never names the wrong thing.
  */
 export function documentTitle(ctx: EditorCtx): string {
   if (ctx.host.session?.()) return ctx.host.title?.() || 'Untitled snippet'
-  return useDocumentsStore.getState().active?.title ?? 'Untitled artwork'
+  const ops = ctx.host.docOps?.()
+  return (ops ? ops.title() : ctx.host.title?.())?.trim() || 'Untitled artwork'
+}
+
+/**
+ * The drawing as it is on screen, in the form it is stored in (exactly what
+ * the studio emits). Make a copy copies THIS rather than the stored row, which
+ * can lag the canvas by the host's save debounce. Undefined when read-only (a
+ * drawing from a newer PlexiiDraw): the studio shows less than the file holds,
+ * so the stored row is copied as it is (DocumentOps.makeCopy's default).
+ */
+function storedBody(ctx: EditorCtx): unknown {
+  const s = ctx.get()
+  if (s.readOnly) return undefined
+  return drawDocForStorage(s.doc, { stored: s.storedSchema, allowV2: s.v2Writes })
 }
 
 /** Export: straight away with one artboard; with several, ask what to export unless the caller said. */
@@ -33,18 +45,21 @@ export const menus: MenuSpec[] = [
   { path: 'file/New from preset', label: 'New from preset', icon: 'aspect_ratio', order: 200 }
 ]
 
-// documentCommand: off in a snippet edit session, which edits the snippet and
-// not a document (editor/session.ts). Save and Export stay on there.
+// documentCommand: acts through the DocumentOps the host bound to the drawing
+// on screen, and only that; off with a reason in a snippet edit session or
+// where no host supplied a document (editor/session.ts). Save and Export stay
+// on everywhere.
+//
+// New, New from preset and Make a copy create a document and open it where the
+// host says (DocumentOps.onOpen: the Documents view, also from a desk widget,
+// which leaves the widget showing what it showed).
 export const commands: Command[] = [
   documentCommand({
     id: 'file.new',
     label: 'New artwork',
     icon: 'note_add',
     menu: { path: 'file', order: 100 },
-    run: async () => {
-      const doc = await useDocumentsStore.getState().createBlank('draw')
-      useViewStore.getState().goDocument(doc.id)
-    }
+    run: (_ctx, ops) => ops.newDocument()
   }),
   // Save (Illustrator's ⌘S). A drawing is persisted from every edit by its
   // host, so there is nothing to save and this shows disabled -- and ⌘S is not
@@ -71,11 +86,7 @@ export const commands: Command[] = [
     label: 'Make a copy',
     icon: 'file_copy',
     menu: { path: 'file', order: 110 },
-    run: async (ctx) => {
-      const active = useDocumentsStore.getState().active
-      const copy = await window.api.documents.create({ docType: 'draw', title: `Copy of ${documentTitle(ctx)}`, body: active?.body })
-      useViewStore.getState().goDocument(copy.id)
-    }
+    run: (ctx, ops) => ops.makeCopy(storedBody(ctx))
   }),
   ...DRAW_SIZES.map(
     (s, i): Command =>
@@ -83,10 +94,7 @@ export const commands: Command[] = [
         id: `file.newPreset.${s.id}`,
         label: `${s.label} — ${s.w}×${s.h}`,
         menu: { path: 'file/New from preset', order: i },
-        run: async () => {
-          const doc = await window.api.documents.create({ docType: 'draw', title: s.label, body: blankDrawBody(s) })
-          useViewStore.getState().goDocument(doc.id)
-        }
+        run: (_ctx, ops) => ops.newDocument({ title: s.label, body: blankDrawBody(s) })
       })
   ),
   // Off when read-only: the file would leave out what a newer app added.
@@ -99,37 +107,24 @@ export const commands: Command[] = [
     label: 'Rename',
     icon: 'edit',
     menu: { path: 'file', order: 400 },
-    run: async (ctx) => {
-      const next = await promptText({ title: 'Rename artwork', initial: documentTitle(ctx), confirmLabel: 'Rename' })
-      if (next != null && next.trim()) void useDocumentsStore.getState().rename(next.trim())
-    }
+    // By id (DocumentOps.rename: renameById). The store's rename(title) has no
+    // id and renames its `active` document, which is never used here.
+    run: (_ctx, ops) => ops.rename()
   }),
   documentCommand({
     id: 'file.history',
     label: 'Version history',
     icon: 'history',
     menu: { path: 'file', order: 410 },
-    run: () => {
-      const active = useDocumentsStore.getState().active
-      if (active) openDocHistory(active.id)
-    }
+    run: (_ctx, ops) => ops.openHistory()
   }),
   documentCommand({
     id: 'file.trash',
     label: 'Move to trash',
     icon: 'delete',
     menu: { path: 'file', order: 420 },
-    run: async (ctx) => {
-      const active = useDocumentsStore.getState().active
-      if (!active) return
-      const ok = await confirmDialog({
-        title: `Move "${documentTitle(ctx)}" to trash?`,
-        body: 'You can restore it from the Documents trash.',
-        confirmLabel: 'Move to trash'
-      })
-      if (!ok) return
-      await useDocumentsStore.getState().remove(active.id)
-      useViewStore.getState().goDocuments()
-    }
+    // Confirms, naming the bound drawing; trashes it by id (with Undo); then
+    // the host decides what is left on screen (DocumentOps.onTrashed).
+    run: (_ctx, ops) => ops.moveToTrash()
   })
 ]

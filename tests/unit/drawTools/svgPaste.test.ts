@@ -57,7 +57,7 @@ beforeEach(() => {
   cb = new Clip()
   rasterized = 0
   setDrawClipboardBackend(cb)
-  setImportHost({ deps: () => deps, pick: async () => ({ ok: false, files: [], skipped: [] }), openNewDrawing: async () => {} })
+  setImportHost({ deps: () => deps, pick: async () => ({ ok: false, files: [], skipped: [] }) })
   registerSvgPasteImporter(pasteSvgImporter)
 })
 afterEach(() => {

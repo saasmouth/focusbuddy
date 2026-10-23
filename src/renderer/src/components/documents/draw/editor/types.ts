@@ -7,6 +7,7 @@ import type { DrawCompatibility } from '@shared/draw'
 import type { DrawNode as PathPointNode, Pt } from '@shared/drawGeometry'
 import type { DrawDoc, DrawDocPaint, DrawDocStroke, DrawNode, DrawTextNode } from '@shared/draw/model'
 import type { BrushSettings, StrokePoint } from '../brushes'
+import type { DocumentOps } from '../../editor/documentOps'
 
 /** A smart guide being drawn while something snaps. */
 export interface SnapGuide {
@@ -279,6 +280,19 @@ export interface HostService {
   session?(): DrawSession | undefined
   /** The studio's own live `title` prop (what is being edited, by name). Absent in headless runs. */
   title?(): string
+  /**
+   * The document on screen, bound BY THE HOST to its id (DrawStudio's
+   * `documentOps`, built with editor/documentOps.ts createDocumentOps). Every
+   * File-menu command that acts on a document -- New, New from preset, Open
+   * SVG, Make a copy, Rename, Version history, Move to trash -- and Document ›
+   * Meeting goes through it, and through nothing else: the commands never
+   * read the documents store, whose `active` document is whatever Documents
+   * last had open, not necessarily this one (a desk widget never puts its
+   * drawing there). Absent where no host supplies a document (a live drawing,
+   * a snippet session, headless): those commands are then disabled with a
+   * reason (editor/session.ts). Read at call time.
+   */
+  docOps?(): DocumentOps | undefined
 }
 
 /** What the studio is editing, when it is not a document (see HostService.session). */

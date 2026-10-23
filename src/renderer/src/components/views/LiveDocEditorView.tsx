@@ -620,6 +620,9 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           items in the File menu that silently did nothing, which is worse than
           not offering them.
 
+          (PlexiiDraw shows them disabled, with the reason, rather than absent:
+          its menus are command-driven. Same decision: draw/editor/session.ts.)
+
           Without ops those items are absent, and that is already a strict
           improvement: they used to act on the DOCUMENTS STORE's active
           document, which in this view is whatever the Documents view last had

@@ -118,7 +118,10 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   let body: JSX.Element
   if (trashed) {
     body = (
-      <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center">
+      <div
+        className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center"
+        data-testid="office-doc-trashed"
+      >
         <span className="text-[11px] text-[var(--ink-70)]">
           Moved to the trash.
         </span>
@@ -160,7 +163,7 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   } else if (docType === 'design') {
     body = <DesignEditor key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
   } else if (docType === 'draw') {
-    body = <DrawStudio key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
+    body = <DrawStudio key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else {
     body = <MapEditor key={doc.id} body={doc.body as MapBody} title={doc.title} onChange={saveBody} />
   }
