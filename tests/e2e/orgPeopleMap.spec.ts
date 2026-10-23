@@ -37,7 +37,32 @@ test.afterEach(async () => {
   }
 })
 
+/**
+ * OrgAdminView is TEAM-ONLY.
+ *
+ * 3a40a6ba ("comprehensive entitlement enforcement across all feature
+ * surfaces") put the organization view behind org_directory, which
+ * capabilityDefaults has as { free: false, pro: false, team: true }. These
+ * specs run unauthenticated, so MainPane renders the gate instead of the view
+ * and "Manage organisation" leads nowhere — the second of the two reasons they
+ * went red, the first being the tabbed Settings shell below.
+ *
+ * Seeded rather than worked around: what these three are for is that the view
+ * MOUNTS and renders its sections without throwing, which only happens on a
+ * tier entitled to open it.
+ */
+async function grantOrgEntitlement(window: LaunchedApp['window']): Promise<void> {
+  await window.evaluate(() => {
+    const w = window as unknown as {
+      __fbCapabilities?: { setState: (s: object) => void; getState: () => { capabilities: Record<string, unknown> } }
+    }
+    const current = w.__fbCapabilities?.getState().capabilities ?? {}
+    w.__fbCapabilities?.setState({ capabilities: { ...current, org_directory: true } })
+  })
+}
+
 async function openOrgView(window: LaunchedApp['window']): Promise<void> {
+  await grantOrgEntitlement(window)
   // Organisation used to be a standalone sidebar row, then a section of the
   // one long-scroll Settings popover. f03087b07 made Settings a TABBED shell,
   // so OrganisationSection only mounts while its own tab is selected
