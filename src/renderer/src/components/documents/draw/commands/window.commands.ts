@@ -7,6 +7,7 @@
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 import { cycleFlyout } from '../tools/flyouts'
 import { toolById } from '../tools/registry'
+import { firstOf, gate, notReadOnly, unless } from './gate'
 
 export const menus: MenuSpec[] = [{ path: 'window', label: 'Window', order: 65 }]
 
@@ -43,7 +44,8 @@ export const commands: Command[] = [
     menu: { path: 'window', order: 100 },
     // F6 is Illustrator's Color panel and ⌘F6 its next document, so the
     // studio's focus cycle is ⌥F6 (keymap.ts).
-    enabled: (ctx) => !!ctx.ui,
+    // Absent only where there is no studio window (a headless run).
+    ...gate(unless((ctx) => !!ctx.ui, 'Moving focus needs the studio window.')),
     run: (ctx) => ctx.ui?.cycleFocus()
   },
   {
@@ -55,7 +57,12 @@ export const commands: Command[] = [
     // button; the rail does that too. This is the same step as a command, with
     // no default key (every Shift+letter of a group is an Illustrator key
     // already); give it one in Edit › Keyboard shortcuts.
-    enabled: (ctx) => !ctx.get().readOnly && !!toolById(ctx.get().tool)?.flyout,
+    ...gate(
+      firstOf(notReadOnly, (ctx) => {
+        const t = toolById(ctx.get().tool)
+        return t?.flyout ? null : `The ${t?.label ?? 'current'} tool is not grouped with other tools. Pick one that is, such as the Pen.`
+      })
+    ),
     run: (ctx) => {
       const f = toolById(ctx.get().tool)?.flyout
       if (f) cycleFlyout(ctx, f)

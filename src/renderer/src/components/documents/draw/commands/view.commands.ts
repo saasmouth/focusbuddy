@@ -6,6 +6,7 @@ import { clampZoom, MAX_ZOOM } from '../viewport'
 import { setShellPrefs, shellPrefs } from '../editor/shellPrefs'
 import { commandShortcutLabel } from './keys'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import { gate, unless } from './gate'
 
 /** Screen margin Zoom to Selection keeps around the selection on every side. */
 export const ZOOM_TO_SELECTION_PAD = 40
@@ -38,8 +39,7 @@ export const commands: Command[] = [
     label: 'Zoom to Selection',
     icon: 'center_focus_weak',
     menu: { path: 'view', order: 102 },
-    enabled: (ctx) => selectionZoomBox(ctx) !== null,
-    disabledReason: (ctx) => (selectionZoomBox(ctx) ? null : 'select something to zoom to'),
+    ...gate(unless((ctx) => selectionZoomBox(ctx) !== null, 'Select something to zoom to.')),
     explainsWhenDisabled: true,
     run: (ctx) => {
       const box = selectionZoomBox(ctx)

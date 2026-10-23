@@ -27,9 +27,11 @@ export interface CanvasMenuEntry {
   icon?: string
   shortcut?: string
   enabled: boolean
+  /** Why it is off, as the menu bar says it under the item (SPEC §9.5); only when off. */
+  reason?: string
 }
 
-/** What the menu shows now: every registered command in CANVAS_MENU, enabled exactly as the menu bar enables it. */
+/** What the menu shows now: every registered command in CANVAS_MENU, enabled exactly as the menu bar enables it, with the same reason when off. */
 export function canvasMenuEntries(ctx: EditorCtx): Array<CanvasMenuEntry | 'sep'> {
   const out: Array<CanvasMenuEntry | 'sep'> = []
   for (const group of CANVAS_MENU) {
@@ -39,7 +41,9 @@ export function canvasMenuEntries(ctx: EditorCtx): Array<CanvasMenuEntry | 'sep'
       if (!c) continue
       const label = id === 'edit.copySvgCode' ? 'Copy As SVG Code' : c.label
       const shortcut = commandShortcutLabel(id) ?? c.shortcut
-      items.push({ id, label, ...(c.icon ? { icon: c.icon } : {}), ...(shortcut ? { shortcut } : {}), enabled: c.enabled ? c.enabled(ctx) : true })
+      const enabled = c.enabled ? c.enabled(ctx) : true
+      const reason = enabled ? undefined : (c.pending ?? c.disabledReason?.(ctx) ?? undefined)
+      items.push({ id, label, ...(c.icon ? { icon: c.icon } : {}), ...(shortcut ? { shortcut } : {}), enabled, ...(reason ? { reason } : {}) })
     }
     if (!items.length) continue
     if (out.length) out.push('sep')
@@ -88,6 +92,7 @@ export default function CanvasContextMenu({ ctx, at, onClose }: { ctx: EditorCtx
             role="menuitem"
             data-testid={`draw-context-${it.id}`}
             disabled={!it.enabled}
+            title={it.reason}
             onClick={() => {
               onClose()
               ctx.run(it.id)
@@ -95,7 +100,10 @@ export default function CanvasContextMenu({ ctx, at, onClose }: { ctx: EditorCtx
             className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-left ${it.enabled ? 'text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]' : 'text-[var(--ink-30)] cursor-default'}`}
           >
             <span className="w-4 shrink-0 text-[var(--ink-50)]">{it.icon ? <Icon name={it.icon} size={15} /> : null}</span>
-            <span className="flex-1 min-w-0 truncate">{it.label}</span>
+            <span className="flex-1 min-w-0 truncate">
+              {it.label}
+              {it.reason && <span className="block text-[11px] text-[var(--ink-40)] truncate">{it.reason}</span>}
+            </span>
             {it.shortcut && <span className="text-[11px] text-[var(--ink-40)] fb-tabular">{it.shortcut}</span>}
           </button>
         )

@@ -23,6 +23,7 @@ import type { Scene } from '@shared/draw/generate/scene'
 import type { DrawNode } from '@shared/draw/model'
 import { v2BlockedReason, v2Writable } from '../editor/v2gate'
 import type { Command, EditorCtx } from '../editor/types'
+import { READ_ONLY_REASON } from './gate'
 
 export interface ApplySceneArgs {
   scene: Scene
@@ -39,7 +40,7 @@ export interface ApplyPaintArgs {
 /** Why generated work cannot be applied now, as a sentence; null when it can. */
 export function generateBlockedReason(ctx: EditorCtx): string | null {
   const s = ctx.get()
-  if (s.readOnly) return 'This artwork is read-only.'
+  if (s.readOnly) return READ_ONLY_REASON
   if (!v2Writable(s)) return `Generated art can't be added to this drawing yet: ${v2BlockedReason(s)}.`
   return null
 }

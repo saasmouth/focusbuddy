@@ -137,19 +137,20 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
   }
   // WP-CLIPBOARD's clipboard group (Illustrator's order), then Select all / Deselect, then WP-KEYS' dialog.
   expect(await read('edit')).toEqual([
-    'Undo (off)',
-    'Redo (off)',
-    'Cut (off)',
-    'Copy (off)',
+    // Off with nothing selected (or nothing to undo); each says why under the item (SPEC §9.5).
+    'UndoNothing to undo yet. (off)',
+    'RedoNothing to redo. (off)',
+    'CutSelect something to cut. (off)',
+    'CopySelect something to copy. (off)',
     'Paste',
     'Paste in Front',
     'Paste in Back',
     'Paste in Place',
     'Paste on All Artboards',
-    'Duplicate (off)',
-    'Delete (off)',
+    'DuplicateSelect something to duplicate. (off)',
+    'DeleteSelect something to delete. (off)',
     'Select all',
-    'Deselect (off)',
+    'DeselectNothing is selected. (off)',
     'Select all on active artboard',
     // Saved snippets (51a43502): off with nothing selected, the reason under it.
     'Save selection as snippet…Select something to save as a snippet. (off)',
@@ -161,10 +162,10 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
     'Fit Artboard in Window',
     'Fit All in Window',
     // Off with nothing selected; the menu says why under the item.
-    'Zoom to Selectionselect something to zoom to (off)',
+    'Zoom to SelectionSelect something to zoom to. (off)',
     'Zoom to 100%',
-    'Next Artboard (off)',
-    'Previous Artboard (off)',
+    'Next ArtboardThere is only one artboard. (off)',
+    'Previous ArtboardThere is only one artboard. (off)',
     'Hide Artboards',
     'Grid',
     'Snap to edges'

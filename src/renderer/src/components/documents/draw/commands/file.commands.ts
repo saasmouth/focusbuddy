@@ -4,6 +4,7 @@ import { DRAW_SIZES, blankDrawBody } from '@shared/draw'
 import { drawDocForStorage } from '@shared/draw/compat'
 import type { Command, EditorCtx, ExportOptions, MenuSpec } from '../editor/types'
 import { documentCommand } from '../editor/session'
+import { READ_ONLY_REASON, gate, writableGate } from './gate'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
@@ -75,9 +76,7 @@ export const commands: Command[] = [
     icon: 'save',
     // After Open (105) and before Make a copy (110), as Save sits in Illustrator's File menu.
     menu: { path: 'file', order: 108 },
-    enabled: (ctx) => !!ctx.host.saveRequest?.() && writable(ctx),
-    disabledReason: (ctx) =>
-      !ctx.host.saveRequest?.() ? 'drawings save as you work' : !writable(ctx) ? 'this drawing is read-only' : null,
+    ...gate((ctx) => (!ctx.host.saveRequest?.() ? 'Drawings save as you work.' : !writable(ctx) ? READ_ONLY_REASON : null)),
     keyWhen: (ctx) => !!ctx.host.saveRequest?.(),
     run: (ctx) => {
       const save = ctx.host.saveRequest?.()
@@ -102,9 +101,9 @@ export const commands: Command[] = [
   ),
   // Off when read-only: the file would leave out what a newer app added.
   // With several artboards, the export asks what it covers (dialogs/exportArtboards.dialog.tsx).
-  { id: 'file.exportPng', label: 'Download PNG…', menuLabel: () => 'PNG image (.png)…', icon: 'image', menu: { path: 'file/Download', order: 0 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'png', args) },
-  { id: 'file.exportSvg', label: 'Download SVG…', menuLabel: () => 'SVG vector (.svg)…', icon: 'polyline', menu: { path: 'file/Download', order: 1 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'svg', args) },
-  { id: 'file.exportPdf', label: 'Download PDF…', menuLabel: () => 'PDF document (.pdf)…', icon: 'picture_as_pdf', menu: { path: 'file/Download', order: 2 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'pdf', args) },
+  { id: 'file.exportPng', label: 'Download PNG…', menuLabel: () => 'PNG image (.png)…', icon: 'image', menu: { path: 'file/Download', order: 0 }, ...writableGate, run: (ctx, args) => exportFormat(ctx, 'png', args) },
+  { id: 'file.exportSvg', label: 'Download SVG…', menuLabel: () => 'SVG vector (.svg)…', icon: 'polyline', menu: { path: 'file/Download', order: 1 }, ...writableGate, run: (ctx, args) => exportFormat(ctx, 'svg', args) },
+  { id: 'file.exportPdf', label: 'Download PDF…', menuLabel: () => 'PDF document (.pdf)…', icon: 'picture_as_pdf', menu: { path: 'file/Download', order: 2 }, ...writableGate, run: (ctx, args) => exportFormat(ctx, 'pdf', args) },
   documentCommand({
     id: 'file.rename',
     label: 'Rename',

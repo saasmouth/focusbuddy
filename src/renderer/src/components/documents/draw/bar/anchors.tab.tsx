@@ -14,7 +14,6 @@ import { toolById } from '../tools/registry'
 import { BarLabel, CmdButton, CmdToggle, useEditor } from './controls'
 
 const TRAIL_TOOLS = new Set(['smooth', 'pathEraser'])
-const NO_ANCHORS = 'select anchor points with Direct Selection (A) first'
 
 function hasPath(s: Pick<EditorState, 'doc' | 'selection'>): boolean {
   return s.selection.some((id) => getObject(s.doc, id)?.type === 'path')
@@ -43,34 +42,34 @@ function AnchorsTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <BarSep />
       <BarGroup label="Convert">
         <BarLabel>Convert</BarLabel>
-        <CmdButton ctx={ctx} id="path.convertCorner" icon="change_history" reason={NO_ANCHORS} testid="draw-anchor-corner" />
-        <CmdButton ctx={ctx} id="path.convertSmooth" icon="radio_button_unchecked" reason={NO_ANCHORS} testid="draw-anchor-smooth" />
+        <CmdButton ctx={ctx} id="path.convertCorner" icon="change_history" testid="draw-anchor-corner" />
+        <CmdButton ctx={ctx} id="path.convertSmooth" icon="radio_button_unchecked" testid="draw-anchor-smooth" />
         <CmdToggle ctx={ctx} id="path.toggleHandles" icon="linear_scale" label="Show handles for multiple selected anchor points" pressed={prefs.showHandles} readOnlySafe testid="draw-anchor-handles" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Anchors">
-        <CmdButton ctx={ctx} id="path.removeAnchors" icon="remove" reason={NO_ANCHORS} testid="draw-anchor-remove" />
-        <CmdButton ctx={ctx} id="path.cutAtAnchors" icon="content_cut" reason={NO_ANCHORS} testid="draw-anchor-cut" />
+        <CmdButton ctx={ctx} id="path.removeAnchors" icon="remove" testid="draw-anchor-remove" />
+        <CmdButton ctx={ctx} id="path.cutAtAnchors" icon="content_cut" testid="draw-anchor-cut" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Align anchors">
-        <CmdButton ctx={ctx} id="path.alignAnchors.left" icon="align_horizontal_left" reason="select two or more anchor points" testid="draw-anchor-align-left" />
-        <CmdButton ctx={ctx} id="path.alignAnchors.hcenter" icon="align_horizontal_center" reason="select two or more anchor points" testid="draw-anchor-align-hcenter" />
-        <CmdButton ctx={ctx} id="path.alignAnchors.right" icon="align_horizontal_right" reason="select two or more anchor points" testid="draw-anchor-align-right" />
-        <CmdButton ctx={ctx} id="path.alignAnchors.top" icon="align_vertical_top" reason="select two or more anchor points" testid="draw-anchor-align-top" />
-        <CmdButton ctx={ctx} id="path.alignAnchors.vcenter" icon="align_vertical_center" reason="select two or more anchor points" testid="draw-anchor-align-vcenter" />
-        <CmdButton ctx={ctx} id="path.alignAnchors.bottom" icon="align_vertical_bottom" reason="select two or more anchor points" testid="draw-anchor-align-bottom" />
+        <CmdButton ctx={ctx} id="path.alignAnchors.left" icon="align_horizontal_left" testid="draw-anchor-align-left" />
+        <CmdButton ctx={ctx} id="path.alignAnchors.hcenter" icon="align_horizontal_center" testid="draw-anchor-align-hcenter" />
+        <CmdButton ctx={ctx} id="path.alignAnchors.right" icon="align_horizontal_right" testid="draw-anchor-align-right" />
+        <CmdButton ctx={ctx} id="path.alignAnchors.top" icon="align_vertical_top" testid="draw-anchor-align-top" />
+        <CmdButton ctx={ctx} id="path.alignAnchors.vcenter" icon="align_vertical_center" testid="draw-anchor-align-vcenter" />
+        <CmdButton ctx={ctx} id="path.alignAnchors.bottom" icon="align_vertical_bottom" testid="draw-anchor-align-bottom" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Corner">
         <BarNumber label="Corner radius" value={radius} min={0} suffix="px" width={44} onChange={(v) => setRadius(Math.max(0, v))} testid="draw-anchor-radius" />
-        <CmdButton ctx={ctx} id="path.cornerRadius" icon="rounded_corner" args={radius} reason={NO_ANCHORS} testid="draw-anchor-round" />
+        <CmdButton ctx={ctx} id="path.cornerRadius" icon="rounded_corner" args={radius} testid="draw-anchor-round" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Path">
-        <CmdButton ctx={ctx} id="path.join" icon="link" reason="select two open ends to join" testid="draw-path-join" />
-        <CmdButton ctx={ctx} id="path.average" icon="vertical_align_center" reason="select two or more anchor points" testid="draw-path-average" />
-        <CmdButton ctx={ctx} id="path.simplify" icon="auto_fix_high" reason="select a path first" testid="draw-path-simplify" />
+        <CmdButton ctx={ctx} id="path.join" icon="link" testid="draw-path-join" />
+        <CmdButton ctx={ctx} id="path.average" icon="vertical_align_center" testid="draw-path-average" />
+        <CmdButton ctx={ctx} id="path.simplify" icon="auto_fix_high" testid="draw-path-simplify" />
       </BarGroup>
       {trail && (
         <>
