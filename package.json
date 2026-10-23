@@ -70,6 +70,7 @@
     "@sqlite.org/sqlite-wasm": "^3.53.4-build1",
     "@tiptap/extension-character-count": "^3.23.6",
     "@tiptap/extension-code-block-lowlight": "^3.23.6",
+    "@tiptap/y-tiptap": "^3.0.2",
     "@tiptap/extension-collaboration": "^3.23.6",
     "@tiptap/extension-collaboration-caret": "^3.23.6",
     "@tiptap/extension-highlight": "^3.23.6",

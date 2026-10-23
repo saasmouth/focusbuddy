@@ -181,7 +181,7 @@ import {
   deleteDocument
 } from '../db/documents'
 import { captureDocSnapshot, listDocSnapshots, restoreDocSnapshot } from '../db/docSnapshots'
-import { listDocComments, addDocComment, resolveDocComment } from '../db/docComments'
+import { listDocComments, addDocComment, resolveDocComment, setDocCommentAnchor } from '../db/docComments'
 import { searchAll, setMailSearchCache } from '../db/search'
 import { ingestHeaderPage, backfillBodies } from '../mail/mailIngest'
 import { searchStoredMail, storedThread, getStoredAttachments } from '../db/mailStore'
@@ -4124,10 +4124,24 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('docComments:list', (_e, docId: string) => listDocComments(docId))
   ipcMain.handle(
     'docComments:add',
-    (_e, input: { docId: string; body: string; author: string; anchorId?: string | null; parentId?: string | null }) =>
-      addDocComment(input)
+    (
+      _e,
+      input: {
+        docId: string
+        body: string
+        author: string
+        anchorId?: string | null
+        anchor?: string | null
+        parentId?: string | null
+      }
+    ) => addDocComment(input)
   )
   ipcMain.handle('docComments:resolve', (_e, id: string, resolved: boolean) => resolveDocComment(id, resolved))
+  // Save a RE-FOUND anchor. The body changed by a path with no transaction to
+  // map through, the stored range no longer held the comment's quote, and the
+  // text was found again elsewhere: writing it back means the next open does
+  // not search again.
+  ipcMain.handle('docComments:setAnchor', (_e, id: string, anchor: string | null) => setDocCommentAnchor(id, anchor))
   ipcMain.handle('documents:reindex', () => reindexDocuments())
   ipcMain.handle('documents:semanticActive', () => documentSemanticActive())
   // Local-model document enrichment (Ollama). Status lets the UI show honestly

@@ -538,6 +538,14 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
     );
     CREATE INDEX IF NOT EXISTS idx_doc_comments_doc ON doc_comments(doc_id, created_at);
   `)
+  // Where the comment IS, stored with the comment instead of as a mark in the
+  // document. A mark made commenting a document WRITE, which a viewer of a
+  // shared document may not do (signal v123 refuses their updates), and which
+  // tied a comment's position to a body that several paths rewrite with no
+  // transaction to map through. JSON: { kind, from, to, quote } — see
+  // shared/commentAnchor.ts. Null for every comment written before this, which
+  // keeps its anchor_id mark and is read through that.
+  ensureColumn(db, 'doc_comments', 'anchor', 'TEXT')
   // Focus-Mode split "clusters": a per-desk (task node) saved split layout. panes
   // and ratios are stored JSON-encoded (PaneSources by reference) so a saved
   // cluster resolves live content on load and degrades gracefully if a member
