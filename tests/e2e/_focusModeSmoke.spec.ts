@@ -1,6 +1,6 @@
 // DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { clickWidgetTool, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 // SMOKE TEST for the Caleb Focus-Mode integration (split-view + clusters +
 // focus-chat), landed on integrate/caleb-focus-mode across commits b0e0e52,
@@ -171,9 +171,9 @@ test('UI: focusing a widget opens the split-view Focus Mode overlay without cras
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
 
-  const expandBtn = widgetEl.locator('button[aria-label="Expand options"]')
-  await expect(expandBtn).toBeVisible({ timeout: 5_000 })
-  await expandBtn.click({ force: true })
+  // Expand folds into the header's "…" menu on a narrow widget
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, widgetAId, 'Expand options')
 
   const focusModeOption = window.getByText('Full view', { exact: true })
   await expect(focusModeOption).toBeVisible({ timeout: 3_000 })
@@ -208,7 +208,9 @@ test('UI: focus-nav next/prev cycles the focused widget', async () => {
   const widgetEl = window.locator(`[data-widget-id="${widgetAId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
-  await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
+  // Expand folds into the header's "…" menu on a narrow widget
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, widgetAId, 'Expand options')
   await window.getByText('Full view', { exact: true }).click({ force: true })
 
   const overlay = window.locator('[data-testid="widget-focus-mode"]')
@@ -248,7 +250,9 @@ test('UI: chat chrome tab opens FocusChatSurface without crashing', async () => 
   const widgetEl = window.locator(`[data-widget-id="${widgetAId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
-  await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
+  // Expand folds into the header's "…" menu on a narrow widget
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, widgetAId, 'Expand options')
   await window.getByText('Full view', { exact: true }).click({ force: true })
 
   const overlay = window.locator('[data-testid="widget-focus-mode"]')

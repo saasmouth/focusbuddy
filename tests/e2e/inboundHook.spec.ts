@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { clickWidgetTool, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // "Lever 3 Phase 1: inbound webhooks" (plexi-4.0):
 //   - A new widget kind 'inbound-hook' ("Receive from a URL" in the catalog,
@@ -80,9 +80,9 @@ async function bodyPoint(window: Page, id: string): Promise<{ x: number; y: numb
 // clicking the given screen point — a real UI gesture (widget-link-owner's
 // pattern from linkIntentOverhaul.spec.ts).
 async function armAndDrop(window: Page, sourceId: string, drop: { x: number; y: number }): Promise<void> {
-  const hub = window.locator(`[data-widget-id="${sourceId}"]`).getByRole('button', { name: 'Link to another work widget' })
-  await expect(hub, `hub button visible on source ${sourceId}`).toBeVisible({ timeout: 4_000 })
-  await hub.click()
+  // At narrow widths the hub folds into the header's "…" menu
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, sourceId, 'Link to another work widget')
   await window.mouse.click(drop.x, drop.y)
   await window.waitForTimeout(150)
 }

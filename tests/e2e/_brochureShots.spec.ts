@@ -1,6 +1,6 @@
 // DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp, switchArea, isAreaLocked } from './_helpers'
+import { clickWidgetTool, launchApp, waitForReady, type LaunchedApp, switchArea, isAreaLocked } from './_helpers'
 import { resolve } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 
@@ -208,28 +208,16 @@ test('capture brochure screenshots (UI-driven, honest content)', async () => {
   const widgetA = window.locator(`[data-widget-id="${seeded.stickyAId}"]`).first()
   await expect(widgetA).toBeVisible({ timeout: 5_000 })
   await widgetA.scrollIntoViewIfNeeded().catch(() => {})
-  const expandBtn = widgetA.locator('button[aria-label="Expand options"]')
   const focusModeOption = window.getByText('Full view', { exact: true })
-  // Retry the hover -> click sequence a few times: the popover's position is
-  // computed in a useEffect on `open`, so an occasional race between the click
-  // and that effect can close/miss it. Re-hover + re-click if the option
-  // hasn't appeared yet.
+  // Retry a few times: the popover's position is computed in an effect on
+  // `open`, so a click can occasionally race it. Expand may be folded into the
+  // header's "…" menu (lib/widgetHeaderActions); clickWidgetTool finds it.
   let focusMenuOpen = false
   for (let attempt = 0; attempt < 4 && !focusMenuOpen; attempt++) {
-    await widgetA.hover()
-    await window.waitForTimeout(200)
-    await expect(expandBtn).toBeVisible({ timeout: 5_000 })
-    if (attempt % 2 === 0) {
-      await expandBtn.click()
-    } else {
-      await expandBtn.click({ force: true })
-    }
+    await clickWidgetTool(window, seeded.stickyAId, 'Expand options')
     focusMenuOpen = await focusModeOption.isVisible({ timeout: 1_500 }).catch(() => false)
     if (!focusMenuOpen) {
       console.log(`focus-mode popover attempt ${attempt + 1} did not open, retrying`)
-      const widgetABox = await widgetA.boundingBox()
-      const expandBtnBox = await expandBtn.boundingBox()
-      console.log('widgetA box:', JSON.stringify(widgetABox), 'expandBtn box:', JSON.stringify(expandBtnBox))
       await window.keyboard.press('Escape').catch(() => {})
       await window.waitForTimeout(300)
     }

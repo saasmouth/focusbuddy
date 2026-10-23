@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { clickWidgetTool, expectWidgetTool, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Phase 1 "widget-link overhaul" (plexi-4.0):
 //   (a)/(b) drawing a link creates it immediately as a passive `context` wire
@@ -123,9 +123,9 @@ async function armAndDrop(
   sourceId: string,
   drop: { x: number; y: number }
 ): Promise<{ x: number; y: number }> {
-  const hub = window.locator(`[data-widget-id="${sourceId}"]`).getByRole('button', { name: 'Link to another work widget' })
-  await expect(hub, `hub button visible on source ${sourceId}`).toBeVisible({ timeout: 4_000 })
-  await hub.click()
+  // At narrow widths the hub folds into the header's "…" menu
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, sourceId, 'Link to another work widget')
   await window.mouse.click(drop.x, drop.y)
   await window.waitForTimeout(150)
   return drop
@@ -386,8 +386,7 @@ test('(g) a pinned widget shows the hub button and can be linked to another widg
   await window.waitForSelector(`[data-widget-id="${otherId}"]`, { timeout: 5_000 })
 
   // The pinned widget shows the "Link to another work widget" hub button.
-  const hub = window.locator(`[data-widget-id="${pinnedId}"]`).getByRole('button', { name: 'Link to another work widget' })
-  await expect(hub, 'pinned widget shows the hub button').toBeVisible({ timeout: 4_000 })
+  await expectWidgetTool(window, pinnedId, 'Link to another work widget', 'pinned widget offers the hub')
 
   // Arm from the pinned widget, drop onto the other (unpinned) widget.
   const drop = await bodyPoint(window, otherId)
@@ -511,8 +510,7 @@ test('(h) arming+dropping a new link dismisses an open WireEditor', async () => 
   // dismissal is keyed on `pendingPick` (set once the drop lands and the
   // link is created) — not on the arm alone. So the editor is only
   // guaranteed gone once the arm+drop gesture completes.
-  const hub = window.locator(`[data-widget-id="${srcA}"]`).getByRole('button', { name: 'Link to another work widget' })
-  await hub.click()
+  await clickWidgetTool(window, srcA, 'Link to another work widget')
   await window.waitForTimeout(100)
 
   const drop = await bodyPoint(window, tgtA)
