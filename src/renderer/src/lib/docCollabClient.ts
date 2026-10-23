@@ -21,10 +21,67 @@ export interface LockHolder {
   handle: string
   firstName?: string | null
   lastName?: string | null
+  /**
+   * The member's access. Returned by the server as of signal v123; absent
+   * from an older server, and an absent role means EDITOR — every member
+   * could write before roles existed, so treating a missing role as a viewer
+   * would lock the existing population out of their own documents.
+   */
+  role?: 'owner' | 'editor' | 'viewer'
 }
 export interface LiveDocFull extends LiveDocMeta {
   body: string
   members: LockHolder[]
+  /**
+   * THIS account's access to the document (signal v123). Until it existed
+   * nothing exposed a role at all, so every member — viewers included — was
+   * handed a full editor. Optional for the same reason as above: against an
+   * older server it is absent, and absent means editor.
+   */
+  myRole?: 'owner' | 'editor' | 'viewer'
+}
+
+/** Is this account allowed to change the document? Absent role means yes. */
+export function canEditLiveDoc(role: LiveDocFull['myRole']): boolean {
+  return role !== 'viewer'
+}
+
+/**
+ * What this account may do with a live document, from its own role.
+ *
+ * A separate function rather than two lines in the view because the view can
+ * only render an editor once the Yjs engine has produced a body, so a test
+ * that mounts it cannot reach the props it passes down. This decision is the
+ * part that must be right, so it is testable on its own — the same reason
+ * yjsDocAuth.ts exists on the server.
+ */
+export function liveDocAccess(meta: Pick<LiveDocFull, 'docType' | 'myRole'> | null): {
+  viewerOnly: boolean
+  canComment: boolean
+} {
+  const viewerOnly = !!meta && !canEditLiveDoc(meta.myRole)
+  return {
+    viewerOnly,
+    // Comments are document-only, and still not open to a VIEWER — but for a
+    // different reason than the one this used to give.
+    //
+    // The old reason was that a comment's anchor IS a mark in the body, so a
+    // viewer could not write one. That is no longer true: an anchor is stored
+    // with the comment and drawn as a decoration, and leaving one writes
+    // nothing to the document. The client half is done and a viewer could use
+    // it today.
+    //
+    // What stops it is the SERVER, observably rather than as a matter of
+    // policy: the deployed livedoc service has no anchor column and drops the
+    // field, so a viewer's comment would be stored with no anchor and no mark —
+    // a thread in the panel pointing at nothing, with no quote to recover it
+    // from, permanently. A viewer cannot fall back to a mark the way an owner
+    // can, so there is nothing honest to give them until the column exists.
+    //
+    // This opens the moment the server can hold an anchor. It is one condition
+    // in one place, and the rest of the chain is already built behind it.
+    canComment: !!meta && meta.docType === 'doc' && !viewerOnly
+  }
 }
 export type LiveDocListItem = LiveDocMeta
 
@@ -34,7 +91,7 @@ function urlFor(path: string): string {
 
 // Returns the parsed JSON plus ok/status so callers can branch on 409 (locked).
 async function call<T>(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   token: string,
   body?: unknown
@@ -123,6 +180,17 @@ export interface DocComment {
   body: string
   resolved: boolean
   createdAt: number
+  /**
+   * The anchor JSON — a range plus a quote of the commented text — stored and
+   * returned VERBATIM, because the quote is compared character for character
+   * and re-serialising would change the one thing that decides whether a
+   * highlight is drawn.
+   *
+   * Absent until the server carrying it is deployed, which reads as null and
+   * simply means the thread has no range to draw: the document behaves exactly
+   * as it does today, with marks only, and no flag is needed to arrange that.
+   */
+  anchor?: string | null
 }
 
 export async function listComments(token: string, docId: string): Promise<DocComment[]> {
@@ -134,14 +202,41 @@ export async function addComment(
   token: string,
   docId: string,
   body: string,
-  opts?: { id?: string; parentId?: string }
+  opts?: { id?: string; parentId?: string; anchor?: string | null }
 ): Promise<DocComment | null> {
   const { json } = await call<{ ok: boolean; comment?: DocComment }>('POST', `/livedocs/${docId}/comments`, token, {
     body,
     id: opts?.id,
-    parentId: opts?.parentId
+    parentId: opts?.parentId,
+    anchor: opts?.anchor
   })
   return json?.comment ?? null
+}
+
+/**
+ * Save an anchor the editor had to re-find, for a live document's comment.
+ *
+ * `{ ok: false, forbidden: true }` is the ORDINARY case, not an error: the
+ * server lets only a comment's own author correct its anchor, because an anchor
+ * carries the quote as well as the range, so whoever can rewrite one can move
+ * someone else's comment onto words they never commented on — and the server
+ * cannot tell a correction from a forgery, since it never sees the rendered
+ * text. A viewer reading someone else's thread therefore skips persisting and
+ * re-resolves next time: the highlight is still correct for them, it just costs
+ * a quote search per open. Nothing should be shown to anyone.
+ */
+export async function setLiveCommentAnchor(
+  token: string,
+  commentId: string,
+  anchor: string | null
+): Promise<{ ok: boolean; forbidden: boolean }> {
+  const { ok, status } = await call<{ ok: boolean }>(
+    'PATCH',
+    `/livedocs/comments/${commentId}/anchor`,
+    token,
+    { anchor }
+  )
+  return { ok, forbidden: status === 403 }
 }
 
 export async function resolveComment(token: string, commentId: string, resolved: boolean): Promise<void> {

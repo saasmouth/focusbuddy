@@ -9,6 +9,8 @@ import { personDisplayName } from '../../lib/personName'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { createDocumentOps } from '../documents/editor/documentOps'
 import DocumentConflictBar from '../documents/DocumentConflictBar'
+import { localAnchorFor, positionText, resolveForEditor } from '../documents/editor/commentPositions'
+import { anchorToPersist } from '../documents/editor/commentWriteBack'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import { PlexiiDocIcon } from '../PlexiiIcon'
@@ -19,7 +21,10 @@ import ShareDialog from '../ShareDialog'
 interface LocalComment {
   id: string
   parentId: string | null
+  /** The OLD mark-based anchor. Only comments written before `anchor` have one. */
   anchorId: string | null
+  /** The anchor JSON: a range plus a quote of the commented text. */
+  anchor: string | null
   author: string
   body: string
   resolved: boolean
@@ -105,6 +110,50 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
         .map((r) => ({ id: r.id, author: r.author || 'You', createdAt: r.createdAt, body: r.body, you: true }))
     }))
 
+  // Where every thread belongs in the document as it now stands, pushed into
+  // the editor as decorations.
+  //
+  // Deliberately NOT on every keystroke: the decorations already map through
+  // transactions, so they follow typing on their own. This re-resolves only
+  // when the thread list changes or the editor is rebuilt — and the editor is
+  // rebuilt whenever the body is replaced from outside (bodyEpoch), which is
+  // the one case with no transaction history to map through.
+  useEffect(() => {
+    if (!editor) return
+    // Only threads that HAVE an anchor. A comment anchored the old way, by a
+    // mark in the body, is not orphaned — it is fine, and it keeps its
+    // CommentMark highlight. Passing it here would report "comment on removed
+    // text" about a perfectly good comment, which would be a lie.
+    const threads = comments
+      .filter((c) => !c.parentId && c.anchor != null)
+      .map((c) => ({ id: c.id, anchor: c.anchor, state: c.resolved ? ('resolved' as const) : ('open' as const) }))
+    if (threads.length === 0) {
+      editor.commands.setCommentRanges([])
+      return
+    }
+    const { ranges } = resolveForEditor(editor, threads)
+    editor.commands.setCommentRanges(ranges)
+
+    // Persist an anchor the resolver had to re-find, and refresh a quote whose
+    // text was edited in place. Both are the same thing from the database's
+    // side: store what is true now so the next open does not have to search.
+    const docText = positionText(editor.state.doc)
+    for (const r of ranges) {
+      const thread = threads.find((t) => t.id === r.id)
+      if (!thread) continue
+      // One rule, shared with the live host: local anchors only, and only when
+      // the range or the quote actually changed. See commentWriteBack.ts.
+      const write = anchorToPersist(thread, r, docText)
+      if (!write) continue
+      void window.api.documents.setCommentAnchor(r.id, write.json).then((ok) => {
+        if (!ok) return
+        setComments((prev) => prev.map((c) => (c.id === r.id ? { ...c, anchor: write.json } : c)))
+      })
+    }
+    // `comments` is the thread list; bodyEpoch is the editor being rebuilt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, comments, bodyEpoch])
+
   async function addComment(): Promise<void> {
     if (!editor) return
     const { from, to, empty } = editor.state.selection
@@ -119,13 +168,16 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
     }
     const body = await promptText({ title: 'New comment', multiline: true, confirmLabel: 'Comment' })
     if (!body || !body.trim()) return
-    const anchorId = 'cmt_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16)
-    editor.chain().setTextSelection({ from, to }).setComment(anchorId).run()
+    // NO setComment. Applying the mark is a document write — it is why a
+    // viewer could never comment — and the anchor now lives with the comment
+    // instead. Doing both would also render .22 over .22 and a doubled border,
+    // since the decoration carries the same fb-comment class as the mark.
+    const anchor = JSON.stringify(localAnchorFor(editor, from, to))
     const created = await window.api.documents.addComment({
       docId: documentId,
       body: body.trim(),
       author,
-      anchorId
+      anchor
     })
     setComments((prev) => [...prev, created])
   }
@@ -142,10 +194,25 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
   }
 
   function jumpToComment(threadId: string): void {
-    const anchor = comments.find((c) => c.id === threadId)?.anchorId
-    if (!anchor || !editor) return
-    // Scroll the highlighted mark into view by locating its DOM node.
-    const el = editor.view.dom.querySelector(`[data-comment-id="${anchor}"]`)
+    if (!editor) return
+    const row = comments.find((c) => c.id === threadId)
+    // A thread anchored the NEW way has no mark to find in the DOM, and the
+    // old query looked for the ANCHOR id while a decoration carries the THREAD
+    // id — two different ids, so it would have silently stopped scrolling for
+    // every new comment. Resolve the range and scroll to it instead: the
+    // document is the source of truth, not the rendered markup.
+    if (row?.anchor != null) {
+      const { ranges } = resolveForEditor(editor, [{ id: threadId, anchor: row.anchor }])
+      const r = ranges[0]
+      if (r) {
+        editor.chain().setTextSelection({ from: r.from, to: r.to }).scrollIntoView().run()
+        return
+      }
+    }
+    // An older, mark-anchored comment: its highlight IS in the DOM.
+    const anchorId = row?.anchorId
+    if (!anchorId) return
+    const el = editor.view.dom.querySelector(`[data-comment-id="${anchorId}"]`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 

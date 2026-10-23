@@ -213,6 +213,8 @@ export function harness(
     zoom?: number
     /** Give the viewport a fitBox (absent by default, as in the oldest headless runs); called with what was asked for. */
     fitBox?: (box: { x: number; y: number; w: number; h: number }, o?: { pad?: number; maxZoom?: number }) => void
+    /** The HOST's read-only — a viewer of a shared drawing — OR'd with the drawing's own compatibility. */
+    readOnly?: boolean
   } = {}
 ): Harness {
   const emitted: unknown[] = []
@@ -237,7 +239,7 @@ export function harness(
       ...(opts.fitBox ? { fitBox: opts.fitBox } : {})
     },
     host: { emit: (s) => emitted.push(s), liveUndo: () => opts.liveUndo, exportAs: async () => {} }
-  })
+  }, { readOnly: opts.readOnly })
   holder.ed = ed
   ed.store.setState({ zoom: opts.zoom ?? 1 })
 

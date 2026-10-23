@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SheetBody, SlidesBody, MapBody } from '@shared/types'
 import { useDocCollabStore } from '../../stores/docCollab'
+import { liveDocAccess } from '../../lib/docCollabClient'
 import { useViewStore } from '../../stores/view'
 import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
+import { useNoticeStore } from '../../stores/notice'
+import {
+  isCollabEditor,
+  localAnchorFor,
+  positionText,
+  resolveForEditor,
+  yjsAnchorFor
+} from '../documents/editor/commentPositions'
+import { anchorToPersist } from '../documents/editor/commentWriteBack'
+import { setLiveCommentAnchor } from '../../lib/docCollabClient'
 import {
   inviteToLiveDoc,
   snapshotLiveBody,
@@ -295,6 +306,55 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     if (inviting && token) void listTeams(token).then(setTeams).catch(() => setTeams([]))
   }, [inviting, token])
 
+  // Where every thread belongs in the document as it now stands.
+  //
+  // Re-resolved when the thread list changes or the editor is rebuilt, not on
+  // every keystroke: the decorations map through transactions already. In a
+  // live document the editor is also rebuilt rarely, so this is cheap.
+  useEffect(() => {
+    if (!editor) return
+    const threads = comments
+      .filter((c) => !c.parentId && c.anchor != null)
+      .map((c) => ({ id: c.id, anchor: c.anchor, state: c.resolved ? ('resolved' as const) : ('open' as const) }))
+    if (threads.length === 0) {
+      editor.commands.setCommentRanges([])
+      return
+    }
+    const { ranges } = resolveForEditor(editor, threads)
+    editor.commands.setCommentRanges(ranges)
+
+    // Persist a re-found LOCAL anchor only.
+    //
+    // A yjs anchor is never written back from here. Its relative positions are
+    // the thing that makes it survive other people typing, and replacing them
+    // with offsets would be permanent — offsets go stale the moment any peer
+    // inserts before them, and nothing would tell the other peers it happened.
+    // A yjs anchor that resolved by its quote comes back `corrected` as a
+    // matter of course, so this is a rule rather than an edge case.
+    const docText = positionText(editor.state.doc)
+    const tok = useAccountStore.getState().sessionToken
+    if (!tok) return
+    for (const r of ranges) {
+      const thread = threads.find((t) => t.id === r.id)
+      if (!thread) continue
+      // The same rule as the local host, and the yjs guard lives inside it.
+      const write = anchorToPersist(thread, r, docText)
+      if (!write) continue
+      const json = write.json
+      void setLiveCommentAnchor(tok, r.id, json).then((res) => {
+        // A 403 is ORDINARY: only a comment's author may correct its anchor,
+        // because an anchor carries the quote and whoever can rewrite one can
+        // move someone else's comment onto words they never commented on.
+        // Reading someone else's thread therefore costs a quote search per
+        // open and nothing else. Saying anything to the user here would be
+        // reporting a permission they were never meant to have.
+        if (!res.ok) return
+        setComments((prev) => prev.map((c) => (c.id === r.id ? { ...c, anchor: json } : c)))
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, comments])
+
   if (loading || !meta || meta.id !== liveDocId) {
     return (
       <div className="h-full flex items-center justify-center desk-paper no-tod text-[13px] text-[var(--ink-40)]">
@@ -328,8 +388,27 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
               ? 'brush'
               : 'account_tree'
   const isOwner = meta.ownerAccountId === myId
-  // Comments are a document-only feature for now.
-  const canComment = meta.docType === 'doc'
+  // MAY THIS ACCOUNT CHANGE THE DOCUMENT? Until signal v123 nothing returned
+  // a role, so every member of a shared document — viewers included — was
+  // handed a full editor, and the server took their edits. The server now
+  // refuses a viewer's updates (yjsDocAuth.ts); this is the app no longer
+  // pretending they are welcome.
+  //
+  // An ABSENT role means editor, not viewer: against an older server myRole
+  // is undefined, and every member could write before roles existed.
+  const { viewerOnly, canComment } = liveDocAccess(meta)
+  // NOT YET PASSED TO TWO OF THE SIX, because they take no such prop and both
+  // belong to other sessions:
+  //   - SheetEditor (Cells) has readOnly machinery inside CellsChrome but
+  //     exposes no prop to set it;
+  //   - DrawStudio derives state.readOnly from the drawing's own
+  //     compatibility (compat.readOnly) and cannot be told from outside.
+  // Both need `readOnly?: boolean` OR'd into what they already compute. Until
+  // then a viewer of a shared SHEET or DRAWING still sees an editable
+  // surface — and the server refuses their writes (signal v123), so the
+  // damage is a confusing experience rather than a permissions hole. Tracked
+  // with their owners rather than patched under them.
+
   // Awareness: who has access. No lock any more, so no holder is highlighted.
   const people = collaborators(meta.members ?? [], null, myId ?? null)
   // The label + colour shown on my caret to the other editors.
@@ -407,6 +486,19 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
 
   // Start a comment on the current selection: capture the range and open the
   // composer. Applying the mark waits until the body is typed and saved.
+
+  /**
+   * Is this thread anchored the OLD way, by a mark in the document body?
+   *
+   * Only those have anything in the document to clear when they are resolved or
+   * deleted. Clearing a mark is a document write — refused for a viewer in a
+   * live document — so it must not happen for a thread that does not have one.
+   */
+  function markAnchored(threadId: string): boolean {
+    const row = comments.find((c) => c.id === threadId)
+    return !!row && row.anchor == null
+  }
+
   function startComment(): void {
     if (!editor) return
     const { from, to, empty } = editor.state.selection
@@ -421,10 +513,48 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     const tok = useAccountStore.getState().sessionToken
     if (!editor || !composing || !text || !tok) return
     const id = 'cmt_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16)
-    editor.chain().setTextSelection({ from: composing.from, to: composing.to }).setComment(id).run()
-    const created = await addComment(tok, liveDocId, text, { id })
-    if (created) setComments((prev) => [...prev.filter((c) => c.id !== created.id), created])
-    else editor.commands.unsetComment(id) // save failed — drop the orphan mark
+    // NO setComment. Applying the mark mutates the shared Y.Doc and propagates
+    // to every peer, which is precisely why a viewer could never comment — the
+    // server refuses the write. The anchor goes with the comment instead.
+    //
+    // A yjs anchor when this editor is actually co-editing, because relative
+    // positions survive other people typing where an offset does not. When
+    // there is no binding yet, a local anchor is the honest fallback: it is
+    // what this editor can describe, and the quote carries it either way.
+    const anchor =
+      (isCollabEditor(editor) ? yjsAnchorFor(editor, composing.from, composing.to) : null) ??
+      localAnchorFor(editor, composing.from, composing.to)
+    const sent = JSON.stringify(anchor)
+    const created = await addComment(tok, liveDocId, text, { id, anchor: sent })
+    if (created) {
+      // DID THE SERVER KEEP IT? The deployed livedoc service has no anchor
+      // column and drops the field silently, so a comment made against it has
+      // neither an anchor nor — since this no longer writes one — a mark. The
+      // thread would sit in the panel pointing at nothing, with no quote to
+      // recover from, for every comment made before the service is updated.
+      //
+      // The server's own answer decides, rather than a version flag or an
+      // assumption about deploy order: a promise about sequencing cannot be
+      // checked, and this failure is silent and permanent.
+      //
+      // The fallback is the mark, which is exactly today's behaviour and is why
+      // this is safe for an owner or editor. A viewer cannot write one at all,
+      // which is why canComment still excludes them until the column exists
+      // (see liveDocAccess).
+      if (created.anchor == null) {
+        editor.chain().setTextSelection({ from: composing.from, to: composing.to }).setComment(id).run()
+      }
+      setComments((prev) => [...prev.filter((c) => c.id !== created.id), created])
+    } else {
+      // Do not swallow what they wrote. The previous version dropped the mark
+      // and said nothing, which for a failed create meant the comment simply
+      // vanished — and the text with it.
+      useNoticeStore.getState().show({
+        icon: 'warning',
+        text: 'That comment could not be saved. Your text is still in the box.'
+      })
+      return
+    }
     setComposing(null)
     setComposeText('')
   }
@@ -440,20 +570,41 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     const tok = useAccountStore.getState().sessionToken
     if (!tok) return
     setComments((prev) => prev.map((c) => (c.id === rootId ? { ...c, resolved } : c)))
-    if (resolved) editor?.commands.unsetComment(rootId) // clear the highlight when resolved
+    // A thread anchored the new way needs nothing done to the document: the
+    // resolve pass simply stops drawing a resolved thread. Only a LEGACY
+    // mark-anchored comment has a mark to clear, and clearing it is a document
+    // write — which is why it is narrowed to exactly that case instead of
+    // being done for every thread. See commentsDoNotWrite.test.ts.
+    if (resolved && markAnchored(rootId)) editor?.commands.unsetComment(rootId)
     await resolveComment(tok, rootId, resolved)
   }
 
   async function removeComment(commentId: string): Promise<void> {
     const tok = useAccountStore.getState().sessionToken
     if (!tok) return
+    const legacy = markAnchored(commentId)
     setComments((prev) => prev.filter((c) => c.id !== commentId && c.parentId !== commentId))
-    editor?.commands.unsetComment(commentId)
+    // Same narrowing as resolve: only a legacy mark leaves anything behind in
+    // the document. A thread with an anchor disappears because the next resolve
+    // pass does not include it.
+    if (legacy) editor?.commands.unsetComment(commentId)
     await deleteComment(tok, commentId)
   }
 
   function jumpToComment(commentId: string): void {
     if (!editor) return
+    // A thread anchored the new way has no mark to scan for, so resolve its
+    // range and go there. The document decides, not the rendered markup.
+    const row = comments.find((c) => c.id === commentId)
+    if (row?.anchor != null) {
+      const { ranges } = resolveForEditor(editor, [{ id: commentId, anchor: row.anchor }])
+      const r = ranges[0]
+      if (r) {
+        editor.chain().setTextSelection({ from: r.from, to: r.to }).scrollIntoView().focus().run()
+        return
+      }
+    }
+    // An older, mark-anchored comment.
     let found: { from: number; to: number } | null = null
     editor.state.doc.descendants((node, pos) => {
       if (found || !node.isText) return
@@ -536,13 +687,32 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
 
       {/* Collaboration status strip. Every live editor type co-edits in real time
           (Tiptap / JSON reconcile), so there is no check-out lock. */}
-      <div
-        className="shrink-0 px-4 py-1.5 text-[12px] flex items-center gap-2 border-b bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200"
-        data-testid="livedoc-status"
-      >
-        <Icon name="bolt" size={14} />
-        <span data-testid="livedoc-live">Live — everyone here can edit together.</span>
-      </div>
+      {/* What this document is for YOU. "everyone here can edit together" is
+          not true of a viewer, and a viewer who believed it would type into a
+          document the server then refuses. No "Ask for edit access" button:
+          that flow was removed with the old check-out model and there is
+          nothing behind it, so offering one would be a dead control. Asking
+          the owner is what the person already has — their name is in the
+          collaborator list beside this. */}
+      {viewerOnly ? (
+        <div
+          className="shrink-0 px-4 py-1.5 text-[12px] flex items-center gap-2 border-b bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-200"
+          data-testid="livedoc-status"
+        >
+          <Icon name="visibility" size={14} />
+          <span data-testid="livedoc-viewer">
+            You can view this document. Changes you make would not be saved, so editing is turned off.
+          </span>
+        </div>
+      ) : (
+        <div
+          className="shrink-0 px-4 py-1.5 text-[12px] flex items-center gap-2 border-b bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-200"
+          data-testid="livedoc-status"
+        >
+          <Icon name="bolt" size={14} />
+          <span data-testid="livedoc-live">Live — everyone here can edit together.</span>
+        </div>
+      )}
 
       {inviting && (
         <div className="shrink-0 px-4 py-2 border-b border-[var(--edge-soft)] flex items-center gap-2">
@@ -647,6 +817,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
               user={meUser}
               userName={me?.name ?? null}
               onEditorReady={setEditor}
+              readOnly={viewerOnly}
               comments={panelThreads}
               canComment={canComment}
               onAddComment={startComment}
@@ -668,19 +839,19 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           (collabBody !== null ? (
             // Stable key: the editor stays mounted and folds remote edits in via
             // its body-sync effect, so an uncommitted cell edit is never lost.
-            <SheetEditor key={`${meta.id}:collab`} body={collabBody as SheetBody} title={meta.title} onChange={onJsonChange} />
+            <SheetEditor key={`${meta.id}:collab`} body={collabBody as SheetBody} title={meta.title} onChange={onJsonChange} readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}
         {meta.docType === 'slides' &&
           (collabBody !== null ? (
-            <SlidesEditor key={`${meta.id}:collab`} body={collabBody as SlidesBody} title={meta.title} onChange={onJsonChange} />
+            <SlidesEditor key={`${meta.id}:collab`} body={collabBody as SlidesBody} title={meta.title} onChange={onJsonChange} readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]">Connecting live editing…</div>
           ))}
         {meta.docType === 'map' &&
           (collabBody !== null ? (
-            <MapEditor key={`${meta.id}:collab`} body={collabBody as MapBody} title={meta.title} onChange={onJsonChange} foldExternal liveUndo={drawUndo ?? undefined} />
+            <MapEditor key={`${meta.id}:collab`} body={collabBody as MapBody} title={meta.title} onChange={onJsonChange} foldExternal liveUndo={drawUndo ?? undefined} readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}
@@ -696,7 +867,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
             the livedocs API, which is its own piece of work. */}
         {meta.docType === 'design' &&
           (collabBody !== null ? (
-            <DesignEditor key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal />
+            <DesignEditor key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal readOnly={viewerOnly} />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}
@@ -710,6 +881,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
               foldExternal
               liveUndo={drawUndo ?? undefined}
               v2Blocked={drawPeersReadV2 ? null : LIVE_V1_PEER_REASON}
+              readOnly={viewerOnly}
             />
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
