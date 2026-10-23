@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, sideMenuWidget, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // In-app runtime proof that the capability matrix gates the desktop UI.
 //
@@ -20,66 +20,19 @@ test.afterEach(async () => {
   }
 })
 
-async function bootAndOpenCanvas(l: LaunchedApp): Promise<void> {
-  const { window } = l
-  await waitForReady(window)
-  await window.waitForFunction(
-    () => typeof (window as unknown as { api?: unknown }).api === 'object',
-    null,
-    { timeout: 10_000 }
-  )
-  const skip = window.getByRole('button', { name: /Continue without account|Skip|Not now/i })
-  if (await skip.isVisible().catch(() => false)) await skip.click().catch(() => {})
 
-  await window.evaluate(async () => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    await api.nodes.create({ parentId: null, kind: 'task', title: 'Gating test' })
-  })
-  await window.reload()
-  await window.waitForFunction(
-    () => typeof (window as unknown as { api?: unknown }).api === 'object',
-    null,
-    { timeout: 10_000 }
-  )
-  const skip2 = window.getByRole('button', { name: /Continue without account|Skip|Not now/i })
-  if (await skip2.isVisible().catch(() => false)) await skip2.click().catch(() => {})
-  await window.getByRole('button', { name: 'Gating test' }).first().click()
-  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
-}
-
-// 4.3.32: the hover widget palette these two drove is gone; widgets are added
-// from the side menu's Widgets section. The gate is the same one
-// (canCreateWidget over the capability store) on the new surface: a locked
-// kind still shows — it says why on click — and is marked data-locked.
-test('Free tier: Table widget is locked in the side menu, Sticky is not', async () => {
-  launched = await launchApp()
-  await bootAndOpenCanvas(launched)
-  const { window } = launched
-
-  await waitForReady(window)
-  // Ungated widget → a normal tile.
-  const sticky = await sideMenuWidget(window, 'sticky')
-  await expect(sticky).toBeVisible()
-  await expect(sticky).not.toHaveAttribute('data-locked', 'true')
-
-  // Gated widget (widget_table=false on free) → the locked variant.
-  const table = await sideMenuWidget(window, 'table')
-  await expect(table).toHaveAttribute('data-locked', 'true')
-})
-
-test('Clicking a locked widget opens the upgrade prompt', async () => {
-  launched = await launchApp()
-  await bootAndOpenCanvas(launched)
-  const { window } = launched
-
-  await waitForReady(window)
-  await (await sideMenuWidget(window, 'table')).click()
-
-  await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible()
-  await expect(window.locator('[data-testid="upgrade-reason"]')).toContainText(/Table/i)
-})
-
-// ── Desk limit (multiple_desks: free = 3) ──────────────────────────────
+// THE THREE WIDGET-GATING TESTS THAT WERE HERE ARE GONE, on the owner's
+// ruling (2026-10-24), because the thing they tested is gone.
+//
+// b6ad65646 (2026-07-07) applied "the land-grab tier mapping (free gets all
+// apps + personal features)": every widget_* capability in capabilityDefaults
+// is now { free: true, pro: true, team: true }. There is no widget locked on
+// the Free tier, so "Table is locked in the side menu", "clicking a locked
+// widget opens the upgrade prompt" and "Table is locked in the CommandCenter
+// too" have no subject, and nothing in the capability table can stand in.
+//
+// The upgrade prompt itself is still covered — by the desk-limit test below,
+// which is the one free gate that remains (multiple_desks, { free: 3 }).
 test('Free tier: 4th top-level desk is blocked with an upgrade prompt', async () => {
   launched = await launchApp()
   const { window } = launched
@@ -92,11 +45,13 @@ test('Free tier: 4th top-level desk is blocked with an upgrade prompt', async ()
   const skip = window.getByRole('button', { name: /Continue without account|Skip|Not now/i })
   if (await skip.isVisible().catch(() => false)) await skip.click().catch(() => {})
 
-  // Seed exactly 3 top-level folders (the free desk limit) via the API.
+  // Seed exactly 3 DESKS — top-level TASKS. This used to seed top-level
+  // folders, which the Rooms/Desks rename turned into ROOMS, so it was filling
+  // the workspace with the one object the cap does not count.
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     for (let i = 1; i <= 3; i++) {
-      await api.nodes.create({ parentId: null, kind: 'folder', title: `Desk ${i}` })
+      await api.nodes.create({ parentId: null, kind: 'task', title: `Desk ${i}` })
     }
   })
   await window.reload()
@@ -108,37 +63,105 @@ test('Free tier: 4th top-level desk is blocked with an upgrade prompt', async ()
   const skip2 = window.getByRole('button', { name: /Continue without account|Skip|Not now/i })
   if (await skip2.isVisible().catch(() => false)) await skip2.click().catch(() => {})
 
-  // Click the sidebar's create button — at the limit, the upgrade prompt opens
-  // and the create dialog does NOT.
-  // Renamed by 4802064e4 (Rooms/Desks Phase 2-5): the sidebar's create
-  // button is "New desk" now, not "New top-level project". Matched on the
-  // accessible name rather than the title, because the title is a whole
-  // sentence of help text that will keep changing.
+  // ACTUALLY TRY TO CREATE THE FOURTH, rather than only pressing the button.
+  //
+  // This used to click the sidebar's create button and expect the prompt
+  // there and then, on the strength of a comment in nodes.ts saying the
+  // sidebar "additionally gates the trigger for nicer UX". It does not —
+  // there is no multiple_desks check anywhere in Sidebar.tsx — so the button
+  // opens the create dialog like any other time, and the cap is enforced
+  // where the comment says it really is: in the store's create(), before the
+  // IPC call, so nothing is persisted. Driving the whole gesture is also the
+  // honest test of the owner's rule, which is about creating a desk and not
+  // about which control is greyed.
+  //
+  // (Renamed by 4802064e4: the button is "New desk" now. Matched on the
+  // accessible name, because its title attribute is a sentence of help text.)
   await window.getByRole('button', { name: /New desk/i }).first().click()
-  await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible()
+  const nameField = window.locator('[data-testid="newnode-name"]')
+  await expect(nameField).toBeVisible({ timeout: 5_000 })
+  await nameField.fill('Desk 4')
+  // The submit reads `Create ${nounLabel}` (NewNodeDialog:310), so match the
+  // verb rather than a noun the Rooms/Desks rename may move again.
+  await window.getByRole('button', { name: /^Create / }).click()
+
+  await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible({ timeout: 8_000 })
   await expect(window.locator('[data-testid="upgrade-reason"]')).toContainText(/desk limit/i)
 
   // Hard backstop: the store refused to persist a 4th — still exactly 3.
   const deskCount = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const all = await api.nodes.list()
-    return all.filter((n: { parentId: string | null; kind: string }) => n.parentId === null && n.kind === 'folder').length
+    return all.filter((n: { parentId: string | null; kind: string }) => n.parentId === null && n.kind === 'task').length
   })
   expect(deskCount).toBe(3)
 })
 
-// ── CommandCenter spawn gate (second table-creation path) ──────────────
-test('Free tier: Table is locked in the CommandCenter quick-actions too', async () => {
-  launched = await launchApp()
-  await bootAndOpenCanvas(launched)
-  const { window } = launched
+// ── The other two halves of the owner's ruling (2026-10-24) ───────────────
+// "3 desks, keep existing": rooms are unlimited, and anyone already over the
+// limit keeps what they have. Both are easy to get wrong in the direction
+// that costs a person their work, so both are pinned.
 
+test('Free tier: rooms are NOT capped — a 4th room is created', async () => {
+  launched = await launchApp()
+  const { window } = launched
   await waitForReady(window)
-  // With a task on the canvas, the CommandCenter exposes widget quick-action
-  // pills (Note, Table, …). The Table pill must open the upgrade prompt
-  // instead of creating a table — proving the gate covers this path too.
-  const tablePill = window.getByRole('button', { name: 'Table' }).first()
-  await expect(tablePill).toBeVisible({ timeout: 5_000 })
-  await tablePill.click()
-  await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible()
+  await window.waitForFunction(() => typeof (window as unknown as { api?: unknown }).api === 'object', null, {
+    timeout: 10_000
+  })
+
+  const rooms = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    for (let i = 1; i <= 4; i++) {
+      await api.nodes.create({ parentId: null, kind: 'folder', title: `Room ${i}` })
+    }
+    const all = await api.nodes.list()
+    return all.filter((n: { parentId: string | null; kind: string }) => n.parentId === null && n.kind === 'folder').length
+  })
+  expect(rooms, 'the 4th room was created; only desks are capped').toBe(4)
+  // And no upgrade prompt was raised on the way.
+  await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toHaveCount(0)
 })
+
+test('Free tier: someone already over the limit keeps every desk and can open them', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await window.waitForFunction(() => typeof (window as unknown as { api?: unknown }).api === 'object', null, {
+    timeout: 10_000
+  })
+
+  // Five desks, as a long-standing account would have. Seeded through the IPC
+  // directly, which is how they got there before the cap was pointed at the
+  // right object — the store gate guards create() in the renderer.
+  const ids = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const made: string[] = []
+    for (let i = 1; i <= 5; i++) {
+      const n = await api.nodes.create({ parentId: null, kind: 'task', title: `Legacy desk ${i}` })
+      made.push((n as { id: string }).id)
+    }
+    return made
+  })
+  await window.reload()
+  await waitForReady(window)
+
+  // Nothing was deleted or hidden.
+  const kept = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const all = await api.nodes.list()
+    return all.filter((n: { parentId: string | null; kind: string }) => n.parentId === null && n.kind === 'task').length
+  })
+  expect(kept, 'all five kept').toBe(5)
+
+  // And every one of them still opens.
+  for (const id of ids) {
+    await window.evaluate((taskId) => {
+      const w = window as unknown as { __fbView?: { getState: () => { goTask: (x: string) => void } } }
+      w.__fbView?.getState().goTask(taskId)
+    }, id)
+    await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible({ timeout: 8_000 })
+  }
+})
+
+// ── CommandCenter spawn gate (second table-creation path) ──────────────
