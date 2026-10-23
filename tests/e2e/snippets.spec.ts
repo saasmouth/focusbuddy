@@ -429,3 +429,120 @@ test('SN-8 — editing the master updates every live instance already on screen,
     await dispose()
   }
 })
+
+test('SN-9 — editing a live instance in place writes the master and every instance follows', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    await openDocumentsHub(window)
+    await startBlankDoc(window)
+
+    await typeAndSelectAll(window, 'Before the edit.')
+    await saveSelectionAsSnippet(window, 'Editable clause')
+
+    await window
+      .locator('[data-testid="doc-editor-surface"]')
+      .getByText('Before the edit.')
+      .click({ timeout: 5_000 })
+    await window.keyboard.press('End')
+
+    // Two instances again, so this proves a master write rather than one
+    // instance editing its own copy.
+    for (const i of [0, 1]) {
+      await openSnippetLibrary(window)
+      await rowFor(window, 'Editable clause').locator('[data-testid="snippet-insert-live"]').click()
+      await expect(window.locator('[data-testid="snippet-library"]')).toBeHidden({ timeout: 5_000 })
+      if (i === 0) {
+        await window.locator('[data-testid="snippet-embed"]').first().click()
+        await window.keyboard.press('ArrowRight')
+        await window.keyboard.press('Enter')
+      }
+    }
+    const embeds = window.locator('[data-testid="snippet-embed"]')
+    await expect(embeds).toHaveCount(2, { timeout: 8_000 })
+
+    // Edit the FIRST one in place.
+    await embeds.first().hover()
+    await window.locator('[data-testid="snippet-embed-edit"]').click()
+    await expect(window.locator('[data-testid="snippet-inline-editor"]')).toBeVisible({ timeout: 8_000 })
+
+    // The warning is persistent while editing, because the blast radius is every
+    // other place this snippet is used.
+    await expect(window.locator('[data-testid="snippet-edit-notice"]')).toContainText(
+      'everywhere it is used'
+    )
+
+    await window.keyboard.press('ControlOrMeta+a')
+    await window.keyboard.type('After the edit.')
+    await window.locator('[data-testid="snippet-inline-save"]').click()
+    await expect(window.locator('[data-testid="snippet-inline-editor"]')).toHaveCount(0, { timeout: 8_000 })
+
+    // The master was written, so BOTH instances show the new text — the second
+    // one was never touched by the user.
+    await expect(embeds.nth(0)).toContainText('After the edit.', { timeout: 8_000 })
+    await expect(embeds.nth(1)).toContainText('After the edit.', { timeout: 8_000 })
+
+    // And it really is the master: the library's own copy changed too.
+    const stored = await window.evaluate(async () => {
+      const api = (window as unknown as { api: { snippets: { list: () => Promise<{ name: string; body: { text?: string } }[]> } } }).api
+      const all = await api.snippets.list()
+      return all.find((s) => s.name === 'Editable clause')?.body?.text ?? ''
+    })
+    expect(stored, 'the saved snippet holds the edited text').toContain('After the edit.')
+  } finally {
+    await dispose()
+  }
+})
+
+test('SN-10 — detaching turns the instance into plain content with no snippet node', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    await openDocumentsHub(window)
+    await startBlankDoc(window)
+
+    await typeAndSelectAll(window, 'Detach me.')
+    await saveSelectionAsSnippet(window, 'Detachable')
+
+    await window
+      .locator('[data-testid="doc-editor-surface"]')
+      .getByText('Detach me.')
+      .click({ timeout: 5_000 })
+    await window.keyboard.press('End')
+
+    await openSnippetLibrary(window)
+    await rowFor(window, 'Detachable').locator('[data-testid="snippet-insert-live"]').click()
+    await expect(window.locator('[data-testid="snippet-embed"]')).toBeVisible({ timeout: 8_000 })
+
+    await window.locator('[data-testid="snippet-embed"]').hover()
+    await window.locator('[data-testid="snippet-embed-edit"]').click()
+    await window.locator('[data-testid="snippet-detach"]').click()
+
+    // The owner: "A duplicate is simply editable content." So there is no embed
+    // left at all — not a detached-looking embed, no chrome, nothing marking it
+    // as ever having been a snippet.
+    await expect(window.locator('[data-testid="snippet-embed"]')).toHaveCount(0, { timeout: 8_000 })
+    await expect(window.locator('[data-testid="doc-editor-surface"]')).toContainText('Detach me.')
+
+    // And it is genuinely unlinked: editing the master no longer reaches it.
+    await window.evaluate(async () => {
+      const api = (window as unknown as { api: { snippets: {
+        list: () => Promise<{ id: string; name: string }[]>
+        update: (id: string, patch: unknown) => Promise<{ ok: boolean }>
+      } } }).api
+      const all = await api.snippets.list()
+      const t = all.find((s) => s.name === 'Detachable')
+      if (t) {
+        await api.snippets.update(t.id, {
+          body: { kind: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Master moved on.' }] }], text: 'Master moved on.' }
+        })
+      }
+    })
+    await expect(window.locator('[data-testid="doc-editor-surface"]')).not.toContainText('Master moved on.')
+    await expect(window.locator('[data-testid="doc-editor-surface"]')).toContainText('Detach me.')
+  } finally {
+    await dispose()
+  }
+})

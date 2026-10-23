@@ -36,7 +36,7 @@ declare module '@tiptap/core' {
   }
 }
 
-function SnippetEmbedView({ node, selected, updateAttributes }: NodeViewProps): JSX.Element {
+function SnippetEmbedView({ node, selected, updateAttributes, editor, getPos }: NodeViewProps): JSX.Element {
   const snippetId = (node.attrs.snippetId as string | null) ?? ''
   const showChrome = node.attrs.showChrome === true
   return (
@@ -54,6 +54,23 @@ function SnippetEmbedView({ node, selected, updateAttributes }: NodeViewProps): 
           host="doc"
           showChrome={showChrome}
           onShowChromeChange={(next) => updateAttributes({ showChrome: next })}
+          onDetach={(content) => {
+            // "Detach to edit only here": this reference becomes the content it
+            // was showing, unlinked. Only the node view can do it, because only
+            // it knows where in the document this instance sits.
+            //
+            // One range replacement rather than a delete then an insert, so it
+            // is a single undo step — detaching is one action to the user and
+            // should take one ⌘Z, not two.
+            const pos = getPos()
+            if (typeof pos !== 'number') return
+            if (!Array.isArray(content) || content.length === 0) return
+            editor
+              .chain()
+              .focus()
+              .insertContentAt({ from: pos, to: pos + node.nodeSize }, content as never)
+              .run()
+          }}
         />
       </div>
     </NodeViewWrapper>

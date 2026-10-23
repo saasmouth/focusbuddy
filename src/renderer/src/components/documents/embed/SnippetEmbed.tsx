@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useContext, useEffect, useState } from 'react'
 import {
   instanceModeFor,
   primaryKindFor,
@@ -11,7 +11,12 @@ import {
 import { convertSnippetBody } from '@shared/snippetConvert'
 import Icon from '../../Icon'
 import SnippetContent from '../../snippets/SnippetContent'
-import { onSnippetChanged } from '../../../stores/snippets'
+import { ORG_SNIPPET_REACH_NOTE } from '@shared/snippets'
+import { onSnippetChanged, useSnippetsStore } from '../../../stores/snippets'
+import { SnippetAncestry } from '../../snippets/snippetAncestry'
+
+// Lazy: this reaches the document schema, which registers this very node.
+const SnippetInlineEditor = lazy(() => import('../../snippets/SnippetInlineEditor'))
 
 // A LIVE saved snippet inside a host. The host stores only the snippet's id;
 // this resolves it, so the master's current content is what shows and the host
@@ -50,6 +55,12 @@ export interface SnippetEmbedProps {
   onShowChromeChange?: (next: boolean) => void
   /** Open the master in the app that owns it, for a read-only converted instance. */
   onOpenOriginal?: (snippet: Snippet) => void
+  /**
+   * Replace this instance with the content it is showing, unlinked — the owner's
+   * "Detach to edit only here". The host owns it because only the host can edit
+   * its own document; absent means no detach is offered.
+   */
+  onDetach?: (content: unknown[]) => void
 }
 
 type State =
@@ -63,6 +74,11 @@ type State =
   // The master exists but cannot be shown here at all, with the reason 2e's
   // matrix gives — a refusal is better than a flattening that loses the point.
   | { phase: 'refused'; snippet: Snippet; reason: string }
+
+/** The editable node list of a body, empty for a kind with no doc content. */
+function contentOf(body: SnippetBody): unknown[] {
+  return body.kind === 'doc' ? body.content : []
+}
 
 const MODE_LABEL: Record<SnippetInstanceMode, string> = {
   editable: 'Live',
@@ -81,17 +97,25 @@ export default function SnippetEmbed({
   host = 'doc',
   showChrome = false,
   onShowChromeChange,
-  onOpenOriginal
+  onOpenOriginal,
+  onDetach
 }: SnippetEmbedProps): JSX.Element {
+  const ancestry = useContext(SnippetAncestry)
+  const cyclic = Boolean(snippetId) && ancestry.includes(snippetId)
   const [state, setState] = useState<State>({ phase: 'loading' })
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!snippetId) {
       setState({ phase: 'missing' })
       return
     }
+    // A snippet inside itself. Not fetched at all: resolving it would mount this
+    // component inside itself without end.
+    if (cyclic) return
     let live = true
     const resolve = (): void => {
       window.api.snippets
@@ -143,9 +167,44 @@ export default function SnippetEmbed({
       live = false
       stop()
     }
-  }, [snippetId])
+  }, [snippetId, cyclic, host])
 
   const togglePin = useCallback(() => onShowChromeChange?.(!showChrome), [onShowChromeChange, showChrome])
+
+  const saveToMaster = useCallback(
+    async (content: unknown[], text: string): Promise<void> => {
+      if (!snippetId) return
+      setSaving(true)
+      // Through the store rather than the IPC directly, so the error surfaces in
+      // the same place every other snippet write surfaces it. The master write
+      // broadcasts from main, so this instance and every other one re-resolve —
+      // no local state update is needed and none is done, which is why what
+      // appears after a save is what was actually stored.
+      const saved = await useSnippetsStore.getState().update(snippetId, {
+        body: { kind: 'doc', content: content as never, text }
+      })
+      setSaving(false)
+      if (saved) setEditing(false)
+    },
+    [snippetId]
+  )
+
+  if (cyclic) {
+    return (
+      <div
+        className="flex items-start gap-2 rounded-[var(--radius-row)] border border-dashed border-[var(--edge-firm)] px-3 py-2 text-[12px] text-[var(--ink-60)]"
+        data-testid="snippet-embed-cycle"
+      >
+        <Icon name="loop" size={14} className="mt-0.5 text-[var(--ink-40)]" />
+        <span>
+          This snippet contains itself, so it cannot be shown here.
+          <span className="block text-[11px] text-[var(--ink-40)]">
+            Remove the inner copy from the saved snippet, or detach one of them.
+          </span>
+        </span>
+      </div>
+    )
+  }
 
   if (state.phase === 'loading') {
     return (
@@ -220,9 +279,54 @@ export default function SnippetEmbed({
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <SnippetContent body={state.body} />
+      <SnippetAncestry.Provider value={[...ancestry, snippet.id]}>
+        {editing ? (
+          <>
+            {/*
+              Persistent, not a toast. Editing here writes the MASTER, so this
+              instance's blast radius is every other place the snippet is used —
+              the user should be able to read that for as long as they are typing,
+              not for three seconds after they started.
+            */}
+            <div
+              className="mb-1 flex items-start gap-1.5 rounded-[var(--radius-row)] bg-accent/[0.08] px-2 py-1 text-[11px] text-[var(--ink-60)]"
+              data-testid="snippet-edit-notice"
+            >
+              <Icon name="info" size={12} className="mt-0.5 shrink-0 text-accent" />
+              <span>
+                Editing the saved snippet. Changes appear everywhere it is used in this workspace.
+                {snippet.scope === 'org' && (
+                  <span className="block text-[var(--ink-50)]">{ORG_SNIPPET_REACH_NOTE}</span>
+                )}
+                {onDetach && (
+                  <button
+                    type="button"
+                    onClick={() => onDetach(contentOf(state.body))}
+                    className="ml-0 mt-0.5 block text-left text-accent underline decoration-dotted"
+                    data-testid="snippet-detach"
+                  >
+                    Detach to edit only here
+                  </button>
+                )}
+              </span>
+            </div>
+            <Suspense
+              fallback={<span className="text-[12px] text-[var(--ink-50)]">Opening the editor…</span>}
+            >
+              <SnippetInlineEditor
+                content={contentOf(state.body)}
+                busy={saving}
+                onCommit={saveToMaster}
+                onCancel={() => setEditing(false)}
+              />
+            </Suspense>
+          </>
+        ) : (
+          <SnippetContent body={state.body} />
+        )}
+      </SnippetAncestry.Provider>
 
-      {state.lossy.length > 0 && (
+      {!editing && state.lossy.length > 0 && (
         // What the conversion dropped, stated where the content is rather than
         // only in the picker it was chosen from. A converted instance is
         // read-only, so the user cannot see the difference by editing it — if
@@ -241,7 +345,7 @@ export default function SnippetEmbed({
         </ul>
       )}
 
-      {chromeOpen && (
+      {chromeOpen && !editing && (
         <div
           // Absolute within this embed, so it is correct at any container size
           // and cannot escape into the page.
@@ -257,6 +361,19 @@ export default function SnippetEmbed({
           >
             <Icon name="sync" size={10} /> {MODE_LABEL[mode]}
           </span>
+
+          {mode === 'editable' && state.body.kind === 'doc' && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="icon-btn !h-5 !w-5"
+              aria-label="Edit the saved snippet here"
+              title="Edit the saved snippet here — changes appear everywhere it is used"
+              data-testid="snippet-embed-edit"
+            >
+              <Icon name="edit" size={12} />
+            </button>
+          )}
 
           {mode === 'readonly' && onOpenOriginal && (
             <button
