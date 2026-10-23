@@ -490,7 +490,9 @@ test('WRD-12 the Mail tile places the Inbox work widget, not a Gmail web view', 
   const tile = window.locator('[data-testid="office-comms-app-mail"]').first()
   await tile.scrollIntoViewIfNeeded()
   await tile.click({ button: 'right' })
-  const item = window.locator('[data-canvas-ctx-menu]').getByText('Add Inbox to this desk', { exact: true })
+  // "Add to this desk" (the §9 lexicon's one label on every tile); what it
+  // places is asserted below, by kind.
+  const item = window.locator('[data-canvas-ctx-menu] [data-testid="ctx-add-to-this-desk"]')
   await expect(item).toBeVisible({ timeout: 5_000 })
   await item.click()
   await expect

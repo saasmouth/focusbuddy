@@ -37,13 +37,15 @@ import AddConnectedAppDialog from '../AddConnectedAppDialog'
 import { AREA_TONES } from '../../lib/areaTones'
 import { computeEntitlement } from '../../lib/entitlementReason'
 import { SEGMENT_APPS, type SegmentAppMeta } from '../../lib/segmentApps'
-import { DRAG_MIME, catalogFor } from '../../lib/widgetCatalog'
+import { DRAG_MIME } from '../../lib/widgetCatalog'
 import { tileWidgetKind } from '../../lib/widgetMenu'
 import { addKindToOpenDesk } from '../../lib/addWidget'
 import { useFileManagerStore } from '../../stores/fileManager'
 import { useFilesPanelStore } from '../../stores/filesPanel'
 import { useNodeStore } from '../../stores/nodes'
-import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import type { CtxMenuItem } from '../CanvasContextMenu'
+import { RowMenu, useRowMenu } from './useRowMenu'
+import { appTileMenuItems, navRowMenuItems } from '../../lib/navRowMenu'
 import WidgetsSection from './WidgetsSection'
 import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
 
@@ -281,47 +283,43 @@ function SectionIcon({ id, icon }: { id: SectionId; icon: string }): JSX.Element
 }
 
 /**
- * Right-click on an app tile that has a widget to become: "Add to this desk",
- * the keyboard-and-mouse twin of dragging the tile onto the open desk. Every
- * other tile is left exactly as it was.
+ * Right-click on an app or tool tile (SPEC §9.3, lib/navRowMenu): Open — or,
+ * for Files, its three places to open — and, when the tile has a work widget
+ * to become, Add to this desk (the keyboard-and-mouse twin of dragging it onto
+ * the open desk; disabled with the reason when no desk is open).
  */
-function AppTileMenu({ app, children }: { app: SegmentAppMeta; children: React.ReactNode }): JSX.Element {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
-  const view = useViewStore((s) => s.view)
-  const activeDesk = useNodeStore((s) => s.activeTaskId)
-  const kind = tileWidgetKind(app)
-  const deskOpen = view.kind === 'task' && !!(activeDesk ?? view.taskId)
-  // Files always has a menu: where to open it (beside the menu, floating, or
-  // full screen), plus "Add Drive to this desk" when a desk is open.
-  const isFiles = app.key === 'files'
-  const items: CtxMenuItem[] = []
-  if (isFiles) {
-    items.push(
-      { label: 'Open beside', icon: 'dock_to_right', testid: 'files-open-beside', onClick: () => useFilesPanelStore.getState().openBeside() },
-      { label: 'Open floating', icon: 'picture_in_picture_alt', testid: 'files-open-floating', onClick: () => useFilesPanelStore.getState().openFloating() },
-      { label: 'Open full screen', icon: 'open_in_full', testid: 'files-open-fullscreen', onClick: () => useViewStore.getState().goOffice('files') }
-    )
-  }
-  if (kind && deskOpen) {
-    if (items.length) items.push({ separator: true })
-    items.push({
-      label: `Add ${catalogFor(kind)?.label ?? app.label} to this desk`,
-      icon: 'add_to_queue',
-      onClick: () => void addKindToOpenDesk(kind)
+function AppTileMenu({
+  app,
+  onOpen,
+  children
+}: {
+  app: SegmentAppMeta
+  onOpen: () => void
+  children: React.ReactNode
+}): JSX.Element {
+  const { open, menu } = useRowMenu()
+  const build = (): CtxMenuItem[] => {
+    const view = useViewStore.getState().view
+    const activeDesk = useNodeStore.getState().activeTaskId
+    const deskOpen = view.kind === 'task' && !!(activeDesk ?? view.taskId)
+    const kind = tileWidgetKind(app)
+    return appTileMenuItems({
+      open: onOpen,
+      files:
+        app.key === 'files'
+          ? {
+              beside: () => useFilesPanelStore.getState().openBeside(),
+              floating: () => useFilesPanelStore.getState().openFloating(),
+              fullScreen: () => useViewStore.getState().goOffice('files')
+            }
+          : undefined,
+      addToDesk: kind ? { deskOpen, add: () => void addKindToOpenDesk(kind) } : undefined
     })
   }
   return (
-    <div
-      onContextMenu={(e) => {
-        if (!items.length) return
-        e.preventDefault()
-        setMenu({ x: e.clientX, y: e.clientY })
-      }}
-    >
+    <div onContextMenu={(e) => open(e, build)}>
       {children}
-      {menu && items.length > 0 && (
-        <CanvasContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={items} />
-      )}
+      {menu}
     </div>
   )
 }
@@ -346,9 +344,13 @@ function Row({
   onClick: () => void
   testid?: string
 }): JSX.Element {
+  // A place: its menu is what a click does (lib/navRowMenu).
+  const { open, menu } = useRowMenu()
   return (
+    <>
     <button
       onClick={onClick}
+      onContextMenu={(e) => open(e, () => navRowMenuItems(onClick))}
       data-testid={testid}
       aria-current={active ? 'page' : undefined}
       className={`fb-nav-item fb-nav-row text-[13px] mb-0.5 ${
@@ -369,6 +371,8 @@ function Row({
       </span>
       <span className="min-w-0 truncate text-left whitespace-nowrap">{label}</span>
     </button>
+    {menu}
+    </>
   )
 }
 
@@ -548,7 +552,7 @@ export default function AreaAccordion({
         <SubHeading label="PlexiiApps" />
         <TileGrid>
           {byKey(PLEXII_APP_KEYS).map((a) => (
-            <AppTileMenu key={a.key} app={a}>
+            <AppTileMenu key={a.key} app={a} onOpen={() => goOffice(a.key)}>
             <Tile
               label={a.label}
               active={isActive('office', a.key)}
@@ -578,7 +582,11 @@ export default function AreaAccordion({
             read as a different kind of thing from the two around it. */}
         <TileGrid>
           {byKey(TOOL_KEYS).map((a) => (
-            <AppTileMenu key={a.key} app={a}>
+            <AppTileMenu
+              key={a.key}
+              app={a}
+              onOpen={() => (a.key === 'files' ? useFilesPanelStore.getState().toggleBeside() : goOffice(a.key))}
+            >
             <Tile
               label={a.label}
               active={a.key === 'files' ? isActive('office', a.key) || filesPanelOpen : isActive('office', a.key)}
@@ -661,8 +669,16 @@ export default function AreaAccordion({
         ) : (
           <TileGrid>
             {connectedApps.map((app) => (
-              <Tile
+              <RowMenu
                 key={app.id}
+                build={() =>
+                  navRowMenuItems(() => {
+                    useAppNotifications.getState().clear(app.id)
+                    goConnectedApp(app.id)
+                  })
+                }
+              >
+              <Tile
                 label={app.title}
                 active={view.kind === 'connected-app' && view.appId === app.id}
                 onClick={() => {
@@ -696,6 +712,7 @@ export default function AreaAccordion({
               >
                 <AppLogo app={app} size={22} glyphSize={13} />
               </Tile>
+              </RowMenu>
             ))}
           </TileGrid>
         )}

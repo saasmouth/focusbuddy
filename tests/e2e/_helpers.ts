@@ -613,7 +613,7 @@ export async function sideMenuWidget(window: Page, kind: string): Promise<Locato
 /**
  * Add a widget of `kind` to the OPEN desk the way a user would without
  * dragging: right-click its side-menu tile (Widgets section, or its Apps tile
- * for an app kind) → "Add … to this desk". Resolves once the desk holds one
+ * for an app kind) → "Add to this desk". Resolves once the desk holds one
  * more widget of that kind.
  */
 export async function addWidgetToDesk(window: Page, kind: string): Promise<void> {
@@ -630,7 +630,9 @@ export async function addWidgetToDesk(window: Page, kind: string): Promise<void>
     : await sideMenuWidget(window, kind)
   await tile.scrollIntoViewIfNeeded()
   await tile.click({ button: 'right' })
-  const item = window.locator('[data-canvas-ctx-menu]').getByText(/to this desk$/).first()
+  // One row on every tile since the §9 menu contract: "Add to this desk"
+  // (lib/navRowMenu, WidgetsSection), found by its test id rather than text.
+  const item = window.locator('[data-canvas-ctx-menu] [data-testid="ctx-add-to-this-desk"]').first()
   await expect(item).toBeVisible({ timeout: 5_000 })
   await item.click()
   await expect

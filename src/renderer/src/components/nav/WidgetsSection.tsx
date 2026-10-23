@@ -9,7 +9,7 @@
 //
 //   click            a standalone widget file, opened full-pane
 //   drag onto desk   a new widget file, placed as a linked instance
-//   right-click      Add to this desk · New <kind> file · Move to Other widgets / Widgets
+//   right-click      Add to this desk · New <kind> work widget · Move to Other work widgets / Work widgets
 //   drag in menu     reorder, or move between the two lists
 //
 // The same kinds render as icons in the collapsed rail (WidgetsRail below).
@@ -19,6 +19,8 @@ import PlexiiIcon from '../PlexiiIcon'
 import type { EntityRef } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { MENU } from '@shared/menus/lexicon'
+import { focusInvoker, objectMenu } from '../../lib/objectMenu'
 import { SubHeading, Tile, TileGrid } from './menuParts'
 import type { WidgetKind } from '@shared/types'
 import { isStandaloneWidgetKind } from '@shared/widgetFiles'
@@ -75,7 +77,13 @@ function useDeskOpen(): boolean {
   return view.kind === 'task' && !!(active ?? view.taskId)
 }
 
-/** The right-click menu for one kind, wherever it is shown. */
+/**
+ * The right-click menu for one kind, wherever it is shown (SPEC §9.3). What a
+ * kind can do from here: go on the open desk, become a new work widget file
+ * (the kinds that can be one), or move between the two lists. "Add to this
+ * desk" stays in the menu with the reason when no desk is open (§9.5), rather
+ * than the old informational "Only works on a desk" row.
+ */
 export function widgetKindMenuItems(
   entry: WidgetCatalogEntry,
   list: ListId,
@@ -83,32 +91,26 @@ export function widgetKindMenuItems(
   move: (kind: string, to: ListId) => void
 ): CtxMenuItem[] {
   const standalone = isStandaloneWidgetKind(entry.kind)
-  const items: CtxMenuItem[] = []
-  if (deskOpen) {
-    items.push({
-      label: 'Add to this desk',
-      icon: 'add_to_queue',
-      onClick: () => void addKindToOpenDesk(entry.kind)
-    })
-  }
+  const object: CtxMenuItem[] = [
+    deskOpen
+      ? { label: MENU.addToThisDesk.label, icon: 'add_to_queue', testid: 'ctx-add-to-this-desk', onClick: () => void addKindToOpenDesk(entry.kind) }
+      : { label: MENU.addToThisDesk.label, icon: 'add_to_queue', testid: 'ctx-add-to-this-desk', disabled: true, hint: 'Open a desk first' }
+  ]
   if (standalone) {
-    items.push({
+    object.push({
       label: `New ${entry.label.toLowerCase()} work widget`,
       icon: 'note_add',
       onClick: () => {
         if (ensureCanAdd(entry.kind)) void useWidgetFilesStore.getState().create(entry.kind)
       }
     })
-  } else if (!deskOpen) {
-    items.push({ label: 'Only works on a desk', icon: 'desk', disabled: true })
   }
-  items.push({ separator: true })
-  items.push(
+  object.push(
     list === 'main'
       ? { label: 'Move to Other work widgets', icon: 'south', onClick: () => move(entry.kind, 'other') }
       : { label: 'Move to Work widgets', icon: 'north', onClick: () => move(entry.kind, 'main') }
   )
-  return items
+  return objectMenu({ object })
 }
 
 /** The section body: the main list, then "Other widgets", then the footer. */
@@ -145,6 +147,7 @@ export default function WidgetsSection(): JSX.Element {
         }}
         onContextMenu={(e) => {
           e.preventDefault()
+          focusInvoker(e)
           setCtx({ x: e.clientX, y: e.clientY, items: widgetKindMenuItems(entry, list, deskOpen, move) })
         }}
       >
@@ -348,6 +351,7 @@ export function WidgetsRail({ iconClass }: { iconClass: (active: boolean, tone?:
         onClick={() => void openOrCreateFromMenu(entry.kind)}
         onContextMenu={(e) => {
           e.preventDefault()
+          focusInvoker(e)
           setCtx({ x: e.clientX, y: e.clientY, items: widgetKindMenuItems(entry, list, deskOpen, move) })
         }}
         title={locked ? `${entry.label} (Pro)` : entry.label}

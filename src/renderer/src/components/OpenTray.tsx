@@ -36,6 +36,9 @@ import { useConnectedAppsStore } from '../stores/connectedApps'
 import AppLogo from './AppLogo'
 import type { ConnectedApp } from '@shared/types'
 import { useNoticeStore } from '../stores/notice'
+import CanvasContextMenu from './CanvasContextMenu'
+import { trayTabMenuItems } from '../lib/trayTabMenu'
+import { focusInvoker } from '../lib/objectMenu'
 
 /** The readable part of a URL, for an app whose title was never set. */
 function hostnameOf(url: string): string {
@@ -89,7 +92,7 @@ export default function OpenTray(): JSX.Element | null {
   // so a menu opening upwards was cut off; and the main content area paints
   // over the tray's stacking context, so what survived the clip sat behind the
   // page and swallowed every click. Fixed escapes both.
-  const [menuFor, setMenuFor] = useState<{ key: string; left: number; bottom: number } | null>(null)
+  const [menuFor, setMenuFor] = useState<{ key: string; x: number; y: number } | null>(null)
   // The desk tab a document is currently hovering over.
   const [dropOn, setDropOn] = useState<string | null>(null)
 
@@ -347,19 +350,10 @@ export default function OpenTray(): JSX.Element | null {
                 onClick={() => useViewStore.getState().go(e.view)}
                 onContextMenu={(ev) => {
                   ev.preventDefault()
-                  if (menuFor?.key === e.key) {
-                    setMenuFor(null)
-                    return
-                  }
-                  const r = ev.currentTarget.getBoundingClientRect()
-                  const MENU_W = 192 // w-48
-                  setMenuFor({
-                    key: e.key,
-                    // Clamped so a tab near the right edge does not push the
-                    // menu off screen.
-                    left: Math.max(8, Math.min(r.left, window.innerWidth - MENU_W - 8)),
-                    bottom: Math.max(8, window.innerHeight - r.top + 6)
-                  })
+                  // The kit places and clamps the menu, and gives focus back to
+                  // this tab when it closes (Escape included).
+                  focusInvoker(ev)
+                  setMenuFor({ key: e.key, x: ev.clientX, y: ev.clientY })
                 }}
                 data-testid={`tray-item-${e.key}`}
                 aria-current={on ? 'page' : undefined}
@@ -419,72 +413,29 @@ export default function OpenTray(): JSX.Element | null {
             </div>
 
             {menuFor?.key === e.key && (
-              <div
-                style={{ left: menuFor.left, bottom: menuFor.bottom }}
-                // z-[80]: above the page, below modals (85) and the full-screen
-                // widget focus takeover (90), both of which should cover it.
-                className="fixed z-[80] w-48 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1 fb-t-label"
-                onMouseLeave={() => setMenuFor(null)}
-                data-testid={`tray-menu-${e.key}`}
-              >
-                <button
-                  onClick={() => {
-                    togglePin(e.key)
-                    setMenuFor(null)
-                  }}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[var(--surface-sunken)] text-[var(--ink-90)]"
-                >
-                  {e.pinned ? 'Unpin' : 'Pin — keep it here'}
-                </button>
-                <button
-                  onClick={() => {
-                    closeOthers(e.key)
-                    setMenuFor(null)
-                  }}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[var(--surface-sunken)] text-[var(--ink-90)]"
-                >
-                  Close the others
-                </button>
-                <button
-                  onClick={() => {
-                    clear()
-                    setMenuFor(null)
-                  }}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[var(--surface-sunken)] text-[var(--ink-90)]"
-                >
-                  Close all
-                </button>
-                {draggableDoc(e.view) && (
-                  <>
-                    <div className="my-1 border-t border-[var(--edge-soft)]" />
-                    {desks.length === 0 ? (
-                      <p className="px-3 py-1 fb-t-caption">No desks to send it to yet.</p>
-                    ) : (
-                      <>
-                        <p className="px-3 pt-0.5 pb-1 fb-t-caption">Send to desk</p>
-                        <div className="max-h-44 overflow-y-auto">
-                          {desks.map((n) => (
-                            <button
-                              key={n.id}
-                              onClick={() => {
-                                const d = draggableDoc(e.view)
-                                setMenuFor(null)
-                                if (d) void placeOnDesk(n.id, d)
-                              }}
-                              data-testid={`tray-send-${e.key}-${n.id}`}
-                              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--surface-sunken)] text-[var(--ink-90)]"
-                            >
-                              <Icon name="desk" size={12} className="shrink-0 opacity-70" />
-                              <span className="truncate">{n.title || 'Untitled desk'}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-                <p className="px-3 pt-1 pb-0.5 fb-t-caption">Closing only clears this strip.</p>
-              </div>
+              <CanvasContextMenu
+                x={menuFor.x}
+                y={menuFor.y}
+                onClose={() => setMenuFor(null)}
+                items={trayTabMenuItems({
+                  entryKey: e.key,
+                  pinned: !!e.pinned,
+                  onTogglePin: () => togglePin(e.key),
+                  onClose: () => close(e.key),
+                  onCloseOthers: () => closeOthers(e.key),
+                  onCloseAll: () => clear(),
+                  hasOthers: entries.some((x) => x.key !== e.key && !x.pinned),
+                  sendTo: draggableDoc(e.view)
+                    ? {
+                        desks: desks.map((n) => ({ id: n.id, title: n.title || 'Untitled desk' })),
+                        send: (deskId) => {
+                          const d = draggableDoc(e.view)
+                          if (d) void placeOnDesk(deskId, d)
+                        }
+                      }
+                    : undefined
+                })}
+              />
             )}
           </div>
         )
