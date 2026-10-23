@@ -26,6 +26,7 @@ import { Editor } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
+import Heading from '@tiptap/extension-heading'
 import Image from '@tiptap/extension-image'
 import BulletList from '@tiptap/extension-bullet-list'
 import ListItem from '@tiptap/extension-list-item'
@@ -50,43 +51,59 @@ import {
 // either silently tests a document with no image in it, which is why the atom
 // test below asserts the image is really there before measuring it.
 const CONTENT = `
+<h2>Echo is a heading</h2>
 <p>Alpha opens the document</p>
 <img src="https://example.invalid/a.png" />
 <ul><li><p>Bravo is the first bullet</p></li><li><p>Charlie is the second bullet</p></li></ul>
 <table><tbody><tr><td><p>Delta sits in a cell</p></td></tr></tbody></table>
 `
 
+const EXTENSIONS = [
+  Document,
+  Paragraph,
+  Text,
+  Heading,
+  Image,
+  BulletList,
+  ListItem,
+  Table.configure({ resizable: false }),
+  TableRow,
+  TableCell,
+  TableHeader,
+  CommentDecorations
+]
+
 let editor: Editor
 let host: HTMLDivElement
+/** Editors a single test made for itself, torn down with the shared one. */
+let extra: { editor: Editor; host: HTMLDivElement }[] = []
+
+/** A second editor, for the documents that cannot be the shared fixture. */
+function makeEditor(content: string): Editor {
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  const ed = new Editor({ element: el, extensions: EXTENSIONS, content })
+  extra.push({ editor: ed, host: el })
+  return ed
+}
 
 beforeEach(() => {
   host = document.createElement('div')
   document.body.appendChild(host)
-  editor = new Editor({
-    element: host,
-    extensions: [
-      Document,
-      Paragraph,
-      Text,
-      Image,
-      BulletList,
-      ListItem,
-      Table.configure({ resizable: false }),
-      TableRow,
-      TableCell,
-      TableHeader,
-      CommentDecorations
-    ],
-    content: CONTENT
-  })
+  extra = []
+  editor = new Editor({ element: host, extensions: EXTENSIONS, content: CONTENT })
 })
 
 afterEach(() => {
+  for (const e of extra) {
+    e.editor.destroy()
+    e.host.remove()
+  }
   editor.destroy()
   host.remove()
 })
 
-const WORDS = ['Alpha', 'Bravo', 'Charlie', 'Delta'] as const
+const WORDS = ['Echo', 'Alpha', 'Bravo', 'Charlie', 'Delta'] as const
 
 /** What the DOCUMENT says is at a range — the only honest check. */
 const textAt = (from: number, to: number): string => editor.state.doc.textBetween(from, to)
@@ -209,5 +226,81 @@ describe('the whole path: anchor, body rewritten with no transaction, highlight'
     const { ranges } = resolveForEditor(editor, [{ id: 'c1', anchor: fresh }])
     expect(ranges[0]!.corrected).toBeUndefined()
     expect(textAt(ranges[0]!.from, ranges[0]!.to)).toBe('Alpha indeed opens the document')
+  })
+})
+
+// ── The four cases ec salvaged from the map they dropped ────────────────────
+// Their fixtures outlived their module, which is the right way round: a
+// deleted implementation takes its tests with it, and these four test the
+// COORDINATE SPACE rather than either implementation of it.
+
+describe('the edges, where an off-by-one is a crash rather than a wrong word', () => {
+  it('a stored range PAST THE END stays resolvable instead of throwing in the editor', () => {
+    // Decoration.inline throws on an out-of-range position, which would take
+    // the whole editor down over one stale comment — so the resolver clamps
+    // and the plugin clamps again. A range from a document that has since
+    // been truncated is the ordinary way to get here.
+    const size = editor.state.doc.content.size
+    const past = { kind: 'local' as const, from: size + 40, to: size + 80 }
+    const { ranges, orphans } = resolveForEditor(editor, [{ id: 'c1', anchor: past }])
+    // No quote to check, and nothing left in range: an honest orphan, not a
+    // highlight at the end of the document.
+    expect(ranges).toHaveLength(0)
+    expect(orphans).toEqual([{ id: 'c1', reason: 'missing' }])
+
+    // And with a quote it is re-found rather than lost.
+    const text = positionText(editor.state.doc)
+    const at = text.indexOf('Bravo is the first bullet')
+    const stale = {
+      ...localAnchorFor(editor, at, at + 'Bravo is the first bullet'.length),
+      from: size + 40,
+      to: size + 80
+    }
+    const out = resolveForEditor(editor, [{ id: 'c2', anchor: stale }])
+    expect(out.ranges[0]!.corrected).toBe(true)
+    expect(() => editor.commands.setCommentRanges(out.ranges)).not.toThrow()
+    const drawn = decorated()
+    expect(drawn[0]!.to).toBeLessThanOrEqual(editor.state.doc.content.size)
+    expect(textAt(drawn[0]!.from, drawn[0]!.to)).toBe('Bravo is the first bullet')
+  })
+
+  it('an EMPTY document resolves nothing and throws nothing', () => {
+    const empty = makeEditor('<p></p>')
+    const text = positionText(empty.state.doc)
+    expect(text).toHaveLength(empty.state.doc.content.size)
+    // Nothing to quote in an empty document, so no anchor can be made for one.
+    expect(localAnchorFor(empty, 0, 1).quote).toBeUndefined()
+    const { ranges, orphans } = resolveForEditor(empty, [
+      { id: 'c1', anchor: { kind: 'local', from: 1, to: 9, quote: { text: 'anything' } } }
+    ])
+    expect(ranges).toHaveLength(0)
+    expect(orphans).toEqual([{ id: 'c1', reason: 'missing' }])
+    expect(() => empty.commands.setCommentRanges(ranges)).not.toThrow()
+  })
+
+  it('round-trips EVERY character of a word, because an end off-by-one hides at the last one', () => {
+    const text = positionText(editor.state.doc)
+    for (const word of WORDS) {
+      const at = text.indexOf(word)
+      for (let i = 0; i < word.length; i++) {
+        expect(textAt(at + i, at + i + 1), `${word}[${i}] at position ${at + i}`).toBe(word[i])
+      }
+      // And the whole span, from its last character's far edge.
+      expect(textAt(at, at + word.length)).toBe(word)
+    }
+  })
+
+  it('a heading costs what a heading costs, and a comment in one lands on its own words', () => {
+    const text = positionText(editor.state.doc)
+    const at = text.indexOf('Echo is a heading')
+    expect(editor.state.doc.content.child(0).type.name).toBe('heading')
+    const anchor = localAnchorFor(editor, at, at + 'Echo is a heading'.length)
+    expect(anchor.quote?.text).toBe('Echo is a heading')
+    // Prepend a paragraph so the heading is no longer the first block, which
+    // is where a per-block boundary cost would show up as drift.
+    editor.commands.setContent(`<p>Added above</p>${CONTENT}`)
+    const { ranges } = resolveForEditor(editor, [{ id: 'c1', anchor }])
+    editor.commands.setCommentRanges(ranges)
+    expect(textAt(decorated()[0]!.from, decorated()[0]!.to)).toBe('Echo is a heading')
   })
 })
