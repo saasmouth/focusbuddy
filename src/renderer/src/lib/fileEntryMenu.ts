@@ -99,8 +99,17 @@ export function fileEntryMenu(entry: FileEntry, surface: FilesSurface, caps: Fil
     object.push({ label: FILES_MENU_LABELS.export, icon: 'ios_share', testid: 'files-menu-export', onClick: () => act.exportWidgetFile(widgetFile) })
   } else {
     if (entry.kind === 'file') object.push({ label: revealLabel(caps.platform), icon: 'folder_open', testid: 'files-menu-reveal', onClick: act.reveal })
-    // Promote a whole folder to a live, checked-out shared folder.
-    if (entry.kind === 'folder' && caps.signedIn) object.push({ label: FILES_MENU_LABELS.collaborateLive, icon: 'group', testid: 'files-menu-live', onClick: act.collaborateLive })
+    // Promote a whole folder to a live, checked-out shared folder. It uploads
+    // to the server, so signed out it is off and says why (SPEC §9.5).
+    if (entry.kind === 'folder') {
+      object.push({
+        label: FILES_MENU_LABELS.collaborateLive,
+        icon: 'group',
+        testid: 'files-menu-live',
+        ...(caps.signedIn ? {} : { disabled: true, hint: 'Sign in to collaborate live' }),
+        onClick: act.collaborateLive
+      })
+    }
     // The share dialog: a folder shares its documents, a filed document as
     // itself, a raw file with its bytes (a document needs its docId).
     if (entry.kind !== 'doc' || entry.docId) share.push({ label: MENU.share.label, icon: 'link', testid: 'files-menu-share', onClick: act.share })

@@ -81,11 +81,13 @@ describe('Files entry menu (one builder, full view and flyout)', () => {
     expect(groupsOf(menuFor(FILE, 'flyout', 3))[0]).toContain('Add 3 items to this desk')
   })
 
-  it('a folder: Collaborate live (signed in), and its soft delete is Move to Trash too', () => {
+  it('a folder: Collaborate live (off with a reason when signed out), and its soft delete is Move to Trash too', () => {
     expectMenuContract(menuFor(FOLDER, 'view'), {
       groups: [['Open', 'Rename', 'Collaborate live'], ['Share…', 'Share with team or group…'], ['Move to Trash']]
     })
-    expect(groupsOf(fileEntryMenu(FOLDER, 'view', { ...caps, signedIn: false }, act))[0]).not.toContain('Collaborate live')
+    const signedOut = fileEntryMenu(FOLDER, 'view', { ...caps, signedIn: false }, act)
+    expectMenuContract(signedOut)
+    expect(signedOut.find((i) => i.label === 'Collaborate live')).toMatchObject({ disabled: true, hint: 'Sign in to collaborate live' })
     // Reveal names the platform's own file manager.
     expect(groupsOf(fileEntryMenu(FILE, 'view', { ...caps, platform: 'win32' }, act))[0]).toContain('Show in File Explorer')
     expectMenuContract(fileEntryMenu(FILE, 'view', { ...caps, platform: 'linux' }, act))

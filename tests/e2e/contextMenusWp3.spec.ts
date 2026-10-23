@@ -150,9 +150,11 @@ for (const theme of ['light', 'dark'] as const) {
     await window.screenshot({ path: `${SHOTS}/files-view-entry-${theme}.png` })
     await window.keyboard.press('Escape')
 
-    // A folder: Collaborate live needs a signed-in account (this profile has none), so it is absent.
+    // A folder: Collaborate live uploads to the server; this profile is signed out, so it is off and says why.
     await window.locator(`[data-testid="file-entry-${seed.folderId}"]`).click({ button: 'right' })
-    expect((await renderedMenu(window)).groups).toEqual([['Open', 'Rename'], ['Share…'], ['Move to Trash']])
+    expect((await renderedMenu(window)).groups).toEqual([['Open', 'Rename', 'Collaborate live'], ['Share…'], ['Move to Trash']])
+    await expect(window.locator('[data-testid="files-menu-live"]')).toBeDisabled()
+    await expect(window.locator('[data-testid="files-menu-live"]')).toContainText('Sign in to collaborate live')
     await window.keyboard.press('Escape')
 
     // The empty area: create here | Select all.

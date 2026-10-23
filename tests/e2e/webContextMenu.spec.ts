@@ -108,7 +108,7 @@ const labels = (m: Recorded): string[] => (m?.entries ?? []).filter((e) => e.typ
 async function checkAll(app: ElectronApplication, url: string, surface: string): Promise<void> {
   const link = await rightClick(app, url, '#link')
   expect(link?.surface).toBe(surface)
-  expect(labels(link)).toEqual(expect.arrayContaining(['Open link in default browser', 'Copy link address']))
+  expect(labels(link)).toEqual(expect.arrayContaining(['Open link in default browser', 'Copy link']))
   expect(labels(link)).toContain(surface === 'desk' ? 'Open link as a new browser work widget' : 'Open link')
 
   const img = await rightClick(app, url, '#img')
