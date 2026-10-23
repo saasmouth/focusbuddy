@@ -24,6 +24,7 @@ import { useSnippetsStore } from '../../src/renderer/src/stores/snippets'
 import { linkModesFor, snippetBodyIsEmpty, snippetSummary, type Snippet, type SlideSnippetBody } from '../../src/shared/snippets'
 import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { DECK_TABS, type DeckCtx } from '../../src/renderer/src/components/documents/slides/ribbon'
+import { buildDeckCommands, type DeckCommandDeps } from '../../src/renderer/src/components/documents/slides/deckCommands'
 import { resolveTheme } from '../../src/shared/slideThemes'
 import type { Slide, SlideElement } from '../../src/shared/types'
 
@@ -277,7 +278,14 @@ describe('the deck as a snippet target', () => {
 describe('where the commands live on the shell', () => {
   function ctx(selected: SlideElement[], ed: Partial<DeckCtx['ed']>): DeckCtx {
     const noop = (): void => {}
+    // The ribbon renders Deck's command record (slides/deckCommands); its
+    // snippet commands reach the same functions the old `ed` hooks did.
+    const deps = new Proxy(
+      { selected: selected.length, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: null, saveSnippet: ed.saveSnippet ?? noop, insertSnippet: ed.insertSnippet ?? noop } as Record<string, unknown>,
+      { get: (t, k) => (k in t ? t[k as string] : noop) }
+    ) as unknown as DeckCommandDeps
     return {
+      cmds: buildDeckCommands(deps),
       slide: slideWith(ALL),
       theme: resolveTheme('plexi-default'),
       selected,
@@ -297,15 +305,16 @@ describe('where the commands live on the shell', () => {
   }
   const btn = (id: string): HTMLButtonElement => document.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)!
 
-  it('Insert › Saved snippet… opens the library', () => {
+  it('Insert › Insert snippet… opens the library', () => {
     const insertSnippet = vi.fn()
     act(() => root.render(<ContextBar<DeckCtx> testid="slides-toolbar" tabs={DECK_TABS} ctx={ctx([], { insertSnippet })} activeTab="insert" onTabChange={() => {}} menuBar={null} />))
-    expect(btn('slides-insert-snippet').textContent).toContain('Saved snippet…')
+    // The lexicon's label, the same as the menu bar's (SPEC §9.9).
+    expect(btn('slides-insert-snippet').getAttribute('aria-label')).toContain('Insert snippet…')
     act(() => btn('slides-insert-snippet').click())
     expect(insertSnippet).toHaveBeenCalledTimes(1)
   })
 
-  it('Arrange › Save as snippet… sits with the selection actions, and says why when nothing is selected', () => {
+  it('Arrange › Save selection as snippet… sits with the selection actions, and says why when nothing is selected', () => {
     const saveSnippet = vi.fn()
     act(() => root.render(<ContextBar<DeckCtx> testid="slides-toolbar" tabs={DECK_TABS} ctx={ctx([], { saveSnippet })} activeTab="arrange" onTabChange={() => {}} menuBar={null} />))
     expect(btn('slides-save-snippet').disabled).toBe(true)
