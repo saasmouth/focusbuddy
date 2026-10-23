@@ -13,7 +13,7 @@
 // last-write-win, so Save carries the revision it loaded and a refusal offers
 // both ways out explicitly.
 
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -48,18 +48,42 @@ let docsCreate: ReturnType<typeof vi.fn>
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
 
-/** A stand-in for an app's editor: a button that emits one change. */
-const stubEditor = (): SnippetKindEditor => ({
-  render: ({ onChange }) => (
-    <button
-      data-testid="stub-change"
-      onClick={() =>
-        onChange({ kind: 'doc', content: [{ type: 'paragraph' }], text: 'edited' } as SnippetBody)
-      }
-    >
-      type
-    </button>
+/**
+ * A stand-in for an app's editor, and it SEEDS ITS STATE ONCE on purpose.
+ *
+ * Every real office editor does: DrawStudio, DesignEditor, DiagramEditor,
+ * SheetEditor and SlidesEditor all build their store, undo stack and loaded
+ * rasters from `content` on mount, and none re-seeds on a prop change. An
+ * earlier version of this stub was stateless, which made it USELESS for the one
+ * bug in this area — the host replacing the body without remounting, so a
+ * Reload left the old content on screen. The stub passed; the real thing would
+ * not have.
+ */
+function StubEditor({
+  body,
+  onChange
+}: {
+  body: SnippetBody
+  onChange: (next: SnippetBody) => void
+}): JSX.Element {
+  const [seeded] = useState(() => (body as { text?: string }).text ?? '')
+  return (
+    <>
+      <span data-testid="stub-seeded">{seeded}</span>
+      <button
+        data-testid="stub-change"
+        onClick={() =>
+          onChange({ kind: 'doc', content: [{ type: 'paragraph' }], text: 'edited' } as SnippetBody)
+        }
+      >
+        type
+      </button>
+    </>
   )
+}
+
+const stubEditor = (): SnippetKindEditor => ({
+  render: ({ body, onChange }) => <StubEditor body={body} onChange={onChange} />
 })
 
 beforeEach(() => {
@@ -191,5 +215,28 @@ describe('a conflict offers both ways out, explicitly', () => {
     await click('snippet-session-reload')
     expect(host.querySelector('[data-testid="snippet-session-conflict"]')).toBeNull()
     expect(update.mock.calls.length).toBe(before)
+  })
+
+  it('Reload actually REMOUNTS the editor, so their body is what is on screen', async () => {
+    // The bug this exists for: the host replaced its buffered body but left the
+    // editor mounted, and editors seed from content on mount only — so the user
+    // pressed "Reload theirs" and went on looking at the body they had just
+    // chosen to discard. Silent, and invisible to a stateless stub.
+    await mount()
+    expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('v1')
+    await click('stub-change')
+    await click('snippet-session-save')
+    await click('snippet-session-reload')
+    expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('theirs')
+  })
+
+  it('Overwrite does NOT remount, so undo history and scroll survive', async () => {
+    // The mirror of the rule above: overwriting keeps MY body, so remounting
+    // would throw away the editor's state for nothing.
+    await mount()
+    await click('stub-change')
+    await click('snippet-session-save')
+    await click('snippet-session-overwrite')
+    expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('v1')
   })
 })

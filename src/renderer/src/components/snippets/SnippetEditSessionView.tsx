@@ -14,6 +14,7 @@ import Icon from '../Icon'
 // node, which renders the embed, so that one has to be lazy regardless.
 const SnippetDocSurface = lazy(() => import('./SnippetDocSurface'))
 const SnippetSheetSession = lazy(() => import('./SnippetSheetSession'))
+const SnippetDrawSession = lazy(() => import('./SnippetDrawSession'))
 
 function Loading(): JSX.Element {
   return <div className="p-4 text-[12px] text-[var(--ink-50)]">Opening the editor…</div>
@@ -84,6 +85,13 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
         <SnippetSheetSession body={body} title={title} onChange={onChange} />
       </Suspense>
     )
+  },
+  draw: {
+    render: ({ body, title, onChange }) => (
+      <Suspense fallback={<Loading />}>
+        <SnippetDrawSession body={body} title={title} onChange={onChange} />
+      </Suspense>
+    )
   }
 }
 
@@ -121,6 +129,18 @@ export default function SnippetEditSessionView({
   const [load, setLoad] = useState<Load>({ phase: 'loading' })
   const [save, setSave] = useState<SaveState>({ phase: 'idle' })
   const [dirty, setDirty] = useState(false)
+  // Bumped only when the body is REPLACED from outside the editor — which today
+  // means Reload. Every office editor seeds its own store, undo stack and loaded
+  // rasters from `content` on MOUNT and does not re-seed on a prop change, so
+  // without a remount a Reload would leave the user looking at the body they
+  // just chose to discard. d1 caught this for DrawStudio; it is true of all of
+  // them, including my own sheet session, which seeds its wrapped workbook in a
+  // useState initialiser.
+  //
+  // Deliberately NOT keyed on the revision: a successful Save bumps that, and
+  // remounting then would throw away undo history and scroll position for no
+  // reason, since the body on screen is already the body that was saved.
+  const [seed, setSeed] = useState(0)
 
   // The latest body lives in a ref, not state: it is written by every keystroke
   // and read only by Save, so re-rendering the editor on each change would be
@@ -257,6 +277,10 @@ export default function SnippetEditSessionView({
               setDirty(false)
               setSave({ phase: 'idle' })
               setLoad({ phase: 'ready', snippet: save.theirs })
+              // Forces the editor to remount and re-seed from their body. The
+              // editors do not re-seed on a prop change, so without this the
+              // Reload would be invisible.
+              setSeed((n) => n + 1)
             }}
           >
             Reload theirs
@@ -283,14 +307,16 @@ export default function SnippetEditSessionView({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {editor ? (
-          editor.render({
-            body: latest.current ?? snippet.body,
-            title: snippet.name,
-            onChange: (next) => {
-              latest.current = next
-              if (!dirty) setDirty(true)
-            }
-          })
+          <div key={`${snippetId}:${seed}`} className="h-full min-h-0">
+            {editor.render({
+              body: latest.current ?? snippet.body,
+              title: snippet.name,
+              onChange: (next) => {
+                latest.current = next
+                if (!dirty) setDirty(true)
+              }
+            })}
+          </div>
         ) : (
           <p className="p-4 text-[13px] text-[var(--ink-60)]" data-testid="snippet-session-unsupported">
             A {snippetKindLabel(snippet.kind).toLowerCase()} cannot be opened for editing yet.
