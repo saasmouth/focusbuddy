@@ -2890,8 +2890,23 @@ export default function Canvas(): JSX.Element {
   // canvas underneath". The displacement grew with widget count and zoom
   // because both grow the scroll range.
   //
-  // Scroll is not cancellable, so this runs after the fact; the reset lands in
-  // the same frame and is not visible.
+  // So the surface is `overflow: clip`, not `overflow: hidden` (2026-10-23).
+  // Clipped overflow paints exactly like hidden overflow but the element is
+  // not a scroll container at all: scrollLeft/scrollTop stay 0 when assigned,
+  // and scrollIntoView / focus() / caret placement skip it instead of shifting
+  // the desk. Pinning after the fact was not enough. The shift and the reset
+  // are a frame apart, and in that frame anything measuring the layout saw
+  // the desk ~104 px sideways. Playwright's retry did, and moved the pointer
+  // to the shifted point next to the dock, inside the edge-pan zone. The desk
+  // then panned under the resting pointer indefinitely (stickyWidget.spec.ts,
+  // useEdgePan's arming). Nothing depends on this element scrolling: the
+  // camera is the transform on the widget layer (panX/panY in the widget
+  // store), and widgets that scroll do so in their own containers, which
+  // clip leaves alone. Children are all absolutely or fixed positioned, so
+  // losing hidden's block formatting context changes no layout.
+  //
+  // pinSurfaceScroll stays as a second line of defence should the class ever
+  // be changed back. Scroll is not cancellable, so it runs after the fact.
   const pinSurfaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
     if (el.scrollLeft !== 0) el.scrollLeft = 0
@@ -2914,7 +2929,7 @@ export default function Canvas(): JSX.Element {
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerUp}
-          className="flex-1 relative overflow-hidden desk-paper no-static-pattern"
+          className="flex-1 relative overflow-clip desk-paper no-static-pattern"
           style={
             {
               overscrollBehavior: 'none',
