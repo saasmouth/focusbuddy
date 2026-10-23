@@ -274,6 +274,27 @@ describe('two linked-duplicate widgets on one document', () => {
     vi.useFakeTimers()
   })
 
+  it('a widget does not remount on the echo of its OWN save', async () => {
+    // The desk-widget half of the undo-history bug. The Documents view lost its
+    // entire undo stack about a second after any edit, because the broadcast is
+    // emitted inside the write and arrives before the write's promise resolves
+    // — so the store saw a revision it did not recognise, refetched, and
+    // remounted the editor.
+    //
+    // The widget survives it for a DIFFERENT reason: it clears `pending` only
+    // after the await, so its unsaved-text guard is still set when the echo
+    // lands. That is correct but incidental, and worth pinning: reordering
+    // those two lines would reintroduce the bug here with nothing to catch it.
+    //
+    // Asserted on what the editor was SEEDED with. A remount re-seeds from the
+    // new body, so 'start +A' here would mean the editor was rebuilt and the
+    // user's undo stack went with it.
+    await mountBoth()
+    await type('a', ' +A')
+    expect(bodyText(DOC_ID)).toBe('start +A')
+    expect(editorAt(0).textContent).toBe('start')
+  })
+
   it('taking turns keeps BOTH edits, with no conflict to resolve', async () => {
     // What used to happen here: the stored body ended as "start +B" and " +A"
     // was gone, no merge, no conflict, no warning.

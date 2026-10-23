@@ -34,6 +34,26 @@ const pendingBodies = new Map<string, FbDocument['body']>()
  * row would be the same unconditional overwrite with extra steps.
  */
 const pendingBaseRev = new Map<string, number>()
+
+/**
+ * Documents this renderer is in the middle of writing.
+ *
+ * THE ECHO CANNOT BE RECOGNISED BY ITS REVISION, which is why this exists. The
+ * main process emits documents:changed from inside updateDocument, so the
+ * broadcast reaches us BEFORE the write's own promise resolves — at which point
+ * `active.bodyRev` is still the old revision and the new one is not known here
+ * yet. The queued body has already been taken from pendingBodies too. So every
+ * guard the listener had was satisfied, the store treated its own save as
+ * somebody else's edit, refetched, and bumped bodyEpoch — which is in the
+ * editor's React key, so the editor remounted and the user's ENTIRE UNDO
+ * HISTORY went with it, about a second after they stopped typing.
+ *
+ * A notify for a document we are writing is therefore ignored. If somebody
+ * else's write really did land in that window, our own write is refused by its
+ * compare-and-set and the conflict bar handles it — so nothing is lost by not
+ * refreshing mid-write, and the undo stack survives.
+ */
+const writing = new Set<string>()
 /**
  * Write a queued body on the way out — closing a document, or flushing before
  * the app goes away — with nowhere left to ask the user anything.
@@ -281,57 +301,64 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         pendingBodies.delete(id)
         if (bodyToSave === undefined) return
         const baseRev = pendingBaseRev.get(id) ?? 0
+        writing.add(id)
         try {
-          // CONDITIONAL: replace the body only if it is still the one this
-          // editor was handed. The same document can be open in a desk widget
-          // or another window, each holding its own copy of the whole body, and
-          // an unconditional write silently destroyed whichever edit was
-          // slower. See documents.body_rev.
-          const res = await window.api.documents.updateBody(id, bodyToSave, baseRev)
-          if (!res.ok) {
-            if (res.reason === 'stale') {
-              // Keep the edit — in `active.body`, on the screen, and queued —
-              // and say what is stored instead. Writing either side here would
-              // be choosing for the user.
-              pendingBodies.set(id, bodyToSave)
-              if (get().active?.id === id) {
-                set({ saving: false, saveError: false, conflict: { id, theirs: res.current } })
+          try {
+            // CONDITIONAL: replace the body only if it is still the one this
+            // editor was handed. The same document can be open in a desk widget
+            // or another window, each holding its own copy of the whole body, and
+            // an unconditional write silently destroyed whichever edit was
+            // slower. See documents.body_rev.
+            const res = await window.api.documents.updateBody(id, bodyToSave, baseRev)
+            if (!res.ok) {
+              if (res.reason === 'stale') {
+                // Keep the edit — in `active.body`, on the screen, and queued —
+                // and say what is stored instead. Writing either side here would
+                // be choosing for the user.
+                pendingBodies.set(id, bodyToSave)
+                if (get().active?.id === id) {
+                  set({ saving: false, saveError: false, conflict: { id, theirs: res.current } })
+                }
+                return
               }
+              // 'missing': the document is gone (trashed elsewhere, or purged).
+              // An error banner is honest; a retry loop against a dead id is not.
+              pendingBaseRev.delete(id)
+              if (get().active?.id === id) set({ saving: false, saveError: true })
               return
             }
-            // 'missing': the document is gone (trashed elsewhere, or purged).
-            // An error banner is honest; a retry loop against a dead id is not.
-            pendingBaseRev.delete(id)
+            pendingBaseRev.set(id, res.doc.bodyRev)
+            // Only touch the shared saving/error UI state for the document still open.
+            if (get().active?.id === id) {
+              set({
+                saving: false,
+                saveError: false,
+                conflict: null,
+                // Carry the new revision forward, or the next save would be
+                // refused against the one we just superseded.
+                active: { ...get().active!, bodyRev: res.doc.bodyRev }
+              })
+            }
+            nudgeSync()
+          } catch (err) {
+            // Never lose work silently: re-queue the body so the next edit or close
+            // retries, drop the stuck "Saving" state, and flag the error.
+            // eslint-disable-next-line no-console
+            console.error('[documents.saveBody] persist failed', err)
+            pendingBodies.set(id, bodyToSave)
             if (get().active?.id === id) set({ saving: false, saveError: true })
             return
           }
-          pendingBaseRev.set(id, res.doc.bodyRev)
-          // Only touch the shared saving/error UI state for the document still open.
-          if (get().active?.id === id) {
-            set({
-              saving: false,
-              saveError: false,
-              conflict: null,
-              // Carry the new revision forward, or the next save would be
-              // refused against the one we just superseded.
-              active: { ...get().active!, bodyRev: res.doc.bodyRev }
-            })
-          }
-          nudgeSync()
-        } catch (err) {
-          // Never lose work silently: re-queue the body so the next edit or close
-          // retries, drop the stuck "Saving" state, and flag the error.
-          // eslint-disable-next-line no-console
-          console.error('[documents.saveBody] persist failed', err)
-          pendingBodies.set(id, bodyToSave)
-          if (get().active?.id === id) set({ saving: false, saveError: true })
-          return
+          // Mirror to the cloud for the document we just saved (by id, even if the
+          // active document has since changed). On a rev conflict the server wins.
+          const saved = get().active?.id === id ? get().active! : ({ ...a, body: bodyToSave } as FbDocument)
+          const { conflictedTo } = await pushCloudDoc(saved).catch(() => ({ conflictedTo: undefined }))
+          if (conflictedTo && get().active?.id === conflictedTo.id) set({ active: conflictedTo })
+        } finally {
+          // Released however we leave: a return, a throw, or the end. A
+          // document left in this set would never refresh again.
+          writing.delete(id)
         }
-        // Mirror to the cloud for the document we just saved (by id, even if the
-        // active document has since changed). On a rev conflict the server wins.
-        const saved = get().active?.id === id ? get().active! : ({ ...a, body: bodyToSave } as FbDocument)
-        const { conflictedTo } = await pushCloudDoc(saved).catch(() => ({ conflictedTo: undefined }))
-        if (conflictedTo && get().active?.id === conflictedTo.id) set({ active: conflictedTo })
       }, 600)
     )
   },
@@ -557,6 +584,11 @@ if (typeof window !== 'undefined' && window.api?.documents?.onChanged) {
     const s = useDocumentsStore.getState()
     if (s.active?.id !== id) return
     if (s.active.bodyRev === bodyRev) return // our own save, already applied
+    // The echo of a write still in flight. It cannot be recognised by its
+    // revision — the broadcast is emitted inside the write and arrives before
+    // the write's promise resolves, so the new revision is not known here yet —
+    // and refreshing on it remounts the editor and destroys the undo history.
+    if (writing.has(id)) return
     if (pendingBodies.has(id)) return // unsaved work on screen — leave it alone
     void window.api.documents.get(id).then((doc) => {
       const cur = useDocumentsStore.getState()
