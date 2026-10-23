@@ -281,7 +281,9 @@ test('7 — transcribe control toggles the transcribing state', async () => {
   })
   expect(before).toBe(false)
 
-  await window.locator('[aria-label="Transcribe & summarise"]').click()
+  // The control is recording-under-consent since 6e68bb9a (DEC-098 M1); it
+  // still drives the room's transcribing state.
+  await window.locator('[aria-label="Start recording — everyone will be asked"]').click()
   await window.waitForTimeout(200)
 
   const after = await window.evaluate(() => {
@@ -289,5 +291,5 @@ test('7 — transcribe control toggles the transcribing state', async () => {
     return w.__fbMeetingRoom?.getState().transcribing
   })
   expect(after).toBe(true)
-  await expect(window.locator('[aria-label="Stop transcribing"]')).toBeVisible()
+  await expect(window.locator('[aria-label="Stop recording"]')).toBeVisible()
 })

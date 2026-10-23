@@ -40,9 +40,39 @@ function tiptapText(s: string): string {
   return out.join(' ').replace(/\\n/g, ' ')
 }
 
+// Keys whose string values are machinery, not words a person wrote.
+const NOT_WORDS = /(^id$|Id$|_id$|^(mode|kind|type|color|colour|mime|mimeType|url|src|href|icon|status|format|version|schemaVersion|align|font)$)/i
+
+/**
+ * The words in a widget's content, for a thumbnail. Many kinds store JSON
+ * (voice, table, field, task list…) and have no preview of their own; printing
+ * that verbatim put raw blobs on screen. JSON yields its string values, minus
+ * ids and settings; anything else is already text.
+ */
+function readableSnippet(content: string): string {
+  const t = content.trim()
+  if (t.startsWith('{') || t.startsWith('[')) {
+    try {
+      const words: string[] = []
+      const walk = (v: unknown, key: string): void => {
+        if (words.length > 40) return
+        if (typeof v === 'string') {
+          if (v.trim() && !NOT_WORDS.test(key)) words.push(v)
+        } else if (Array.isArray(v)) v.forEach((x) => walk(x, key))
+        else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, k)
+      }
+      walk(JSON.parse(t), '')
+      return words.join(' ')
+    } catch {
+      /* not JSON after all: it is text */
+    }
+  }
+  return content
+}
+
 function Fallback({ widget, icon, label }: { widget: Widget; icon?: string; label?: string }): JSX.Element {
   const entry = WIDGET_CATALOG.find((e) => e.kind === widget.kind)
-  const snippet = (widget.content || '').replace(/\s+/g, ' ').slice(0, 140)
+  const snippet = readableSnippet(widget.content || '').replace(/\s+/g, ' ').slice(0, 140)
   return (
     <div className="h-full w-full flex flex-col bg-[var(--surface-raised)] p-2 overflow-hidden">
       <div className="flex items-center gap-1.5 text-[var(--ink-50)]">

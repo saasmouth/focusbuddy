@@ -67,8 +67,10 @@ test('2 — meet-add creates a meeting; title and summary persist via api.meetin
   await titleInput.press('Tab') // blur → save
   await window.waitForTimeout(200)
 
-  // Edit summary (the textarea below the Summary heading).
-  const summaryArea = window.locator('[data-testid="meet-detail"] textarea').first()
+  // Edit summary. The Record opens on Commitments since a02f55ab (DEC-100 M2b);
+  // the summary is edited in the Brief rendering.
+  await window.locator('[data-testid="record-view-brief"]').click()
+  const summaryArea = window.locator('[data-testid="meet-summary"]')
   await summaryArea.click()
   await summaryArea.fill('Reviewed Q2 results and aligned on next sprint priorities.')
   await summaryArea.press('Tab') // blur → save
@@ -142,8 +144,10 @@ test('3 — action items from a created meeting turn into real task nodes', asyn
   await window.locator(`[data-testid="meet-row-${meetId}"]`).click()
   await window.waitForSelector('[data-testid="meet-detail"]', { timeout: 5_000 })
 
-  // meet-actions section must be visible with both items.
-  const actionsSection = window.locator('[data-testid="meet-actions"]')
+  // Both items are listed. meet-actions became the Commitments rendering's
+  // "From the summary" list in a02f55ab (DEC-100 M2b), each line with its own
+  // make-a-desk button.
+  const actionsSection = window.locator('[data-testid="meet-legacy-items"]')
   await expect(actionsSection).toBeVisible({ timeout: 4_000 })
   await expect(actionsSection.locator('text=Ship the release')).toBeVisible()
   await expect(actionsSection.locator('text=Email Sam')).toBeVisible()
@@ -235,8 +239,11 @@ test('5 — PlexiMeet shows as ready in the PlexiSuite launcher (Open button, no
   const { window } = launched
   await waitForReady(window)
 
-  // Open PlexiSuite home.
-  await window.locator('button').filter({ hasText: 'PlexiiSuite' }).first().click()
+  // Open PlexiSuite home. Its sidebar button went with the object-based IA, so
+  // go through the view store (gotoView's goSuite is landing with ec's red-suite-41).
+  await window.evaluate(() => {
+    ;(window as unknown as { __fbView: { getState: () => { goSuite: () => void } } }).__fbView.getState().goSuite()
+  })
   await window.waitForSelector('[data-testid="plexisuite-home"]', { timeout: 8_000 })
 
   const tile = window.locator('[data-testid="product-tile-pleximeet"]')
