@@ -20,8 +20,10 @@ import { objectMenu } from './objectMenu'
 // holds them equal), so the gallery can no longer say "Open desk" first while
 // the index said it fourth (AUDIT F-6).
 //
-// SPEC §9.3 order: Add to Focus… (CR-09) · Open · Rename · Share… | Ask
-// PlexiiAssist | the lifecycle rows, last and in danger. The actions live here
+// SPEC §9.3 order, as the owner ruled (E-1, E-2): Open · Add to Focus… ·
+// Rename · Share… | Ask PlexiiAssist | Remove from ‹container› · Archive · Move
+// to Trash, last and in danger. Both orders live in ONE place, leadRows and
+// lifecycleRows below, which every object menu outside the office apps uses. The actions live here
 // as plain functions so the index pages' hover strips call the very same code.
 //
 // DEC-021 (reshaped by operator QA): "Move to Trash" is DIRECT — undoable,
@@ -119,6 +121,24 @@ function setArchived(node: FbNode, archived: boolean): void {
   void useNodeStore.getState().update(node.id, { archived })
 }
 
+/**
+ * E-1 (owner ruling): an object menu leads with Open, then Add to Focus….
+ * The one place that order is written; desks, rooms, Home cards and Focus
+ * rows all start their object group with this.
+ */
+export function leadRows(open: CtxMenuItem | null, addToFocus: CtxMenuItem | null): CtxMenuItem[] {
+  return [open, addToFocus].filter((r): r is CtxMenuItem => !!r)
+}
+
+/**
+ * E-2 (owner ruling): the destructive group is explicit rows in this order —
+ * Remove from ‹container› · Archive · Move to Trash. The one place that order
+ * is written; objectMenu marks them danger and puts them last.
+ */
+export function lifecycleRows(r: { remove?: CtxMenuItem | null; archive?: CtxMenuItem | null; trash?: CtxMenuItem | null }): CtxMenuItem[] {
+  return [r.remove, r.archive, r.trash].filter((x): x is CtxMenuItem => !!x)
+}
+
 export interface NodeMenuHost {
   /** Opens the universal ShareDialog for this node; the hosting view renders it. */
   onShare: (node: FbNode) => void
@@ -131,8 +151,10 @@ export function deskMenuItems(node: FbNode, host: NodeMenuHost): CtxMenuItem[] {
   const id = (key: string): string => `node-menu-${key}`
 
   const object: CtxMenuItem[] = [
-    { label: MENU.addToFocus.label, icon: 'notifications', testid: id('focus'), onClick: () => addNodeToFocus(node) },
-    { label: MENU.open.label, icon: 'chevron_right', testid: id('open'), onClick: () => openNode(node) },
+    ...leadRows(
+      { label: MENU.open.label, icon: 'chevron_right', testid: id('open'), onClick: () => openNode(node) },
+      { label: MENU.addToFocus.label, icon: 'notifications', testid: id('focus'), onClick: () => addNodeToFocus(node) }
+    ),
     { label: MENU.rename.label, icon: 'edit', testid: id('rename'), onClick: () => void renameNode(node) }
   ]
   // Taking a node off the archived shelf is not destructive, so it is an object row.
@@ -167,34 +189,35 @@ export function deskMenuItems(node: FbNode, host: NodeMenuHost): CtxMenuItem[] {
     )
   }
 
-  const destructive: CtxMenuItem[] = []
+  let destructive: CtxMenuItem[]
   if (shared) {
-    if (!node.archived) {
-      destructive.push({ label: 'Archive for me', icon: 'archive', testid: id('archive'), onClick: () => setArchived(node, true) })
-    }
-    // A received share: leaving is this account's own right.
-    if (node.sharedFromHandle) {
-      destructive.push({ label: 'Leave share', icon: 'logout', testid: id('leave-share'), onClick: () => void leaveSharedDesk(node) })
-    }
-    // D1 (DEC-021): no unilateral trash of a shared desk in v1.
-    destructive.push({
-      label: MENU.moveToTrash.label,
-      icon: 'delete',
-      testid: id('trash'),
-      disabled: true,
-      hint: node.sharedFromHandle
-        ? `Shared by @${node.sharedFromHandle}: leave or archive instead`
-        : 'Shared: unshare it before deleting'
+    destructive = lifecycleRows({
+      // A received share: leaving takes it out of this account's workspace
+      // (the share's "Remove from…"), and is this account's own right.
+      remove: node.sharedFromHandle
+        ? { label: 'Leave share', icon: 'logout', testid: id('leave-share'), onClick: () => void leaveSharedDesk(node) }
+        : null,
+      archive: node.archived
+        ? null
+        : { label: 'Archive for me', icon: 'archive', testid: id('archive'), onClick: () => setArchived(node, true) },
+      // D1 (DEC-021): no unilateral trash of a shared desk in v1.
+      trash: {
+        label: MENU.moveToTrash.label,
+        icon: 'delete',
+        testid: id('trash'),
+        disabled: true,
+        hint: node.sharedFromHandle
+          ? `Shared by @${node.sharedFromHandle}: leave or archive instead`
+          : 'Shared: unshare it before deleting'
+      }
     })
   } else {
-    if (!node.archived) {
-      destructive.push({ label: MENU.archive.label, icon: 'archive', testid: id('archive'), onClick: () => setArchived(node, true) })
-    }
-    destructive.push({
-      label: MENU.moveToTrash.label,
-      icon: 'delete',
-      testid: id('trash'),
-      onClick: () => void useNodeStore.getState().remove(node.id)
+    // A desk or room is not a placement in anything, so it has no Remove from….
+    destructive = lifecycleRows({
+      archive: node.archived
+        ? null
+        : { label: MENU.archive.label, icon: 'archive', testid: id('archive'), onClick: () => setArchived(node, true) },
+      trash: { label: MENU.moveToTrash.label, icon: 'delete', testid: id('trash'), onClick: () => void useNodeStore.getState().remove(node.id) }
     })
   }
 

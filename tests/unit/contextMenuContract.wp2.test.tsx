@@ -97,7 +97,8 @@ afterEach(() => {
   localStorage.clear()
 })
 
-const DESK = ['Add to Focus…', 'Open', 'Rename', 'Share…']
+// E-1 (owner ruling): Open first, Add to Focus… second.
+const DESK = ['Open', 'Add to Focus…', 'Rename', 'Share…']
 const ASK = ['Ask PlexiiAssist']
 const LIFECYCLE = ['Archive', 'Move to Trash']
 
@@ -170,11 +171,11 @@ describe('desks and rooms: one menu everywhere (M-i, M-j)', () => {
     expect(items.find((i) => i.label === 'Share')!.children!.map((c) => c.label)).toEqual(['Share with team or group…'])
   })
 
-  it('a shared desk: Archive for me, Leave share, and Move to Trash disabled with the reason (§9.5)', async () => {
+  it('a shared desk (E-2 order): Leave share, Archive for me, and Move to Trash disabled with the reason (§9.5)', async () => {
     useNodeStore.setState({ nodes: [{ ...desk, sharedRootId: 'x', sharedFromHandle: 'sam' } as FbNode], loaded: true })
     mount(<DeskGallery />)
     const items = await rightClick('[data-testid="desk-card-d1"]')
-    expectMenuContract(items, { groups: [DESK, ASK, ['Archive for me', 'Leave share', 'Move to Trash']] })
+    expectMenuContract(items, { groups: [DESK, ASK, ['Leave share', 'Archive for me', 'Move to Trash']] })
     const trash = items.find((i) => i.label === 'Move to Trash')!
     expect(trash.disabled).toBe(true)
     expect(trash.hint).toBe('Shared by @sam: leave or archive instead')
@@ -185,7 +186,7 @@ describe('desks and rooms: one menu everywhere (M-i, M-j)', () => {
     useNodeStore.setState({ nodes: [{ ...desk, archived: true }], loaded: true })
     mount(<DesksView />)
     const items = await rightClick('[data-testid="index-card-d1"]')
-    expectMenuContract(items, { groups: [['Add to Focus…', 'Open', 'Rename', 'Unarchive', 'Share…'], ASK, ['Move to Trash']] })
+    expectMenuContract(items, { groups: [['Open', 'Add to Focus…', 'Rename', 'Unarchive', 'Share…'], ASK, ['Move to Trash']] })
   })
 
   it('Add to Focus… marks the desk through the capture seam (CR-09), pointing at it', async () => {

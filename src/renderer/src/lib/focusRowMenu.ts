@@ -1,6 +1,7 @@
 import type { CtxMenuItem } from '../components/CanvasContextMenu'
 import { MENU } from '@shared/menus/lexicon'
 import { objectMenu } from './objectMenu'
+import { leadRows, lifecycleRows } from './deskLifecycleMenu'
 
 // Right-click on a Focus row (SPEC §9.3): the Focus page's queue rows and the
 // Attention work widget's rows. Silent until now (AUDIT §1.3). Every row here
@@ -40,7 +41,8 @@ export function focusSourceLabel(kind: 'meeting' | 'message' | 'page'): string {
 
 export function focusRowMenuItems(a: FocusRowActions): CtxMenuItem[] {
   const id = (k: string): string => `focus-menu-${k}`
-  const object: CtxMenuItem[] = [{ label: MENU.open.label, icon: 'open_in_new', testid: id('open'), onClick: a.open }]
+  // A Focus row IS a Focus item, so it has no Add to Focus…; Open still leads (E-1).
+  const object: CtxMenuItem[] = leadRows({ label: MENU.open.label, icon: 'open_in_new', testid: id('open'), onClick: a.open }, null)
   if (a.openDesk) object.push({ label: 'Open desk', icon: 'desk', testid: id('desk'), onClick: a.openDesk })
   if (a.openSource) object.push({ label: a.openSource.label, icon: 'link', testid: id('source'), onClick: a.openSource.run })
   if (a.moveToDesk) object.push({ label: 'Move to a desk…', icon: 'drive_file_move', testid: id('move'), onClick: a.moveToDesk })
@@ -51,6 +53,6 @@ export function focusRowMenuItems(a: FocusRowActions): CtxMenuItem[] {
     object,
     clipboard: a.copy ? [{ label: MENU.copy.label, icon: 'content_copy', testid: id('copy'), onClick: a.copy }] : [],
     plexii: a.askAssist ? [{ label: MENU.askAssist.label, icon: 'auto_awesome', testid: id('ask'), onClick: a.askAssist }] : [],
-    destructive: a.archive ? [{ label: MENU.archive.label, icon: 'archive', testid: id('archive'), onClick: a.archive }] : []
+    destructive: lifecycleRows({ archive: a.archive ? { label: MENU.archive.label, icon: 'archive', testid: id('archive'), onClick: a.archive } : null })
   })
 }

@@ -1,6 +1,7 @@
 import type { CtxMenuItem } from '../components/CanvasContextMenu'
 import { MENU } from '@shared/menus/lexicon'
 import { objectMenu } from './objectMenu'
+import { leadRows, lifecycleRows } from './deskLifecycleMenu'
 
 // Right-click on a Home (or Office / People / PlexiiBrain) dashboard card
 // (SPEC §9.3). Silent until now (AUDIT §1.3). Built only from what a card can
@@ -28,8 +29,12 @@ export function removeFromDashboardLabel(surface: string): string {
 
 export function homeCardMenuItems(m: HomeCardMenuInput): CtxMenuItem[] {
   const id = (k: string): string => `home-card-menu-${k}`
-  const object: CtxMenuItem[] = []
-  if (m.open) object.push({ label: MENU.open.label, icon: 'open_in_new', testid: id('open'), onClick: m.open })
+  // Open leads (E-1). A card is a placement, not an object of its own, so it
+  // has no Add to Focus…; the desk it shows has that on its own menu.
+  const object: CtxMenuItem[] = leadRows(
+    m.open ? { label: MENU.open.label, icon: 'open_in_new', testid: id('open'), onClick: m.open } : null,
+    null
+  )
   if (m.chooseAnother) object.push({ label: 'Choose another…', icon: 'swap_horiz', testid: id('choose'), onClick: m.chooseAnother })
   if (m.sizes && m.sizes.options.length > 1) {
     const sizes = m.sizes
@@ -48,6 +53,6 @@ export function homeCardMenuItems(m: HomeCardMenuInput): CtxMenuItem[] {
   return objectMenu({
     object,
     plexii: m.askAssist ? [{ label: MENU.askAssist.label, icon: 'auto_awesome', testid: id('ask'), onClick: m.askAssist }] : [],
-    destructive: [{ label: m.removeLabel, icon: 'close', testid: id('remove'), onClick: m.remove }]
+    destructive: lifecycleRows({ remove: { label: m.removeLabel, icon: 'close', testid: id('remove'), onClick: m.remove } })
   })
 }

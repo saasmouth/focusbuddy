@@ -97,7 +97,8 @@ const go = (window: Page, fn: string, arg?: string): Promise<void> =>
     { fn, arg }
   )
 
-const DESK_GROUPS = [['Add to Focus…', 'Open', 'Rename', 'Share…'], ['Ask PlexiiAssist'], ['Archive', 'Move to Trash']]
+// Owner rulings: E-1 Open then Add to Focus…; E-2 Remove from ‹container› · Archive · Move to Trash.
+const DESK_GROUPS = [['Open', 'Add to Focus…', 'Rename', 'Share…'], ['Ask PlexiiAssist'], ['Archive', 'Move to Trash']]
 
 for (const theme of ['light', 'dark'] as const) {
   test(`WP2 menus by real right-click (${theme})`, async () => {
@@ -127,7 +128,12 @@ for (const theme of ['light', 'dark'] as const) {
     await window.locator('[data-canvas-ctx-menu] [data-testid="node-menu-focus"]').click()
     await expect(window.locator('[data-testid="capture-console"]')).toBeVisible({ timeout: 5_000 })
     await expect(window.locator('[data-testid="capture-console"]')).toContainText('Launch plan')
-    await window.keyboard.press('Escape')
+    // Escape backs out of the confirm card, then the console.
+    for (let i = 0; i < 3 && (await window.locator('[data-testid="capture-console"]').count()) > 0; i++) {
+      await window.keyboard.press('Escape')
+      await window.waitForTimeout(250)
+    }
+    await expect(window.locator('[data-testid="capture-console"]')).toHaveCount(0)
 
     // ── A tray tab: browser wording, close rows last as the placement group. ──
     await go(window, 'goTask', otherId)
