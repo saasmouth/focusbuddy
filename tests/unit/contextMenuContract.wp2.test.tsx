@@ -157,7 +157,7 @@ describe('desks and rooms: one menu everywhere (M-i, M-j)', () => {
     expect(groupsOf(gallery)).toEqual(groupsOf(index))
   })
 
-  it('Share ▸ holds the other ways to share when a team org exists (E-4)', async () => {
+  it('with a team org, Share with team or group… is its own row after Share…, worded as in Files', async () => {
     useOrgStore.setState({
       activeOrgId: PERSONAL_ORG_ID,
       orgs: [
@@ -167,8 +167,7 @@ describe('desks and rooms: one menu everywhere (M-i, M-j)', () => {
     })
     mount(<DesksView />)
     const items = await rightClick('[data-testid="index-card-d1"]')
-    expectMenuContract(items, { groups: [[...DESK, 'Share'], ASK, LIFECYCLE] })
-    expect(items.find((i) => i.label === 'Share')!.children!.map((c) => c.label)).toEqual(['Share with team or group…'])
+    expectMenuContract(items, { groups: [[...DESK, 'Share with team or group…'], ASK, LIFECYCLE] })
   })
 
   it('a shared desk (E-2 order): Leave share, Archive for me, and Move to Trash disabled with the reason (§9.5)', async () => {

@@ -166,16 +166,14 @@ export function deskMenuItems(node: FbNode, host: NodeMenuHost): CtxMenuItem[] {
       onClick: () => setArchived(node, false)
     })
   }
-  // E-4: Share… (the ShareDialog: public links and the desk share sheet) is a
-  // row; the other ways to share sit under Share ▸.
+  // Share… (the ShareDialog: public links and the desk share sheet), then,
+  // where it applies, Share with team or group… as its own row: the same two
+  // rows, same words, as a file in Files (WP3's fileEntryMenu), so a desk, a
+  // room and a file read alike.
   object.push({ label: MENU.share.label, icon: 'ios_share', testid: id('share'), onClick: () => host.onShare(node) })
   if (canShareToTeam()) {
-    object.push({
-      label: 'Share',
-      icon: 'group_add',
-      testid: id('share-more'),
-      children: [{ label: 'Share with team or group…', icon: 'group_add', testid: id('share-team'), onClick: () => shareNodeToTeam(node) }]
-    })
+    // TODO(§9 lexicon): move to MENU.shareWithTeam (shared with FILES_MENU_LABELS.shareWithTeam).
+    object.push({ label: 'Share with team or group…', icon: 'group_add', testid: id('share-team'), onClick: () => shareNodeToTeam(node) })
   }
   if (room) {
     object.push(
