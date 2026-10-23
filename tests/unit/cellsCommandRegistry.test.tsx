@@ -346,7 +346,7 @@ describe('the surfaces render FROM the registry', () => {
     await mountMenuBar(cellsCommandsFor({ a: sheetActionSpies({ canUndo: false }) }))
     const undo = allMenuRows().find((r) => r.label === 'Undo')
     expect(undo?.disabled).toBe(true)
-    expect(undo?.hint).toBe('nothing to undo')
+    expect(undo?.hint).toBe('Nothing to undo.')
     // Positive control: Redo, from the same render, is live and unexplained.
     const redo = allMenuRows().find((r) => r.label === 'Redo')
     expect(redo?.disabled).toBe(false)

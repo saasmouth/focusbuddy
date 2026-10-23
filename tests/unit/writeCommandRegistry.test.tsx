@@ -32,7 +32,7 @@ import { commandHint, documentCommands, paletteEntries } from '../../src/rendere
 import { runCommandKey } from '../../src/renderer/src/lib/menus/commandKeys'
 import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
 import { READ_ONLY_REASON } from '../../src/renderer/src/components/office/shell'
-import { writeCommandsFor } from './_writeCommands'
+import { stubEditor, writeCommandsFor } from './_writeCommands'
 
 vi.mock('../../src/renderer/src/components/Icon', () => ({
   default: ({ name }: { name: string }) => <i data-icon={name} />
@@ -54,24 +54,6 @@ import DocMenuBar from '../../src/renderer/src/components/documents/editor/DocMe
 import { WRITE_TABS, type WCtx } from '../../src/renderer/src/components/documents/editor/writeRibbon'
 import { BarContext } from '../../src/renderer/src/components/office/shell'
 
-/** An editor that answers the few things the registry asks, and nothing more. */
-function stubEditor(active: string[] = []): Editor {
-  const chain: unknown = new Proxy(function () {}, {
-    get: () => () => chain,
-    apply: () => chain
-  })
-  return {
-    isActive: (n: unknown) => typeof n === 'string' && active.includes(n),
-    getAttributes: () => ({}),
-    can: () => ({ undo: () => true, redo: () => true }),
-    chain: () => chain,
-    getHTML: () => '<p></p>',
-    getText: () => '',
-    getJSON: () => ({ type: 'doc', content: [] }),
-    state: { selection: { empty: false } },
-    storage: {}
-  } as unknown as Editor
-}
 
 const flat = (list: MenuItem[]): Array<MenuItem & { kind: 'item' }> =>
   list.flatMap((i) => (i.kind === 'item' ? [i] : i.kind === 'submenu' ? flat(i.items) : []))
@@ -305,7 +287,7 @@ describe('the menu bar renders FROM the registry', () => {
     await mountMenuBar(writeCommandsFor(ed))
     const undo = allMenuRows().find((r) => r.label === 'Undo')
     expect(undo?.disabled).toBe(true)
-    expect(undo?.hint).toBe('nothing to undo')
+    expect(undo?.hint).toBe('Nothing to undo.')
     // Positive control: Redo, from the same render, is live and unexplained.
     const redo = allMenuRows().find((r) => r.label === 'Redo')
     expect(redo?.disabled).toBe(false)

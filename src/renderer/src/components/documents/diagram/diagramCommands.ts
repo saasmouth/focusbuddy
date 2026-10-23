@@ -21,8 +21,8 @@ export type DiagramCommands = ReturnType<typeof buildDiagramCommands>
 
 export function buildDiagramCommands(d: DiagramCommandDeps) {
   const { cmd } = d
-  const shapes = { enabled: () => d.nodes > 0, reason: () => 'Select a shape first' }
-  const anything = { enabled: () => d.nodes + d.edges > 0, reason: () => 'Select a shape or line first' }
+  const shapes = { enabled: () => d.nodes > 0, reason: () => 'Select a shape first.' }
+  const anything = { enabled: () => d.nodes + d.edges > 0, reason: () => 'Select a shape or line first.' }
   return {
     cut: sharedCommand('dg-cut', 'cut', () => document.execCommand('cut'), anything),
     copy: sharedCommand('dg-copy', 'copy', () => document.execCommand('copy'), anything),
@@ -37,8 +37,8 @@ export function buildDiagramCommands(d: DiagramCommandDeps) {
     bringForward: { id: 'dg-forward', label: 'Bring forward', icon: 'arrow_upward', keys: ['mod', ']'], ...shapes, run: () => cmd.order('forward') } as OfficeCommand,
     sendBackward: { id: 'dg-backward', label: 'Send backward', icon: 'arrow_downward', keys: ['mod', '['], ...shapes, run: () => cmd.order('backward') } as OfficeCommand,
     sendToBack: sharedCommand('dg-back', 'sendToBack', () => cmd.order('back'), shapes),
-    group: sharedCommand('dg-group', 'group', cmd.group, { enabled: () => d.nodes >= 2, reason: () => 'Select two or more shapes' }),
-    ungroup: sharedCommand('dg-ungroup', 'ungroup', cmd.ungroup, { enabled: () => d.grouped, reason: () => 'Select a grouped shape' }),
+    group: sharedCommand('dg-group', 'group', cmd.group, { enabled: () => d.nodes >= 2, reason: () => 'Select two or more shapes.' }),
+    ungroup: sharedCommand('dg-ungroup', 'ungroup', cmd.ungroup, { enabled: () => d.grouped, reason: () => 'Select a grouped shape.' }),
     // The label says what a click does; so does the icon (it used to show the
     // state on the ribbon and the action on the right-click menu).
     lock: {
@@ -58,7 +58,7 @@ export function buildDiagramCommands(d: DiagramCommandDeps) {
       icon: 'format_color_fill',
       keys: ['alt', 'mod', 'v'],
       enabled: () => d.nodes > 0 && cmd.hasStyleClipboard(),
-      reason: () => (d.nodes > 0 ? 'Copy a style first' : 'Select a shape first'),
+      reason: () => (d.nodes > 0 ? 'Copy a style first.' : 'Select a shape first.'),
       run: cmd.pasteStyle
     } as OfficeCommand,
     bold: textCommand(d, 'bold', 'Bold', 'format_bold', 'b'),
@@ -83,7 +83,7 @@ function textCommand(d: DiagramCommandDeps, key: 'bold' | 'italic' | 'underline'
     icon,
     keys: ['mod', k],
     enabled: () => d.nodes > 0,
-    reason: () => 'Select a shape first',
+    reason: () => 'Select a shape first.',
     checked: () => d.cmd.textStyleOn(key),
     run: () => d.cmd.toggleTextStyle(key)
   }

@@ -75,13 +75,13 @@ export function buildCellsCommands(d: CellsCommandDeps): CellsCommands {
       icon: 'undo',
       group: 'Edit',
       enabled: () => !readOnly && a.canUndo,
-      reason: () => (readOnly ? READ_ONLY_REASON : 'nothing to undo')
+      reason: () => (readOnly ? READ_ONLY_REASON : 'Nothing to undo.')
     }),
     sharedCommand('sheet-redo', 'redo', a.redo, {
       icon: 'redo',
       group: 'Edit',
       enabled: () => !readOnly && a.canRedo,
-      reason: () => (readOnly ? READ_ONLY_REASON : 'nothing to redo')
+      reason: () => (readOnly ? READ_ONLY_REASON : 'Nothing to redo.')
     }),
     sharedCommand('sheet-cut', 'cut', a.cut, { group: 'Edit', ...edits() }),
     sharedCommand('sheet-copy', 'copy', a.copy, { group: 'Edit' }),

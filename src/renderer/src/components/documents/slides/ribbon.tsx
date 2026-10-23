@@ -159,7 +159,7 @@ export function deckPalette(theme: DeckTheme): string[] {
 
 const firstRun = (el: SlideElement): { bold?: boolean; italic?: boolean; underline?: boolean; color?: string; fontSize?: number } | undefined =>
   el.type === 'text' ? el.paragraphs[0]?.runs[0] : undefined
-const nothing = 'Select something on the slide first'
+const nothing = 'Select something on the slide first.'
 const fillColor = (el: SlideElement): string | undefined => ('fill' in el && el.fill && el.fill.type !== 'none' ? el.fill.color : undefined)
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -365,7 +365,7 @@ const arrangeTab: BarTab<DeckCtx> = {
               label={{ x: 'X', y: 'Y', w: 'Width', h: 'Height' }[k]}
               value={el ? Math.round(el[k]) : undefined}
               disabled={!el}
-              disabledReason={multi ? 'Position and size edit one element at a time' : nothing}
+              disabledReason={multi ? 'Position and size edit one element at a time.' : nothing}
               min={k === 'w' || k === 'h' ? 0 : undefined}
               width={52}
               onChange={(v) => el && c.ed.updateEl(el.id, { [k]: v } as Partial<SlideElement>)}
@@ -427,7 +427,7 @@ const shapeTab: BarTab<DeckCtx> = {
       <>
         <BarColor icon="format_color_fill" label="Fill" value={fill?.type === 'solid' ? fill.color : undefined} palette={pal} allowNone onChange={(v) => c.ed.updateEl(el.id, { fill: v ? { type: 'solid', color: v } : { type: 'none' } })} testid="slides-shape-fill" />
         <BarColor icon="border_color" label="Border colour" value={el.border?.color} palette={pal} allowNone onChange={(v) => c.ed.updateEl(el.id, { border: v ? { color: v, width: el.border?.width ?? 2 } : undefined })} testid="slides-shape-border" />
-        <BarNumber label="Border width" value={el.border?.width ?? 0} min={0} max={40} width={44} disabled={!el.border} disabledReason="Pick a border colour first" onChange={(n) => el.border && c.ed.updateEl(el.id, { border: { ...el.border, width: n } })} testid="slides-shape-border-width" />
+        <BarNumber label="Border width" value={el.border?.width ?? 0} min={0} max={40} width={44} disabled={!el.border} disabledReason="Pick a border colour first." onChange={(n) => el.border && c.ed.updateEl(el.id, { border: { ...el.border, width: n } })} testid="slides-shape-border-width" />
         <BarSep />
         {fill?.type === 'gradient' ? (
           <BarGroup label="Gradient" testid="shape-gradient">
@@ -504,13 +504,13 @@ const imageTab: BarTab<DeckCtx> = {
         <BarToggle icon={el.lockAspect ? 'lock' : 'lock_open'} label="Lock aspect ratio" pressed={!!el.lockAspect} onChange={(v) => c.ed.updateEl(el.id, { lockAspect: v })} testid="slides-image-lock" />
         <BarSep />
         <BarDialogButton icon="crop" label={el.crop ? 'Edit crop' : 'Crop'} onOpen={() => c.ed.crop(el.id)} testid="inspector-crop" />
-        <BarButton icon="crop_free" label="Remove the crop" onClick={() => c.ed.updateEl(el.id, { crop: undefined })} disabled={!el.crop} disabledReason="The image is not cropped" testid="slides-image-uncrop" />
+        <BarButton icon="crop_free" label="Remove the crop" onClick={() => c.ed.updateEl(el.id, { crop: undefined })} disabled={!el.crop} disabledReason="The image is not cropped." testid="slides-image-uncrop" />
         <BarButton
           icon="aspect_ratio"
           label="Reset proportions"
           onClick={() => el.naturalW && el.naturalH && c.ed.updateEl(el.id, { h: Math.round(el.w * (el.naturalH / el.naturalW)) })}
           disabled={!(el.naturalW && el.naturalH)}
-          disabledReason="The image's natural size is unknown"
+          disabledReason="The image's natural size is unknown."
           testid="slides-image-reset"
         />
         <BarColor icon="border_color" label="Image border colour" value={el.border?.color} palette={deckPalette(c.theme)} allowNone onChange={(v) => c.ed.updateEl(el.id, { border: v ? { color: v, width: el.border?.width ?? 2 } : undefined })} testid="slides-image-border" />
@@ -532,8 +532,8 @@ const tableTab: BarTab<DeckCtx> = {
       <>
         <BarButton icon="add" label="Add row" showLabel onClick={() => c.ed.updateEl(el.id, { cells: [...el.cells, new Array(cols).fill('')] })} testid="table-add-row" />
         <BarButton icon="add" label="Add column" showLabel onClick={() => c.ed.updateEl(el.id, { cells: el.cells.map((r) => [...r, '']) })} testid="table-add-col" />
-        <BarButton icon="remove" label="Remove last row" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.slice(0, -1) })} disabled={el.cells.length <= 1} disabledReason="A table keeps at least one row" testid="table-remove-row" />
-        <BarButton icon="remove" label="Remove last column" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.map((r) => r.slice(0, -1)) })} disabled={cols <= 1} disabledReason="A table keeps at least one column" testid="table-remove-col" />
+        <BarButton icon="remove" label="Remove last row" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.slice(0, -1) })} disabled={el.cells.length <= 1} disabledReason="A table keeps at least one row." testid="table-remove-row" />
+        <BarButton icon="remove" label="Remove last column" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.map((r) => r.slice(0, -1)) })} disabled={cols <= 1} disabledReason="A table keeps at least one column." testid="table-remove-col" />
         <BarSep />
         <BarToggle icon="table_rows" label="Header row" showLabel pressed={!!el.headerRow} onChange={(v) => c.ed.updateEl(el.id, { headerRow: v })} testid="table-header-row" />
         <BarDialogButton icon="edit_note" label="Edit cells" onOpen={() => c.openPanel('cells')} controls={shellPanelDomId('cells')} testid="table-edit-cells" />
@@ -569,7 +569,7 @@ const chartTab: BarTab<DeckCtx> = {
         )}
         <BarSep />
         <BarDialogButton icon="table_chart" label="Link a sheet range" onOpen={() => c.ed.linkChart(el.id)} testid="chart-link" />
-        <BarButton icon="refresh" label="Refresh from sheet" showLabel onClick={() => c.ed.refreshChart(el.id)} disabled={!el.source} disabledReason="Link a sheet range first" testid="chart-refresh" />
+        <BarButton icon="refresh" label="Refresh from sheet" showLabel onClick={() => c.ed.refreshChart(el.id)} disabled={!el.source} disabledReason="Link a sheet range first." testid="chart-refresh" />
         {el.source && (
           <span className="px-1.5 text-[11px] text-[var(--ink-50)] max-w-[160px] truncate" title={el.source.range} data-testid="slides-chart-linked">
             Linked to {el.source.range}
@@ -594,7 +594,7 @@ const animationsTab: BarTab<DeckCtx> = {
           value={el?.anim?.type ?? 'none'}
           options={ANIMS}
           disabled={!el}
-          disabledReason={c.selected.length > 1 ? 'Animate one element at a time' : nothing}
+          disabledReason={c.selected.length > 1 ? 'Animate one element at a time.' : nothing}
           onChange={(v) => el && c.ed.updateEl(el.id, { anim: v === 'none' ? undefined : { ...(el.anim ?? {}), type: v as NonNullable<SlideElement['anim']>['type'] } })}
           testid="element-anim"
         />
@@ -605,7 +605,7 @@ const animationsTab: BarTab<DeckCtx> = {
           max={99}
           width={44}
           disabled={!el?.anim}
-          disabledReason="Choose an entrance animation first"
+          disabledReason="Choose an entrance animation first."
           onChange={(n) => el?.anim && c.ed.updateEl(el.id, { anim: { ...el.anim, order: Math.max(0, n) } })}
           testid="slides-anim-order"
         />

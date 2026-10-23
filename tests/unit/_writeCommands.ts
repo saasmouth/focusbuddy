@@ -12,6 +12,30 @@ import {
 //
 // Every callback defaults to a no-op; a test overrides only the ones it watches.
 
+/**
+ * An editor that answers the few things the registry asks, and nothing more.
+ * Shared, so the Write registry test and the cross-app guard cannot drift on
+ * what "a Write editor" means. `can()` reports undo and redo available; pass a
+ * different one where a test needs them off.
+ */
+export function stubEditor(active: string[] = []): Editor {
+  const chain: unknown = new Proxy(function () {}, {
+    get: () => () => chain,
+    apply: () => chain
+  })
+  return {
+    isActive: (n: unknown) => typeof n === 'string' && active.includes(n),
+    getAttributes: () => ({}),
+    can: () => ({ undo: () => true, redo: () => true }),
+    chain: () => chain,
+    getHTML: () => '<p></p>',
+    getText: () => '',
+    getJSON: () => ({ type: 'doc', content: [] }),
+    state: { selection: { empty: false } },
+    storage: {}
+  } as unknown as Editor
+}
+
 export function writeCommandsFor(editor: unknown, over: Partial<WriteCommandDeps> = {}): WriteCommands {
   const noop = (): void => {}
   const deps: WriteCommandDeps = {

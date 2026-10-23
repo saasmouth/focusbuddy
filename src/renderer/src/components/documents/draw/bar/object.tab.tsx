@@ -20,7 +20,7 @@ import { setTransformPrefs, transformPrefs } from '../transform/prefs'
 import { orientationDelta, resizedAt, transformReadout } from '../transform/readout'
 import { CmdButton, canRun, keyOf, useBarReadOnly, useEditor } from './controls'
 
-const NOTHING = 'select an object first'
+const NOTHING = 'Select an object first.'
 
 /** The Transform cluster (X/Y/W/H, Rotate, Shear and the reference point). Also used by tests. */
 export function TransformCluster({ ctx }: { ctx: EditorCtx }): JSX.Element {

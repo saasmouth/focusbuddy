@@ -57,15 +57,15 @@ export type DeckCommands = ReturnType<typeof buildDeckCommands>
 
 export function buildDeckCommands(d: DeckCommandDeps) {
   const some = (): boolean => d.selected > 0
-  const SELECT = (): string => 'Select something first'
+  const SELECT = (): string => 'Select something first.'
   const sel = { enabled: some, reason: SELECT }
-  const two = { enabled: () => d.selected >= 2, reason: () => 'Select two or more to align' }
+  const two = { enabled: () => d.selected >= 2, reason: () => 'Select two or more to align.' }
   return {
-    undo: sharedCommand('sl-undo', 'undo', d.undo, { icon: 'undo', group: 'Edit', enabled: () => d.canUndo, reason: () => 'Nothing to undo' }),
-    redo: sharedCommand('sl-redo', 'redo', d.redo, { icon: 'redo', group: 'Edit', enabled: () => d.canRedo, reason: () => 'Nothing to redo' }),
+    undo: sharedCommand('sl-undo', 'undo', d.undo, { icon: 'undo', group: 'Edit', enabled: () => d.canUndo, reason: () => 'Nothing to undo.' }),
+    redo: sharedCommand('sl-redo', 'redo', d.redo, { icon: 'redo', group: 'Edit', enabled: () => d.canRedo, reason: () => 'Nothing to redo.' }),
     cut: sharedCommand('sl-cut', 'cut', d.cut, { group: 'Edit', ...sel }),
     copy: sharedCommand('sl-copy', 'copy', d.copy, { group: 'Edit', ...sel }),
-    paste: sharedCommand('sl-paste', 'paste', d.paste, { group: 'Edit', enabled: () => d.canPaste, reason: () => 'Nothing to paste' }),
+    paste: sharedCommand('sl-paste', 'paste', d.paste, { group: 'Edit', enabled: () => d.canPaste, reason: () => 'Nothing to paste.' }),
     duplicate: sharedCommand('sl-dup', 'duplicate', d.duplicate, { group: 'Arrange', ...sel }),
     remove: sharedCommand('sl-del', 'delete', d.remove, { group: 'Arrange', keywords: 'remove', ...sel }),
     selectAll: sharedCommand('sl-select-all', 'selectAll', d.selectAll, { group: 'Edit' }),
@@ -73,8 +73,8 @@ export function buildDeckCommands(d: DeckCommandDeps) {
     findAndReplace: sharedCommand('sl-find-replace', 'findAndReplace', d.findAndReplace, { icon: 'find_replace', group: 'Edit', keywords: 'search replace' }),
     saveSnippet: sharedCommand('sl-save-snippet', 'saveAsSnippet', d.saveSnippet, { group: 'Arrange', keywords: 'saved reuse library keep', ...sel }),
     insertSnippet: sharedCommand('sl-snippet', 'insertSnippet', d.insertSnippet, { group: 'Insert', keywords: 'saved reuse library' }),
-    group: sharedCommand('sl-group', 'group', d.group, { icon: 'group_work', group: 'Arrange', keywords: 'combine link', enabled: () => d.selected >= 2, reason: () => 'Select two or more to group' }),
-    ungroup: sharedCommand('sl-ungroup', 'ungroup', d.ungroup, { icon: 'category', group: 'Arrange', keywords: 'split separate', enabled: () => d.anyGrouped, reason: () => 'Select a group to ungroup' }),
+    group: sharedCommand('sl-group', 'group', d.group, { icon: 'group_work', group: 'Arrange', keywords: 'combine link', enabled: () => d.selected >= 2, reason: () => 'Select two or more to group.' }),
+    ungroup: sharedCommand('sl-ungroup', 'ungroup', d.ungroup, { icon: 'category', group: 'Arrange', keywords: 'split separate', enabled: () => d.anyGrouped, reason: () => 'Select a group to ungroup.' }),
     bringToFront: sharedCommand('sl-front', 'bringToFront', () => d.reorder('front'), { group: 'Arrange', keywords: 'z order top', ...sel }),
     bringForward: { id: 'sl-forward', label: 'Bring forward', icon: 'arrow_upward', group: 'Arrange', keywords: 'z order', ...sel, run: () => d.reorder('forward') } as OfficeCommand,
     sendBackward: { id: 'sl-backward', label: 'Send backward', icon: 'arrow_downward', group: 'Arrange', keywords: 'z order', ...sel, run: () => d.reorder('back') } as OfficeCommand,
@@ -85,8 +85,8 @@ export function buildDeckCommands(d: DeckCommandDeps) {
     alignTop: { id: 'sl-at', label: 'Align top edges', icon: 'align_vertical_top', group: 'Align', ...two, run: () => d.align('top') } as OfficeCommand,
     alignMiddleY: { id: 'sl-amy', label: 'Align vertical centres', icon: 'align_vertical_center', group: 'Align', keywords: 'middle center', ...two, run: () => d.align('middleY') } as OfficeCommand,
     alignBottom: { id: 'sl-ab', label: 'Align bottom edges', icon: 'align_vertical_bottom', group: 'Align', ...two, run: () => d.align('bottom') } as OfficeCommand,
-    distributeH: { id: 'sl-dh', label: 'Distribute horizontally', icon: 'horizontal_distribute', group: 'Align', keywords: 'space even', enabled: () => d.selected >= 3, reason: () => 'Select three or more to distribute', run: () => d.distribute('h') } as OfficeCommand,
-    distributeV: { id: 'sl-dv', label: 'Distribute vertically', icon: 'vertical_distribute', group: 'Align', keywords: 'space even', enabled: () => d.selected >= 3, reason: () => 'Select three or more to distribute', run: () => d.distribute('v') } as OfficeCommand,
+    distributeH: { id: 'sl-dh', label: 'Distribute horizontally', icon: 'horizontal_distribute', group: 'Align', keywords: 'space even', enabled: () => d.selected >= 3, reason: () => 'Select three or more to distribute.', run: () => d.distribute('h') } as OfficeCommand,
+    distributeV: { id: 'sl-dv', label: 'Distribute vertically', icon: 'vertical_distribute', group: 'Align', keywords: 'space even', enabled: () => d.selected >= 3, reason: () => 'Select three or more to distribute.', run: () => d.distribute('v') } as OfficeCommand,
     centreH: { id: 'sl-ch', label: 'Centre on slide horizontally', icon: 'align_horizontal_center', group: 'Arrange', keywords: 'align center middle slide', ...sel, run: () => d.centre('h') } as OfficeCommand,
     centreV: { id: 'sl-cv', label: 'Centre on slide vertically', icon: 'align_vertical_center', group: 'Arrange', keywords: 'align center middle slide', ...sel, run: () => d.centre('v') } as OfficeCommand,
     bold: markCommand(d, 'bold', 'Bold', 'format_bold', 'b'),
@@ -116,7 +116,7 @@ export function buildDeckCommands(d: DeckCommandDeps) {
 
 // A slide snippet is one slide with no deck around it: slide-level commands
 // do not apply there, and say so.
-const noSlides: Pick<OfficeCommand, 'enabled' | 'reason'> = { enabled: () => false, reason: () => 'Not in a single-slide snippet' }
+const noSlides: Pick<OfficeCommand, 'enabled' | 'reason'> = { enabled: () => false, reason: () => 'Not in a single-slide snippet.' }
 
 // Bold / Italic / Underline on the selected text box (the whole box, as Google
 // Slides does with a shape selected). Bound to ⌘B / ⌘I / ⌘U in the editor's key
@@ -129,7 +129,7 @@ function markCommand(d: DeckCommandDeps, mark: 'bold' | 'italic' | 'underline', 
     keys: ['mod', key],
     group: 'Format',
     enabled: () => d.textMarks !== null,
-    reason: () => 'Select a text box first',
+    reason: () => 'Select a text box first.',
     checked: () => !!d.textMarks?.[mark],
     run: () => d.toggleMark(mark)
   }

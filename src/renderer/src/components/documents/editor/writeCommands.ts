@@ -98,13 +98,13 @@ export function buildWriteCommands(d: WriteCommandDeps): WriteCommands {
       icon: 'undo',
       group: 'Edit',
       enabled: () => !readOnly && editor.can().undo(),
-      reason: () => (readOnly ? READ_ONLY_REASON : 'nothing to undo')
+      reason: () => (readOnly ? READ_ONLY_REASON : 'Nothing to undo.')
     }),
     sharedCommand('doc-redo', 'redo', () => chain().redo().run(), {
       icon: 'redo',
       group: 'Edit',
       enabled: () => !readOnly && editor.can().redo(),
-      reason: () => (readOnly ? READ_ONLY_REASON : 'nothing to redo')
+      reason: () => (readOnly ? READ_ONLY_REASON : 'Nothing to redo.')
     }),
     // Cut removes text, so it is a viewer's one blocked clipboard row; copy
     // and select all are not.

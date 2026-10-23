@@ -139,7 +139,7 @@ function TidyButton({ c }: { c: DCtx }): JSX.Element {
       showLabel
       testid="diagram-tidy"
       disabled={!c.page.edges.length}
-      disabledReason="add some lines first"
+      disabledReason="Add some lines first."
       onClick={() => c.setStatus(c.cmd.tidyConnections())}
     />
   )
@@ -209,10 +209,10 @@ function AlignTools({ c, ids }: { c: DCtx; ids: boolean }): JSX.Element {
   return (
     <BarGroup label="Align and distribute" testid={ids ? 'map-align-tools' : undefined}>
       {ALIGNS.map(([edge, icon, label]) => (
-        <BarButton key={edge} icon={icon} label={label} disabled={n < 2} disabledReason="select two or more shapes" onClick={() => c.cmd.align(edge)} testid={ids ? `map-align-${edge}` : undefined} />
+        <BarButton key={edge} icon={icon} label={label} disabled={n < 2} disabledReason="Select two or more shapes." onClick={() => c.cmd.align(edge)} testid={ids ? `map-align-${edge}` : undefined} />
       ))}
-      <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="select three or more shapes" onClick={() => c.cmd.distribute('h')} testid={ids ? 'map-distribute-h' : undefined} />
-      <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="select three or more shapes" onClick={() => c.cmd.distribute('v')} testid={ids ? 'map-distribute-v' : undefined} />
+      <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="Select three or more shapes." onClick={() => c.cmd.distribute('h')} testid={ids ? 'map-distribute-h' : undefined} />
+      <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="Select three or more shapes." onClick={() => c.cmd.distribute('v')} testid={ids ? 'map-distribute-v' : undefined} />
     </BarGroup>
   )
 }
@@ -343,7 +343,7 @@ const arrangeTab: BarTab<DCtx> = {
         <BarButton {...barProps(c.cmds.ungroup)} onClick={c.cmds.ungroup.run} />
         <BarToggle {...barProps(c.cmds.lock)} pressed={!!locked} onChange={c.cmds.lock.run} testid="diagram-lock" />
         <BarButton {...barProps(c.cmds.hide)} onClick={c.cmds.hide.run} testid="diagram-hide" />
-        <BarButton icon="visibility" label={hidden ? `Show all hidden (${hidden})` : 'Show all hidden'} showLabel={hidden > 0} disabled={!hidden} disabledReason="nothing is hidden" onClick={cmd.showAllHidden} testid="diagram-show-all-hidden" />
+        <BarButton icon="visibility" label={hidden ? `Show all hidden (${hidden})` : 'Show all hidden'} showLabel={hidden > 0} disabled={!hidden} disabledReason="Nothing is hidden." onClick={cmd.showAllHidden} testid="diagram-show-all-hidden" />
         <BarSep />
         <AlignTools c={c} ids />
         <BarMenu
@@ -351,7 +351,7 @@ const arrangeTab: BarTab<DCtx> = {
           label="Match size"
           showLabel={false}
           disabled={nodes.length < 2}
-          disabledReason="select two or more shapes"
+          disabledReason="Select two or more shapes."
           items={[
             { label: 'Same width', run: () => cmd.matchSize('width') },
             { label: 'Same height', run: () => cmd.matchSize('height') },
@@ -548,7 +548,7 @@ const lineTab: BarTab<DCtx> = {
         <BarSelect label="Pattern" value={common(res, (r) => r.dash) ?? 'solid'} options={DASHES.filter((d) => d.value !== 'none')} onChange={(v) => cmd.setEdges({ dash: v, style: undefined })} testid="diagram-line-dash" width={84} />
         <ArrowMenu label="Start" value={common(res, (r) => r.startArrow)} onChange={(v) => cmd.setEdges({ startArrow: v })} testid="diagram-start-arrow" />
         <ArrowMenu label="End" value={common(res, (r) => r.endArrow)} onChange={(v) => cmd.setEdges({ endArrow: v })} testid="diagram-end-arrow" />
-        <BarButton icon="swap_horiz" label="Swap arrows" disabled={!one} disabledReason="select one line" onClick={() => one && cmd.setEdges({ startArrow: one.endArrow ?? 'arrow', endArrow: one.startArrow ?? 'none' })} />
+        <BarButton icon="swap_horiz" label="Swap arrows" disabled={!one} disabledReason="Select one line." onClick={() => one && cmd.setEdges({ startArrow: one.endArrow ?? 'arrow', endArrow: one.startArrow ?? 'none' })} />
         <BarSep />
         {one && (
           <BarCustom label="Line label">
