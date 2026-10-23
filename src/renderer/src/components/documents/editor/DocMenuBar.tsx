@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { promptText } from '../../plexi/PromptDialog'
 import type { Editor } from '@tiptap/react'
 import type { DocumentOps } from './documentOps'
 import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
-import { menuPasteIntoDoc } from './docSnippets'
 import { menuAction } from '../../../lib/menus/menuAction'
+import { insertLink, pasteFromMenu, type DocDialog } from './docActions'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
 // Insert / Format / Tools / Help, each a dropdown of real actions. Every item is
@@ -38,6 +37,8 @@ interface Props {
   onExportPdf: () => void
   onFind: () => void
   onFindReplace: () => void
+  /** Open Word count or the accessibility check: DocEditor owns them, so the ribbon opens the same ones. */
+  onDialog: (d: DocDialog) => void
   onFocusMode: () => void
   pageView: boolean
   onSetPageView: (v: boolean) => void
@@ -63,14 +64,13 @@ export default function DocMenuBar({
   onExportPdf,
   onFind,
   onFindReplace,
+  onDialog,
   onFocusMode,
   pageView,
   onSetPageView,
   onOutline,
   onComments
 }: Props): JSX.Element {
-  const [wordCountOpen, setWordCountOpen] = useState(false)
-  const [a11yOpen, setA11yOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const chain = (): ReturnType<Editor['chain']> => editor.chain().focus()
@@ -82,28 +82,7 @@ export default function DocMenuBar({
     })
   }
 
-  async function insertLink(): Promise<void> {
-    const prev = (editor.getAttributes('link').href as string) || ''
-    const url = await promptText({ title: 'Link URL', initial: prev, placeholder: 'https://', confirmLabel: 'Set link' })
-    if (url == null) return
-    if (url.trim() === '') {
-      chain().extendMarkRange('link').unsetLink().run()
-    } else {
-      chain().extendMarkRange('link').setLink({ href: url.trim() }).run()
-    }
-  }
 
-  async function paste(): Promise<void> {
-    // Another of our apps' content, or a picture, lands converted (as a
-    // snippet of it would); text keeps the menu's own paste below.
-    if ((await menuPasteIntoDoc(editor).catch(() => null)) !== null) return
-    try {
-      const text = await navigator.clipboard.readText()
-      if (text) editor.chain().focus().insertContent(text).run()
-    } catch {
-      document.execCommand('paste')
-    }
-  }
 
   const MENUS: MenuDef[] = [
     {
@@ -157,7 +136,7 @@ export default function DocMenuBar({
         { kind: 'sep' },
         { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: () => document.execCommand('cut') },
         { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: () => document.execCommand('copy') },
-        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: () => void paste() },
+        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: () => void pasteFromMenu(editor) },
         { kind: 'sep' },
         { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: () => chain().selectAll().run() },
         { kind: 'item', ...menuAction('find'), icon: 'search', run: onFind },
@@ -188,7 +167,8 @@ export default function DocMenuBar({
         { kind: 'item', label: 'Table', icon: 'grid_on', run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
         { kind: 'item', label: 'Table of contents', icon: 'toc', run: () => chain().insertTableOfContents().run() },
         { kind: 'item', label: 'Footnote', icon: 'superscript', run: () => chain().insertFootnote().run() },
-        { kind: 'item', label: 'Link', shortcut: '⌘K', icon: 'link', run: insertLink },
+        // No key: ⌘K is the Command Center's, everywhere in the app.
+        { kind: 'item', label: 'Link', icon: 'link', run: () => void insertLink(editor) },
         { kind: 'item', label: 'Horizontal line', icon: 'horizontal_rule', run: () => chain().setHorizontalRule().run() },
         // The shared tail (SPEC §9.2): Insert snippet… · Work widget from a desk…, then Meeting.
         { kind: 'sep' },
@@ -260,8 +240,8 @@ export default function DocMenuBar({
       id: 'tools',
       label: 'Tools',
       build: () => [
-        { kind: 'item', label: 'Word count', icon: 'tag', run: () => setWordCountOpen(true) },
-        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => setA11yOpen(true) }
+        { kind: 'item', label: 'Word count', icon: 'tag', run: () => onDialog('wordcount') },
+        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => onDialog('a11y') }
       ]
     },
     {
@@ -276,14 +256,12 @@ export default function DocMenuBar({
   return (
     <>
       <MenuBarShell menus={MENUS} testid="doc-menubar" itemTestid="doc-menu" />
-      {wordCountOpen && <WordCountModal editor={editor} onClose={() => setWordCountOpen(false)} />}
-      {a11yOpen && <A11yModal editor={editor} onClose={() => setA11yOpen(false)} />}
       {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
     </>
   )
 }
 
-function WordCountModal({ editor, onClose }: { editor: Editor; onClose: () => void }): JSX.Element {
+export function WordCountModal({ editor, onClose }: { editor: Editor; onClose: () => void }): JSX.Element {
   const text = editor.getText()
   const words = text.trim() ? text.trim().split(/\s+/).length : 0
   const characters = text.length
@@ -307,7 +285,7 @@ function WordCountModal({ editor, onClose }: { editor: Editor; onClose: () => vo
   )
 }
 
-function A11yModal({ editor, onClose }: { editor: Editor; onClose: () => void }): JSX.Element {
+export function A11yModal({ editor, onClose }: { editor: Editor; onClose: () => void }): JSX.Element {
   const issues = checkDocA11y(editor.getJSON())
   return (
     <MenuModal width={320} title="Accessibility check" onClose={onClose}>
@@ -339,7 +317,6 @@ function ShortcutsModal({ onClose }: { onClose: () => void }): JSX.Element {
     ['Bold', '⌘B'],
     ['Italic', '⌘I'],
     ['Underline', '⌘U'],
-    ['Insert link', '⌘K'],
     ['Undo', '⌘Z'],
     [menuAction('redo').label, menuAction('redo').shortcut!],
     [menuAction('find').label, menuAction('find').shortcut!],

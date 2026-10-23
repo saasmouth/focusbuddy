@@ -173,9 +173,15 @@ for (const app of APPS) {
       await w.keyboard.press('Escape')
       await expect(panel).toBeHidden()
       await focusEditor()
+      // With text selected, so a stray Highlight would actually mark it.
+      if (app.name === 'Write') await w.keyboard.press('Meta+a')
       await w.keyboard.press('Meta+Shift+h')
       await expect(panel, `${app.name}: ⇧⌘H opens Find and replace`).toBeVisible()
       await expect(panel.getByPlaceholder('Replace with').first(), `${app.name}: with its Replace row`).toBeVisible()
+      // And nothing else happened: in Write ⇧⌘H was TipTap Highlight's default,
+      // so a Highlight keymap that ran first and returned false would still
+      // open the panel while marking the text (ec's review).
+      if (app.name === 'Write') await expect(w.locator('.ProseMirror mark'), 'Write: ⇧⌘H applied no highlight').toHaveCount(0)
       await w.keyboard.press('Escape')
     }
 

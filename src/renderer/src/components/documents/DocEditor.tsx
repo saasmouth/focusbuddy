@@ -33,6 +33,8 @@ import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
 import FindReplace from './editor/FindReplace'
 import { registerTextMenuHandler } from '../../lib/textMenuHandlers'
+import { insertLink, type DocDialog } from './editor/docActions'
+import { A11yModal, WordCountModal } from './editor/DocMenuBar'
 import { docSidePanes, type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
 import { useDocAi } from './editor/useDocAi'
 import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
@@ -319,6 +321,8 @@ export default function DocEditor({
   const [findOpen, setFindOpen] = useState(false)
   // Opened as Find and replace… (⇧⌘H, E-14) rather than Find… (⌘F).
   const [findReplace, setFindReplace] = useState(false)
+  // Word count and the accessibility check, opened from the menu bar (Tools) and the ribbon (Review) alike.
+  const [docDialog, setDocDialog] = useState<DocDialog | null>(null)
   // `@` in the document body. The query the extension reports, and a handler
   // the picker registers so Enter picks a mention instead of breaking the line.
   const [mentionQuery, setMentionQuery] = useState<DocMentionQuery | null>(null)
@@ -927,6 +931,8 @@ export default function DocEditor({
 
       <DocBubbleMenu editor={editor} onAiRewrite={ai.openRewrite} />
 
+      {editor && docDialog === 'wordcount' && <WordCountModal editor={editor} onClose={() => setDocDialog(null)} />}
+      {editor && docDialog === 'a11y' && <A11yModal editor={editor} onClose={() => setDocDialog(null)} />}
       {findOpen && (
         <FindReplace
           editor={editor}
@@ -1124,6 +1130,7 @@ export default function DocEditor({
               onExportDocx={() => void exportDocx()}
               onExportPdf={() => void exportPdf()}
               onFind={() => setFindOpen(true)}
+              onDialog={setDocDialog}
               onFindReplace={() => {
                 setFindReplace(true)
                 setFindOpen(true)
@@ -1184,7 +1191,7 @@ export default function DocEditor({
               (editor && docBodyFromSelection(editor)) ?? { kind: 'doc', content: [], text: '' }
             )
           }}
-          onOpenLink={() => setFindOpen(false)}
+          onOpenLink={() => editor && void insertLink(editor)}
           onImportDocx={() => void importDocx()}
           onExportDocx={() => void exportDocx()}
           onExportPdf={() => void exportPdf()}
@@ -1204,8 +1211,8 @@ export default function DocEditor({
           }}
           onFocusMode={() => setFocusMode(true)}
           onFind={() => setFindOpen((v) => !v)}
-          onWordCount={() => setFindOpen(false)}
-          onA11y={() => setFindOpen(false)}
+          onWordCount={() => setDocDialog('wordcount')}
+          onA11y={() => setDocDialog('a11y')}
           marginsPanel={<MarginMenu margin={page.margin} onPick={(m) => updatePageSetup({ margin: m })} />}
           headerFooterPanel={
             <HeaderFooterMenu header={page.header} footer={page.footer} onChange={(patch) => updatePageSetup(patch)} />
