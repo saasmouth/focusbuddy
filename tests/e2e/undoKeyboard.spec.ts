@@ -23,11 +23,22 @@ test('UNDO-KEY — create via UI, Cmd-Z removes it, Cmd-Shift-Z restores it', as
     // It shows up in the sidebar.
     await expect(window.getByText(name).first()).toBeVisible({ timeout: 5000 })
 
+    // Creating a desk opens it and offers to set it up ("Let me set up your
+    // desk", on by default since 994b9eb3, and ai_task_setup is on every
+    // tier), and that dialog names the desk: "for: <name>".
+    const setup = window.getByRole('dialog', { name: 'Let me set up your desk' })
+    await expect(setup).toBeVisible({ timeout: 5000 })
+    await expect(setup).toContainText(`for: ${name}`)
+
     // Drop focus off any text field so Cmd-Z hits the global structural-undo
     // handler (it deliberately yields to inputs/editors).
     await window.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
 
     await window.keyboard.press('Meta+KeyZ')
+    // Undoing the create removes the desk, and with it the dialog offering to
+    // set that desk up. It used to stay open, still reading "for: <the desk
+    // that is gone>" (and so this very assertion failed on it).
+    await expect(setup).toHaveCount(0, { timeout: 5000 })
     await expect(window.getByText(name)).toHaveCount(0, { timeout: 5000 })
 
     await window.keyboard.press('Meta+Shift+KeyZ')

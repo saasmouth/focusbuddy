@@ -4,6 +4,7 @@ import { catalogFor } from '../lib/widgetCatalog'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import SuggestionPreview from './ai/SuggestionPreview'
+import { useNodeStore } from '../stores/nodes'
 
 interface Props {
   task: FbNode
@@ -19,6 +20,17 @@ type State =
 
 export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.Element {
   const [state, setState] = useState<State>({ stage: 'loading' })
+  // The desk this dialog sets up can stop existing while it is open: it opens
+  // straight after a desk is created, so the next Cmd-Z (which the global
+  // handler takes, since a button and not a text field has focus) removes the
+  // desk underneath it. Left open, it went on offering to set up "for: <a desk
+  // that is gone>", and accepting would have built work widgets for it. It
+  // closes instead. Absent from the store is the test: an undone create is
+  // removed from it outright, and so is a desk moved to Trash.
+  const taskExists = useNodeStore((s) => s.nodes.some((n) => n.id === task.id))
+  useEffect(() => {
+    if (!taskExists) onClose()
+  }, [taskExists, onClose])
 
   useEffect(() => {
     let cancelled = false
@@ -53,7 +65,7 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
   }
 
   async function handleAccept(): Promise<void> {
-    if (state.stage !== 'ready') return
+    if (state.stage !== 'ready' || !taskExists) return
     const chosen = state.suggestions.filter((_, i) => state.selected.has(i))
     if (chosen.length === 0) {
       onClose()

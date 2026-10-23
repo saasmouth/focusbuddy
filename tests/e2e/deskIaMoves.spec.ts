@@ -57,13 +57,37 @@ test.describe('side-menu moves (2026-10-10)', () => {
     await waitForReady(window)
     const sidebar = window.locator('aside').first()
     await expect(sidebar).toBeVisible({ timeout: 5_000 })
+    // Since b7dae811 ("One menu: the four area menus merge into a vertical
+    // accordion") the side menu is ONE aside holding every area as a section:
+    // Desk, Apps (retitled from Office), People, Brain. "The desk menu" is now
+    // the Desk section's body, and the Apps section legitimately shows Calendar,
+    // Files and Vault in the same aside — that is where they moved to. So the
+    // absence is asserted on the Desk section, and the move on the Apps one.
+    const desk = sidebar.locator('[data-testid="nav-section-body-desk"]')
+    const apps = sidebar.locator('[data-testid="nav-section-body-apps"]')
+    await expect(desk).toBeVisible({ timeout: 5_000 })
+    await expect(apps).toBeVisible({ timeout: 5_000 })
     for (const label of ['Calendar', 'Files', 'Vault', 'Plexii']) {
-      await expect(sidebar.getByText(label, { exact: true })).toHaveCount(0)
+      await expect(desk.getByText(label, { exact: true })).toHaveCount(0)
     }
     // The rows that stayed are still there — this is a move, not a cull.
     for (const label of ['Home', 'Focus', 'Rooms', 'All desks', 'Shared', 'Trash']) {
-      await expect(sidebar.getByText(label, { exact: true })).toBeVisible({ timeout: 3_000 })
+      await expect(desk.getByText(label, { exact: true })).toBeVisible({ timeout: 3_000 })
     }
+    // And moved, not duplicated: each lives in Apps, and is the ONLY row by
+    // that name anywhere in the one menu ("a thing that is in both menus is a
+    // thing nobody decided about"). The Vault tile is labelled PlexiiVault (the
+    // 4.3.34 app names), so a bare "Vault" row anywhere would be a leftover.
+    // Plexii is the assistant's own wordmark, not a menu row in any section.
+    for (const key of ['calendar', 'files', 'vault']) {
+      await expect(apps.locator(`[data-testid="office-comms-app-${key}"]`)).toBeVisible()
+    }
+    for (const label of ['Calendar', 'Files']) {
+      await expect(sidebar.getByText(label, { exact: true })).toHaveCount(1)
+    }
+    await expect(apps.locator('[data-testid="office-comms-app-vault"]')).toContainText('PlexiiVault')
+    await expect(sidebar.getByText('Vault', { exact: true })).toHaveCount(0)
+    await expect(sidebar.getByText('Plexii', { exact: true })).toHaveCount(0)
   })
 
   test('IA-2 Attention opens into its six filters, and each one narrows the view', async () => {

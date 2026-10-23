@@ -156,6 +156,63 @@ test('Distribute buttons appear when 3 widgets are selected', async () => {
   expect(distributeBtn).toBe(true)
 })
 
+test('Shift-click on a header control selects the widget and does not run the control', async () => {
+  // The header carries controls (the AI button first, since ddef65fe "Every
+  // widget has an AI"), and on a narrow widget they reach the title's left
+  // edge. Shift-click is the selection gesture, handled on mousedown in
+  // capture; its click used to be swallowed only in the frame's bubble-phase
+  // onClick, AFTER the control's own onClick had run. So a shift-click on the
+  // AI button selected the widget AND opened the full-screen setup modal,
+  // which then ate the next shift-click: multi-select was impossible. This
+  // drives exactly that gesture on the AI button of two widgets.
+  launched = await launchApp()
+  const { window } = launched
+  const { ids } = await seedWidgetsAndOpen(launched, [
+    { x: 100, y: 100 },
+    { x: 400, y: 200 }
+  ])
+
+  const shiftClickAi = async (id: string): Promise<void> => {
+    const ai = window.locator(`[data-widget-id="${id}"] [data-testid="widget-ai"]`)
+    await expect(ai).toBeVisible()
+    const b = (await ai.boundingBox())!
+    const pt = { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+    // Hit-test first: the point must reach the AI button itself, or this
+    // would pass without ever testing the control.
+    const hitsAi = await window.evaluate(
+      ({ x, y, wid }) =>
+        !!document
+          .elementFromPoint(x, y)
+          ?.closest(`[data-widget-id="${wid}"] [data-testid="widget-ai"]`),
+      { ...pt, wid: id }
+    )
+    expect(hitsAi, 'the click point lands on the AI button').toBe(true)
+    await window.keyboard.down('Shift')
+    await window.mouse.click(pt.x, pt.y)
+    await window.keyboard.up('Shift')
+  }
+  const selected = (): Promise<string[]> =>
+    window.evaluate(
+      () =>
+        (window as unknown as { __fbWidgets: { getState: () => { selectedIds: string[] } } }).__fbWidgets.getState()
+          .selectedIds
+    )
+
+  await shiftClickAi(ids[0])
+  await expect.poll(selected).toEqual([ids[0]])
+  await expect(window.locator('[data-testid="widget-setup-preview"]')).toHaveCount(0)
+
+  await shiftClickAi(ids[1])
+  await expect.poll(selected).toEqual([ids[0], ids[1]])
+  await expect(window.locator('[data-testid="widget-setup-preview"]')).toHaveCount(0)
+  await expect(window.getByRole('button', { name: 'Align left' })).toBeVisible()
+
+  // The control still works on a plain click: this is about the shift
+  // gesture, not about disabling the button.
+  await window.locator(`[data-widget-id="${ids[0]}"] [data-testid="widget-ai"]`).click()
+  await expect(window.locator('[data-testid="widget-setup-preview"]')).toBeVisible()
+})
+
 test('Snap-to-grid toggle via CommandCenter does not crash', async () => {
   launched = await launchApp()
   const { window } = launched
