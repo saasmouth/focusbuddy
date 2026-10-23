@@ -3043,7 +3043,11 @@ html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
 }
 [data-widget-id]:hover .fb-widget-actions,
 [data-widget-id]:focus-within .fb-widget-actions,
-.fb-widget-actions:focus-within {
+.fb-widget-actions:focus-within,
+/* One of the row's menus ("…", pin, expand) is open. The menus are portalled,
+   so the pointer on them is no longer :hover on the widget; without this the
+   button that opened the menu would fade out from under it. */
+.fb-widget-actions[data-menu-open='true'] {
   opacity: 1;
 }
 

@@ -67,6 +67,14 @@ import Icon from '../Icon'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
 import { minSizeFor } from '../../lib/widgetSizing'
+import WidgetHeaderOverflow, { type OverflowItem } from './WidgetHeaderOverflow'
+import {
+  foldHeaderActions,
+  guardHeaderClick,
+  headerActionBudget,
+  resolveModifierClick,
+  type HeaderActionId
+} from '../../lib/widgetHeaderActions'
 
 const EJECT_THRESHOLD = 40
 const HOVER_THROTTLE_MS = 60
@@ -224,6 +232,15 @@ export default function WidgetFrame({
   }
   const [pinPickerOpen, setPinPickerOpen] = useState(false)
   const [expandPickerOpen, setExpandPickerOpen] = useState(false)
+  // ── Header fold (lib/widgetHeaderActions) ──────────────────────────────────
+  // The header measures what it can spare for tools after a minimum title and a
+  // minimum grab area; the tools that do not fit go behind "…". The pickers
+  // anchor to "…" when their own button is folded away.
+  const [overflowOpen, setOverflowOpen] = useState(false)
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const titleClusterRef = useRef<HTMLSpanElement>(null)
+  const [actionBudget, setActionBudget] = useState<number | null>(null)
   // Right-click on the widget header opens a small context menu with a
   // "Make this a task" option. The menu is positioned at the cursor and
   // closes on outside-click / Esc (handled by CanvasContextMenu).
@@ -402,6 +419,132 @@ export default function WidgetFrame({
 
   const defaultX = isPinned ? widget.pinnedScreenX ?? widget.x : widget.x
   const defaultY = isPinned ? widget.pinnedScreenY ?? widget.y : widget.y
+
+  // Measure the header's spare room for tools. Layout pixels (offsetWidth /
+  // clientWidth), so the fold is the same at every desk zoom — the zoom is a
+  // transform on an ancestor. Re-measured when the header resizes and when the
+  // title cluster's fixed parts (bell, completion check, pin mark, eject…)
+  // come or go; never on every render, which would force a layout per frame
+  // during a drag.
+  const hasAttention = Boolean(attentionItem)
+  const hasLinkMark = Boolean(linkMark)
+  useLayoutEffect(() => {
+    const header = headerRef.current
+    const cluster = titleClusterRef.current
+    if (!header || !cluster) return
+    const measure = (): void => {
+      if (!header.isConnected || header.clientWidth === 0) return
+      const hs = getComputedStyle(header)
+      const inner = header.clientWidth - parseFloat(hs.paddingLeft || '0') - parseFloat(hs.paddingRight || '0')
+      const cs = getComputedStyle(cluster)
+      const gap = parseFloat(cs.columnGap || '0') || 0
+      const kids = Array.from(cluster.children) as HTMLElement[]
+      let fixed = 0
+      for (const k of kids) {
+        if (k.hasAttribute('data-header-title')) continue
+        const ks = getComputedStyle(k)
+        fixed += k.offsetWidth + (parseFloat(ks.marginLeft) || 0) + (parseFloat(ks.marginRight) || 0)
+      }
+      fixed += Math.max(0, kids.length - 1) * gap
+      const next = headerActionBudget(inner, fixed)
+      setActionBudget((prev) => (prev === next ? prev : next))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(header)
+    return () => ro.disconnect()
+  }, [titleEditing, hasAttention, isActive, isPinned, isChildOfSection, hasLinkMark])
+
+  // The header tools, each with ONE handler shared by its header button and its
+  // "…" menu item.
+  function runAi(): void {
+    if (aiPlan.surface === 'own') onAi?.()
+    else if (aiPlan.surface === 'setup') useWidgetSetup.getState().start(widget.id)
+    // 'none': the widget has no AI of its own. Offer the assistant EXPLICITLY
+    // rather than pretending this button was its door all along.
+    else askAssistantAbout()
+  }
+  function runRemove(): void {
+    // Remove from this desk, or delete the work widget everywhere
+    // (docs/widget-files.md, "Remove or delete").
+    void removeWorkWidget(widget)
+  }
+  const aiAriaLabel =
+    aiPlan.surface === 'none'
+      ? 'No AI for this work widget yet — ask the assistant instead'
+      : `${aiPlan.label} — ${aiPlan.purpose}`
+  const presentActions: HeaderActionId[] = []
+  if (!titleEditing) presentActions.push('ai', 'rename')
+  if (linkDrag) presentActions.push('link')
+  if (!isChildOfSection) presentActions.push('pin', 'shrink', 'grow')
+  presentActions.push('expand', 'remove')
+  const fold = foldHeaderActions(presentActions, actionBudget)
+  const shownActions = new Set<HeaderActionId>(fold.visible)
+  const overflowItems: OverflowItem[] = fold.overflow.map((id): OverflowItem => {
+    switch (id) {
+      case 'ai':
+        return {
+          id,
+          label: aiPlan.surface === 'none' ? 'Ask the assistant' : aiPlan.label,
+          ariaLabel: aiAriaLabel,
+          title: `${aiPlan.label} — ${aiPlan.purpose}`,
+          icon: 'auto_awesome',
+          onSelect: runAi,
+          testId: 'widget-ai'
+        }
+      case 'rename':
+        return { id, label: 'Rename work widget', icon: 'edit', onSelect: beginRename }
+      case 'link':
+        return {
+          id,
+          label: 'Link to another work widget',
+          title: 'Click, then click another work widget to connect them',
+          icon: 'add_link',
+          onSelect: () => linkDrag?.start(widget.id)
+        }
+      case 'pin':
+        return {
+          id,
+          label: isPinned ? 'Pin options' : 'Pin to screen',
+          icon: 'push_pin',
+          iconFilled: isPinned,
+          onSelect: () => {
+            setExpandPickerOpen(false)
+            setPinPickerOpen(true)
+          }
+        }
+      case 'shrink':
+        return {
+          id,
+          label: 'Shrink work widget',
+          icon: 'remove',
+          onSelect: () => scaleWidgetBy(1 / 1.5),
+          testId: `widget-shrink-${widget.id}`
+        }
+      case 'grow':
+        return {
+          id,
+          label: 'Grow work widget',
+          icon: 'add',
+          onSelect: () => scaleWidgetBy(1.5),
+          testId: `widget-grow-${widget.id}`
+        }
+      case 'expand':
+        return {
+          id,
+          label: 'Expand options',
+          title: 'Expand — bigger on desk or full view',
+          icon: 'open_in_full',
+          onSelect: () => {
+            setPinPickerOpen(false)
+            setExpandPickerOpen(true)
+          }
+        }
+      case 'remove':
+        return { id, label: 'Remove work widget', icon: 'close', onSelect: runRemove, testId: 'widget-remove' }
+    }
+  })
 
   function findHoveredSection(canvasX: number, canvasY: number): string | null {
     if (isChildOfSection || isPinned || isSection) return null
@@ -1030,12 +1173,16 @@ export default function WidgetFrame({
           // by the drag machinery and onClick never fires on the header. Catching
           // it here (before react-rnd) + stopPropagation toggles/dives AND
           // suppresses the drag. Body clicks fall through to onClick as before.
-          if (e.shiftKey && !isChildOfSection && !isPinned) {
+          // The meaning of the modifier is decided in one place
+          // (lib/widgetHeaderActions → resolveModifierClick), shared with the
+          // header's click guard below.
+          const mod = resolveModifierClick(e, { zoom, isChildOfSection, isPinned })
+          if (mod.toggleSelection) {
             e.stopPropagation()
             shiftToggle()
             return
           }
-          if ((e.metaKey || e.ctrlKey) && zoom < 0.8 && !isChildOfSection) {
+          if (mod.dive) {
             e.stopPropagation()
             zoomToWidget(widget.id)
           }
@@ -1135,15 +1282,39 @@ export default function WidgetFrame({
           </span>
         )}
         <div
+          ref={headerRef}
           data-widget-header
-          className={`${draggableHandleClass} ${headerAccent} fb-widget-header flex items-center justify-between px-2 py-1 cursor-move select-none border-b border-[color:var(--edge-soft)] backdrop-blur-sm`}
+          className={`${draggableHandleClass} ${headerAccent} fb-widget-header flex items-center px-2 py-1 cursor-move select-none border-b border-[color:var(--edge-soft)] backdrop-blur-sm`}
+          // THE modifier-click guard for every header control — the buttons,
+          // the bell and completion check, the title, the "…" menu and the
+          // pin / expand pickers (portalled, but React routes their events
+          // through this tree). Capture phase, so it runs before any control's
+          // own onClick: a shift-click (or ⌘/Ctrl-click while zoomed out) has
+          // already selected or dived on mousedown (the frame's capture
+          // handler above) and must not ALSO run the control's action.
+          // A keyboard-activated click (detail 0, e.g. Shift+Enter) had no
+          // mousedown, so the selection / dive happens here instead.
+          onClickCapture={(e) => {
+            guardHeaderClick(
+              e,
+              { zoom, isChildOfSection, isPinned },
+              { toggleSelection: shiftToggle, dive: () => zoomToWidget(widget.id) }
+            )
+          }}
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
             setHeaderCtxMenu({ x: e.clientX, y: e.clientY })
           }}
         >
-          <span className="fb-widget-title text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-70)] truncate flex items-center gap-1.5">
+          {/* The title cluster shrinks first (the title truncates with an
+              ellipsis); the grab strip after it never goes below
+              HEADER_MIN_GRAB_PX, and the tool row was folded to leave room
+              for both (lib/widgetHeaderActions). */}
+          <span
+            ref={titleClusterRef}
+            className="fb-widget-title min-w-0 flex-[0_1_auto] text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-70)] truncate flex items-center gap-1.5"
+          >
             {/* The kind's own icon, in a tinted chip. Hidden in the classic
                 skin, which identifies a widget by its label alone. */}
             <span className={`fb-widget-chip${hasKindAsset ? ' fb-widget-chip--asset' : ''}`} aria-hidden>
@@ -1214,10 +1385,12 @@ export default function WidgetFrame({
                 }}
                 placeholder={widgetDisplayName(widget, headerLabel)}
                 aria-label="Work widget name"
+                data-header-title
                 className="widget-nodrag min-w-0 flex-1 bg-transparent border-b border-accent/60 text-[10px] uppercase tracking-[0.08em] font-medium text-[var(--ink-90)] placeholder:text-[var(--ink-40)] placeholder:normal-case"
               />
             ) : (
               <span
+                data-header-title
                 data-testid={`widget-title-${widget.id}`}
                 onClick={(e) => {
                   // Two clicks within 350ms = rename. The first click still
@@ -1284,8 +1457,16 @@ export default function WidgetFrame({
               />
             )}
           </span>
-          <div className="fb-widget-actions flex items-center gap-0.5">
-            {!titleEditing && (
+          {/* The grab strip: plain header, always at least HEADER_MIN_GRAB_PX
+              wide, so a narrow widget can still be picked up. */}
+          <span aria-hidden className="fb-widget-grab self-stretch flex-[1_0_40px]" data-testid="widget-grab" />
+          <div
+            className="fb-widget-actions flex items-center gap-0.5 shrink-0"
+            // Keeps the row visible while one of its menus is open — the menus
+            // are portalled, so the pointer on them is not :hover on the widget.
+            data-menu-open={overflowOpen || pinPickerOpen || expandPickerOpen ? 'true' : undefined}
+          >
+            {shownActions.has('ai') && (
               // FIRST in the row, on every widget with a header, so it is in
               // the same place every time. It used to exist on two widgets
               // only — and on the table it was in the BODY, beside the
@@ -1294,19 +1475,10 @@ export default function WidgetFrame({
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (aiPlan.surface === 'own') onAi?.()
-                  else if (aiPlan.surface === 'setup') useWidgetSetup.getState().start(widget.id)
-                  // 'none': the widget has no AI of its own. Offer the
-                  // assistant EXPLICITLY rather than pretending this button
-                  // was its door all along.
-                  else askAssistantAbout()
+                  runAi()
                 }}
                 className="widget-nodrag h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] opacity-75 hover:opacity-100 hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-accent transition-opacity"
-                aria-label={
-                  aiPlan.surface === 'none'
-                    ? 'No AI for this work widget yet — ask the assistant instead'
-                    : `${aiPlan.label} — ${aiPlan.purpose}`
-                }
+                aria-label={aiAriaLabel}
                 title={`${aiPlan.label} — ${aiPlan.purpose}`}
                 data-testid="widget-ai"
                 data-ai-surface={aiPlan.surface}
@@ -1314,7 +1486,7 @@ export default function WidgetFrame({
                 <Icon name="auto_awesome" size={12} />
               </button>
             )}
-            {!titleEditing && (
+            {shownActions.has('rename') && (
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
@@ -1328,7 +1500,7 @@ export default function WidgetFrame({
                 <Icon name="edit" size={12} />
               </button>
             )}
-            {linkDrag && (
+            {shownActions.has('link') && linkDrag && (
               <button
                 // Any widget with a header is a valid link SOURCE — top-level,
                 // pinned, or a section child (widget-link-owner: sections/children/
@@ -1355,6 +1527,8 @@ export default function WidgetFrame({
               </button>
             )}
             {!isChildOfSection && (
+              // Mounted when folded too: its zone picker then opens from the
+              // "…" menu, anchored to "…".
               <PinControl
                 isPinned={isPinned}
                 pinnedZone={widget.pinnedZone}
@@ -1373,42 +1547,57 @@ export default function WidgetFrame({
                 }}
                 open={pinPickerOpen}
                 setOpen={setPinPickerOpen}
+                foldedInto={shownActions.has('pin') ? undefined : overflowTriggerRef}
               />
             )}
-            {!isChildOfSection && (
-              <>
-                <ResizeStepButton
-                  direction="shrink"
-                  widgetId={widget.id}
-                  onClick={() => scaleWidgetBy(1 / 1.5)}
-                />
-                <ResizeStepButton
-                  direction="grow"
-                  widgetId={widget.id}
-                  onClick={() => scaleWidgetBy(1.5)}
-                />
-              </>
+            {shownActions.has('shrink') && (
+              <ResizeStepButton
+                direction="shrink"
+                widgetId={widget.id}
+                onClick={() => scaleWidgetBy(1 / 1.5)}
+              />
+            )}
+            {shownActions.has('grow') && (
+              <ResizeStepButton
+                direction="grow"
+                widgetId={widget.id}
+                onClick={() => scaleWidgetBy(1.5)}
+              />
             )}
             <ExpandControl
               open={expandPickerOpen}
               setOpen={setExpandPickerOpen}
               onFocusMode={() => setFocused(widget.id)}
               onEnlargeOnDesk={() => scaleWidgetBy(1.3)}
+              foldedInto={shownActions.has('expand') ? undefined : overflowTriggerRef}
             />
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation()
-                // Remove from this desk, or delete the work widget everywhere
-                // (docs/widget-files.md, "Remove or delete").
-                void removeWorkWidget(widget)
-              }}
-              className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-red-100 hover:text-red-700"
-              aria-label="Remove work widget"
-              data-testid="widget-remove"
-            >
-              <Icon name="close" size={13} />
-            </button>
+            {shownActions.has('remove') && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  runRemove()
+                }}
+                className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-red-100 hover:text-red-700"
+                aria-label="Remove work widget"
+                data-testid="widget-remove"
+              >
+                <Icon name="close" size={13} />
+              </button>
+            )}
+            {overflowItems.length > 0 && (
+              <WidgetHeaderOverflow
+                widgetId={widget.id}
+                items={overflowItems}
+                open={overflowOpen}
+                setOpen={setOverflowOpen}
+                triggerRef={overflowTriggerRef}
+                onBeforeToggle={() => {
+                  setPinPickerOpen(false)
+                  setExpandPickerOpen(false)
+                }}
+              />
+            )}
           </div>
         </div>
         <div
@@ -1554,6 +1743,11 @@ interface PinControlProps {
   setOpen: (v: boolean) => void
   onPickZone: (zone: PinZone) => void
   onUnpin: () => void
+  /**
+   * Set when the pin button is folded into the header's "…" menu: no button of
+   * its own is rendered, and the zone picker anchors to "…" instead.
+   */
+  foldedInto?: React.RefObject<HTMLButtonElement>
 }
 
 function PinControl({
@@ -1562,7 +1756,8 @@ function PinControl({
   open,
   setOpen,
   onPickZone,
-  onUnpin
+  onUnpin,
+  foldedInto
 }: PinControlProps): JSX.Element {
   // The popover is rendered via createPortal into document.body to escape
   // the widget's stacking context — Rnd's outer div has a zIndex (set per-
@@ -1579,7 +1774,7 @@ function PinControl({
     function onDown(e: MouseEvent): void {
       // Click-outside closes — but the popover is in a portal, so we have
       // to check both the trigger button AND the portalled popover.
-      const inButton = buttonRef.current?.contains(e.target as Node)
+      const inButton = (foldedInto ?? buttonRef).current?.contains(e.target as Node)
       const inPopover = popoverRef.current?.contains(e.target as Node)
       if (!inButton && !inPopover) setOpen(false)
     }
@@ -1603,48 +1798,51 @@ function PinControl({
       window.removeEventListener('resize', onViewChange)
       window.removeEventListener('scroll', onViewChange, true)
     }
-  }, [open, setOpen])
+  }, [open, setOpen, foldedInto])
 
   // Anchor the popover under the button's right edge. useLayoutEffect so the
   // measurement happens after DOM mount but before paint — no flash at the
   // wrong position.
   useLayoutEffect(() => {
-    if (!open || !buttonRef.current) {
+    const anchor = (foldedInto ?? buttonRef).current
+    if (!open || !anchor) {
       setPopoverPos(null)
       return
     }
-    const r = buttonRef.current.getBoundingClientRect()
+    const r = anchor.getBoundingClientRect()
     setPopoverPos({
       top: r.bottom + 6,
       right: window.innerWidth - r.right
     })
-  }, [open])
+  }, [open, foldedInto])
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(!open)
-        }}
-        className={`h-6 w-6 rounded inline-flex items-center justify-center transition-colors ${
-          isPinned
-            ? 'text-amber-600 hover:bg-amber-100'
-            : 'text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]'
-        }`}
-        aria-label={isPinned ? 'Pin options' : 'Pin to screen'}
-        title={
-          isPinned
-            ? pinnedZone
-              ? `Pinned to ${PIN_ZONE_LABELS[pinnedZone]} — click to change`
-              : 'Pinned (legacy) — click to change'
-            : 'Pin to screen — pick a corner zone'
-        }
-      >
-        <Icon name="push_pin" size={13} filled={isPinned} />
-      </button>
+      {!foldedInto && (
+        <button
+          ref={buttonRef}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            setOpen(!open)
+          }}
+          className={`h-6 w-6 rounded inline-flex items-center justify-center transition-colors ${
+            isPinned
+              ? 'text-amber-600 hover:bg-amber-100'
+              : 'text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]'
+          }`}
+          aria-label={isPinned ? 'Pin options' : 'Pin to screen'}
+          title={
+            isPinned
+              ? pinnedZone
+                ? `Pinned to ${PIN_ZONE_LABELS[pinnedZone]} — click to change`
+                : 'Pinned (legacy) — click to change'
+              : 'Pin to screen — pick a corner zone'
+          }
+        >
+          <Icon name="push_pin" size={13} filled={isPinned} />
+        </button>
+      )}
       {open && popoverPos && createPortal(
         <div
           ref={popoverRef}
@@ -1722,13 +1920,16 @@ interface ExpandControlProps {
   setOpen: (v: boolean) => void
   onFocusMode: () => void
   onEnlargeOnDesk: () => void
+  /** As PinControl: folded into "…", the picker anchors there. */
+  foldedInto?: React.RefObject<HTMLButtonElement>
 }
 
 function ExpandControl({
   open,
   setOpen,
   onFocusMode,
-  onEnlargeOnDesk
+  onEnlargeOnDesk,
+  foldedInto
 }: ExpandControlProps): JSX.Element {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
@@ -1737,7 +1938,7 @@ function ExpandControl({
   useEffect(() => {
     if (!open) return
     function onDown(e: MouseEvent): void {
-      const inButton = buttonRef.current?.contains(e.target as Node)
+      const inButton = (foldedInto ?? buttonRef).current?.contains(e.target as Node)
       const inPopover = popoverRef.current?.contains(e.target as Node)
       if (!inButton && !inPopover) setOpen(false)
     }
@@ -1757,35 +1958,38 @@ function ExpandControl({
       window.removeEventListener('resize', onViewChange)
       window.removeEventListener('scroll', onViewChange, true)
     }
-  }, [open, setOpen])
+  }, [open, setOpen, foldedInto])
 
   useLayoutEffect(() => {
-    if (!open || !buttonRef.current) {
+    const anchor = (foldedInto ?? buttonRef).current
+    if (!open || !anchor) {
       setPopoverPos(null)
       return
     }
-    const r = buttonRef.current.getBoundingClientRect()
+    const r = anchor.getBoundingClientRect()
     setPopoverPos({
       top: r.bottom + 6,
       right: window.innerWidth - r.right
     })
-  }, [open])
+  }, [open, foldedInto])
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(!open)
-        }}
-        className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]"
-        aria-label="Expand options"
-        title="Expand — bigger on desk or full view"
-      >
-        <Icon name="open_in_full" size={13} />
-      </button>
+      {!foldedInto && (
+        <button
+          ref={buttonRef}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            setOpen(!open)
+          }}
+          className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]"
+          aria-label="Expand options"
+          title="Expand — bigger on desk or full view"
+        >
+          <Icon name="open_in_full" size={13} />
+        </button>
+      )}
       {open && popoverPos && createPortal(
         <div
           ref={popoverRef}
