@@ -247,9 +247,10 @@ test('KEY-6 the menus show Illustrator’s keys', async () => {
     'Select all on active artboard=⌥⌘A',
     // Saved snippets have no Illustrator key, so none is bound.
     'Save selection as snippet…=',
-    'Insert snippet…=',
-    'Keyboard shortcuts…=⌥⇧⌘K'
+    'Insert snippet…='
   ])
+  // Keyboard shortcuts moved to Help under the shared label (SPEC §9.2, e1f7ec5f); its key is still Illustrator's.
+  expect(await shortcuts('help')).toContain('Keyboard shortcuts=⌥⇧⌘K')
   expect(await shortcuts('view')).toEqual([
     'Fit Artboard in Window=⌘0',
     'Fit All in Window=⌥⌘0',
