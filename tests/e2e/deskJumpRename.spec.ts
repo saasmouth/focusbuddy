@@ -78,7 +78,10 @@ test('JR-1 — double-clicking a name edits it, and the new name sticks', async 
     .toBe('Renamed by double click')
 })
 
-test('JR-2 — right-clicking a name edits it instead of opening the canvas menu', async () => {
+// E-11: right-click on a row now opens the standard work widget menu with
+// Rename first (it used to start the rename with no menu at all). Rename from
+// that menu, by keyboard, is the same in-place edit.
+test('JR-2 — right-clicking a name opens the standard menu, Rename first, and Rename edits it', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -86,11 +89,18 @@ test('JR-2 — right-clicking a name edits it instead of opening the canvas menu
   await openJumpList(window)
 
   await window.locator(`[data-testid="desk-jump-${seeded.a}"]`).click({ button: 'right' })
+  const menu = window.locator('[data-canvas-ctx-menu]').first()
+  await expect(menu).toBeVisible()
+  const first = menu.locator(':scope > div > button[role="menuitem"] > span.flex-1').first()
+  await expect(first).toHaveText('Rename')
+  // The list stays open while its row's menu is (the menu is outside the minimap).
+  await expect(window.locator('[data-testid="desk-jump-list"]')).toBeVisible()
+  await window.keyboard.press('ArrowDown')
+  await window.keyboard.press('Enter')
+  await expect(window.locator('[data-canvas-ctx-menu]')).toHaveCount(0)
 
   const input = window.locator(`[data-testid="desk-jump-edit-${seeded.a}"] input`)
   await expect(input).toBeVisible()
-  // The desk's own context menu must not have opened over it.
-  await expect(window.locator('[data-canvas-ctx-menu]')).toHaveCount(0)
 
   // Escape abandons the edit and keeps the old name.
   await input.fill('discarded')

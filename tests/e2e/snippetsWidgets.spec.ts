@@ -3,7 +3,7 @@
  *
  * SW-1 A PlexiiCells range (a heading row and two rows) saved from Edit › Save
  *      selection as snippet…, then inserted from each widget's own menu
- *      (Advanced › Insert snippet…): into a PAGE work widget it lands as a real
+ *      (Insert snippet…, top level or More actions): into a PAGE work widget it lands as a real
  *      table node holding the values; into a STICKY as a GFM pipe table, which
  *      the sticky draws as a table.
  * SW-2 A PlexiiDraw selection saved as a snippet, then: inserted on the DESK
@@ -17,7 +17,7 @@
  * restores every pasteboard item around it (_macPasteboard.ts).
  */
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, switchArea, chooseCloudAiSource, suppressFeatureSpotlights } from './_helpers'
+import { launchApp, waitForReady, switchArea, chooseCloudAiSource, suppressFeatureSpotlights, clickWidgetMenuRow } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, rectObject, runMenu, seedDrawDoc, v1Body } from './_drawHelpers'
 import { readPasteboard, restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
 
@@ -79,13 +79,12 @@ async function contentOf(window: Page, taskId: string, id: string): Promise<stri
   return (await widgetsOf(window, taskId)).find((w) => w.id === id)?.content ?? '__missing__'
 }
 
-/** The widget's own menu: header right-click › Advanced › Insert snippet…, then Duplicate on the named row. */
+/** The widget's own menu: header right-click › Insert snippet… (top level or More actions), then Duplicate on the named row. */
 async function insertIntoWidget(window: Page, widgetId: string, snippetName: string): Promise<void> {
   await window.click(`[data-widget-id="${widgetId}"] .widget-handle`, { button: 'right', position: { x: 60, y: 8 } })
   const menu = window.locator('[data-canvas-ctx-menu]')
   await expect(menu).toBeVisible({ timeout: 4_000 })
-  await menu.getByText('Advanced', { exact: true }).hover()
-  await window.getByText('Insert snippet…', { exact: true }).click()
+  await clickWidgetMenuRow(window, 'Insert snippet…')
   await chooseDuplicate(window, snippetName)
 }
 
@@ -204,13 +203,12 @@ test('SW-2: a drawing goes on the desk as an image widget and into markdown as a
     ])
     const [mdId, stickyId] = ids
 
-    // The desk: right-click bare canvas › Add object › From a saved snippet…
+    // The desk: right-click bare canvas › Insert snippet… (§9.3 empty-canvas shape)
     const pt = await bareCanvasPoint(window)
     await window.mouse.click(pt.x, pt.y, { button: 'right' })
     const menu = window.locator('[data-canvas-ctx-menu]').first()
     await expect(menu).toBeVisible({ timeout: 4_000 })
-    await menu.getByText('Add object', { exact: true }).hover()
-    await window.getByText('From a saved snippet…', { exact: true }).click()
+    await menu.getByRole('menuitem', { name: 'Insert snippet…', exact: true }).click()
     await chooseDuplicate(window, 'Boxes')
     await expect(window.locator('[data-testid="snippet-library"]')).toBeHidden({ timeout: 8_000 })
     await expect(window.locator('[data-testid="notice-toast"]')).toContainText('It becomes a picture: edit it in PlexiiDraw.', { timeout: 8_000 })

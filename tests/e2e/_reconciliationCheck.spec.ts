@@ -248,8 +248,8 @@ test('Plexi3.0 reconciliation: single AI panel, pill+resume, Ryan chrome intact,
   await firstWidgetTitle.click({ button: 'right' })
   await window.waitForTimeout(400)
   // "Pin to corner" and "Recolor" are nested one level down, inside the
-  // top-level "Organise" submenu — hover it open first.
-  const organiseItem = window.getByRole('menuitem', { name: /^Organise/i })
+  // top-level "More actions" submenu (§9.3) — hover it open first.
+  const organiseItem = window.getByRole('menuitem', { name: /^More actions/i })
   await expect(organiseItem).toBeVisible({ timeout: 3_000 })
   await organiseItem.hover()
   await window.waitForTimeout(400)

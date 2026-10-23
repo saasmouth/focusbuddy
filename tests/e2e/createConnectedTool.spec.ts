@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow } from './_helpers'
 
 // Right-click "Create + connect" — the menu we wired into Sticky / Note /
 // Markdown / Page / Field. Picking a kind from the menu must:
@@ -90,11 +90,9 @@ test('right-click on a sticky → Create + Connect → new tool and persisted li
   // link" since DEC-041 (e846113e: every entry spawns a widget AND links it).
   // Hover it, then click "Note" (a different kind from the source so the spawn
   // is verifiable).
+  // §9.3: Create & link sits under More actions (the eight-row ceiling).
   await expect(window.locator('[data-canvas-ctx-menu]').getByText('Create', { exact: true })).toHaveCount(0)
-  await window.locator('[data-canvas-ctx-menu]').getByText('Create & link', { exact: true }).hover()
-  const noteItem = window.locator('[data-canvas-ctx-menu]').getByText('Note', { exact: true }).first()
-  await expect(noteItem).toBeVisible({ timeout: 4_000 })
-  await noteItem.click()
+  await clickWidgetMenuRow(window, 'Note', ['Create & link'])
 
   // Give the IPC round-trip + store update a moment.
   await window.waitForTimeout(500)

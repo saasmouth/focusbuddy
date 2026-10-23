@@ -321,9 +321,10 @@ test('(a2) "Send to a URL" is offered from the side menu and the right-click cre
   const textarea = window.locator('textarea.fb-sticky-textarea').first()
   await expect(textarea).toBeVisible({ timeout: 3_000 })
   await textarea.click({ button: 'right' })
-  // The unified right-click menu nests the create-and-connect list under a
-  // "Create" submenu (opens on hover), rather than a flat list.
-  await window.getByRole('menuitem', { name: 'Create' }).hover()
+  // The unified right-click menu nests the create-and-connect list under
+  // More actions › Create & link (opens on hover), rather than a flat list.
+  await window.locator('[data-canvas-ctx-menu]').first().getByRole('menuitem', { name: 'More actions' }).hover()
+  await window.getByRole('menuitem', { name: 'Create & link' }).hover()
   await expect(window.getByText('Send to a URL', { exact: true })).toBeVisible({ timeout: 3_000 })
 })
 

@@ -166,7 +166,7 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   }
   for (const c of [...(ctx.contributions ?? []), ...[...wc.context].sort((a, b) => a.priority - b.priority)]) {
     const g = groupOf(c)
-    add(c, g === 'object' ? kindFold() : undefined)
+    add(c, g === 'more' || g === 'destructive' ? undefined : kindFold())
   }
 
   for (const c of buildObject(ctx, s)) add(c)

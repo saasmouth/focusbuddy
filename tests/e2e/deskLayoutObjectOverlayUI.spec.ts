@@ -56,8 +56,9 @@ async function openCanvasMenu(window: Page): Promise<void> {
 }
 
 function customiseItem(window: Page) {
-  return window.locator('[role="menu"].fb-context-menu [role="menuitem"]').filter({
-    hasText: /Customise this device's layout|Stop customising this device's layout/
+  // A toggle row (SPEC §9.1 / F-13): one label, its state in aria-checked.
+  return window.locator('[role="menu"].fb-context-menu [role="menuitemcheckbox"]').filter({
+    hasText: /Customise this device's layout/
   })
 }
 
@@ -162,7 +163,7 @@ test('CUSTOMISE-MENU — real right-click shows the toggle; a real click flips l
     await openCanvasMenu(window)
     const item = customiseItem(window)
     await expect(item).toHaveText(/Customise this device's layout/)
-    await expect(item.locator('.material-symbols-outlined')).toHaveText('check_box_outline_blank')
+    await expect(item).toHaveAttribute('aria-checked', 'false')
 
     // Real click toggles it ON.
     await item.click()
@@ -170,8 +171,8 @@ test('CUSTOMISE-MENU — real right-click shows the toggle; a real click flips l
 
     await openCanvasMenu(window)
     const item2 = customiseItem(window)
-    await expect(item2).toHaveText(/Stop customising this device's layout/)
-    await expect(item2.locator('.material-symbols-outlined')).toHaveText('check_box')
+    await expect(item2).toHaveText(/Customise this device's layout/)
+    await expect(item2).toHaveAttribute('aria-checked', 'true')
 
     // Real click toggles it back OFF.
     await item2.click()
@@ -179,7 +180,7 @@ test('CUSTOMISE-MENU — real right-click shows the toggle; a real click flips l
     await openCanvasMenu(window)
     const item3 = customiseItem(window)
     await expect(item3).toHaveText(/Customise this device's layout/)
-    await expect(item3.locator('.material-symbols-outlined')).toHaveText('check_box_outline_blank')
+    await expect(item3).toHaveAttribute('aria-checked', 'false')
     await window.keyboard.press('Escape')
 
     const ov = await overlayObjects(window, seeded.deskId)

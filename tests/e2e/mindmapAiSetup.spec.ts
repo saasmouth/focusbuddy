@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow } from './_helpers'
 
 // Build with AI on a mind map: the unified menu opens on the mind map body, the
 // mocked draft of branch labels is approved, and they are appended to the mind
@@ -83,7 +83,7 @@ test('MM-AI — Build with AI appends approved branches as native mind-map nodes
   // Right-click the mind map body to open the unified menu.
   await window.click(`[data-widget-id="${widgetId}"]`, { button: 'right', position: { x: 280, y: 240 } })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
-  await window.locator('[data-canvas-ctx-menu]').getByText('Build with AI', { exact: true }).click()
+  await clickWidgetMenuRow(window, 'Build with AI')
 
   await window.waitForSelector('[data-testid="widget-setup-items"]', { timeout: 6_000 })
   // Drop the third branch, keep the first two.

@@ -115,29 +115,29 @@ async function openMakeTaskDialog(l: LaunchedApp, widgetId: string): Promise<voi
   await waitForReady(window)
   await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
   await window.waitForTimeout(250)
-  // "Make this a task..." lives under the "Advanced" submenu (buildAdvanced()
-  // pushes it into MenuSection.Advanced). Open that submenu first.
+  // "Make this a desk…" lives under More actions (§9.3: the rows past the
+  // eight-row ceiling, lib/contextMenu/universal.ts buildMore). Open it first.
   const advancedOpened = await window.evaluate(() => {
     const menu = document.querySelector('[data-canvas-ctx-menu]')
     if (!menu) return false
     const btn = Array.from(menu.querySelectorAll('button[role="menuitem"]')).find((b) =>
-      (b.textContent ?? '').includes('Advanced')
+      (b.textContent ?? '').includes('More actions')
     )
     if (!btn) return false
     ;(btn as HTMLButtonElement).click()
     return true
   })
-  expect(advancedOpened, 'context menu must expose "Advanced"').toBe(true)
+  expect(advancedOpened, 'context menu must expose "More actions"').toBe(true)
   await window.waitForTimeout(250)
   const clicked = await window.evaluate(() => {
     const btn = Array.from(document.querySelectorAll('[data-canvas-ctx-menu] button[role="menuitem"]')).find((b) =>
-      (b.textContent ?? '').includes('Make this a Desk')
+      (b.textContent ?? '').includes('Make this a desk…')
     )
     if (!btn) return false
     ;(btn as HTMLButtonElement).click()
     return true
   })
-  expect(clicked, 'Advanced submenu must expose "Make this a Desk..."').toBe(true)
+  expect(clicked, 'More actions must expose "Make this a desk…"').toBe(true)
   await window.waitForTimeout(300)
 }
 

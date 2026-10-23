@@ -80,8 +80,9 @@ test('CM-1 — unified menu opens on a note with the canonical sections', async 
     () => (document.querySelector('[data-canvas-ctx-menu]') as HTMLElement)?.innerText ?? ''
   )
   console.log('[CM-1] menu text:', JSON.stringify(menuText))
-  expect(menuText).toContain('AI Assist')
-  expect(menuText).toContain('Create')
+  expect(menuText).toContain('AI assist')
+  // §9.3: Create & link lives under More actions (the eight-row ceiling, E-6).
+  expect(menuText).toContain('More actions')
   // Destructive present (Archive or Delete or a Remove parent).
   expect(/Archive|Delete|Remove/.test(menuText)).toBe(true)
 })
@@ -108,7 +109,7 @@ test('CM-2 — AI Assist runs a transform and Apply writes it back in place', as
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
   // Open the AI Assist submenu and pick a preset action.
-  await window.getByText('AI Assist', { exact: true }).hover()
+  await window.getByText('AI assist', { exact: true }).hover()
   await window.getByText('Summarise', { exact: true }).click()
 
   // The preview opens and the preset auto-runs against the mock.
