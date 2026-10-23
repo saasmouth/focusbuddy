@@ -134,6 +134,9 @@ test('Sidebar no longer shows a standalone Organization row or Templates section
 
   // The Desk sidebar still renders its nav (proof we removed only the settings
   // blocks, not the whole sidebar). People Map now lives in the PlexiPeople area.
-  const sidebarHasPlans = sidebarText.includes('Plans')
-  expect(sidebarHasPlans).toBe(true)
+  // Plans left the sidebar in f2520b2d (DEC-020, ⌘K-reachable now), so the proof
+  // is the Desk section's own rows.
+  for (const row of ['Rooms', 'All desks']) {
+    await expect(sidebar.getByRole('button', { name: row, exact: true })).toBeVisible()
+  }
 })

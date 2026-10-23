@@ -154,12 +154,16 @@ export default function LocalAiPrompts(): JSX.Element | null {
           <Icon name="memory" size={13} /> {LOCAL_WARMING_COPY}
         </div>
       )}
+      {/* Both intro cards sit UNDER modals (Modal's default z is 200, the release
+          modal's scrim too) and over the assistant's takeover (190): at z-225 the
+          card covered the release modal's Got it, the one way out of it after an
+          update (releaseAndTooltip RM-1). */}
       {intro && view === 'offer' && intro.model && (
         <div
           role="status"
           data-testid="local-ai-intro"
           data-variant="offer"
-          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[225] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[198] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
         >
           <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is available as a download</div>
           <div>
@@ -213,7 +217,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
         <div
           role="status"
           data-testid="local-ai-intro"
-          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[225] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[198] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
         >
           <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is now built in</div>
           <div>

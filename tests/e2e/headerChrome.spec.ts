@@ -69,8 +69,10 @@ test('the trail and presence render inside the header, not over the canvas', asy
     return {
       barInHeader: !!header && !!bar && header.contains(bar),
       slotInHeader: !!header && !!slot && header.contains(slot),
-      // The floating pill must not also be mounted.
-      floatingPills: document.querySelectorAll('.fb-pill').length,
+      // The floating pill must not also be mounted. The docked bar carries
+      // .fb-pill too since 72c54121 (the compact-density hook), so count only
+      // pills that are not the docked bar.
+      floatingPills: document.querySelectorAll('.fb-pill:not([data-testid="desk-action-bar"])').length,
       // Every button the pill carried is still here.
       buttons: ['pill-status', 'pill-chat', 'pill-meeting', 'pill-build', 'pill-save-template', 'pill-resume']
         .filter((t) => !!document.querySelector(`[data-testid="${t}"]`)).length

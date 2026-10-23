@@ -138,7 +138,8 @@ test('SH-3 Home edits the selection or, with nothing selected, the next shape; U
   // Nothing selected: opacity has nothing to act on, and says so.
   await window.keyboard.press('Meta+Shift+a')
   await expect(t('draw-object-opacity')).toBeDisabled()
-  await expect(t('draw-object-opacity')).toHaveAttribute('aria-label', /select an object first/)
+  // The reason is a sentence since b1d63ac8 ("Select an object first."), so match case-insensitively.
+  await expect(t('draw-object-opacity')).toHaveAttribute('aria-label', /select an object first/i)
 })
 
 test('SH-4 panels: F7 toggles Layers (the rail button and Window › Layers agree), Esc closes it to the canvas, a pinned panel stays and Fit centres beside it', async () => {

@@ -252,9 +252,10 @@ test('F2-a: PlexiProjects task delete shows undo toast, clicking Undo restores t
   try {
     await waitForReady(window)
 
-    // Seed a project folder + task via IPC so the Gantt has something to delete.
+    // Seed a plan + task via IPC so the Gantt has something to delete. Only a
+    // folder marked as a plan is in the portfolio since 0ba19017 (Rooms/Plans split).
     const folder = await window.evaluate(async () =>
-      window.api.nodes.create({ parentId: null, kind: 'folder', title: 'Undo Test Project' })
+      window.api.nodes.create({ parentId: null, kind: 'folder', title: 'Undo Test Project', isPlan: true })
     )
     const folderId: string = (folder as { id: string }).id
 
@@ -268,6 +269,8 @@ test('F2-a: PlexiProjects task delete shows undo toast, clicking Undo restores t
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan opens on Overview since 4811bd60; the Gantt rows are its Timeline view.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
 
     // Task row appears in Gantt.
     await expect(window.locator(`[data-testid="gantt-row-${taskId}"]`)).toBeVisible({ timeout: 8_000 })
@@ -319,8 +322,9 @@ test('F2-b: undo toast disappears after timeout and task stays deleted if not un
   try {
     await waitForReady(window)
 
+    // A plan, not a plain room: only plans are in the portfolio (0ba19017).
     const folder = await window.evaluate(async () =>
-      window.api.nodes.create({ parentId: null, kind: 'folder', title: 'No-undo Project' })
+      window.api.nodes.create({ parentId: null, kind: 'folder', title: 'No-undo Project', isPlan: true })
     )
     const folderId: string = (folder as { id: string }).id
 
@@ -333,6 +337,8 @@ test('F2-b: undo toast disappears after timeout and task stays deleted if not un
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan opens on Overview since 4811bd60; the Gantt rows are its Timeline view.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
 
     await expect(window.locator(`[data-testid="gantt-row-${taskId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="gantt-row-${taskId}"]`).click()

@@ -162,7 +162,8 @@ test('restyled surfaces render correctly across all four themes', async () => {
         w.__fbView?.getState().goAllTasks()
       })
       await window.waitForTimeout(500)
-      await expect(window.getByText('All desks', { exact: true })).toBeVisible()
+      // The side menu has had its own "All desks" row since b7dae811, so the page is its heading.
+      await expect(window.getByRole('heading', { name: 'All desks', exact: true })).toBeVisible()
       await window.screenshot({ path: join(SHOTS_DIR, `${mode}-alltasks.png`), fullPage: false })
 
       // (d) Desk gallery with 2+ desks

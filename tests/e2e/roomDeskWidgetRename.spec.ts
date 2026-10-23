@@ -20,24 +20,27 @@ test('desk header title is inline-editable and the rename persists across naviga
     await window.getByRole('button', { name: /Original Desk Name/ }).first().click()
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
-    const title = window.locator('[data-testid="desk-title"]')
-    await expect(title).toHaveText('Original Desk Name')
+    // The header title and its pencil became the desk context menu's Rename row
+    // in 4148318a (the trail, presence and desk actions are one menu now); the
+    // trigger names the desk, and the rename is still in place.
+    const title = window.locator('[data-testid="desk-context-trigger"]')
+    await expect(title).toContainText('Original Desk Name')
 
-    // Double-click to enter edit mode.
-    await title.dblclick()
-    const input = window.locator('[data-testid="desk-title-input"]')
-    await expect(input).toBeVisible()
-    await input.fill('Renamed Via Header')
-    await input.press('Enter')
-    await expect(title).toHaveText('Renamed Via Header')
-
-    // Also exercise the pencil button path.
-    await window.getByRole('button', { name: 'Rename desk' }).click()
-    const input2 = window.locator('[data-testid="desk-title-input"]')
-    await expect(input2).toBeVisible()
-    await input2.fill('Renamed Via Pencil')
-    await input2.press('Enter')
-    await expect(title).toHaveText('Renamed Via Pencil')
+    const renameTo = async (name: string): Promise<void> => {
+      await title.click()
+      await window.locator('[data-testid="desk-context-rename"]').click()
+      const input = window.locator('[data-testid="desk-context-rename-input"]')
+      await expect(input).toBeVisible()
+      await expect(input).toHaveValue(await window.evaluate((id: string) => window.api.nodes.get(id).then((n) => n?.title ?? ''), desk.id))
+      await input.fill(name)
+      await input.press('Enter')
+      await expect(title).toContainText(name)
+      await window.keyboard.press('Escape')
+      await expect(window.locator('[data-testid="desk-context-menu"]')).toHaveCount(0)
+    }
+    await renameTo('Renamed Via Header')
+    // A second rename from the renamed state (the old pencil path).
+    await renameTo('Renamed Via Pencil')
 
     // Navigate away (to the Desks index) and back via a fresh reload — the
     // rename must persist both in the store and in the underlying record.
@@ -52,7 +55,7 @@ test('desk header title is inline-editable and the rename persists across naviga
     await expect(window.locator('[data-testid="desks-index-view"]')).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="index-card-${desk.id}"]`).getByRole('button').first().click()
     await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
-    await expect(window.locator('[data-testid="desk-title"]')).toHaveText('Renamed Via Pencil')
+    await expect(window.locator('[data-testid="desk-context-trigger"]')).toContainText('Renamed Via Pencil')
 
     // Confirm the DB-level record actually changed, not just local UI state.
     const persisted = (await window.evaluate(
