@@ -86,24 +86,26 @@ const CATEGORY = {
 }
 
 /**
- * The style each newer category was drawn in, decided by looking at every
- * file (22 Oct 2026): the place sets are single-colour lavender line icons, so
- * they are glyphs the renderer tints per theme; Suite-Products and Home-Actions
- * are full-colour rounded tiles. The build fails if an item disagrees with its
- * category (a line category with a non-vector SVG, a tile category with a
- * true-vector glyph), so a mis-filed export cannot change how a menu looks.
+ * The style each newer category is drawn in. 22 Oct 2026 the place sets were
+ * single-colour line icons (glyphs, tinted per theme); the owner's 23 Oct
+ * revision replaced all of them with distinct symbols on opaque gradient tiles,
+ * so every newer category is now a tile, like Suite-Products and Home-Actions.
+ * The build fails if an item disagrees with its category, judged twice: by the
+ * index's svg_type, and by the ART itself (artStyle below measures how much of
+ * the mark's bounding box is opaque), so neither a mis-filed export nor a
+ * mislabelled index row can change how a menu looks.
  * Apps, Tools, Work-Widgets and Connected-Apps are mixed and keep the per-item
  * rule (svg_type "True vector" -> glyph, else tile; Connected-Apps -> logo).
  */
 const CATEGORY_STYLE = {
-  'side-menu': 'glyph',
-  'focus-filters': 'glyph',
-  'section-headers': 'glyph',
-  people: 'glyph',
-  plexiibrain: 'glyph',
-  'bring-in': 'glyph',
-  areas: 'glyph',
-  onboarding: 'glyph',
+  'side-menu': 'tile',
+  'focus-filters': 'tile',
+  'section-headers': 'tile',
+  people: 'tile',
+  plexiibrain: 'tile',
+  'bring-in': 'tile',
+  areas: 'tile',
+  onboarding: 'tile',
   suite: 'tile',
   'home-actions': 'tile'
 }
@@ -388,6 +390,32 @@ function sameAsAppGlyph(svgText) {
   return inner ? (APP_GLYPH_BY_MARKUP.get(norm(inner)) ?? null) : null
 }
 
+/**
+ * What the art is, from its pixels: the share of the mark's bounding box that is
+ * opaque. A rounded tile fills ~0.9 or more of its box (an opaque square with
+ * rounded corners); a line glyph is strokes on transparency and fills well under
+ * half. Anything in between is ambiguous and is not trusted either way.
+ */
+const TILE_MIN_FILL = 0.8
+const GLYPH_MAX_FILL = 0.55
+async function artStyle(src, svgViewBox) {
+  const img = src.kind === 'svg' ? sharp(src.buf, { density: Math.max(72, Math.ceil((72 * 256) / (svgViewBox || 24))) }).resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }) : sharp(src.buf)
+  const { data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  let minX = info.width, minY = info.height, maxX = -1, maxY = -1, on = 0
+  for (let y = 0; y < info.height; y++)
+    for (let x = 0; x < info.width; x++) {
+      if (data[(y * info.width + x) * 4 + 3] < 128) continue
+      on++
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+    }
+  if (maxX < 0) return { style: 'empty', fill: 0 }
+  const fill = on / ((maxX - minX + 1) * (maxY - minY + 1))
+  return { style: fill >= TILE_MIN_FILL ? 'tile' : fill <= GLYPH_MAX_FILL ? 'glyph' : 'ambiguous', fill }
+}
+
 async function buildItem(item, outDir) {
   const src = await loadSource(item)
   if (src.kind === 'none') return { ...item, missing: true, problem: src.problem }
@@ -396,6 +424,12 @@ async function buildItem(item, outDir) {
   const declared = CATEGORY_STYLE[item.category]
   if (declared && declared !== style) {
     throw new Error(`${item.key}: category is ${declared} style but the source makes it ${style} (svg_type "${item.svgType}")`)
+  }
+  if (declared) {
+    const art = await artStyle(src, item.svgViewBox)
+    if (art.style !== declared) {
+      throw new Error(`${item.key}: category is ${declared} style but the art reads as ${art.style} (${(art.fill * 100).toFixed(0)}% of its box opaque; tile >= ${Math.round(TILE_MIN_FILL * 100)}%, glyph <= ${Math.round(GLYPH_MAX_FILL * 100)}%)`)
+    }
   }
   let master // { input, raw?, srcSize }
   let cleanInfo = null

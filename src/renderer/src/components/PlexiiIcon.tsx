@@ -43,6 +43,13 @@ interface Props {
   fallbackFilled?: boolean
   /** Fill for a glyph asset (default var(--plexii-glyph)). Tiles and logos ignore it. */
   glyphColor?: string
+  /**
+   * Edge for a TILE or LOGO asset, where the call site sizes rows for glyphs:
+   * a tile carries its own padding-free square, so it can take the row's full
+   * icon well (the side menu's 24px well takes 22px, the Apps section's tile
+   * size) while a line glyph and the fallback keep `size`.
+   */
+  tileSize?: number
   className?: string
   style?: CSSProperties
 }
@@ -69,7 +76,8 @@ export function plexiiIconUrl(kind: PlexiiIconKind, id: string, size = 32, dpr =
 export default function PlexiiIcon({
   kind,
   id,
-  size = 20,
+  size: baseSize = 20,
+  tileSize,
   label,
   fallback,
   fallbackClassName = '',
@@ -88,7 +96,7 @@ export default function PlexiiIcon({
     return (
       <Icon
         name={fallback ?? resolved.fallback}
-        size={size}
+        size={baseSize}
         filled={fallbackFilled}
         className={`${fallbackClassName} ${className}`.trim()}
         style={style}
@@ -96,6 +104,7 @@ export default function PlexiiIcon({
     )
   }
 
+  const size = tileSize && asset.style !== 'glyph' ? tileSize : baseSize
   const a11y = label ? { 'aria-label': label } : { 'aria-hidden': true as const }
   const box: CSSProperties = { width: size, height: size, flexShrink: 0, ...style }
 

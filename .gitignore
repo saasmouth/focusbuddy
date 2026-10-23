@@ -75,3 +75,8 @@ resources/models/
 src/**/*.jsx
 src/**/*.js
 !src/web/public/*.js
+
+# Website drafts and design deliveries live beside the app, never in it
+# (the folder was removed from the repo earlier; deliveries such as the 23 Oct
+# icon revision are dropped there and filed into marketing/brand-assets).
+New Plexi Website/

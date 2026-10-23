@@ -197,16 +197,20 @@ for (const theme of ['light', 'dark'] as const) {
     await go(window, 'goVault')
     await surface(window, theme, 'vault', ['app:vault'])
 
-    // The tour hub: every onboarding module wears its own line icon, in the
-    // dark-stage violet whatever the theme (the card is dark in both).
+    // The tour hub: every onboarding module wears its own tile (the owner's
+    // 23 Oct gradient revision; they were dark-stage violet line icons).
     await window.evaluate(() => window.dispatchEvent(new Event('fb:onboarding-hub')))
     await expect(window.locator('[data-testid="onboarding-hub"]')).toBeVisible()
     await surface(window, theme, 'onboarding-hub', ['place:tour-core', 'place:tour-rooms-desks', 'place:tour-office-connect', 'place:tour-body-double'])
-    const tourGlyph = await window.evaluate(() => {
-      const el = document.querySelector<HTMLElement>('[data-testid="onboarding-hub"] [data-plexii-icon="place:tour-core"]')
-      return el ? getComputedStyle(el).backgroundColor : ''
-    })
-    expect(tourGlyph).toBe('rgb(196, 181, 253)')
+    const tourTiles = await window.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLImageElement>('[data-testid="onboarding-hub"] img[data-plexii-icon^="place:tour-"]')).map((i) => {
+        const r = i.getBoundingClientRect()
+        return `${i.dataset.plexiiIcon} ${i.dataset.plexiiStyle} ${i.naturalWidth > 0 ? 'ok' : 'broken'} ${Math.round(r.width) === Math.round(r.height) ? 'square' : 'skewed'}`
+      })
+    )
+    expect(tourTiles.sort()).toEqual(
+      ['place:tour-body-double', 'place:tour-core', 'place:tour-office-connect', 'place:tour-rooms-desks'].map((id) => `${id} tile ok square`)
+    )
     await window.mouse.click(5, 5) // the scrim closes the hub
     await expect(window.locator('[data-testid="onboarding-hub"]')).toBeHidden()
 

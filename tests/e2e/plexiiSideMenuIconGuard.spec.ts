@@ -33,10 +33,13 @@ import {
 // is covered by the first test (it opens the switcher's menu before auditing);
 // since c581655d it holds workspaces and Manage organisation, not the areas.
 //
-// Wearing the owner's asset is not the same as looking new: 30 of the 41 line
-// icons delivered on 22 Oct are the app's existing glyphs redrawn, so these
-// rows look as they did in 4.3.40. tests/unit/plexiiIconSameArt.test.ts holds
-// that list; this spec only proves the asset is the one drawn.
+// 23 Oct 2026 the owner's gradient revision replaced the 22 Oct line icons
+// (which largely duplicated the app's own glyphs) with distinct symbols on
+// tiles. The rows now carry tiles in places sized for glyphs, so both tests
+// also check that every tile fits: the Apps-section tile edge in menu rows, one
+// edge across the rail, nothing clipped or spilling.
+// tests/unit/plexiiIconSameArt.test.ts guards against a delivery that is the
+// app's own glyph redrawn; this spec proves what is drawn, and that it fits.
 //
 // PLEXII_ICON_AUDIT_ONLY=1 records without asserting (for auditing an older
 // build), and PLEXII_ICON_AUDIT_OUT=<file> writes the table as JSON. Light and
@@ -174,6 +177,43 @@ async function brokenOwnerIcons(window: Page, container: string = PANEL): Promis
     }
     return broken
   }, container)
+}
+
+/**
+ * Do the tiles in menu rows fit? Row tiles (an <img> asset inside a nav row,
+ * not the Apps grid) must equal the Apps-section tile edge, be square, decode,
+ * and lie inside their row button and every clipping ancestor up to the panel.
+ */
+async function tileFit(window: Page, containers: string): Promise<{ appTile: number; rowTiles: number; offenders: string[] }> {
+  return window.evaluate((sel) => {
+    const roots = Array.from(document.querySelectorAll<HTMLElement>(sel))
+    const app = document.querySelector<HTMLElement>('[data-testid^="office-sideapp-"] img[data-plexii-icon]')
+    const appTile = app ? Math.round(app.getBoundingClientRect().width) : 0
+    const offenders: string[] = []
+    const seen = new Set<Element>()
+    let rowTiles = 0
+    for (const root of roots)
+      for (const img of Array.from(root.querySelectorAll<HTMLImageElement>('button.fb-nav-row img[data-plexii-icon], .fb-nav-row img[data-plexii-icon]'))) {
+        if (seen.has(img) || img.getClientRects().length === 0) continue
+        seen.add(img)
+        rowTiles++
+        const r = img.getBoundingClientRect()
+        const id = img.dataset.plexiiIcon
+        if (Math.round(r.width) !== appTile || Math.round(r.height) !== appTile) offenders.push(`${id}: ${r.width}x${r.height}`)
+        if (!(img.naturalWidth > 0)) offenders.push(`${id}: not decoded`)
+        const row = img.closest('button') ?? img.parentElement!
+        const b = row.getBoundingClientRect()
+        if (r.left < b.left - 0.5 || r.right > b.right + 0.5 || r.top < b.top - 0.5 || r.bottom > b.bottom + 0.5) offenders.push(`${id}: spills its row`)
+        for (let el = img.parentElement; el && el !== root.parentElement; el = el.parentElement) {
+          const cs = getComputedStyle(el)
+          if (!/(hidden|clip|auto|scroll)/.test(cs.overflow + cs.overflowX + cs.overflowY)) continue
+          const c = el.getBoundingClientRect()
+          // A scroller clips only what is scrolled out of view; a row inside it must be wholly within its box horizontally.
+          if (r.left < c.left - 0.5 || r.right > c.right + 0.5) offenders.push(`${id}: clipped by ${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`)
+        }
+      }
+    return { appTile, rowTiles, offenders }
+  }, containers)
 }
 
 /** The panel scrolls; shoot it top to bottom, one file per screenful. */
@@ -322,18 +362,27 @@ for (const theme of ['light', 'dark'] as const) {
     ] as const) {
       expect(rows.some((r) => r.area === 'desk' && r.id === label && r.owner?.startsWith(icon)), `desk sidebar ${label} wears ${icon}`).toBe(true)
     }
-    // "+ New desk" in the desk sidebar header: the owner's glyph in the button's white.
-    const newDesk = window.locator('[data-testid="desk-sidebar"] [data-plexii-icon="place:new-desk"]')
+    // "+ New desk" in the desk sidebar header wears the owner's New desk tile (23 Oct revision).
+    const newDesk = window.locator('[data-testid="desk-sidebar"] img[data-plexii-icon="place:new-desk"]')
     await window.locator('[data-testid="switch-plexidesk"]').first().click()
     await openNewDesk(window, `Icon guard ${theme} 2`)
     await expect(newDesk).toHaveCount(1)
-    expect(await newDesk.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)')
-    // Line glyphs take the per-theme violet everywhere else in the menu.
+    await expect
+      .poll(() => newDesk.evaluate((el) => `${(el as HTMLImageElement).naturalWidth > 0 ? 'decoded' : 'pending'} ${Math.round(el.getBoundingClientRect().width)}px`), { timeout: 5_000 })
+      .toBe('decoded 14px')
+    // The 23 Oct revision made the place icons gradient TILES in rows sized for
+    // glyphs. Every tile in a menu row takes the Apps section's tile size and
+    // sits wholly inside its row: no clipping, nothing spilling.
+    const fit = await tileFit(window, '[data-testid="desk-sidebar"], [data-testid="area-accordion"]')
+    expect(fit.appTile, 'an Apps-section tile to compare with').toBeGreaterThan(0)
+    expect(fit.rowTiles, 'place tiles in menu rows').toBeGreaterThan(10)
+    expect(fit.offenders, `menu row tiles that do not fit (${fit.appTile}px Apps tiles)`).toEqual([])
+    // Line glyphs that remain (older Tools icons, e.g. Shared) keep the per-theme violet.
     const glyph = await window.evaluate(() => {
-      const el = document.querySelector<HTMLElement>('[data-testid="area-accordion"] [data-plexii-icon="place:home"]')
-      return el ? getComputedStyle(el).backgroundColor : ''
+      const el = document.querySelector<HTMLElement>('[data-testid="area-accordion"] [data-plexii-style="glyph"]')
+      return el ? getComputedStyle(el).backgroundColor : null
     })
-    expect(glyph).toBe(theme === 'dark' ? 'rgb(196, 181, 253)' : 'rgb(124, 58, 237)')
+    if (glyph !== null) expect(glyph).toBe(theme === 'dark' ? 'rgb(196, 181, 253)' : 'rgb(124, 58, 237)')
   })
 }
 
@@ -398,5 +447,21 @@ for (const theme of ['light', 'dark'] as const) {
     }
     // At least the main work widgets are on the rail, each wearing its kind's tile.
     expect(rows.filter((r) => r.owner?.startsWith('widget:')).length, 'rail work widgets').toBeGreaterThan(3)
+    // Rail tiles (the place tiles of the 23 Oct revision and the work widgets)
+    // share one edge and sit inside their 32px buttons.
+    const railFit = await window.evaluate((sel) => {
+      const out: string[] = []
+      const sizes = new Set<number>()
+      for (const img of Array.from(document.querySelectorAll<HTMLImageElement>(`${sel} button img[data-plexii-icon]`))) {
+        const r = img.getBoundingClientRect()
+        const b = img.closest('button')!.getBoundingClientRect()
+        sizes.add(Math.round(r.width))
+        if (Math.round(r.width) !== Math.round(r.height)) out.push(`${img.dataset.plexiiIcon}: not square`)
+        if (r.left < b.left - 0.5 || r.right > b.right + 0.5 || r.top < b.top - 0.5 || r.bottom > b.bottom + 0.5) out.push(`${img.dataset.plexiiIcon}: spills its button`)
+      }
+      return { out, sizes: [...sizes] }
+    }, RAIL)
+    expect(railFit.out, 'rail tiles that do not fit').toEqual([])
+    expect(railFit.sizes, 'one tile edge across the rail').toHaveLength(1)
   })
 }

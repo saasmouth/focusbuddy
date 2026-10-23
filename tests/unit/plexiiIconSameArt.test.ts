@@ -1,5 +1,9 @@
 // Delivered icons that are the app's own glyph, redrawn.
 //
+// UPDATE 23 Oct 2026: the owner's gradient revision replaced the 22 Oct line
+// icons with distinct symbols on tiles, so the history below no longer applies
+// to those 63 items; the list keeps guarding every future delivery.
+//
 // 4.3.41 wired the owner's 22 Oct 2026 delivery into the side menu, and the
 // owner then reported Home, Focus, Desks, Rooms, Shared, Trash, People and
 // PlexiiBrain as "still missing". The guard was green and every row did wear
@@ -28,38 +32,13 @@ function sameArt(): Record<string, string> {
   return Object.fromEntries([...body.matchAll(/'([^']+)': '([^']+)'/g)].map((m) => [m[1], m[2]]))
 }
 
-/** Declared: delivered asset -> the app glyph it duplicates (build of 23 Oct 2026). */
+/**
+ * Declared: delivered asset -> the app glyph it duplicates (build of 23 Oct 2026,
+ * after the owner's gradient revision). None of the revision's 63 items is here:
+ * every one is a distinct symbol on a tile. What remains are older line icons in
+ * Tools and Work-Widgets, outside that revision; they are listed for the owner.
+ */
 const DECLARED: Record<string, string> = {
-  'areas/office-area': 'office',
-  'areas/people-area': 'people',
-  'areas/recent': 'clock',
-  'areas/starred': 'star',
-  'areas/templates': 'templates',
-  'onboarding/body-doubling': 'people',
-  'onboarding/connected-office-files': 'docs',
-  'onboarding/rooms-desks-and-plans': 'rooms',
-  'onboarding/welcome-to-plexiidesk': 'ai',
-  'people/directory': 'directory',
-  'people/people-home': 'people',
-  'plexiibrain/agents': 'agents',
-  'plexiibrain/apis': 'api',
-  'plexiibrain/ask-plexiibrain': 'chat',
-  'plexiibrain/assemble-a-desk': 'assemble',
-  'plexiibrain/connect': 'connect',
-  'plexiibrain/decisions': 'decisions',
-  'plexiibrain/ops': 'flow',
-  'plexiibrain/plexiibrain-home': 'brain',
-  'plexiibrain/plexiibrain-map': 'graph',
-  'section-headers/apps': 'all-desks',
-  'section-headers/connected-apps': 'connect',
-  'section-headers/people': 'people',
-  'side-menu/all-desks': 'all-desks',
-  'side-menu/desks': 'desks',
-  'side-menu/home': 'home',
-  'side-menu/manage-organisation': 'org',
-  'side-menu/new-desk': 'new',
-  'side-menu/rooms': 'rooms',
-  'side-menu/trash': 'trash',
   'tools/all-tasks': 'tasks',
   'tools/collaborations': 'people',
   'tools/flows': 'flow',
@@ -79,21 +58,16 @@ describe('delivered glyphs that duplicate an app glyph', () => {
     expect(sameArt()).toEqual(DECLARED)
   })
 
-  it('names the owner report of 23 Oct 2026: these menu places show the picture they showed before 4.3.41', () => {
+  it('the 23 Oct gradient revision duplicates no app glyph (zero matches)', () => {
     const list = sameArt()
-    for (const key of [
-      'side-menu/home',
-      'side-menu/rooms',
-      'side-menu/desks',
-      'side-menu/trash',
-      'tools/shared-with-me',
-      'section-headers/people',
-      'areas/people-area',
-      'plexiibrain/plexiibrain-home'
-    ]) {
-      expect(list[key], key).toBeTruthy()
-    }
-    // Focus was the one new drawing among them (a target where the bell was).
-    expect(list['side-menu/focus']).toBeUndefined()
+    const src = readFileSync(INDEX, 'utf8')
+    const revisionCats = ['side-menu', 'focus-filters', 'section-headers', 'people', 'plexiibrain', 'bring-in', 'areas', 'onboarding', 'suite', 'home-actions']
+    const revision = [
+      ...[...src.matchAll(/^ {2}'([a-z-]+)\/([a-z0-9-]+)': \{/gm)].filter((m) => revisionCats.includes(m[1])).map((m) => `${m[1]}/${m[2]}`),
+      'apps/plexiichat', 'widgets/app-launcher', 'widgets/attention', 'widgets/browser', 'widgets/custom-block',
+      'widgets/custom-work-widget', 'widgets/markdown', 'widgets/minimap', 'widgets/task-link'
+    ]
+    expect(revision).toHaveLength(63)
+    expect(revision.filter((k) => k in list)).toEqual([])
   })
 })
