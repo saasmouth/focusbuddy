@@ -454,6 +454,25 @@ disabled on a read-only drawing. The editor reads it through
 `liveUndo` or `v2Blocked`; it remounts the studio (a `key`) when it replaces
 the body, since the studio reads `content` only on mount.
 
+**A snippet is not a document.** `src/shared/draw/snippetBody.ts` converts
+between them: `drawBodyFromSnippet(snip)` opens a `DrawSnippetBody` as a v2
+drawing (one vector layer, the objects untouched, one transparent artboard
+around their visible bounds plus a 32 px margin -- the artboard moves to the
+art, never the art to the artboard, so open-and-save never creeps), and
+`snippetFromDrawBody(body, prev)` writes the edited drawing back as
+`{ body, lost }`, where `lost` is one sentence per thing the snippet cannot
+hold as it was (a paint layer kept as a picture, extra artboards, layers,
+a background, unused swatches). The host shows `lost` before it writes.
+
+The session also passes `session={{ kind: 'snippet' }}`. Every command that
+acts on a DOCUMENT -- the documents store's active document, or a new one
+opened in place of the studio -- is then disabled with a reason, on its key
+and through `ctx.run` too (`editor/session.ts`): New, New from preset, Open
+SVG, Make a copy, Rename, Version history, Move to trash, Meeting. A new
+command that reaches the documents store wraps itself in `documentCommand`;
+`tests/unit/drawSnippetSession.test.tsx` fails if it does not. Save, Export
+(a file the person picks) and editing stay on.
+
 ## Test it
 
 - **Headless, the bulk of it.** `tests/unit/drawTools/harness.ts` builds the

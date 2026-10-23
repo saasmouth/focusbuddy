@@ -20,7 +20,7 @@ import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
 import { clipboardEventInfo, handleClipboardEvent, type ClipboardEventKind } from './draw/editor/menuClipboard'
 import { createDomServices } from './draw/editor/domServices'
 import { dragHasFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
-import type { KeyInput, ToolPointer } from './draw/editor/types'
+import type { DrawSession, KeyInput, ToolPointer } from './draw/editor/types'
 import { dialogById } from './draw/dialogs/registry'
 import { useDrawSnippetTarget } from './draw/editor/drawSnippets'
 import { toolById } from './draw/tools/registry'
@@ -81,6 +81,15 @@ interface Props {
    * before. The studio never saves; it only emits onChange per edit.
    */
   onSaveRequest?: () => void
+  /**
+   * Set when the studio edits something that is not a document: a saved
+   * snippet's edit session passes `{ kind: 'snippet' }`. File-menu commands
+   * that act on a document (Make a copy ⌥⌘S, Rename, Version history, Move to
+   * trash, New, New from preset, Open SVG, Meeting) are then disabled with
+   * `reason` (or editor/session.ts's default), on their keys too. Save and
+   * Export stay on. Absent: a drawing, nothing changes.
+   */
+  session?: DrawSession
 }
 
 /** Focus is on a control of the studio's chrome (the top bar, the rail, a panel), not the canvas. */
@@ -116,7 +125,7 @@ function keyInput(e: KeyboardEvent): KeyInput {
   }
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -130,6 +139,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   liveUndoRef.current = liveUndo
   const onSaveRequestRef = useRef(onSaveRequest)
   onSaveRequestRef.current = onSaveRequest
+  const sessionRef = useRef(session)
+  sessionRef.current = session
   const rootRef = useRef<HTMLDivElement | null>(null)
   const barHandle = useRef<ContextBarHandle | null>(null)
   /** Screen px of the viewport's left edge that pinned overlay panels cover (domServices: Fit, Paste). */
@@ -142,7 +153,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // see the current DOM and props.
   const editorRef = useRef<DrawEditor | null>(null)
   if (!editorRef.current) {
-    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, onSaveRequest: onSaveRequestRef, inset: insetRef, pendingCentre }
+    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, onSaveRequest: onSaveRequestRef, session: sessionRef, inset: insetRef, pendingCentre }
     // ⌥F6 (window.focusNext): the canvas, then the top bar, then the tool rail.
     const ui = {
       cycleFocus: (): void => {

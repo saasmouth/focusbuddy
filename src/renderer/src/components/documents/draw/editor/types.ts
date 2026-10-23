@@ -269,6 +269,23 @@ export interface HostService {
    * Save and ⌘S (`file.save`) follow the current prop. The editor never saves.
    */
   saveRequest?(): (() => void) | undefined
+  /**
+   * Set when the studio is editing something that is not a document -- a
+   * saved snippet's edit session (DrawStudio's `session`). Commands that act
+   * on a DOCUMENT (Make a copy, Rename, Version history, Move to trash, New,
+   * Open, Meeting) are then disabled with its reason (editor/session.ts).
+   * Read at call time; absent for a drawing.
+   */
+  session?(): DrawSession | undefined
+  /** The studio's own live `title` prop (what is being edited, by name). Absent in headless runs. */
+  title?(): string
+}
+
+/** What the studio is editing, when it is not a document (see HostService.session). */
+export interface DrawSession {
+  kind: 'snippet'
+  /** Why document commands are off; editor/session.ts has the default wording. */
+  reason?: string
 }
 
 // ── The context ──────────────────────────────────────────────────────────────

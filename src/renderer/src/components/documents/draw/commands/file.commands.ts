@@ -6,10 +6,18 @@ import { confirmDialog, promptText } from '../../../plexi/PromptDialog'
 import { useDocumentsStore } from '../../../../stores/documents'
 import { useViewStore } from '../../../../stores/view'
 import type { Command, EditorCtx, ExportOptions, MenuSpec } from '../editor/types'
+import { documentCommand } from '../editor/session'
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
-function title(): string {
+/**
+ * The name of what is being edited. For a drawing, the documents store's
+ * active document (whose title the document commands below act on). In a
+ * snippet edit session the store's active document is NOT what is on screen,
+ * so the studio's own title is used: a label never names the wrong thing.
+ */
+export function documentTitle(ctx: EditorCtx): string {
+  if (ctx.host.session?.()) return ctx.host.title?.() || 'Untitled snippet'
   return useDocumentsStore.getState().active?.title ?? 'Untitled artwork'
 }
 
@@ -25,8 +33,10 @@ export const menus: MenuSpec[] = [
   { path: 'file/New from preset', label: 'New from preset', icon: 'aspect_ratio', order: 200 }
 ]
 
+// documentCommand: off in a snippet edit session, which edits the snippet and
+// not a document (editor/session.ts). Save and Export stay on there.
 export const commands: Command[] = [
-  {
+  documentCommand({
     id: 'file.new',
     label: 'New artwork',
     icon: 'note_add',
@@ -35,7 +45,7 @@ export const commands: Command[] = [
       const doc = await useDocumentsStore.getState().createBlank('draw')
       useViewStore.getState().goDocument(doc.id)
     }
-  },
+  }),
   // Save (Illustrator's ⌘S). A drawing is persisted from every edit by its
   // host, so there is nothing to save and this shows disabled -- and ⌘S is not
   // claimed (keyWhen), so the key does exactly what it did before. Where the
@@ -56,44 +66,45 @@ export const commands: Command[] = [
       if (save && writable(ctx)) save()
     }
   },
-  {
+  documentCommand({
     id: 'file.copy',
     label: 'Make a copy',
     icon: 'file_copy',
     menu: { path: 'file', order: 110 },
-    run: async () => {
+    run: async (ctx) => {
       const active = useDocumentsStore.getState().active
-      const copy = await window.api.documents.create({ docType: 'draw', title: `Copy of ${title()}`, body: active?.body })
+      const copy = await window.api.documents.create({ docType: 'draw', title: `Copy of ${documentTitle(ctx)}`, body: active?.body })
       useViewStore.getState().goDocument(copy.id)
     }
-  },
+  }),
   ...DRAW_SIZES.map(
-    (s, i): Command => ({
-      id: `file.newPreset.${s.id}`,
-      label: `${s.label} — ${s.w}×${s.h}`,
-      menu: { path: 'file/New from preset', order: i },
-      run: async () => {
-        const doc = await window.api.documents.create({ docType: 'draw', title: s.label, body: blankDrawBody(s) })
-        useViewStore.getState().goDocument(doc.id)
-      }
-    })
+    (s, i): Command =>
+      documentCommand({
+        id: `file.newPreset.${s.id}`,
+        label: `${s.label} — ${s.w}×${s.h}`,
+        menu: { path: 'file/New from preset', order: i },
+        run: async () => {
+          const doc = await window.api.documents.create({ docType: 'draw', title: s.label, body: blankDrawBody(s) })
+          useViewStore.getState().goDocument(doc.id)
+        }
+      })
   ),
   // Off when read-only: the file would leave out what a newer app added.
   // With several artboards, the export asks what it covers (dialogs/exportArtboards.dialog.tsx).
   { id: 'file.exportPng', label: 'Export PNG…', icon: 'image', menu: { path: 'file', order: 300 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'png', args) },
   { id: 'file.exportSvg', label: 'Export SVG…', icon: 'polyline', menu: { path: 'file', order: 310 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'svg', args) },
   { id: 'file.exportPdf', label: 'Export PDF…', icon: 'picture_as_pdf', menu: { path: 'file', order: 320 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'pdf', args) },
-  {
+  documentCommand({
     id: 'file.rename',
     label: 'Rename',
     icon: 'edit',
     menu: { path: 'file', order: 400 },
-    run: async () => {
-      const next = await promptText({ title: 'Rename artwork', initial: title(), confirmLabel: 'Rename' })
+    run: async (ctx) => {
+      const next = await promptText({ title: 'Rename artwork', initial: documentTitle(ctx), confirmLabel: 'Rename' })
       if (next != null && next.trim()) void useDocumentsStore.getState().rename(next.trim())
     }
-  },
-  {
+  }),
+  documentCommand({
     id: 'file.history',
     label: 'Version history',
     icon: 'history',
@@ -102,17 +113,17 @@ export const commands: Command[] = [
       const active = useDocumentsStore.getState().active
       if (active) openDocHistory(active.id)
     }
-  },
-  {
+  }),
+  documentCommand({
     id: 'file.trash',
     label: 'Move to trash',
     icon: 'delete',
     menu: { path: 'file', order: 420 },
-    run: async () => {
+    run: async (ctx) => {
       const active = useDocumentsStore.getState().active
       if (!active) return
       const ok = await confirmDialog({
-        title: `Move "${title()}" to trash?`,
+        title: `Move "${documentTitle(ctx)}" to trash?`,
         body: 'You can restore it from the Documents trash.',
         confirmLabel: 'Move to trash'
       })
@@ -120,5 +131,5 @@ export const commands: Command[] = [
       await useDocumentsStore.getState().remove(active.id)
       useViewStore.getState().goDocuments()
     }
-  }
+  })
 ]

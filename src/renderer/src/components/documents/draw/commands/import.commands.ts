@@ -12,6 +12,7 @@ import { domImportDeps, importStructure, newDocStructure, openSvgAsDoc, prepareF
 import { copySvgCode, copyableIds, registerFilePasteImporter, registerSvgPasteImporter, type FilePasteImporter, type SvgPasteImporter } from '../editor/clipboard'
 import { loadPlaceCursor, placeIntoDoc, showImportReport } from '../editor/place'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import { documentCommand } from '../editor/session'
 
 /** What the commands need from the app; tests replace it (setImportHost). */
 export interface ImportHost {
@@ -240,13 +241,14 @@ registerFilePasteImporter(pasteFileImporter)
 export const menus: MenuSpec[] = [{ path: 'edit/Copy As', label: 'Copy As', icon: 'content_copy', order: 207 }]
 
 export const commands: Command[] = [
-  {
+  // Opens the SVG as a NEW drawing in place of this one: off in a snippet edit session (editor/session.ts).
+  documentCommand({
     id: 'file.openSvg',
     label: 'Open SVG…',
     icon: 'folder_open',
     menu: { path: 'file', order: 105 },
     run: (ctx) => openSvg(ctx)
-  },
+  }),
   {
     id: 'file.place',
     label: 'Place…',
