@@ -235,7 +235,14 @@ export default function LaunchSignInModal(): JSX.Element | null {
       // `needsName` goes false. A failure must NOT close it: the requirement
       // is not satisfied, and silently continuing would leave the person
       // believing it was saved.
-      if (!ok) setError('Your name could not be saved. Check your connection and try again.')
+      //
+      // The wording says a CONNECTION IS NEEDED rather than "try again",
+      // because the owner's ruling is that this blocks even offline — and
+      // "try again" invites a person with no network to keep pressing a
+      // button that cannot work yet. Nothing has to be restarted: the fields
+      // keep what was typed and Save stays enabled, so it goes through the
+      // moment the connection is back.
+      if (!ok) setError('Your name needs a connection to save. It will go through as soon as you are back online.')
     } finally {
       setBusy(false)
     }

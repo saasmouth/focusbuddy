@@ -162,7 +162,49 @@ describe('C: an account with no name is asked for one', () => {
       await Promise.resolve()
     })
     expect(q('[data-testid="add-your-name"]'), 'still there').not.toBeNull()
-    expect(q('[data-testid="add-name-error"]')?.textContent).toMatch(/could not be saved/i)
+    // The owner's ruling is that this blocks even offline, so the message says
+    // a connection is NEEDED rather than inviting a retry that cannot work.
+    const msg = q('[data-testid="add-name-error"]')?.textContent ?? ''
+    expect(msg).toMatch(/needs a connection/i)
+    expect(msg, 'and does not tell someone with no network to keep trying').not.toMatch(/try again/i)
+  })
+
+  it('when the connection comes back, Save just works — nothing to restart', async () => {
+    const mod = await mountModal({ account: nameless })
+    act(() => mod.useAccountStore.setState({ updateName: async () => false } as never))
+    setValue(q('[data-testid="add-name-first"]') as HTMLInputElement, 'Ada')
+    setValue(q('[data-testid="add-name-last"]') as HTMLInputElement, 'Lovelace')
+    await act(async () => {
+      ;(q('[data-testid="add-name-save"]') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+    expect(q('[data-testid="add-name-error"]')).not.toBeNull()
+
+    // What was typed is still there, and Save is still pressable — the two
+    // things that make "it goes through when you are back online" true.
+    expect((q('[data-testid="add-name-first"]') as HTMLInputElement).value).toBe('Ada')
+    expect((q('[data-testid="add-name-last"]') as HTMLInputElement).value).toBe('Lovelace')
+    expect((q('[data-testid="add-name-save"]') as HTMLButtonElement).disabled).toBe(false)
+
+    // The connection returns.
+    let sent: { firstName: string; lastName: string } | null = null
+    act(() =>
+      mod.useAccountStore.setState({
+        updateName: async (input: { firstName: string; lastName: string }) => {
+          sent = input
+          mod.useAccountStore.setState({
+            account: { ...nameless, firstName: input.firstName, lastName: input.lastName }
+          } as never)
+          return true
+        }
+      } as never)
+    )
+    await act(async () => {
+      ;(q('[data-testid="add-name-save"]') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+    expect(sent, 'the same name was sent, with nothing retyped').toEqual({ firstName: 'Ada', lastName: 'Lovelace' })
+    expect(q('[data-testid="add-your-name"]'), 'and the step lets go').toBeNull()
   })
 
   it('an account that HAS a name is not asked, and an account with one of two IS', async () => {
