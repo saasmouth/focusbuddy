@@ -17,7 +17,8 @@ import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 //
 // N3: doc/sheet widgets spawned through the real "Add object" palette (right
 // click > Add object > Files > Document/Spreadsheet > Create new) must open
-// at the new bumped catalog defaults (860x760 / 880x580).
+// at the new bumped catalog defaults (860x760 / 880x580), as capped to the
+// view since 364e801d (see the assertion for the rule).
 //
 // Driving method: hover the top pill's Tidy button and click a mode from its
 // icon strip (DEC-038) — exactly the code path a user drives now that Tidy
@@ -366,20 +367,48 @@ test('(f) Add object > Files > Document/Spreadsheet spawn at the new catalog def
 
   const sizes = await window.evaluate(() => {
     const w = window as unknown as {
-      __fbWidgets?: { getState: () => { widgets: Array<{ kind: string; width: number; height: number }> } }
+      __fbWidgets?: {
+        getState: () => { zoom: number; widgets: Array<{ kind: string; width: number; height: number }> }
+      }
     }
-    const all = w.__fbWidgets?.getState().widgets ?? []
+    const st = w.__fbWidgets?.getState()
+    const all = st?.widgets ?? []
+    const surface = document.querySelector('[data-canvas-surface="true"]') as HTMLElement | null
+    const r = surface?.getBoundingClientRect()
     return {
+      view: { width: r?.width ?? 0, height: r?.height ?? 0, zoom: st?.zoom ?? 0 },
       doc: all.filter((x) => x.kind === 'doc').map((x) => ({ width: x.width, height: x.height })),
       sheet: all.filter((x) => x.kind === 'sheet').map((x) => ({ width: x.width, height: x.height }))
     }
   })
 
+  // Since 364e801d ("Cap EVERY new widget to the view, in one place") a new
+  // widget opening at its untouched catalogue default is scaled, both axes by
+  // one factor, to fit within 3/4 of the visible canvas (measured in canvas
+  // units at the current zoom), never below 240x160 and never enlarged. So the
+  // catalogue default is the INPUT and the on-desk size is that default under
+  // the cap. Spelled out here rather than imported, so a change to either the
+  // defaults or the cap shows up as a failure instead of agreeing with itself.
+  expect(sizes.view.width, 'the canvas viewport was measured').toBeGreaterThan(0)
+  expect(sizes.view.height, 'the canvas viewport was measured').toBeGreaterThan(0)
+  expect(sizes.view.zoom, 'the canvas zoom was read').toBeGreaterThan(0)
+  const capped = (w: number, h: number): { width: number; height: number } => {
+    const scale = Math.min(
+      1,
+      ((sizes.view.width / sizes.view.zoom) * 0.75) / w,
+      ((sizes.view.height / sizes.view.zoom) * 0.75) / h
+    )
+    if (scale >= 1) return { width: w, height: h }
+    return { width: Math.max(240, Math.round(w * scale)), height: Math.max(160, Math.round(h * scale)) }
+  }
+
   expect(sizes.doc, 'exactly one doc widget was created').toHaveLength(1)
-  expect(sizes.doc[0].width, 'doc default width bumped to 860').toBe(860)
-  expect(sizes.doc[0].height, 'doc default height bumped to 760').toBe(760)
+  expect(sizes.doc[0], 'doc opens at its 860x760 catalogue default, under the view cap').toEqual(
+    capped(860, 760)
+  )
 
   expect(sizes.sheet, 'exactly one sheet widget was created').toHaveLength(1)
-  expect(sizes.sheet[0].width, 'sheet default width bumped to 880').toBe(880)
-  expect(sizes.sheet[0].height, 'sheet default height bumped to 580').toBe(580)
+  expect(sizes.sheet[0], 'sheet opens at its 880x580 catalogue default, under the view cap').toEqual(
+    capped(880, 580)
+  )
 })

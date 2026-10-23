@@ -241,8 +241,15 @@ test('assemble a desk: search, collect, related surfacing, synced + disconnected
   expect(disconnectedCheck.deskFound).toBe(true)
   expect(disconnectedCheck.copyCount).toBe(1)
   expect(disconnectedCheck.copyContentBefore).toBe('YAKWRENCH-gamma disconnect test')
-  expect(disconnectedCheck.sourceGroup).toBeNull() // stickyC was never synced, so it never got a group at all
-  expect(disconnectedCheck.copyGroup).toBeNull() // disconnected create must not stamp one either
+  // Every work widget is a file (0f182f40, docs/widget-files.md): a sticky is
+  // born an instance of its own file, so stickyC carries a `wf:` group from
+  // creation even though nobody synced it. A disconnected create is a COPY, and
+  // a copy of a file is a NEW file ("Duplicate (independent) → a NEW file"). So
+  // the contract is no longer "no group" but "not the source's group": the copy
+  // is a file of its own, and nothing ties it to stickyC's.
+  expect(disconnectedCheck.sourceGroup).toMatch(/^wf:./)
+  expect(disconnectedCheck.copyGroup).toMatch(/^wf:./)
+  expect(disconnectedCheck.copyGroup).not.toBe(disconnectedCheck.sourceGroup)
 
   // Painted on screen too, same regression guard as the synced-create step.
   await expect(window.locator(`[data-widget-id="${disconnectedCheck.copyId}"]`)).toBeVisible({ timeout: 5_000 })

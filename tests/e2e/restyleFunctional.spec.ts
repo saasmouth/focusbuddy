@@ -31,7 +31,7 @@
  *      click a task row and assert it opens the canvas.
  *   5. Desk gallery: reach it with no active desk, click the Room's card,
  *      assert its canvas opens and the empty desk shows the restyled
- *      glass-pill empty state ("Drag an object...").
+ *      glass-pill empty state ("Drag a work widget...").
  */
 
 import { test, expect } from '@playwright/test'
@@ -105,6 +105,18 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     await dialog2.getByRole('button', { name: 'Create Desk' }).click()
     await expect(dialog2).not.toBeVisible({ timeout: 5_000 })
 
+    // Creating a desk offers to set it up: "Let me set up your desk", a modal
+    // on a scrim. 994b9eb3 ("Build a desk with AI: on by default") turned it on
+    // for anyone entitled, and ai_task_setup is on every tier. It is part of
+    // the create flow now, so it is asserted (for THIS desk) and
+    // dismissed the way a user would, with Cancel. Left open, its scrim takes
+    // every click that follows — which is how this spec timed out on step 3.
+    const setup = window.getByRole('dialog', { name: 'Let me set up your desk' })
+    await expect(setup).toBeVisible({ timeout: 5_000 })
+    await expect(setup).toContainText('for: Restyle Task Alpha')
+    await setup.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(setup).toHaveCount(0, { timeout: 3_000 })
+
     await expect.poll(() => nodeIdByTitle('Restyle Task Alpha'), { timeout: 5_000 }).not.toBeNull()
     const taskId = (await nodeIdByTitle('Restyle Task Alpha'))!
     const parentOfTask = await window.evaluate(async (id: string) => {
@@ -148,7 +160,20 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
       w.__fbView?.getState().goAllTasks()
     })
     await window.waitForTimeout(500)
-    await expect(window.getByText('All desks', { exact: true })).toBeVisible({ timeout: 5_000 })
+    // The view's own title, as a heading. Since 62d9123e the side menu's row
+    // to this view reads "All desks" too, so bare text matches the menu row
+    // as well as the page; the heading is the page, and the view store must
+    // agree that this is where we are.
+    await expect(window.getByRole('heading', { name: 'All desks', exact: true })).toBeVisible({
+      timeout: 5_000
+    })
+    expect(
+      await window.evaluate(
+        () =>
+          (window as unknown as { __fbView: { getState: () => { view: { kind: string } } } }).__fbView.getState()
+            .view.kind
+      )
+    ).toBe('all-tasks')
 
     // Click through two filter chips.
     await window.getByRole('button', { name: /^Overdue/ }).click()
@@ -206,9 +231,15 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     // not a widget Canvas adds on first open, so there is nothing to clear
     // before the empty state can show.
     // Empty desk: the restyled glass-pill empty state should render.
-    await expect(window.getByText('Drag an object from the palette onto the desk.')).toBeVisible({
-      timeout: 5_000
-    })
+    // Its words follow where widgets come from now: the hover palette was
+    // removed for the side menu's Widgets section (bbd7e35e), and the lexicon
+    // says "work widget" (b8a9cf9f). Scoped to the canvas, exact, so it is the
+    // desk's own empty state and not any text that happens to match.
+    await expect(
+      window
+        .locator('[data-canvas-surface="true"]')
+        .getByText('Drag a work widget from Work widgets in the side menu onto the desk.', { exact: true })
+    ).toBeVisible({ timeout: 5_000 })
     console.log('Empty-desk glass-pill empty state renders: OK')
 
     // ------------------------------------------------------------------ //
