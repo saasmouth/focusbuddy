@@ -21,6 +21,9 @@ import { useLinksStore } from '../stores/links'
 import { useDeskViewStore } from '../stores/deskView'
 import Icon from './Icon'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
+import UnifiedWidgetMenu from './contextMenu/UnifiedWidgetMenu'
+import { columnCardContext } from '../lib/contextMenu/buildContext'
+import type { MenuContext } from '../lib/contextMenu/types'
 
 // The desk Columns view: the same desk objects laid out as vertical, independently
 // scrolling walls, the whole set scrolling horizontally. Columns are hand-made
@@ -64,6 +67,10 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
   // dragging has no native drag image).
   const [ghost, setGhost] = useState<{ x: number; y: number; name: string } | null>(null)
   const [moveMenu, setMoveMenu] = useState<{ x: number; y: number; widgetId: string; fromCol: string } | null>(null)
+  // Right-click on a card's header: the same work widget menu as its canvas
+  // header, with this view's own rows (open, find on the canvas, move to a
+  // column) as the object rows. The card body keeps its widget's own menus.
+  const [cardMenu, setCardMenu] = useState<MenuContext | null>(null)
   const setActive = useWidgetStore((s) => s.setActive)
   const setFocused = useWidgetStore((s) => s.setFocused)
   const updateWidget = useWidgetStore((s) => s.update)
@@ -438,7 +445,22 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
                       }`}
                       data-testid={`column-card-${w.id}`}
                     >
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[var(--edge-soft)] bg-[var(--surface-sunken)]">
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[var(--edge-soft)] bg-[var(--surface-sunken)]"
+                        data-testid={`column-card-header-${w.id}`}
+                        onContextMenu={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const moves = canDrag ? columns.filter((c) => c.id !== col.id) : []
+                          setCardMenu(
+                            columnCardContext(w, { clientX: e.clientX, clientY: e.clientY }, {
+                              onOpen: () => focusObject(w),
+                              onReveal: () => openOnCanvas(w),
+                              moveTo: moves.map((c) => ({ title: c.title, onMove: () => dropOn(c.id, w.id) }))
+                            })
+                          )
+                        }}
+                      >
                         {canDrag && (
                           <span
                             onMouseDown={(e) => beginCardDrag(w, e)}
@@ -518,6 +540,7 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
         </div>
       )}
 
+      {cardMenu && <UnifiedWidgetMenu menuContext={cardMenu} onClose={() => setCardMenu(null)} />}
       {moveMenu && (
         <CanvasContextMenu
           x={moveMenu.x}

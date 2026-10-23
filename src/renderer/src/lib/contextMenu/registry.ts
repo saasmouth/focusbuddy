@@ -2,8 +2,8 @@
 //
 // Widgets register a provider against a (kind, granularity) pair, or a
 // (kind, '*') wildcard that fires for every object inside that kind. The
-// resolver asks the registry for the Context-band rows and the suppress flags
-// for whatever was clicked. Marketplace plugins push into a separate store the
+// resolver asks the registry for the kind's rows (each in its §9.3 group, see
+// types.ts) and the suppress flags for whatever was clicked. Marketplace plugins push into a separate store the
 // resolver also reads, constrained by the extensibility framework.
 
 import type { WidgetKind } from '@shared/types'
@@ -42,7 +42,7 @@ export function clearWidgetContextActions(): void {
   providers.clear()
 }
 
-// Collect the widget's Context-band contribution for this click: the wildcard
+// Collect the widget's contribution for this click: the wildcard
 // provider plus any granularity-specific provider, merged. Granularity rows
 // sort ahead of wildcard rows within the same priority because they are the
 // more specific answer to what was clicked.
@@ -68,8 +68,8 @@ export function collectWidgetContribution(
 // ── Marketplace plugin store (extensibility framework, deliverable 9) ─────────
 //
 // Plugins never register into the per-widget registry above and never reach the
-// Context band. They contribute into a single dedicated bucket the resolver
-// places under Advanced, so the trust boundary is one obvious place and the
+// object group. They contribute into a single dedicated bucket the resolver
+// places under More actions ▸ Installed tools, so the trust boundary is one obvious place and the
 // first-party two-level submenu budget stays free. A throwing plugin is
 // isolated so it can never break the menu.
 

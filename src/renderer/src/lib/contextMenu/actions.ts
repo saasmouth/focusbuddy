@@ -7,7 +7,11 @@
 
 import type { PinZone, WidgetKind } from '@shared/types'
 import { useWidgetStore } from '../../stores/widgets'
-import { removeWorkWidget, removeWorkWidgets } from '../widgetRemoval'
+import { confirmTrashWidgetFile, removeWorkWidget, removeWorkWidgets } from '../widgetRemoval'
+import { isWidgetFilePaneId, widgetFileIdFromGroup } from '@shared/widgetFiles'
+import { mentionFromWidget, isMentionableWidget } from '../assistantMentions'
+import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
+import { useAssistantChrome } from '../../stores/assistantChrome'
 import { contentForIndependentCopy } from '../copyWidgetContent'
 import { recordActionWithToast } from '../../stores/actionHistory'
 import { useAiAssistPreview } from '../../stores/aiAssistPreview'
@@ -201,16 +205,121 @@ export async function archiveWidget(ctx: MenuContext): Promise<void> {
   if (w) await useWidgetStore.getState().archive(w.id)
 }
 
-export async function deleteWidget(ctx: MenuContext): Promise<void> {
-  // Remove from this desk, or delete the work widget everywhere — the same
-  // question the frame's × asks (docs/widget-files.md, "Remove or delete").
-  if (ctx.object.type === 'multi') {
-    const done = await removeWorkWidgets(ctx.object.widgets)
-    if (done) useWidgetStore.getState().clearSelection()
-    return
+// The removal rows (E-2: Archive · Remove from this desk · Move to Trash, three
+// explicit rows instead of a Remove ▸ chooser). Each one runs exactly what the
+// chooser's answer used to run (lib/widgetRemoval.ts), so only the question
+// moved: from a dialog into the menu.
+
+/** The widget file this placement is an instance of, by the store's link; null for a desk-only kind. */
+export function linkedFileId(w: { id: string; syncGroupId?: string | null }): string | null {
+  if (isWidgetFilePaneId(w.id)) return widgetFileIdFromGroup(w.id)
+  return widgetFileIdFromGroup(w.syncGroupId ?? null)
+}
+
+/** "Remove from this desk": this desk's instance only; the file stays in Files and on any other desk. Undoable. */
+export async function removeFromThisDesk(ctx: MenuContext): Promise<void> {
+  const w = sourceWidget(ctx)
+  if (w) await useWidgetStore.getState().remove(w.id, { scope: 'desk' })
+}
+
+/**
+ * "Move to Trash": the file, with every instance on every desk. Confirmed when
+ * the file is placed anywhere (it always is: here), because it takes those
+ * placements with it. A link the store holds but this device cannot act on
+ * (the file is not here, or already trashed) falls back to the frame's ×, which
+ * asks the right question for that case.
+ */
+export async function moveWidgetToTrash(ctx: MenuContext): Promise<void> {
+  const w = sourceWidget(ctx)
+  if (!w) return
+  const fileId = linkedFileId(w)
+  let live = false
+  if (fileId) {
+    try {
+      const f = await window.api.widgetFiles.get(fileId)
+      live = !!f && !f.trashed
+    } catch {
+      live = false
+    }
   }
+  if (fileId && live) await confirmTrashWidgetFile(fileId)
+  else await removeWorkWidget(w)
+}
+
+/** "Delete" on a desk-only kind (no file anywhere): the frame's own confirm, then a true delete. */
+export async function deleteDeskOnlyWidget(ctx: MenuContext): Promise<void> {
   const w = sourceWidget(ctx)
   if (w) await removeWorkWidget(w)
+}
+
+/** A multi-selection: the one remove-or-delete question for the lot (the Delete key's path too). */
+export async function removeOrDeleteMany(ctx: MenuContext): Promise<void> {
+  if (ctx.object.type !== 'multi') return
+  const done = await removeWorkWidgets(ctx.object.widgets)
+  if (done) useWidgetStore.getState().clearSelection()
+}
+
+// ── Ask PlexiiAssist ─────────────────────────────────────────────────────────
+
+/** Whether "Ask PlexiiAssist" has something real to attach for this context. */
+export function canAskAssist(ctx: MenuContext): boolean {
+  const w = sourceWidget(ctx)
+  if (!w) return false
+  return isMentionableWidget(w.kind) || !!ctx.selection?.text?.trim()
+}
+
+/** The composer text for a passage asked about: quoted, never sent by itself. Pure; exported for tests. */
+export function askAboutText(text: string): string {
+  const quoted = text
+    .trim()
+    .slice(0, 4000)
+    .split('\n')
+    .map((l) => `> ${l}`)
+    .join('\n')
+  return `About this passage:\n\n${quoted}\n\n`
+}
+
+/**
+ * Open PlexiiAssist with this widget attached (the same mention the header's
+ * "ask the assistant instead" uses), and, on a selection, the passage staged in
+ * the composer for the person to finish. Nothing is sent.
+ */
+export function askAssistAbout(ctx: MenuContext): void {
+  const w = sourceWidget(ctx)
+  if (!w) return
+  const chat = useChatStore.getState()
+  const key = chat.activeConversationId ?? NEW_CHAT_KEY
+  const ref = mentionFromWidget(w, key)
+  if (ref) chat.addMentionRef(ref)
+  const sel = ctx.selection?.text?.trim()
+  const chrome = useAssistantChrome.getState()
+  chrome.setTab('chat')
+  chrome.openPanel()
+  if (sel) {
+    // The same staging the web page menu's "Ask PlexiiAssist about this" does
+    // (components/browser/WebMenuCommandHost.tsx): the draft for an editor that
+    // mounts, the event for one already on screen.
+    const text = askAboutText(sel)
+    chat.setThreadDraft(key, {
+      type: 'doc',
+      content: text
+        .split('\n')
+        .map((line) => (line ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' }))
+    })
+    const stage = (): void => void window.dispatchEvent(new CustomEvent('fb:composer-stage', { detail: text }))
+    stage()
+    setTimeout(stage, 400)
+  }
+}
+
+// ── Platform (shortcut hints) ────────────────────────────────────────────────
+
+/** The platform shortcut hints are formatted for (src/shared/menus/shortcuts.ts). */
+export function menuPlatform(): string {
+  const p = (globalThis as { window?: { api?: { platform?: string } } }).window?.api?.platform
+  if (p) return p
+  const nav = (globalThis as { navigator?: { platform?: string } }).navigator?.platform ?? ''
+  return /mac/i.test(nav) ? 'darwin' : 'other'
 }
 
 // ── AI Assist ────────────────────────────────────────────────────────────────

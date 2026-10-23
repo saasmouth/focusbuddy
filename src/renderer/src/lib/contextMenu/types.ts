@@ -1,31 +1,90 @@
-// Unified context-menu type model.
+// Unified context-menu type model (SPEC §9.3, the right-click contract).
 //
-// One vocabulary for every right-click in PlexiDesk. A surface computes a
+// One vocabulary for every right-click on a work widget. A surface computes a
 // MenuContext describing what was clicked, providers emit MenuContribution
-// rows against the eight canonical sections, and resolveMenu folds those into
-// the CtxMenuItem[] that the existing CanvasContextMenu renderer draws. The
-// renderer is never rewritten; this is purely the resolution layer that sits
-// in front of it (see docs/context-menu-system-spec.md sections 1 and 2).
+// rows, and resolveMenu folds them into the CtxMenuItem[] that the kit
+// (components/CanvasContextMenu) draws. Every widget header menu, every widget
+// body menu, the multi-selection, the section handle, the focus dock, the
+// columns view and the desk jump list come out of the one resolver, so the
+// groups, labels and ceiling cannot drift between them.
+//
+// ── The groups (SPEC §9.3), in this order, one separator between non-empty ones
+//
+//   'object'      Add to Focus… FIRST (E-1), then Open / Rename / kind rows / Share…
+//   'clipboard'   Copy · Paste · Insert snippet… · Duplicate · Duplicate, keep synced
+//   'arrange'     Bring to front (layered objects)
+//   'plexii'      Save selection as snippet… · Ask PlexiiAssist · AI assist ▸
+//   'more'        More actions ▸: everything past the eight-row ceiling (E-6),
+//                 plus rows that always live there (Create & link ▸, Pin ▸, …)
+//   'destructive' last, behind its own separator, every row `danger`:
+//                 Archive · Remove from this desk · Move to Trash (E-2), or Delete
+//
+// ── For a widget BODY that wants rows of its own (the provider API) ──────────
+//
+// A body never builds its own menu. It contributes MenuContribution rows and the
+// resolver places them, counts them against the ceiling and folds the overflow
+// into More actions. Two ways in, depending on whether the row needs component
+// state:
+//
+//   1. By kind, for rows that only need the widget (registry.ts):
+//        registerWidgetContextActions('table', 'cell', (ctx) => ({
+//          context: [{ id: 'table/add-row', group: 'object', priority: 0,
+//                      label: 'Add row', icon: 'add', onSelect: … }],
+//          suppress: { 'ai-assist': true }
+//        }))
+//      The optional granularity ('cell', 'node', …) is matched against the
+//      `granularity` a body passes when it opens the menu.
+//
+//   2. Per instance, for rows that close over the body's own state (a dialog
+//      to open, a mode to toggle): pass `menuContributions` to WidgetFrame (the
+//      header AND every body right-click then carry them), or `contributions`
+//      to UnifiedConnectedMenu for one body menu. Same MenuContribution shape.
+//
+//   Choosing the group: 'object' for what the body is about (Configure…, Add
+//   row, Reload); 'clipboard' for its own Cut / Copy / Paste variants; 'arrange'
+//   for layering; 'more' for anything rarely needed (it never takes a top-level
+//   row); `danger: true` sends a row to the destructive group (Delete row,
+//   Reset deck…) whatever `group` says. `priority` orders rows inside a group
+//   (lower first). Labels for shared actions come from MENU
+//   (src/shared/menus/lexicon.ts); "…" (U+2026) when the row opens a dialog.
+//   A row that applies but cannot run right now sets `enabled` false plus
+//   `disabledReason` (rendered as the kit's `hint`); a row that cannot apply is
+//   left out (`predicate`).
+//
+//   `headerExtras` (raw CtxMenuItem[], the old headerMenuExtras) still work:
+//   they join the object group, count against the ceiling, and fold like any
+//   other object row. Prefer contributions for anything new.
+//
+// ── Right-click precedence inside a widget (one rule, applied in WidgetFrame) ─
+// See bodyMenuTarget() in ./bodyTarget.ts: a body's own content menu first,
+// then the native text menu for editable fields and selected text, then the
+// native web menu inside a <webview>, and otherwise this widget menu.
 
 import type { Widget, WidgetKind } from '@shared/types'
+import type { CtxMenuItem } from '../../components/CanvasContextMenu'
 
-// The eight canonical sections, in fixed order. The numeric value doubles as
-// the sort key so identical ordering is a property of the data, not something
-// each surface has to reproduce. Destructive is always last.
+/** The §9.3 groups, in the order they render. */
+export type MenuGroup = 'object' | 'clipboard' | 'arrange' | 'plexii' | 'more' | 'destructive'
+
+export const MENU_GROUP_ORDER: readonly MenuGroup[] = ['object', 'clipboard', 'arrange', 'plexii', 'more', 'destructive']
+
+// Legacy section ids. Kept so a provider written against the eight-band model
+// still compiles: a contribution without `group` is placed by its section
+// (Context → object, Destructive → destructive, the rest → more).
 export enum MenuSection {
-  Context = 0, // 1. Context-specific actions for the exact object clicked
-  AiAssist = 1, // 2. AI Assist
-  Create = 2, // 3. Create + connect a new widget
-  Convert = 3, // 4. Convert / reinterpret as another kind
-  Organise = 4, // 5. Section membership, layering, grouping
-  Share = 5, // 6. Share, copy out, export
-  Advanced = 6, // 7. Power-user / rarely needed
-  Destructive = 7 // 8. Archive, delete, remove, unlink (ALWAYS LAST)
+  Context = 0,
+  AiAssist = 1,
+  Create = 2,
+  Convert = 3,
+  Organise = 4,
+  Share = 5,
+  Advanced = 6,
+  Destructive = 7
 }
 
 // What the user right-clicked. The object identifies the target; the optional
 // sub narrows it to a granularity inside a widget (a table cell, a mind-map
-// node); selection carries any highlighted text or media so AI Assist and
+// node); selection carries any highlighted text or media so AI assist and
 // Create can both inherit it.
 export type ObjectKind =
   | { type: 'empty-canvas' }
@@ -40,34 +99,43 @@ export interface MenuSelection {
   sourceKind: WidgetKind
 }
 
-// Widget-frame management actions, supplied by WidgetFrame so the unified menu
-// can offer them without reimplementing (and risking) their logic. Each is
-// present only when it applies to the widget that was clicked.
+/**
+ * Which removal rows a placement offers (E-2). 'full': Archive plus the
+ * explicit Remove from this desk / Move to Trash (or Delete for a desk-only
+ * kind). 'archive-only': a section, whose children must be ejected first.
+ * 'none': a host owns removal (a work widget embedded in a document).
+ */
+export type RemovalMode = 'full' | 'archive-only' | 'none'
+
+// Management actions supplied by whoever hosts the widget (WidgetFrame, the
+// section handle, the focus dock), so the unified menu can offer them without
+// reimplementing their logic. Each is present only when it applies.
 export interface FrameCallbacks {
-  onMakeTask: () => void
-  onShare: () => void
-  onDuplicateSynced: () => void
-  onDuplicateIndependent: () => void
-  onDuplicateToFolder?: () => void
+  onMakeTask?: () => void
+  onShare?: () => void
+  onDuplicateSynced?: () => void
+  onDuplicateIndependent?: () => void
   onEjectFromSection?: () => void
   onUnlinkSynced?: () => void
+  /** Start renaming the object in place (the header title, a list row). */
+  onRename?: () => void
   // Widget files (docs/widget-files.md): promote a desk widget to a file that
   // lives in Files and can sit on other desks, or open the file this widget is
   // an instance of.
   onSaveAsFile?: () => void
   onOpenFile?: () => void
-  // Saved snippets: keep this widget's shape and content as a reusable one, so
-  // a widget you set up often can be placed on any desk again. Distinct from
-  // onSaveAsFile, which makes ONE widget appear in several places with its
-  // edits flowing both ways. A snippet is a template; a file is one object.
+  // Saved snippets: keep this widget's shape and content as a reusable one.
+  // Distinct from onSaveAsFile (one object in several places): a snippet is a
+  // template.
   onSaveAsSnippet?: () => void
   // The other direction: put a saved snippet INTO this widget, converted to
-  // what it holds (a sheet block into a page lands as a table). Present only
-  // on the work widgets that take inserted content.
+  // what it holds. Present only on the work widgets that take inserted content.
   onInsertSnippet?: () => void
   // Paste the clipboard into this widget through the same conversion as an
   // insert. Present only on widgets that take pasted content.
   onPaste?: () => void
+  /** Which removal rows apply here; 'full' when absent. */
+  removal?: RemovalMode
 }
 
 export interface MenuContext {
@@ -79,30 +147,44 @@ export interface MenuContext {
   // Canvas-space and screen-space coordinates of the click.
   canvasPoint: { x: number; y: number }
   clientPoint: { x: number; y: number }
-  // Widget-frame management actions, when this menu is for a single widget that
-  // sits in a frame. Lets the unified menu carry make-task, share, duplicate,
-  // eject, and unlink without porting their logic out of WidgetFrame.
   frame?: FrameCallbacks
-  // Raw kind-specific rows a widget passes through (the old headerMenuExtras),
-  // prepended to the Context band.
-  headerExtras?: import('../../components/CanvasContextMenu').CtxMenuItem[]
+  // Raw kind-specific rows a widget passes through (the old headerMenuExtras).
+  // They join the object group and count against the ceiling.
+  headerExtras?: CtxMenuItem[]
+  /** Per-instance rows from a body or host (see the provider API above). */
+  contributions?: MenuContribution[]
+  /**
+   * Put Rename at the very top (E-11, the desk jump list, where right-click
+   * used to BE rename). Everywhere else Add to Focus… leads (E-1).
+   */
+  renameFirst?: boolean
 }
 
-// The unit every provider emits. It mirrors the field vocabulary of
-// CtxMenuItem so the final mapping is near-identity, and adds the routing
-// metadata the resolver needs: which section it joins, its group and priority
-// within that section, a predicate that hides it when false, and an enabled
-// gate that shows it disabled-with-reason when the predicate passes but enabled
-// is false.
+// The unit every provider emits. It mirrors CtxMenuItem's fields so the final
+// mapping is near-identity, and adds the routing the resolver needs.
 export interface MenuContribution {
   id: string // stable, namespaced: "core/duplicate", "<pluginId>/<action>"
-  section: MenuSection
-  group?: string
-  priority: number // lower sorts first; most-common = lowest number
+  /** Legacy placement; `group` wins when both are set. */
+  section?: MenuSection
+  /** The §9.3 group this row joins. `danger` overrides it with 'destructive'. */
+  group?: MenuGroup
+  priority: number // lower sorts first inside its group
   label: string
   icon?: string
   shortcut?: string
-  danger?: boolean // forces the Destructive band; cannot live elsewhere
+  /** Destructive: always the last group, drawn in the danger colour. */
+  danger?: boolean
+  /** A toggle or a choice among siblings: the kit draws a check, never text. */
+  checked?: boolean
+  testid?: string
+  /** Inside a submenu: draw a separator above this row (its own run of rows). */
+  separatorBefore?: boolean
+  /**
+   * How readily the row leaves the top level when the menu is over its
+   * ceiling: higher folds into More actions first. Absent: the resolver's
+   * default for the row's group (resolve.ts FOLD).
+   */
+  fold?: number
   predicate?: (ctx: MenuContext) => boolean // false HIDES the row
   enabled?: (ctx: MenuContext) => boolean // passes predicate + false => shown disabled
   disabledReason?: (ctx: MenuContext) => string | undefined
@@ -110,21 +192,33 @@ export interface MenuContribution {
   children?: MenuContribution[]
 }
 
-// A widget provider contributes Context-band rows for a (kind, granularity)
-// pair, and may suppress universal sections it does not want for that object.
+// The universal rows a provider may switch off for its object. Each key names
+// one row (or one family) the resolver would otherwise add.
 export type UniversalKey =
+  | 'attention'
+  | 'rename'
+  | 'share'
+  | 'copy'
+  | 'paste'
+  | 'duplicate'
+  | 'arrange'
+  | 'snippet'
+  | 'ask-assist'
   | 'ai-assist'
   | 'create'
   | 'convert'
+  | 'pin'
+  | 'recolor'
+  | 'flag'
   | 'organise'
-  | 'share'
   | 'advanced'
   | 'destructive'
 
 export interface WidgetContribution {
-  // Context-band rows. These are the only rows allowed into section 1.
+  // The provider's rows. Historically "context" (they all landed in the
+  // Context band); each may now name its §9.3 group.
   context: MenuContribution[]
-  // Set a key to false to omit that universal section for this object.
+  // Set a key to true to omit that universal row for this object.
   suppress?: Partial<Record<UniversalKey, boolean>>
 }
 

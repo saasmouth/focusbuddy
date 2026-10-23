@@ -1,11 +1,23 @@
-// Universal-section providers. AI Assist lives in aiAssist.ts; this file builds
-// Create, Convert, Organise, Share, Advanced, and Destructive. Each returns the
-// contributions for its section given the context, or an empty array when the
-// section does not apply, so the resolver can collapse empty sections to
-// nothing rather than show a greyed parent.
+// The universal rows: what every work widget menu offers whatever its kind,
+// each placed in its §9.3 group (types.ts). AI assist lives in aiAssist.ts.
+// Every builder returns the rows that apply to the context, or none, so an
+// action that cannot happen here is absent rather than greyed (SPEC §9.5).
+//
+// Labels for shared actions come from MENU (src/shared/menus/lexicon.ts); the
+// few MENU does not carry yet are in ./labels.ts. Shortcut hints are shown only
+// for keys that are actually bound, formatted by shortcutLabel():
+//   ⌘V  paste into the focused widget (useWidgetSnippets onTextareaPaste /
+//       onBodyPaste: the same conversion as this row)
+//   ⌘C  only on a text selection, which the platform copies natively
+// Nothing binds ⌘D, ⇧⌘] or ⌫ to these rows' actions on a widget (Canvas's ⌘]
+// and ⌘[ zoom; ⌫ asks remove-or-delete for the whole selection), so those rows
+// carry no hint.
 
 import type { WidgetKind } from '@shared/types'
-import { MenuSection, type MenuContribution, type MenuContext } from './types'
+import { MENU, removeFromLabel } from '@shared/menus/lexicon'
+import { isWidgetFilePaneId } from '@shared/widgetFiles'
+import { shortcutLabel } from '@shared/menus/shortcuts'
+import type { MenuContribution, MenuContext, UniversalKey } from './types'
 import { CREATE_AND_CONNECT_MENU } from '../createConnectedTool'
 import { presetForWidget, presetForMulti, presetForSelection, browserMarkUrl } from '../attentionPresets'
 import {
@@ -17,7 +29,6 @@ import {
   copyText,
   duplicateWidget,
   archiveWidget,
-  deleteWidget,
   flagAsDecision,
   automateWithAgent,
   sourceWidget,
@@ -25,19 +36,28 @@ import {
   pinWidgetToZone,
   unpinWidget,
   recolorWidget,
+  linkedFileId,
+  removeFromThisDesk,
+  moveWidgetToTrash,
+  deleteDeskOnlyWidget,
+  removeOrDeleteMany,
+  canAskAssist,
+  askAssistAbout,
+  menuPlatform,
   PIN_ZONES,
   RECOLOR_SWATCHES
 } from './actions'
+import {
+  COPY_ALL_TEXT_LABEL,
+  CREATE_AND_LINK_LABEL,
+  addManyToFocusLabel,
+  removeOrDeleteManyLabel
+} from './labels'
 
-// Kinds the Convert / Turn-into menu offers. Only kinds that actually exist as
-// widgets, gated per the critic: no Calendar event, no Desk, until those
-// receiving surfaces exist.
-// DEC-041 — only kinds that can actually RECEIVE the source's text.
-//
-// Table, Mind map and Diagram used to be offered here and never once carried
-// anything across: the copy only happens between text kinds, so "turn this
-// into a Mind map" produced an EMPTY mind map every time, from every source.
-// A menu entry that never does what it says is worse than a missing one.
+type Suppress = Partial<Record<UniversalKey, boolean>>
+
+// Kinds the "Copy into" rows offer. DEC-041: only kinds that can actually
+// RECEIVE the source's text (Table, Mind map and Diagram never carried any).
 const CONVERT_TARGETS: Array<{ kind: WidgetKind; label: string; icon: string }> = [
   { kind: 'sticky', label: 'Sticky', icon: 'sticky_note_2' },
   { kind: 'note', label: 'Note', icon: 'description' },
@@ -46,13 +66,12 @@ const CONVERT_TARGETS: Array<{ kind: WidgetKind; label: string; icon: string }> 
 ]
 
 const seedText = (ctx: MenuContext): string => workingText(ctx).text
+const hint = (keys: Parameters<typeof shortcutLabel>[0]): string => shortcutLabel(keys, menuPlatform())
 
-// ── Attention (CR-09 D-A) ───────────────────────────────────────────────────
-// The FIRST row on every object menu, by operator ruling: marking a thing is
-// the most common reason to open this menu at all. Deterministic — a preset
-// table names it and picks its class, the standard confirm card (DEC-028)
-// takes it from there, and the filed item POINTS at the object
-// (sourceType/sourceRef) rather than copying it.
+// ── Attention (CR-09 D-A, E-1) ──────────────────────────────────────────────
+// The FIRST row on every object menu, by operator ruling. Deterministic: a
+// preset names it and picks its class, the standard confirm card (DEC-028)
+// takes it from there, and the filed item POINTS at the object.
 export function buildAttention(ctx: MenuContext): MenuContribution | null {
   const obj = ctx.object
   if (obj.type === 'empty-canvas') return null
@@ -88,9 +107,9 @@ export function buildAttention(ctx: MenuContext): MenuContribution | null {
     const n = obj.widgets.length
     return {
       id: 'core/attention',
-      section: MenuSection.Context,
-      priority: -1000, // above every other Context row
-      label: `Add ${n} to Focus…`,
+      group: 'object',
+      priority: -1000,
+      label: addManyToFocusLabel(n),
       icon: 'notifications',
       onSelect: () => {
         const p = presetForMulti(n)
@@ -102,15 +121,14 @@ export function buildAttention(ctx: MenuContext): MenuContribution | null {
   const w = obj.widget
   return {
     id: 'core/attention',
-    section: MenuSection.Context,
+    group: 'object',
     priority: -1000,
-    label: 'Add to Focus…',
+    label: MENU.addToFocus.label,
     icon: 'notifications',
-    shortcut: undefined,
     onSelect: () => {
       // DEC-044: a HIGHLIGHT is the capture — its first line titles the item
-      // and the whole selection rides the notes, so nothing highlighted is
-      // dropped. No selection = the widget-level preset, as before.
+      // and the whole selection rides the notes. No selection = the
+      // widget-level preset.
       const sel = ctx.selection?.text?.trim()
       const url = browserMarkUrl(w.kind, w.content)
       if (sel) {
@@ -124,349 +142,392 @@ export function buildAttention(ctx: MenuContext): MenuContribution | null {
   }
 }
 
+// ── Group 1, object: Rename, Open file, Share… ──────────────────────────────
+export function buildObject(ctx: MenuContext, s: Suppress): MenuContribution[] {
+  if (ctx.object.type !== 'widget') return []
+  const out: MenuContribution[] = []
+  const f = ctx.frame
+  if (f?.onRename && !s.rename) {
+    out.push({
+      id: 'core/rename',
+      group: 'object',
+      // E-11: first of all on the jump list; elsewhere after Add to Focus… and the kind's rows.
+      priority: ctx.renameFirst ? -2000 : 40,
+      fold: ctx.renameFirst ? -1 : undefined,
+      label: MENU.rename.label,
+      icon: 'edit',
+      onSelect: (c) => c.frame?.onRename?.()
+    })
+  }
+  if (f?.onOpenFile) {
+    out.push({
+      id: 'core/open-file',
+      group: 'object',
+      priority: 30,
+      label: 'Open file',
+      icon: 'open_in_full',
+      onSelect: (c) => c.frame?.onOpenFile?.()
+    })
+  }
+  if (f?.onShare && !s.share) {
+    out.push({
+      id: 'core/share',
+      group: 'object',
+      priority: 50,
+      label: MENU.share.label,
+      icon: 'share',
+      onSelect: (c) => c.frame?.onShare?.()
+    })
+  }
+  return out
+}
 
-export function buildCreate(ctx: MenuContext): MenuContribution[] {
-  const seed = seedText(ctx)
-  // The create + connect menu is a deliberately CURATED quick-create set kept two
-  // levels deep (Create -> targets); the resolver reserves the third level for AI
-  // Assist alone. The full consolidated core/Advanced catalog lives in the palette
-  // and the bare-canvas "Add object" menu. Capability gating happens in
-  // createWidget (actions.ts), so a Pro-locked kind here also prompts to upgrade.
+// ── Group 2, clipboard ──────────────────────────────────────────────────────
+export function buildClipboard(ctx: MenuContext, s: Suppress): MenuContribution[] {
+  const out: MenuContribution[] = []
+  const f = ctx.frame
+  const multi = ctx.object.type === 'multi'
+  if (!s.copy) {
+    const multiHasText = ctx.object.type === 'multi' && ctx.object.widgets.some((w) => w.content.trim())
+    const hasSelection = !!ctx.selection?.text?.trim()
+    if (multiHasText || workingText(ctx).text.trim()) {
+      out.push({
+        id: 'core/copy',
+        group: 'clipboard',
+        priority: 10,
+        // "Copy" is the selection (the platform's own ⌘C); copying the whole
+        // object's text says so (AUDIT §4.2).
+        label: hasSelection && !multi ? MENU.copy.label : COPY_ALL_TEXT_LABEL,
+        icon: 'content_copy',
+        shortcut: hasSelection && !multi ? hint(MENU.copy.keys) : undefined,
+        onSelect: (c) => copyText(c)
+      })
+    }
+  }
+  if (multi) return out
+  if (f?.onPaste && !s.paste) {
+    out.push({
+      id: 'core/paste',
+      group: 'clipboard',
+      priority: 20,
+      label: MENU.paste.label,
+      icon: 'content_paste',
+      shortcut: hint(MENU.paste.keys),
+      onSelect: (c) => c.frame?.onPaste?.()
+    })
+  }
+  if (f?.onInsertSnippet && !s.snippet) {
+    out.push({
+      id: 'core/insert-snippet',
+      group: 'clipboard',
+      priority: 25,
+      label: MENU.insertSnippet.label,
+      icon: 'bookmarks',
+      onSelect: (c) => c.frame?.onInsertSnippet?.()
+    })
+  }
+  if (!s.duplicate && ctx.object.type === 'widget') {
+    // Duplicate = an independent copy (§9.4). Without a host, the generic one.
+    out.push({
+      id: 'core/duplicate',
+      group: 'clipboard',
+      priority: 30,
+      label: MENU.duplicate.label,
+      icon: 'control_point_duplicate',
+      onSelect: (c) => (c.frame?.onDuplicateIndependent ? c.frame.onDuplicateIndependent() : void duplicateWidget(c))
+    })
+    if (f?.onDuplicateSynced) {
+      out.push({
+        id: 'core/duplicate-synced',
+        group: 'clipboard',
+        priority: 31,
+        label: MENU.duplicateKeepSynced.label,
+        icon: 'link',
+        onSelect: (c) => c.frame?.onDuplicateSynced?.()
+      })
+    }
+  }
+  return out
+}
+
+// ── Group 3, arrange ────────────────────────────────────────────────────────
+export function buildArrange(ctx: MenuContext, s: Suppress): MenuContribution[] {
+  if (s.arrange || s.organise) return []
+  if (ctx.object.type === 'empty-canvas') return []
   return [
     {
-      id: 'core/create',
-      section: MenuSection.Create,
+      id: 'core/front',
+      group: 'arrange',
       priority: 0,
-      label: 'Create & link',
-      icon: 'add',
-      children: CREATE_AND_CONNECT_MENU.map<MenuContribution>((entry) => ({
+      label: ctx.object.type === 'multi' ? 'Bring all to front' : MENU.bringToFront.label,
+      icon: 'flip_to_front',
+      onSelect: (c) => bringToFront(c)
+    }
+  ]
+}
+
+// ── Group 4, Plexii (AI assist ▸ is added by the resolver from aiAssist.ts) ─
+export function buildPlexii(ctx: MenuContext, s: Suppress): MenuContribution[] {
+  if (ctx.object.type !== 'widget') return []
+  const out: MenuContribution[] = []
+  if (ctx.frame?.onSaveAsSnippet && !s.snippet) {
+    out.push({
+      id: 'core/save-snippet',
+      group: 'plexii',
+      priority: 10,
+      label: MENU.saveAsSnippet.label,
+      icon: 'bookmark_add',
+      onSelect: (c) => c.frame?.onSaveAsSnippet?.()
+    })
+  }
+  if (!s['ask-assist'] && canAskAssist(ctx)) {
+    out.push({
+      id: 'core/ask-assist',
+      group: 'plexii',
+      priority: 20,
+      label: ctx.selection?.text?.trim() ? MENU.askAssistAboutThis.label : MENU.askAssist.label,
+      icon: 'forum',
+      onSelect: (c) => askAssistAbout(c)
+    })
+  }
+  return out
+}
+
+// ── Group 5, More actions ▸ (rows that never take a top-level place) ─────────
+export function buildCreate(ctx: MenuContext, s: Suppress): MenuContribution | null {
+  if (ctx.object.type !== 'widget') return null
+  const seed = seedText(ctx)
+  const children: MenuContribution[] = []
+  if (!s.create) {
+    for (const entry of CREATE_AND_CONNECT_MENU) {
+      children.push({
         id: `core/create/${entry.kind}`,
-        section: MenuSection.Create,
         priority: 0,
         label: entry.label,
         icon: entry.icon,
         onSelect: (c) => createWidget(c, entry.kind, entry.seedContent ?? seed)
-      }))
+      })
     }
-  ]
-}
-
-// Convert only makes sense from an existing object with content to reinterpret.
-export function buildConvert(ctx: MenuContext): MenuContribution[] {
-  if (ctx.object.type === 'empty-canvas') return []
-  // DEC-041: no text, no copy. Without this the submenu appeared on a browser
-  // or a table and silently degraded into "spawn an empty widget and wire it"
-  // — which is exactly what Create already does, under an honest name.
-  if (!hasWorkableText(ctx)) return []
-  const src = sourceWidget(ctx)
-  return [
-    {
-      id: 'core/convert',
-      section: MenuSection.Convert,
-      priority: 0,
-      label: 'Copy into',
-      icon: 'sync_alt',
-      children: CONVERT_TARGETS.filter((t) => t.kind !== src?.kind).map<MenuContribution>((t) => ({
+  }
+  // DEC-041: "Copy into" only when there is text to copy; the source is never
+  // replaced — a NEW widget appears beside it carrying a copy of the text.
+  if (!s.convert && hasWorkableText(ctx)) {
+    const src = sourceWidget(ctx)
+    CONVERT_TARGETS.filter((t) => t.kind !== src?.kind).forEach((t, i) => {
+      children.push({
         id: `core/convert/${t.kind}`,
-        section: MenuSection.Convert,
+        separatorBefore: i === 0 && children.length > 0,
         priority: 0,
-        label: t.label,
+        label: `Copy into ${t.label.toLowerCase()}`,
         icon: t.icon,
         onSelect: (c) => convertWidget(c, t.kind)
-      }))
-    }
-  ]
+      })
+    })
+  }
+  if (!children.length) return null
+  return {
+    id: 'core/create',
+    group: 'more',
+    priority: 0,
+    label: CREATE_AND_LINK_LABEL,
+    icon: 'add',
+    children
+  }
 }
 
-export function buildOrganise(ctx: MenuContext): MenuContribution[] {
+export function buildMore(ctx: MenuContext, s: Suppress): MenuContribution[] {
   if (ctx.object.type === 'multi') {
     return [
       {
         // Wire every selected widget into one new agent — the multi-select
-        // counterpart to the single-widget "Automate with an agent". Listed
-        // first because turning a selection into an automation is the headline
-        // action here, not a housekeeping one.
-        id: 'core/organise/automate-many',
-        section: MenuSection.Organise,
+        // counterpart to "Automate with an agent".
+        id: 'core/automate-many',
+        group: 'more',
         priority: 0,
         label: `Automate ${ctx.object.widgets.length} with an agent`,
         icon: 'smart_toy',
         onSelect: (c) => void automateWithAgent(c)
-      },
-      {
-        id: 'core/organise/front-many',
-        section: MenuSection.Organise,
-        priority: 1,
-        label: 'Bring all to front',
-        icon: 'flip_to_front',
-        onSelect: (c) => bringToFront(c)
       }
     ]
   }
   if (ctx.object.type !== 'widget') return []
   const w = ctx.object.widget
-  const out: MenuContribution[] = [
-    {
-      id: 'core/organise/front',
-      section: MenuSection.Organise,
-      priority: 0,
-      label: 'Bring to front',
-      icon: 'flip_to_front',
-      onSelect: (c) => bringToFront(c)
-    },
-    {
-      // Flag as a Decision: the entry point that activates the decision-risk
-      // surface. A later material change to this widget then lights its red frame.
-      id: 'core/organise/flag-decision',
-      section: MenuSection.Organise,
-      priority: 6,
+  const f = ctx.frame
+  const out: MenuContribution[] = []
+  if (f?.onMakeTask && !s.advanced) {
+    // E-7: one row for the MakeTaskDialog. "Duplicate into another Room /
+    // Desk…" opened the same dialog and is gone; this is the route.
+    out.push({
+      id: 'core/make-desk',
+      group: 'more',
+      priority: 10,
+      label: MENU.makeThisADesk.label,
+      icon: 'task_alt',
+      onSelect: (c) => c.frame?.onMakeTask?.()
+    })
+  }
+  if (w.parentSectionId && !s.organise) {
+    out.push({
+      id: 'core/eject',
+      group: 'more',
+      priority: 20,
+      label: 'Move out of section',
+      icon: 'logout',
+      // The frame's eject repositions below the section and avoids overlap.
+      onSelect: (c) => (c.frame?.onEjectFromSection ? c.frame.onEjectFromSection() : ejectFromSection(c))
+    })
+  }
+  if (!s.pin && !s.organise) {
+    out.push({
+      id: 'core/pin',
+      group: 'more',
+      priority: 30,
+      label: 'Pin to corner',
+      icon: 'push_pin',
+      children: [
+        ...PIN_ZONES.map<MenuContribution>((z) => ({
+          id: `core/pin/${z.zone}`,
+          priority: 0,
+          label: z.label,
+          icon: z.icon,
+          // A choice among siblings: the kit's check, never "✓" as text (F-13).
+          checked: w.pinnedZone === z.zone,
+          onSelect: (c) => pinWidgetToZone(c, z.zone)
+        })),
+        ...(w.pinnedZone != null
+          ? [{ id: 'core/pin/off', priority: 1, label: 'Unpin', icon: 'close', onSelect: (c: MenuContext) => unpinWidget(c) }]
+          : [])
+      ]
+    })
+  }
+  if (!s.recolor && !s.organise) {
+    out.push({
+      id: 'core/recolor',
+      group: 'more',
+      priority: 31,
+      label: 'Recolor',
+      icon: 'palette',
+      children: [
+        ...RECOLOR_SWATCHES.map<MenuContribution>((sw) => ({
+          id: `core/recolor/${sw.color}`,
+          priority: 0,
+          label: sw.label,
+          checked: w.color === sw.color,
+          onSelect: (c) => recolorWidget(c, sw.color)
+        })),
+        {
+          id: 'core/recolor/clear',
+          separatorBefore: true,
+          priority: 1,
+          label: 'Clear color',
+          icon: 'format_color_reset',
+          onSelect: (c) => recolorWidget(c, null)
+        }
+      ]
+    })
+  }
+  if (!s.flag && !s.organise) {
+    // The entry point that activates the decision-risk surface: a later
+    // material change to this widget lights its red frame.
+    out.push({
+      id: 'core/flag-decision',
+      group: 'more',
+      priority: 32,
       label: 'Flag as a decision',
       icon: 'gavel',
       onSelect: (c) => void flagAsDecision(c)
-    }
-  ]
-  if (w.parentSectionId) {
-    // Prefer the frame's full eject (which repositions the widget below the
-    // section and avoids overlap) when available; otherwise the plain detach.
-    out.push({
-      id: 'core/organise/eject',
-      section: MenuSection.Organise,
-      priority: 1,
-      label: 'Move out of section',
-      icon: 'logout',
-      onSelect: (c) =>
-        c.frame?.onEjectFromSection ? c.frame.onEjectFromSection() : ejectFromSection(c)
     })
   }
-  // Pin ▸ dock the widget to a screen corner. When already pinned, offer Unpin.
-  const isPinned = w.pinnedZone != null
-  out.push({
-    id: 'core/organise/pin',
-    section: MenuSection.Organise,
-    priority: 2,
-    label: 'Pin to corner',
-    icon: 'push_pin',
-    children: [
-      ...PIN_ZONES.map((z) => ({
-        id: `core/organise/pin/${z.zone}`,
-        section: MenuSection.Organise,
-        priority: 0,
-        label: z.label,
-        icon: z.icon,
-        // Mark the current corner so it reads as selected.
-        ...(w.pinnedZone === z.zone ? { shortcut: '✓' } : {}),
-        onSelect: (c: MenuContext) => pinWidgetToZone(c, z.zone)
-      })),
-      ...(isPinned
-        ? [
-            {
-              id: 'core/organise/pin/off',
-              section: MenuSection.Organise,
-              priority: 1,
-              label: 'Unpin',
-              icon: 'close',
-              onSelect: (c: MenuContext) => unpinWidget(c)
-            }
-          ]
-        : [])
-    ]
-  })
-  // Recolor ▸ swatches + clear.
-  out.push({
-    id: 'core/organise/recolor',
-    section: MenuSection.Organise,
-    priority: 3,
-    label: 'Recolor',
-    icon: 'palette',
-    children: [
-      ...RECOLOR_SWATCHES.map((s) => ({
-        id: `core/organise/recolor/${s.color}`,
-        section: MenuSection.Organise,
-        priority: 0,
-        label: s.label,
-        icon: 'circle',
-        ...(w.color === s.color ? { shortcut: '✓' } : {}),
-        onSelect: (c: MenuContext) => recolorWidget(c, s.color)
-      })),
-      {
-        id: 'core/organise/recolor/clear',
-        section: MenuSection.Organise,
-        priority: 1,
-        label: 'Clear color',
-        icon: 'format_color_reset',
-        onSelect: (c: MenuContext) => recolorWidget(c, null)
-      }
-    ]
-  })
-  return out
-}
-
-export function buildShare(ctx: MenuContext): MenuContribution[] {
-  const out: MenuContribution[] = []
-  const multiHasText =
-    ctx.object.type === 'multi' && ctx.object.widgets.some((w) => w.content.trim())
-  if (multiHasText || workingText(ctx).text.trim()) {
+  if (f?.onSaveAsFile && !s.advanced) {
     out.push({
-      id: 'core/share/copy',
-      section: MenuSection.Share,
-      priority: 0,
-      label: ctx.object.type === 'multi' ? 'Copy all text' : 'Copy text',
-      icon: 'content_copy',
-      shortcut: '⌘C',
-      onSelect: (c) => copyText(c)
+      id: 'core/save-as-file',
+      group: 'more',
+      priority: 40,
+      label: 'Save as file',
+      icon: 'note_add',
+      onSelect: (c) => c.frame?.onSaveAsFile?.()
     })
   }
-  if (ctx.frame) {
+  if (f?.onUnlinkSynced && !s.advanced) {
     out.push({
-      id: 'core/share/share-dialog',
-      section: MenuSection.Share,
-      priority: 1,
-      label: 'Share...',
-      icon: 'share',
-      onSelect: (c) => c.frame?.onShare()
+      id: 'core/unlink',
+      group: 'more',
+      priority: 41,
+      label: 'Unlink from synced copies',
+      icon: 'link_off',
+      onSelect: (c) => c.frame?.onUnlinkSynced?.()
     })
   }
   return out
 }
 
-export function buildAdvanced(ctx: MenuContext): MenuContribution[] {
-  if (ctx.object.type !== 'widget') return []
-  const out: MenuContribution[] = []
-  if (ctx.frame) {
-    // Use the frame's existing, tested actions so make-task / synced duplicate /
-    // unlink behave exactly as they did in the old header menu.
-    out.push({
-      id: 'core/advanced/make-task',
-      section: MenuSection.Advanced,
-      priority: 0,
-      label: 'Make this a Desk...',
-      icon: 'task_alt',
-      onSelect: (c) => c.frame?.onMakeTask()
-    })
-    out.push({
-      id: 'core/advanced/duplicate-synced',
-      section: MenuSection.Advanced,
-      priority: 1,
-      label: 'Duplicate (keep synced)',
-      icon: 'link',
-      onSelect: (c) => c.frame?.onDuplicateSynced()
-    })
-    out.push({
-      id: 'core/advanced/duplicate-independent',
-      section: MenuSection.Advanced,
-      priority: 2,
-      label: 'Duplicate (independent copy)',
-      icon: 'content_copy',
-      onSelect: (c) => c.frame?.onDuplicateIndependent()
-    })
-    if (ctx.frame.onDuplicateToFolder) {
-      out.push({
-        id: 'core/advanced/duplicate-folder',
-        section: MenuSection.Advanced,
-        priority: 3,
-        label: 'Duplicate into another Room / Desk...',
-        icon: 'drive_file_move',
-        onSelect: (c) => c.frame?.onDuplicateToFolder?.()
-      })
-    }
-    if (ctx.frame.onSaveAsFile) {
-      out.push({
-        id: 'core/advanced/save-as-file',
-        section: MenuSection.Advanced,
-        priority: 3.5,
-        label: 'Save as file',
-        icon: 'note_add',
-        onSelect: (c) => c.frame?.onSaveAsFile?.()
-      })
-    }
-    if (ctx.frame.onSaveAsSnippet) {
-      out.push({
-        id: 'core/advanced/save-as-snippet',
-        section: MenuSection.Advanced,
-        priority: 3.6,
-        label: 'Save as snippet',
-        icon: 'bookmark_add',
-        onSelect: (c) => c.frame?.onSaveAsSnippet?.()
-      })
-    }
-    if (ctx.frame.onInsertSnippet) {
-      out.push({
-        id: 'core/advanced/insert-snippet',
-        section: MenuSection.Advanced,
-        priority: 3.65,
-        label: 'Insert snippet…',
-        icon: 'bookmarks',
-        onSelect: (c) => c.frame?.onInsertSnippet?.()
-      })
-    }
-    if (ctx.frame.onOpenFile) {
-      out.push({
-        id: 'core/advanced/open-file',
-        section: MenuSection.Advanced,
-        priority: 3.5,
-        label: 'Open file',
-        icon: 'open_in_full',
-        onSelect: (c) => c.frame?.onOpenFile?.()
-      })
-    }
-    if (ctx.frame.onUnlinkSynced) {
-      out.push({
-        id: 'core/advanced/unlink',
-        section: MenuSection.Advanced,
-        priority: 4,
-        label: 'Unlink from synced copies',
-        icon: 'link_off',
-        onSelect: (c) => c.frame?.onUnlinkSynced?.()
-      })
-    }
-    return out
-  }
-  // No frame (e.g. a content-body menu): the generic duplicate.
-  out.push({
-    id: 'core/advanced/duplicate',
-    section: MenuSection.Advanced,
-    priority: 0,
-    label: 'Duplicate',
-    icon: 'content_copy',
-    onSelect: (c) => duplicateWidget(c)
-  })
-  return out
-}
-
-export function buildDestructive(ctx: MenuContext): MenuContribution[] {
-  if (ctx.object.type === 'empty-canvas') return []
+// ── Group 6, destructive (E-2) ──────────────────────────────────────────────
+export function buildDestructive(ctx: MenuContext, s: Suppress): MenuContribution[] {
+  if (s.destructive || ctx.object.type === 'empty-canvas') return []
+  const mode = ctx.frame?.removal ?? 'full'
+  if (mode === 'none') return []
   if (ctx.object.type === 'multi') {
-    const n = ctx.object.widgets.length
     return [
       {
-        id: 'core/destructive/delete-many',
-        section: MenuSection.Destructive,
-        priority: 1,
-        label: `Delete ${n} work widgets`,
+        id: 'core/remove-many',
+        group: 'destructive',
+        priority: 0,
+        label: removeOrDeleteManyLabel(ctx.object.widgets.length),
         icon: 'delete',
         danger: true,
-        onSelect: (c) => deleteWidget(c)
+        onSelect: (c) => removeOrDeleteMany(c)
       }
     ]
   }
-  return [
-    {
-      id: 'core/destructive/archive',
-      section: MenuSection.Destructive,
+  const w = ctx.object.widget
+  const out: MenuContribution[] = []
+  const pane = isWidgetFilePaneId(w.id)
+  if (!pane) {
+    out.push({
+      id: 'core/archive',
+      group: 'destructive',
       priority: 0,
-      label: 'Archive',
+      label: MENU.archive.label,
       icon: 'archive',
       danger: true,
       onSelect: (c) => archiveWidget(c)
-    },
-    {
-      id: 'core/destructive/delete',
-      section: MenuSection.Destructive,
-      priority: 1,
-      label: 'Delete',
+    })
+  }
+  if (mode === 'archive-only') return out
+  if (pane || linkedFileId(w)) {
+    // A work widget file: this placement, or the file itself (to Trash).
+    if (!pane) {
+      out.push({
+        id: 'core/remove-from-desk',
+        group: 'destructive',
+        priority: 1,
+        label: removeFromLabel('desk'),
+        icon: 'remove_circle_outline',
+        danger: true,
+        onSelect: (c) => removeFromThisDesk(c)
+      })
+    }
+    out.push({
+      id: 'core/move-to-trash',
+      group: 'destructive',
+      priority: 2,
+      label: MENU.moveToTrash.label,
       icon: 'delete',
       danger: true,
-      onSelect: (c) => deleteWidget(c)
-    }
-  ]
+      onSelect: (c) => moveWidgetToTrash(c)
+    })
+  } else {
+    // A desk-only kind has no file and no Trash entry: removing it from the
+    // desk IS deleting it, so the row says Delete and keeps its confirm.
+    out.push({
+      id: 'core/delete',
+      group: 'destructive',
+      priority: 2,
+      label: MENU.delete.label,
+      icon: 'delete',
+      danger: true,
+      onSelect: (c) => deleteDeskOnlyWidget(c)
+    })
+  }
+  return out
 }

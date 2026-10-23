@@ -30,6 +30,8 @@ import BrowserContextMenu from './contextMenu/BrowserContextMenu'
 // Side-effect import registers the core widget context-action providers (sticky
 // checklist, living-doc regenerate, ...) for the unified context menu.
 import '../lib/contextMenu'
+import { addObjectItem, buildEmptyCanvasMenu } from '../lib/contextMenu/emptyCanvas'
+import { menuPlatform } from '../lib/contextMenu/actions'
 import FloatingToolbar, { type ToolbarAction } from './FloatingToolbar'
 import CanvasMinimapFAB from './CanvasMinimapFAB'
 import AutomationsFAB from './AutomationsFAB'
@@ -63,12 +65,9 @@ import { useFocusSessionStore } from '../stores/focusSession'
 import { chimeIn, futuristicPowerOn, sonarPing } from '../lib/audioBeep'
 import { materializeSuggestion } from '../lib/materializeSuggestion'
 import {
-  CATEGORIES,
   DRAG_MIME,
   WIDGET_CATALOG,
   catalogFor,
-  entriesByCategory,
-  isAdvancedKind,
   type WidgetCatalogEntry,
   type WidgetCategory
 } from '../lib/widgetCatalog'
@@ -105,7 +104,6 @@ import {
 } from '../lib/sectionGeometry'
 import { spawnPositionFor } from '../lib/spawnPosition'
 import { firstHttpUrl } from '../lib/dropUrl'
-import { lookupWebview } from '../lib/webviewRegistry'
 import {
   getOrigin,
   subscribeOrigins,
@@ -141,22 +139,7 @@ import { LinkDragContext } from '../lib/linkDragContext'
 import { computeVisibleObjectIds, type VirtualizationBox } from '../lib/canvasVirtualization'
 import { draftRowToCells } from '../lib/tableImport'
 import { useAiBuilderLaunch } from '../stores/aiBuilderLaunch'
-import type {
-  ContextMenuPayload,
-  SectionLayout,
-  Widget,
-  WidgetDraft,
-  WidgetKind
-} from '@shared/types'
-
-const CATEGORY_ICON: Record<WidgetCategory, string> = {
-  Notes: 'sticky_note_2',
-  Web: 'public',
-  Files: 'folder',
-  Tools: 'build',
-  Comms: 'mail',
-  Layout: 'crop_free'
-}
+import type { SectionLayout, Widget, WidgetKind } from '@shared/types'
 
 const CATEGORY_COLOR: Record<WidgetCategory, string> = {
   Notes: '#f59e0b',
@@ -883,91 +866,6 @@ export default function Canvas(): JSX.Element {
     const id = window.setInterval(() => setNowTick((t) => t + 1), 1000)
     return () => window.clearInterval(id)
   }, [activeTask?.status, activeTask?.estimateMinutes, activeTask?.id])
-
-  // Receive context-menu actions from main process (right-click inside webview)
-  useEffect(() => {
-    const off = window.api.contextMenu.onAction((payload: ContextMenuPayload) => {
-      void handleContextMenu(payload)
-    })
-    return off
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTaskId, panX, panY, zoom])
-
-  async function handleContextMenu(payload: ContextMenuPayload): Promise<void> {
-    if (!activeTaskId || !dropRef.current) return
-    const entry = lookupWebview(payload.webContentsId)
-    if (!entry) return
-    const wvRect = entry.el.getBoundingClientRect()
-    const canvasRect = dropRef.current.getBoundingClientRect()
-    const screenX = wvRect.left + payload.x
-    const screenY = wvRect.top + payload.y
-    const canvasX = (screenX - canvasRect.left - panX) / zoom
-    const canvasY = (screenY - canvasRect.top - panY) / zoom
-    const baseX = Math.round(canvasX + 20)
-    const baseY = Math.round(canvasY + 20)
-    const common: Pick<WidgetDraft, 'taskId' | 'x' | 'y'> = {
-      taskId: activeTaskId,
-      x: baseX,
-      y: baseY
-    }
-    switch (payload.action) {
-      case 'createStickyFromSelection':
-        if (!payload.selectionText) return
-        await createWidget({
-          ...common,
-          kind: 'sticky',
-          content: payload.selectionText,
-          width: 280,
-          height: 220,
-          color: '#fef08a'
-        })
-        return
-      case 'createNoteFromSelection':
-        if (!payload.selectionText) return
-        await createWidget({
-          ...common,
-          kind: 'note',
-          content: payload.selectionText,
-          width: 380,
-          height: 300,
-          color: null
-        })
-        return
-      case 'openLinkInNewBrowser':
-        if (!payload.linkURL) return
-        await createWidget({
-          ...common,
-          kind: 'webview',
-          content: payload.linkURL,
-          width: 560,
-          height: 400,
-          color: null
-        })
-        return
-      case 'saveImageToCanvas':
-        if (!payload.srcURL) return
-        await createWidget({
-          ...common,
-          kind: 'image',
-          content: payload.srcURL,
-          width: 360,
-          height: 280,
-          color: null
-        })
-        return
-      case 'saveVideoToCanvas':
-        if (!payload.srcURL) return
-        await createWidget({
-          ...common,
-          kind: 'video',
-          content: payload.srcURL,
-          width: 480,
-          height: 320,
-          color: null
-        })
-        return
-    }
-  }
 
   // Auto-center on the active widget when a click triggers requestCenter()
   useEffect(() => {
@@ -2016,113 +1914,42 @@ export default function Canvas(): JSX.Element {
     // (agents, webhooks, diagram, mindmap, …), instead of the old flat everything-
     // per-category list. Each item is capability-gated the same way the palette is:
     // a Pro-locked kind prompts to upgrade rather than silently creating.
-    const grouped = entriesByCategory()
-    const addObject = (entry: WidgetCatalogEntry): void => {
+    const addWidget = addObjectItem((entry) => {
       if (!canCreateWidget(caps, entry.kind)) {
         promptUpgrade(`The ${entry.label} work widget is a Pro feature.`)
         return
       }
       void placeWidgetAtCanvas(entry, cx, cy)
-    }
-    const toItem = (entry: WidgetCatalogEntry): CtxMenuItem => ({
-      label: entry.label,
-      icon: entry.icon,
-      entity: { kind: 'widget', id: entry.kind },
-      onClick: () => addObject(entry)
     })
-    const coreGroups: CtxMenuItem[] = CATEGORIES.map((cat) => ({
-      label: cat,
-      icon: CATEGORY_ICON[cat],
-      children: grouped[cat].filter((e) => !isAdvancedKind(e.kind)).map(toItem)
-    })).filter((group) => (group.children?.length ?? 0) > 0)
-    // Advanced kinds across every category, kept individually selectable (diagram +
-    // mindmap must stay distinct from the base Map, per the catalog rationale).
-    const advancedEntries = CATEGORIES.flatMap((cat) =>
-      grouped[cat].filter((e) => isAdvancedKind(e.kind))
-    )
-    const advancedGroup: CtxMenuItem[] =
-      advancedEntries.length > 0
-        ? [{ label: 'Advanced', icon: 'tune', children: advancedEntries.map(toItem) }]
-        : []
-    const addWidget: CtxMenuItem = {
-      label: 'Add object',
-      icon: 'add',
-      children: [
-        ...coreGroups,
-        ...advancedGroup,
-        // Place a work widget that was saved as a reusable snippet. Sits with
-        // the other ways to add an object rather than in its own menu, because
-        // that is what the user is doing.
-        {
-          label: 'From a saved snippet…',
-          icon: 'bookmarks',
-          onClick: () => setSnippetLibraryOpen(true)
-        }
-      ]
-    }
-    const arrange: CtxMenuItem = {
-      label: 'Auto-arrange',
-      icon: 'view_module',
-      children: [
-        {
-          label: 'Group by type',
-          icon: 'workspaces',
-          onClick: () => void groupByType(false)
-        },
-        {
-          label: 'Stack by type',
-          icon: 'layers',
-          onClick: () => void groupByType(true)
-        }
-        // DEC-038: the Tidy submenu used to live here. It now exists ONLY in
-        // the top pill, where its modes are offered as icons — one home for
-        // one concept, instead of the same list in two places.
-      ]
-    }
     // Paste what is on the clipboard here, as the work widget that holds it
     // (desk/deskSnippets.ts pasteOntoDesk): the same as ⌘V on the bare desk,
     // placed at the click instead of beside the last-touched widget.
     const taskForPaste = activeTaskId
-    const paste: CtxMenuItem = {
-      label: 'Paste',
-      icon: 'content_paste',
-      shortcut: '⌘V',
-      onClick: () =>
-        void snapshotFromSystem().then((snap) =>
-          pasteOntoDesk(taskForPaste, snap, (w) => ({ x: cx - w / 2, y: cy - 20 }))
-        )
-    }
-    return [
-      addWidget,
-      paste,
-      { separator: true },
-      arrange,
-      { separator: true },
+    const selectable = selectableWidgets().map((w) => w.id)
+    return buildEmptyCanvasMenu(
       {
-        label: 'Home — fit all to view',
-        icon: 'home',
-        shortcut: '⌘H',
-        onClick: () => centerOnHome()
+        addObject: addWidget,
+        onPaste: () =>
+          void snapshotFromSystem().then((snap) =>
+            pasteOntoDesk(taskForPaste, snap, (w) => ({ x: cx - w / 2, y: cy - 20 }))
+          ),
+        onInsertSnippet: () => setSnippetLibraryOpen(true),
+        // The same set ⌘A selects (selectableWidgets).
+        onSelectAll: selectable.length ? () => setSelection(selectable) : null,
+        onFitAll: () => centerOnHome(),
+        onResetView: () => resetView(),
+        // DEC-038: the Tidy submenu used to live under Auto-arrange. It now
+        // exists ONLY in the top pill — one home for one concept.
+        onGroupByType: () => void groupByType(false),
+        onStackByType: () => void groupByType(true),
+        // Per-device layout customisation (PLX-APP-010 Phase 2, ADR-0006). Off
+        // by default: the Desk follows the shared arrangement. On: this device
+        // keeps its own object positions and sizes, private to this user.
+        customLayout,
+        onToggleCustomLayout: () => void setDeskCustomLayout(!customLayout)
       },
-      {
-        label: 'Reset view',
-        icon: 'center_focus_strong',
-        shortcut: '⌘0',
-        onClick: () => resetView()
-      },
-      { separator: true },
-      {
-        // Per-device layout customisation (PLX-APP-010 Phase 2, ADR-0006). Off by
-        // default: the Desk follows the shared arrangement. On: this device keeps
-        // its own object positions and sizes, private to this user, and they are
-        // restored on reopen. A checkbox icon signals the toggle state.
-        label: customLayout
-          ? "Stop customising this device's layout"
-          : "Customise this device's layout",
-        icon: customLayout ? 'check_box' : 'check_box_outline_blank',
-        onClick: () => void setDeskCustomLayout(!customLayout)
-      }
-    ]
+      menuPlatform()
+    )
   }
 
   async function placeWidget(entry: WidgetCatalogEntry, x: number, y: number): Promise<void> {
