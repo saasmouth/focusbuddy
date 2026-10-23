@@ -13,6 +13,7 @@ import { createDocumentOps } from '../documents/editor/documentOps'
 import DocumentConflictBar from '../documents/DocumentConflictBar'
 import { localAnchorFor, positionText, resolveForEditor } from '../documents/editor/commentPositions'
 import { anchorToPersist } from '../documents/editor/commentWriteBack'
+import { requireCommentAuthor } from '../documents/editor/commentAuthorGate'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import { PlexiiDocIcon } from '../PlexiiIcon'
@@ -172,10 +173,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
     // so this is the second line rather than the first — for a keyboard path
     // or a future caller that does not go through the panel. A comment with
     // no account behind it cannot be attributed to anyone.
-    if (!account) {
-      requestSignIn()
-      return
-    }
+    if (!requireCommentAuthor(account, requestSignIn)) return
     const { from, to, empty } = editor.state.selection
     if (empty) {
       void promptText({
@@ -204,14 +202,12 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
 
   async function replyComment(threadId: string, body: string): Promise<void> {
     if (!body.trim()) return
-    // The same requirement as addComment, for the same reason, and it was
-    // missing here: `author` falls back to 'You' when signed out, so a reply
-    // went in unattributed — the one thing requiring an account prevents.
-    // The panel no longer offers the box, so this is the second line.
-    if (!account) {
-      requestSignIn()
-      return
-    }
+    // The same requirement as addComment, through the same function — it was
+    // missing here, and `author` falls back to 'You' when signed out, so a
+    // reply went in unattributed, the one thing requiring an account
+    // prevents. The panel no longer offers the box, so this is the second
+    // line. commentAuthorGate.ts says why it is not written out twice.
+    if (!requireCommentAuthor(account, requestSignIn)) return
     const created = await window.api.documents.addComment({
       docId: documentId,
       body: body.trim(),
