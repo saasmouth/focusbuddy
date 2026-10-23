@@ -137,7 +137,7 @@ describe('read-only mode for a drawing made by a newer PlexiiDraw', () => {
     // The top bar: editing controls off and saying why; looking (zoom, fit) still works.
     const fill = host.querySelector('[data-testid="draw-fill"]') as HTMLButtonElement
     expect(fill.disabled).toBe(true)
-    expect(fill.getAttribute('aria-label')).toContain('this document is read-only')
+    expect(fill.getAttribute('aria-label')).toContain('This document is read-only.')
     expect((host.querySelector('[data-testid="draw-undo"]') as HTMLButtonElement).disabled).toBe(true)
     expect((host.querySelector('[data-testid="draw-zoom-in"]') as HTMLButtonElement).disabled).toBe(false)
     // F7 still opens Layers (looking is allowed); every control inside it is off.

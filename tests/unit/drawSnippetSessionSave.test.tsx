@@ -311,7 +311,7 @@ describe('the Save command (file.save)', () => {
     h.ed.ctx.host.saveRequest = () => request
     h.ed.store.setState({ readOnly: true })
     expect(save().enabled!(h.ed.ctx)).toBe(false)
-    expect(save().disabledReason!(h.ed.ctx)).toBe('This artwork is read-only.')
+    expect(save().disabledReason!(h.ed.ctx)).toBe('This document is read-only.')
     h.key('s', { meta: true })
     h.ed.ctx.run('file.save')
     expect(request).not.toHaveBeenCalled()

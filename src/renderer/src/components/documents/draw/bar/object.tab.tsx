@@ -77,7 +77,7 @@ export function TransformCluster({ ctx }: { ctx: EditorCtx }): JSX.Element {
 
   return (
     <BarCustom label="Transform" testid="draw-transform-panel">
-      <RefLocator compact value={ref} onChange={(refPoint) => setTransformPrefs({ refPoint })} disabled={readOnly} />
+      <RefLocator compact value={ref} onChange={(refPoint) => setTransformPrefs({ refPoint })} disabled={readOnly} disabledReason={READ_ONLY_REASON} />
       <NumField label="X" prefix="X" kind="length" settings={settings} value={rp ? rp.x - board.x : null} onCommit={(v) => setPos('x', v)} disabled={off} title={tip('X')} testId="draw-transform-x" className="w-[74px]" />
       <NumField label="Y" prefix="Y" kind="length" settings={settings} value={rp ? rp.y - board.y : null} onCommit={(v) => setPos('y', v)} disabled={off} title={tip('Y')} testId="draw-transform-y" className="w-[74px]" />
       <NumField

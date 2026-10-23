@@ -80,7 +80,7 @@ interface ToolRailProps<C> {
 - **Active state:** `aria-pressed` with `bg-accent/15 text-accent`.
 - **Look:** 32px buttons, 17px icons. Separators are `bg-[var(--edge-soft)]`.
 - **Tooltips:** `components/Tooltip.tsx`, placed to the right: "Label (Key)" plus the options or disabled suffix. The tooltip is also the aria-label.
-- **Read-only:** items without `readOnlySafe` are disabled with "not available: this document is read-only".
+- **Read-only:** items without `readOnlySafe` are disabled. One that is off for a reason of its own (its command's reason: pending, gated, or `barProps` from the OfficeCommand registry) keeps that reason, so the bar says what the menu row says; any other gets the suite's one sentence, "This document is read-only." (`READ_ONLY_REASON` in office/shell/primitives.tsx, its only source; every app's menus and commands import it).
 - **Armed modes (D4):** a `tool` item arms a mode in the HOST (Draw, Diagrams, and now Deck and Design). The rail only shows `activeId`.
 
 ### 2.2 Flyouts (v1 renders them)
@@ -187,6 +187,8 @@ interface ShellSidePaneProps {
 | `BarCustom` | app widgets (FontPicker, the arrow picker, the 9-point reference). Row 2 is 36px with 24px fields, so a compact Transform cluster fits; a "Transform…" dialog is the fallback |
 
 Every primitive takes `disabled`, `disabledReason`, `readOnlySafe`, `shortcut` (host-formatted, for the tooltip) and `testid`.
+
+In a read-only document (`ContextBar readOnly`) every primitive that is not `readOnlySafe` is off, and its tooltip keeps the control's own `disabledReason` when it has one (the command's reason, so the bar and the menu agree); only a control with none says "This document is read-only." A `BarCustom` widget that turns itself off for read-only (a raw field, the 9-point reference) gives the same sentence in its tooltip as "Label — This document is read-only." (`barTip`). Status messages say it in a sentence of their own ("This document is read-only, so files can't be placed in it."). `tests/unit/officeReadOnlyReason.test.tsx` holds all six apps to this.
 
 ### 2.6 `OfficeShellLayout`, plus narrow and embedded behaviour (3e's (a): ONE behaviour for all six apps)
 

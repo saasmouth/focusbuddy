@@ -20,6 +20,8 @@ import {
   BarSelect,
   BarSep,
   BarToggle,
+  barTip,
+  READ_ONLY_REASON,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
   railGroup,
@@ -457,6 +459,7 @@ const shapeTab: BarTab<DCtx> = {
             onChange={(e) => cmd.setNodes({ shape: e.target.value })}
             onKeyDown={(e) => e.stopPropagation()}
             disabled={c.readOnly}
+            title={c.readOnly ? barTip('Shape type', undefined, READ_ONLY_REASON) : undefined}
             className="fb-field h-6 px-1 text-[12px] w-[130px]"
             data-testid="diagram-change-shape"
           >
@@ -559,6 +562,7 @@ const lineTab: BarTab<DCtx> = {
               onKeyDown={(e) => e.stopPropagation()}
               placeholder="Line label"
               disabled={c.readOnly}
+              title={c.readOnly ? barTip('Line label', undefined, READ_ONLY_REASON) : undefined}
               className="fb-field h-6 px-1.5 text-[12px] w-[140px]"
               data-testid="diagram-edge-label-field"
             />

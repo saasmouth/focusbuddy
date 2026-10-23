@@ -6,11 +6,17 @@
 // Not a `*.commands.ts` file, so the registry does not load it as commands.
 
 import type { Command, EditorCtx } from '../editor/types'
+import { READ_ONLY_REASON } from '../../../office/shell/primitives'
 
 /** Why a command is off now, as a short sentence; null when it can act. Must be pure. */
 export type Why = (ctx: EditorCtx) => string | null
 
-export const READ_ONLY_REASON = 'This artwork is read-only.'
+/**
+ * The suite's one read-only sentence, from the office shell (its only source):
+ * re-exported for Draw's commands, never restated here, so the menu, the bar
+ * and every other office app say the same thing.
+ */
+export { READ_ONLY_REASON }
 
 /** Off on a read-only drawing (one from a newer PlexiiDraw, or a viewer's). */
 export const notReadOnly: Why = (ctx) => (ctx.get().readOnly ? READ_ONLY_REASON : null)

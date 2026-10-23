@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Icon from '../../Icon'
 import Tooltip from '../../Tooltip'
 import { SIDE_PANE_DOM_ID } from './layout'
+import { READ_ONLY_REASON } from './primitives'
 
 // The office ToolRail: the left strip of tool icons every office app shares
 // (spec: docs/office-shell/SPEC.md §2.1–2.2), extracted from
@@ -71,7 +72,6 @@ export interface ToolRailProps<C> {
   ariaLabel?: string
 }
 
-const READ_ONLY_REASON = 'not available: this document is read-only'
 const HOLD_MS = 350
 
 const pick = <C, T>(v: T | ((c: C) => T) | undefined, c: C): T | undefined =>
@@ -134,9 +134,11 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
   }, [slots.length, focusIdx])
 
   const stateOf = (item: RailItem<C>): { disabled: boolean; reason?: string } => {
-    if (readOnly && !item.readOnlySafe) return { disabled: true, reason: READ_ONLY_REASON }
     const disabled = !!pick(item.disabled, ctx)
-    return { disabled, reason: disabled ? pick(item.disabledReason, ctx) : undefined }
+    const own = disabled ? pick(item.disabledReason, ctx) : undefined
+    // As the bar (useBarState): an item's own reason stands; the shared sentence only where it has none.
+    if (readOnly && !item.readOnlySafe) return { disabled: true, reason: own || READ_ONLY_REASON }
+    return { disabled, reason: own }
   }
 
   const activate = (item: RailItem<C>): void => {

@@ -120,7 +120,7 @@ export function insertSnippetIntoDrawing(ctx: EditorCtx, snippet: Snippet, link:
   if (!DRAW_SNIPPET_LINKS.includes(link)) return false
   if (snippet.body.kind !== 'draw') return false
   if (ctx.get().readOnly) {
-    ctx.status("Can't insert a snippet: this drawing is read-only.")
+    ctx.status("Can't insert a snippet: this document is read-only.")
     return false
   }
   const body = structuredClone(snippet.body)

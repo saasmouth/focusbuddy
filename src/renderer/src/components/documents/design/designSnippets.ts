@@ -14,6 +14,7 @@ import { defaultSwatches, swatchId as mintSwatchId, tintedColor, type DesignSwat
 import { DEFAULT_BRAND_KIT, type OrgBrandKit } from '@shared/brandKit'
 import { registerSnippetTarget } from '../../../stores/snippets'
 import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
+import { READ_ONLY_REASON } from '../../office/shell/primitives'
 
 // PlexiiDesign as a snippet surface: how selected page elements become a saved
 // snippet, and how a saved one gets back onto a page.
@@ -257,7 +258,7 @@ export type DesignSnippetLanding = { body: DesignBody; ids: string[] } | { decli
  * commit of it is one undo step.
  */
 export function insertDesignSnippet(design: DesignBody, snippet: Snippet, at: DesignSnippetPlacement): DesignSnippetLanding {
-  if (at.readOnly) return { declined: 'This design is read-only.' }
+  if (at.readOnly) return { declined: READ_ONLY_REASON }
   if (snippet.kind !== 'design' || snippet.body.kind !== 'design') return { declined: 'That snippet is not a design snippet.' }
   const body = snippet.body
   if (!Array.isArray(body.elements)) return { declined: 'That snippet has nothing in it to insert.' }
