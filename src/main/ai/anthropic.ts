@@ -2391,7 +2391,10 @@ export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
       void maybeExtractChatMemory(req, grounded)
       return grounded
     }
-    return withFitNotice(unparseableChatResponse(text, resp.stop_reason as string, citedSources, mentionReport), fitNotice)
+    // Prose the model wrote outside the envelope is still an answer, and is
+    // checked like one: an invented price must not escape by skipping the JSON.
+    const prose = unparseableChatResponse(text, resp.stop_reason as string, citedSources, mentionReport)
+    return withFitNotice(groundChatResponse(prose, groundingSupplied, String(resp.model ?? '')), fitNotice)
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
@@ -2707,14 +2710,21 @@ export async function sendChatStream(
       }
     }
 
+    // Grounded once, on the complete reply, never per delta. After a Stop the
+    // routed engine names the model, so a cut-short local reply is repaired.
+    const groundingModel = answeredModel || String(resolveModel('chat'))
     const built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
     if (built) {
-      const grounded = withFitNotice(groundChatResponse(built, prepared.groundingSupplied, answeredModel), prepared.fitNotice)
+      const grounded = withFitNotice(groundChatResponse(built, prepared.groundingSupplied, groundingModel), prepared.fitNotice)
       cb.onComplete(grounded)
       void maybeExtractChatMemory(req, grounded)
       return
     }
-    const fallback = withFitNotice(unparseableChatResponse(text, stopReason, prepared.sources, prepared.mentions), prepared.fitNotice)
+    // Prose outside the envelope is checked too.
+    const fallback = withFitNotice(
+      groundChatResponse(unparseableChatResponse(text, stopReason, prepared.sources, prepared.mentions), prepared.groundingSupplied, groundingModel),
+      prepared.fitNotice
+    )
     if (fallback.ok) cb.onComplete(fallback)
     else cb.onError({ ok: false, error: fallback.error ?? 'Something went wrong.' })
   } catch (e) {
