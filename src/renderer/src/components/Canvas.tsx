@@ -77,6 +77,11 @@ import {
   readWidgetFileDrag
 } from '../lib/widgetFileDrag'
 import { DOC_DRAG_TYPE, canPlaceOnDesk, readDocumentDrag } from '../lib/documentDrag'
+import { FILES_DRAG_MIME, activeFilesDrag, readFilesDrag } from '../lib/filesDrag'
+import { placeFilesOnDesk } from '../lib/filesDrop'
+import { placementHint } from '@shared/filesDropPlan'
+import { sourceKindOf } from '@shared/filesDragPayload'
+import { useNoticeStore } from '../stores/notice'
 import { DOC_DRAG_MIME, readDocDrag } from '../lib/docMetaCache'
 import { onCanvasCommands } from '../lib/canvasCommands'
 import { ensureCanAdd } from '../lib/addWidget'
@@ -220,6 +225,9 @@ export default function Canvas(): JSX.Element {
   }, [activeTaskId])
   // Bumped when the user dismisses the starting kit, to re-evaluate visibility.
   const [kitDismissTick, setKitDismissTick] = useState(0)
+  // While something from Files is dragged over the desk: the one-line hint.
+  const [filesHint, setFilesHint] = useState<string | null>(null)
+  const filesHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Office-document add chooser (create / import / select-existing) + drop point.
   const [officeAdd, setOfficeAdd] = useState<{ entry: WidgetCatalogEntry; x: number; y: number } | null>(null)
   const [syncPickerOpen, setSyncPickerOpen] = useState(false)
@@ -2201,6 +2209,18 @@ export default function Canvas(): JSX.Element {
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>): void {
     const types = Array.from(e.dataTransfer.types)
+    // Something from Files (the panel beside, the full view, a Drive work
+    // widget): a reference to the same row lands here. The hint names what
+    // the drop will do; it clears shortly after the drag leaves.
+    if (types.includes(FILES_DRAG_MIME) && !e.defaultPrevented) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      const refs = activeFilesDrag()?.refs ?? []
+      setFilesHint(placementHint(refs.map(sourceKindOf), 'desk'))
+      if (filesHintTimer.current) clearTimeout(filesHintTimer.current)
+      filesHintTimer.current = setTimeout(() => setFilesHint(null), 250)
+      return
+    }
     if (
       types.includes(DRAG_MIME) ||
       // Widget files (docs/widget-files.md): a kind from the side menu (new
@@ -2233,6 +2253,28 @@ export default function Canvas(): JSX.Element {
     // one drag into a Write document on a desk ALSO placed a linked work widget
     // on the desk. Proven by tests/e2e/embeddedDropOnce.spec.ts.
     if (e.defaultPrevented) return
+    // ── From Files ──────────────────────────────────────────────────────────
+    // A REFERENCE to the same fb_files row (a file work widget, an office work
+    // widget, a linked work widget, a Drive work widget for a folder), never a
+    // re-ingested copy. Checked first: a single item also carries the legacy
+    // document and work widget file payloads, which must not run a second time.
+    if (e.dataTransfer.types.includes(FILES_DRAG_MIME)) {
+      setFilesHint(null)
+      const read = readFilesDrag(e.dataTransfer)
+      if (!read.ok) {
+        if (read.reason) {
+          e.preventDefault()
+          useNoticeStore.getState().show({ text: read.reason, icon: 'info' })
+          return
+        }
+      } else if (activeTaskId) {
+        e.preventDefault()
+        const rect = e.currentTarget.getBoundingClientRect()
+        const at = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
+        await placeFilesOnDesk(read.payload.refs, { taskId: activeTaskId, at, alt: e.altKey })
+        return
+      }
+    }
     // OS file drop (drag from Finder) — spawn one file widget per dropped file.
     // We use ingestBuffer because Electron 32+ stripped File.path; reading via
     // arrayBuffer is the supported path and works for any file size up to the
@@ -3102,6 +3144,17 @@ export default function Canvas(): JSX.Element {
           {deskViewMode === 'columns' && activeTaskId && (
             <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="columns-host">
               <ColumnsView taskId={activeTaskId} widgets={widgets} />
+            </div>
+          )}
+          {filesHint && (
+            <div className="pointer-events-none absolute bottom-6 right-0 left-[var(--fb-dock-inset,0px)] z-[70] flex justify-center">
+              <span
+                role="status"
+                data-testid="files-drop-hint"
+                className="fb-floating-chrome rounded-full px-3 py-1 text-[12px] font-medium bg-[var(--surface-raised)] text-[var(--ink-80)] shadow-[0_0_0_1px_var(--edge-soft),var(--shadow-cast)]"
+              >
+                {filesHint}
+              </span>
             </div>
           )}
           {/* Workcentre (the dashboard) starts at the menu's right edge, like Columns. */}

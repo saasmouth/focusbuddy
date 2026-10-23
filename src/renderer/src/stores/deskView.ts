@@ -45,6 +45,14 @@ interface DeskViewStore {
   toggle: (taskId: string) => void
   getDefault: (taskId: string | null) => DeskViewMode | null
   setDefault: (taskId: string, mode: DeskViewMode) => void
+  /**
+   * Where a new object should get its Workcentre tile: set by a drop at a grid
+   * cell, consumed by the next layout sync (moveTile, not first fit). Session
+   * only: it is the instant between a drop and the tile appearing.
+   */
+  pendingTileAt: Record<string, { x: number; y: number }>
+  setPendingTile: (widgetId: string, at: { x: number; y: number }) => void
+  clearPendingTiles: (widgetIds: string[]) => void
 }
 
 export const useDeskViewStore = create<DeskViewStore>((setState, getState) => ({
@@ -68,5 +76,12 @@ export const useDeskViewStore = create<DeskViewStore>((setState, getState) => ({
     const defaults = { ...getState().defaults, [taskId]: mode }
     setState({ defaults })
     persist(DEFAULT_KEY, defaults)
+  },
+  pendingTileAt: {},
+  setPendingTile: (widgetId, at) => setState({ pendingTileAt: { ...getState().pendingTileAt, [widgetId]: at } }),
+  clearPendingTiles: (ids) => {
+    const next = { ...getState().pendingTileAt }
+    for (const id of ids) delete next[id]
+    setState({ pendingTileAt: next })
   }
 }))

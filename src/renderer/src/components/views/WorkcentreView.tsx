@@ -25,6 +25,10 @@ import { useAccountStore } from '../../stores/account'
 import { useDeskViewStore } from '../../stores/deskView'
 import ViewSelector from './ViewSelector'
 import Icon from '../Icon'
+import { FILES_DRAG_MIME, readFilesDrag } from '../../lib/filesDrag'
+import { placeFilesOnDesk } from '../../lib/filesDrop'
+import { spawnPositionFor } from '../../lib/spawnPosition'
+import { useNoticeStore } from '../../stores/notice'
 
 // The Workcentre desk view (owner, 4.3.41): the Desk as a dashboard. Every work
 // widget, file and tool is a tile on a snapping grid that never overlaps, can be
@@ -56,6 +60,9 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
   const setFocused = useWidgetStore((s) => s.setFocused)
   const setViewMode = useDeskViewStore((s) => s.set)
   const userId = useAccountStore((s) => s.account?.id ?? 'local')
+  const pendingTileAt = useDeskViewStore((s) => s.pendingTileAt)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [dropCell, setDropCell] = useState<{ x: number; y: number } | null>(null)
 
   // The view measures itself: the column count follows its own width (a desk widget, a menu at 480px).
   useEffect(() => {
@@ -91,8 +98,8 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
   const layout: WorkcentreLayout | null = useMemo(() => {
     if (stored === undefined || !width) return null
     const objects = items.map((w) => ({ id: w.id, preferred: unitsFromPx({ w: w.width, h: w.height }, colPx) }))
-    return syncLayout(stored, objects, cols, mins)
-  }, [stored, items, cols, colPx, mins, width])
+    return syncLayout(stored, objects, cols, mins, pendingTileAt)
+  }, [stored, items, cols, colPx, mins, width, pendingTileAt])
 
   const persist = useCallback(
     (l: WorkcentreLayout) => {
@@ -106,7 +113,15 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
   useEffect(() => {
     if (!layout || stored === undefined) return
     if (JSON.stringify(layout) !== JSON.stringify(stored)) persist(layout)
-  }, [layout, stored, persist])
+    // A dropped tile's request is done once the STORED layout holds it in its
+    // column (clamped to fit). Clearing any earlier loses it: the view can
+    // re-mount between the drop and the save and re-load the older layout.
+    const done = Object.keys(pendingTileAt).filter((id) => {
+      const t = stored?.items[id]
+      return !!t && t.x === Math.max(0, Math.min(pendingTileAt[id]!.x, cols - t.w))
+    })
+    if (done.length) useDeskViewStore.getState().clearPendingTiles(done)
+  }, [layout, stored, persist, pendingTileAt, cols])
 
   const tiles = preview ?? (layout ? toTiles(layout) : [])
   const unitX = colPx + GAP_PX
@@ -161,8 +176,59 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
   const byId = new Map(items.map((w) => [w.id, w]))
   const rows = gridRows(tiles)
 
+  /** The grid cell under the pointer (clamped to the grid). */
+  function cellAt(clientX: number, clientY: number): { x: number; y: number } {
+    const g = gridRef.current
+    if (!g) return { x: 0, y: 0 }
+    const r = g.getBoundingClientRect()
+    const x = Math.max(0, Math.min(cols - 1, Math.floor((clientX - r.left) / unitX)))
+    const y = Math.max(0, Math.floor((clientY - r.top) / unitY))
+    return { x, y }
+  }
+
+  // Files dropped on the Workcentre: the same references a desk drop makes,
+  // each with a tile AT the drop cell. A drop on a tile's live body belongs to
+  // that body (an editor takes it and calls preventDefault); a drop on a gap
+  // or a tile's chrome makes a new tile. Stops here, so the canvas underneath
+  // never places a second copy.
+  function onDragOver(e: React.DragEvent): void {
+    if (e.defaultPrevented || !e.dataTransfer.types.includes(FILES_DRAG_MIME)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    const c = cellAt(e.clientX, e.clientY)
+    setDropCell((p) => (p && p.x === c.x && p.y === c.y ? p : c))
+  }
+  async function onDrop(e: React.DragEvent): Promise<void> {
+    setDropCell(null)
+    if (e.defaultPrevented || !e.dataTransfer.types.includes(FILES_DRAG_MIME)) return
+    e.stopPropagation()
+    const read = readFilesDrag(e.dataTransfer)
+    if (!read.ok) {
+      if (read.reason) {
+        e.preventDefault()
+        useNoticeStore.getState().show({ text: read.reason, icon: 'info' })
+      }
+      return
+    }
+    e.preventDefault()
+    const cell = cellAt(e.clientX, e.clientY)
+    // The objects also need a place on the free canvas; where the desk would put a new one.
+    const pos = spawnPositionFor(360, 280)
+    const res = await placeFilesOnDesk(read.payload.refs, { taskId, target: 'workcentre', at: { x: pos.x + 180, y: pos.y + 20 } })
+    for (const w of res.created) useDeskViewStore.getState().setPendingTile(w.id, cell)
+  }
+
   return (
-    <div className={`absolute inset-0 flex flex-col bg-[var(--surface-sunken)] ${preview ? 'select-none' : ''}`} data-testid="workcentre-view" data-desk-view="workcentre">
+    <div
+      className={`absolute inset-0 flex flex-col bg-[var(--surface-sunken)] ${preview ? 'select-none' : ''}`}
+      data-testid="workcentre-view"
+      data-desk-view="workcentre"
+      onDragOver={onDragOver}
+      onDragLeave={(e) => {
+        if (e.target === e.currentTarget) setDropCell(null)
+      }}
+      onDrop={(e) => void onDrop(e)}
+    >
       <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-[var(--edge-soft)] bg-[var(--surface-raised)] min-w-0">
         <Icon name="space_dashboard" size={16} className="text-[var(--ink-50)]" />
         <span className="text-[13px] font-medium text-[var(--ink-90)]">Workcentre</span>
@@ -182,6 +248,7 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
           </div>
         ) : (
           <div
+            ref={gridRef}
             className="relative grid"
             data-testid="workcentre-grid"
             data-cols={cols}
@@ -193,6 +260,14 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
               minHeight: rows * unitY
             }}
           >
+            {dropCell && (
+              <div
+                aria-hidden="true"
+                data-testid="workcentre-drop-cell"
+                className="pointer-events-none rounded-lg border-2 border-dashed border-[rgb(var(--accent)/0.6)] bg-[rgb(var(--accent)/0.08)]"
+                style={{ gridColumn: `${dropCell.x + 1} / span ${Math.min(4, cols - dropCell.x)}`, gridRow: `${dropCell.y + 1} / span 6` }}
+              />
+            )}
             {tiles.map((t) => {
               const w = byId.get(t.id)
               if (!w) return null

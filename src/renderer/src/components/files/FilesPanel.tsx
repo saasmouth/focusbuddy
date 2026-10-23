@@ -28,6 +28,8 @@ import { fileTypeIcon, fileTypeLabel, isWidgetFileEntry } from '../../lib/fileEn
 import {
   ENTRY_DRAG_MIME,
   FILES_DRAG_MIME,
+  activeFilesDrag,
+  onFilesDragChange,
   readFilesDrag,
   refFromEntry,
   refsForDragStart,
@@ -129,6 +131,18 @@ export default function FilesPanel({
   const [dragging, setDragging] = useState(false)
   const anchorRef = useRef<string | null>(null)
   const typeAhead = useRef<{ text: string; at: number }>({ text: '', at: 0 })
+
+  // However the drag ends (dragend, a drop anywhere, the first pointer move
+  // after a drag that left the window), the sheet comes back.
+  useEffect(
+    () =>
+      onFilesDragChange((p) => {
+        if (p) return
+        setDragging(false)
+        useFilesPanelStore.getState().setDragging(false)
+      }),
+    []
+  )
 
   // First open lists the root; later opens keep the folder the panel was in.
   useEffect(() => {
@@ -605,8 +619,16 @@ export default function FilesPanel({
                 const refs = refsForDragStart(entry, selected, lookup, activeOrgId)
                 writeFilesDrag(ev.dataTransfer, refs, 'files-panel')
                 setFilesDragImage(ev.dataTransfer, refs)
-                setDragging(true)
-                useFilesPanelStore.getState().setDragging(true)
+                // Next frame, not now: a sheet that goes click-through INSIDE
+                // dragstart (React flushes it before Chromium starts the native
+                // drag) makes macOS abandon the drag. Found by the real CGEvent
+                // drag proof (REAL-6); synthetic drags cannot see it.
+                requestAnimationFrame(() => {
+                  // Already over (a cancelled drag ends before this frame): stay put.
+                  if (!activeFilesDrag()) return
+                  setDragging(true)
+                  useFilesPanelStore.getState().setDragging(true)
+                })
               }}
               onDragEnd={() => {
                 setDragging(false)
@@ -672,7 +694,11 @@ function PathMenu({
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const onDown = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      const t = e.target as HTMLElement
+      // The trigger toggles the menu itself; closing here as well would make
+      // its click re-open it (caught by the real-click proof).
+      if (t.closest?.('[data-testid="files-panel-path"]')) return
+      if (ref.current && !ref.current.contains(t)) onClose()
     }
     window.addEventListener('mousedown', onDown, true)
     return () => window.removeEventListener('mousedown', onDown, true)
