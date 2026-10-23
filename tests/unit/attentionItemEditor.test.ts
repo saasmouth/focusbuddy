@@ -208,12 +208,14 @@ describe('DEC-044 — the highlight travels the WHOLE path to the notes', () => 
   })
 
   it('the AI chat selection menu offers Add to Focus — FIRST', () => {
+    // The menu's rows come from lib/chatMessageMenu.ts (WP3); ChatPanel supplies the actions.
     const chat = read('src/renderer/src/components/ChatPanel.tsx')
-    const menu = chat.slice(chat.indexOf('function ctxMenuItems'), chat.indexOf('Save selection as sticky'))
-    expect(menu).toContain('Add to Focus…')
     expect(chat).toContain("presetForSelection('ai-chat', text)")
-    // Standalone-friendly: filing must NOT require an open desk.
-    expect(menu).not.toContain('disabled: noTask')
+    const menu = read('src/renderer/src/lib/chatMessageMenu.ts')
+    const sel = menu.slice(menu.indexOf('if (sel) {'), menu.indexOf('CHAT_MENU_LABELS.saveAsSticky, icon'))
+    expect(sel).toContain('MENU.addToFocus.label')
+    // Standalone-friendly: filing must NOT require an open desk (only the desk rows carry noDesk).
+    expect(sel.slice(sel.indexOf('MENU.addToFocus.label'))).not.toContain('...noDesk')
   })
 })
 

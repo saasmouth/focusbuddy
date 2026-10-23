@@ -102,7 +102,9 @@ describe('every × asks the same question', () => {
 
   it('the full-pane "Move to Trash" and Files both warn that instances go too', () => {
     expect(read('components/views/WidgetFileView.tsx')).toContain('confirmTrashWidgetFile(file.id)')
-    expect(read('components/views/FilesView.tsx')).toContain('confirmTrashWidgetFile(docId)')
+    // Both Files surfaces (full view and flyout) route a work widget file's Move to Trash through it.
+    expect(read('components/views/FilesView.tsx')).toContain('confirmTrashWidgetFile(entry.docId)')
+    expect(read('components/files/FilesPanel.tsx')).toContain('confirmTrashWidgetFile(entry.docId)')
   })
 })
 
