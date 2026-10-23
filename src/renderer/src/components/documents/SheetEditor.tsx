@@ -38,7 +38,7 @@ import {
   type CellRange
 } from './sheet/sheetOps'
 import { extendSeries, canToggleSeries, numericFill } from '../../lib/sheetFill'
-import { rewriteFormulaRefs, remapFormulaRefs, displayCell, makeWorkbook, makeNames } from '../../lib/sheetFormula'
+import { rewriteFormulaRefs, remapFormulaRefs, displayCell, buildSpillMap, makeWorkbook, makeNames } from '../../lib/sheetFormula'
 import { isSingleCell } from '@shared/gridClipboard'
 import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
@@ -65,6 +65,8 @@ import Icon from '../Icon'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import { markCellsCopy, readClipboardForms } from '../../lib/clipboardForms'
+import { CELLS_CLIP_MIME } from '@shared/cellsClipboardFormat'
+import { cellsCopyPayload } from './sheet/cellsClipboard'
 import { fromAnotherApp, pasteConverted, pastedSnippet } from '../../lib/clipboardPaste'
 import type { SheetSnippetBody, Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
 import { officeAccepts } from '../../lib/officeSnippets'
@@ -852,6 +854,163 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     }
   }
 
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+  // ⌘C / ⌘X, Edit › Cut / Copy in the app's menu (main/index.ts editAction:
+  // webContents.cut/copy) and in this sheet's own menu bar all end in ONE DOM
+  // copy or cut event, whose handler writes the range into that event's
+  // DataTransfer: the TSV as text/plain, exactly as before, and PlexiiCells'
+  // flavour beside it (shared/cellsClipboardFormat.ts). One event is one
+  // clipboard entry, so the two can never disagree. The keys and this sheet's
+  // menu ARM the event (they fire it with execCommand, which needs no focus
+  // in the grid); the app menu's event is ours when the grid has focus and no
+  // field or page text does. Where the event cannot be fired, the TSV is
+  // written alone, as it always was.
+  const clipboardArmed = useRef<'copy' | 'cut' | null>(null)
+
+  function rememberCopy(text: string, kind: 'copy' | 'cut'): void {
+    clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
+    markCellsCopy(text, { r: selection.r0, c: selection.c0 })
+    if (kind === 'cut') {
+      mutateTab((t) => {
+        let next = t
+        for (let rr = selection.r0; rr <= selection.r1; rr++)
+          for (let cc = selection.c0; cc <= selection.c1; cc++) next = setCell(next, rr, cc, '')
+        return next
+      })
+    }
+  }
+
+  /** The selection into a copy/cut event's DataTransfer (one write: TSV and the flavour). */
+  function writeRangeTo(data: DataTransfer, kind: 'copy' | 'cut'): void {
+    const grid = { columns: tab.columns, rows: tab.rows }
+    const spill = buildSpillMap(grid, workbook, names)
+    const out = cellsCopyPayload(tab, selection, (r, c) => displayCell(grid, r, c, workbook, spill, names))
+    data.setData('text/plain', out.tsv)
+    if (out.json) data.setData(CELLS_CLIP_MIME, out.json)
+    rememberCopy(out.tsv, kind)
+  }
+
+  /** Copy or cut the selection: fire the clipboard event this sheet handles, or write the TSV alone. */
+  function copyOrCut(kind: 'copy' | 'cut'): void {
+    clipboardArmed.current = kind
+    try {
+      document.execCommand(kind)
+    } catch {
+      // Handled below: the event never reached the handler.
+    }
+    // The handler disarms once it has written.
+    const wrote = clipboardArmed.current === null
+    clipboardArmed.current = null
+    if (wrote) return
+    const text = rangeToTsv(tab, selection)
+    void navigator.clipboard.writeText(text).catch(() => {})
+    rememberCopy(text, kind)
+  }
+
+  /** ⌘V and Edit › Paste: the clipboard at the selection. */
+  async function pasteClipboard(): Promise<void> {
+    const text = await navigator.clipboard.readText().catch(() => '')
+    // Another of our apps' content (a Write table, a Deck selection, a
+    // drawing) lands as a converted sheet snippet would: rows of values
+    // at the selection, or the reason it cannot (a picture). Cells' own
+    // copies and plain text from anywhere keep the paste below unchanged.
+    const ownCopy = !!clipboardCopy.current && clipboardCopy.current.text === text
+    if (!ownCopy) {
+      const read = await readClipboardForms()
+      // A range copied in PlexiiCells somewhere other than this sheet (another
+      // workbook, a desk widget, another window, before a restart) carries the
+      // range as a saved snippet of it (its flavour): it lands as inserting
+      // that snippet does, formats, merges and validation with it and
+      // formulas shifted from where they were copied.
+      const first = read.forms[0]
+      if (read.kind === 'sheet' && !read.refused && first?.kind === 'native') {
+        insertSnippetHere(pastedSnippet(first.value as SheetSnippetBody))
+        return
+      }
+      // A newer PlexiiCells' range: its flavour is refused, but the TSV it
+      // wrote beside it is plain text, which Cells' own paste below takes.
+      const newerCells = !!read.refused && read.kind === 'sheet'
+      if (!newerCells && (fromAnotherApp(read, 'sheet') || (!text && read.forms.length > 0))) {
+        await pasteConverted('sheet', (body) => insertSnippetHere(pastedSnippet(body)), { read })
+        return
+      }
+    }
+    if (!text) return
+    const matrix = parseTsv(text)
+    // Only shift formulas when the clipboard is still our own copy (we know its
+    // origin); an external paste is written literally.
+    const origin = clipboardCopy.current && clipboardCopy.current.text === text ? clipboardCopy.current : null
+    const isF = (s: string): boolean => s.trim().startsWith('=')
+    const multiCell = selection.r0 !== selection.r1 || selection.c0 !== selection.c1
+    if (isSingleCell(matrix) && multiCell) {
+      const v = matrix[0][0]
+      mutateTab((t) =>
+        fillSelection(t, selection, v, (val, rr, cc) =>
+          origin && isF(val) ? rewriteFormulaRefs(val, rr - origin.r, cc - origin.c) : val
+        )
+      )
+    } else if (multiCell) {
+      mutateTab((t) =>
+        tileMatrix(t, selection, matrix, (val, destR, destC, si, sj) =>
+          origin && isF(val) ? rewriteFormulaRefs(val, destR - origin.r - si, destC - origin.c - sj) : val
+        )
+      )
+    } else {
+      const shifted = origin
+        ? matrix.map((row) =>
+            row.map((val) =>
+              isF(val) ? rewriteFormulaRefs(val, focus.r - origin.r, focus.c - origin.c) : val
+            )
+          )
+        : matrix
+      mutateTab((t) => writeMatrix(t, focus.r, focus.c, shifted))
+    }
+  }
+
+  // The clipboard events, read through a ref so the listeners (added once)
+  // always run this render's closures. Listened for on the window in the
+  // capture phase, and stopped there when they are this sheet's: another
+  // editor mounted at the same time (a drawing or a deck in a desk widget)
+  // listens on the document, and must not also act on a copy of cells.
+  const clipboardEventRef = useRef<(kind: 'copy' | 'cut' | 'paste', e: ClipboardEvent) => void>(() => {})
+  clipboardEventRef.current = (kind, e) => {
+    const armed = kind !== 'paste' && clipboardArmed.current === kind
+    if (!armed) {
+      if (editing) return
+      const wrap = gridWrapRef.current
+      const active = document.activeElement
+      if (!wrap || !active || !wrap.contains(active)) return
+      const el = (e.target instanceof Node ? (e.target.nodeType === 1 ? e.target : e.target.parentElement) : null) as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      const sel = window.getSelection()
+      if (sel && !sel.isCollapsed && sel.toString().length > 0) return
+    }
+    if (kind === 'paste') {
+      e.preventDefault()
+      e.stopPropagation()
+      void pasteClipboard()
+      return
+    }
+    if (!e.clipboardData) return
+    e.preventDefault()
+    e.stopPropagation()
+    writeRangeTo(e.clipboardData, kind)
+    clipboardArmed.current = null
+  }
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent): void => clipboardEventRef.current('copy', e)
+    const onCut = (e: ClipboardEvent): void => clipboardEventRef.current('cut', e)
+    const onPaste = (e: ClipboardEvent): void => clipboardEventRef.current('paste', e)
+    window.addEventListener('copy', onCopy, true)
+    window.addEventListener('cut', onCut, true)
+    window.addEventListener('paste', onPaste, true)
+    return () => {
+      window.removeEventListener('copy', onCopy, true)
+      window.removeEventListener('cut', onCut, true)
+      window.removeEventListener('paste', onPaste, true)
+    }
+  }, [])
+
   // ── Keyboard ──────────────────────────────────────────────────────────────
   async function onGridKeyDown(e: React.KeyboardEvent): Promise<void> {
     if (editing) return
@@ -870,26 +1029,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
       e.shiftKey ? redo() : undo()
       return
     }
-    if (mod && e.key.toLowerCase() === 'c') {
+    if (mod && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x')) {
       e.preventDefault()
-      const text = rangeToTsv(tab, selection)
-      await navigator.clipboard.writeText(text).catch(() => {})
-      clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
-      markCellsCopy(text, { r: selection.r0, c: selection.c0 })
-      return
-    }
-    if (mod && e.key.toLowerCase() === 'x') {
-      e.preventDefault()
-      const text = rangeToTsv(tab, selection)
-      await navigator.clipboard.writeText(text).catch(() => {})
-      clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
-      markCellsCopy(text, { r: selection.r0, c: selection.c0 })
-      mutateTab((t) => {
-        let next = t
-        for (let rr = selection.r0; rr <= selection.r1; rr++)
-          for (let cc = selection.c0; cc <= selection.c1; cc++) next = setCell(next, rr, cc, '')
-        return next
-      })
+      copyOrCut(e.key.toLowerCase() === 'x' ? 'cut' : 'copy')
       return
     }
     if (mod && e.key === 'Enter') {
@@ -935,49 +1077,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     }
     if (mod && e.key.toLowerCase() === 'v') {
       e.preventDefault()
-      const text = await navigator.clipboard.readText().catch(() => '')
-      // Another of our apps' content (a Write table, a Deck selection, a
-      // drawing) lands as a converted sheet snippet would: rows of values
-      // at the selection, or the reason it cannot (a picture). Cells' own
-      // copies and plain text from anywhere keep the paste below unchanged.
-      const ownCopy = !!clipboardCopy.current && clipboardCopy.current.text === text
-      if (!ownCopy) {
-        const read = await readClipboardForms()
-        if (fromAnotherApp(read, 'sheet') || (!text && read.forms.length > 0)) {
-          await pasteConverted('sheet', (body) => insertSnippetHere(pastedSnippet(body)), { read })
-          return
-        }
-      }
-      if (!text) return
-      const matrix = parseTsv(text)
-      // Only shift formulas when the clipboard is still our own copy (we know its
-      // origin); an external paste is written literally.
-      const origin = clipboardCopy.current && clipboardCopy.current.text === text ? clipboardCopy.current : null
-      const isF = (s: string): boolean => s.trim().startsWith('=')
-      const multiCell = selection.r0 !== selection.r1 || selection.c0 !== selection.c1
-      if (isSingleCell(matrix) && multiCell) {
-        const v = matrix[0][0]
-        mutateTab((t) =>
-          fillSelection(t, selection, v, (val, rr, cc) =>
-            origin && isF(val) ? rewriteFormulaRefs(val, rr - origin.r, cc - origin.c) : val
-          )
-        )
-      } else if (multiCell) {
-        mutateTab((t) =>
-          tileMatrix(t, selection, matrix, (val, destR, destC, si, sj) =>
-            origin && isF(val) ? rewriteFormulaRefs(val, destR - origin.r - si, destC - origin.c - sj) : val
-          )
-        )
-      } else {
-        const shifted = origin
-          ? matrix.map((row) =>
-              row.map((val) =>
-                isF(val) ? rewriteFormulaRefs(val, focus.r - origin.r, focus.c - origin.c) : val
-              )
-            )
-          : matrix
-        mutateTab((t) => writeMatrix(t, focus.r, focus.c, shifted))
-      }
+      await pasteClipboard()
       return
     }
     if (mod && e.key.toLowerCase() === 'a') {
@@ -1464,6 +1564,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     redo,
     canUndo: undoStack.current.length > 0,
     canRedo: redoStack.current.length > 0,
+    cut: () => copyOrCut('cut'),
+    copy: () => copyOrCut('copy'),
+    paste: () => void pasteClipboard(),
     format: applyToSelection,
     numberFormat: applyNumberFormat,
     insertRowAbove: () => mutateTab((t) => insertRowFixed(t, selection.r0)),

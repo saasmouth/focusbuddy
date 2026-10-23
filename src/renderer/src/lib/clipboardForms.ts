@@ -33,6 +33,7 @@ import type { DrawSnippetBody, SheetSnippetBody, SnippetBody, SnippetKind } from
 import type { ConvertVerb } from '@shared/snippetConvert'
 import { formsOf, type ConvertDeps, type Form } from '@shared/snippetForms'
 import { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION } from '@shared/draw/clipboardFormat'
+import { CELLS_CLIP_MIME, parseCellsClipboard } from '@shared/cellsClipboardFormat'
 import { translateNode } from '@shared/draw/ops/geometry'
 import { ELEMENT_CLIP_MIME, parseElementClipboard } from '@shared/elementClipboard'
 import { isClip } from '@shared/diagram/ops'
@@ -81,10 +82,13 @@ export type FormsRead = ClipboardForms
 
 // ── PlexiiCells' copy ────────────────────────────────────────────────────────
 //
-// Cells puts only TSV on the clipboard (navigator.clipboard.writeText), which
-// any app could have written. Cells records here what it last wrote and where
-// it came from, so a paste whose text is STILL exactly that copy is known to be
-// a Cells range: its cells are raw input (formulas as written) at a known
+// A Cells copy carries its own flavour beside the TSV (CELLS_CLIP_MIME,
+// shared/cellsClipboardFormat.ts): the range as a saved snippet of it, read
+// first, from any window and after a restart. What follows is the fallback for
+// a paste that cannot see that flavour (the browser build's menu paste, which
+// has no paste event to read): Cells also records here what it last wrote and
+// where it came from, so a paste whose text is STILL exactly that copy is known
+// to be a Cells range: its cells are raw input (formulas as written) at a known
 // origin, and it becomes a sheet body whose formulas are computed for the
 // destination, as a saved sheet snippet's are. In this renderer only, and only
 // while the clipboard text is unchanged; anything else is plain text.
@@ -111,7 +115,7 @@ export function isCellsCopyText(text: string | null | undefined): boolean {
 export function pasteNeedsConversion(data: DataTransfer | null | undefined): boolean {
   if (!data) return false
   const types = Array.from(data.types ?? [])
-  if (types.includes(ELEMENT_CLIP_MIME) || types.includes(DIAGRAM_CLIP_MIME)) return true
+  if (types.includes(ELEMENT_CLIP_MIME) || types.includes(DIAGRAM_CLIP_MIME) || types.includes(CELLS_CLIP_MIME)) return true
   const text = types.includes('text/plain') ? data.getData('text/plain') : ''
   if (text.includes('plexii-diagram/v1') || isCellsCopyText(text)) return true
   return !text && !types.includes('text/html') && types.length > 0
@@ -243,6 +247,29 @@ export function formsFromClipboardRead(read: AppClipboardRead, opts: FormsOption
     const hit = ours(diagramBody(diagramJson))
     if (hit) return hit
   }
+  if (custom[CELLS_CLIP_MIME]) {
+    const cells = parseCellsClipboard(custom[CELLS_CLIP_MIME])
+    if (cells && 'refused' in cells) return { forms: [], source: 'PlexiiCells', kind: 'sheet', refused: cells.refused }
+    if (cells) {
+      // What the cells displayed on the sheet they were copied from, when the
+      // copy says: a formula reading a cell outside the range then lands as
+      // the value the person saw, not the #REF! a saved snippet (which has
+      // only itself to compute from) must show.
+      const values = cells.values
+      const shown: ConvertDeps = values
+        ? {
+            ...deps,
+            evaluateSheet: (b) => ({
+              values: values.map((r) => [...r]),
+              formulas: b.rows.reduce((n, r) => n + r.filter((c) => typeof c === 'string' && c.trim().startsWith('=')).length, 0),
+              outside: 0
+            })
+          }
+        : deps
+      const forms = formsOf(cells.body, shown)
+      return { forms, source: SOURCE_APP.sheet, kind: 'sheet' }
+    }
+  }
   if (read.text !== undefined && cellsCopy && cellsCopy.text === read.text) {
     const rows = parseTsv(read.text)
     const body: SheetSnippetBody = { kind: 'sheet', rows, origin: { ...cellsCopy.origin } }
@@ -299,7 +326,7 @@ export function readFromDataTransfer(data: DataTransfer): AppClipboardRead {
     }
   }
   const custom: Record<string, string> = {}
-  for (const t of [ELEMENT_CLIP_MIME, DIAGRAM_CLIP_MIME]) {
+  for (const t of [ELEMENT_CLIP_MIME, DIAGRAM_CLIP_MIME, CELLS_CLIP_MIME]) {
     const v = get(t)
     if (v) custom[t] = v
   }

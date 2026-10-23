@@ -26,6 +26,14 @@ export interface SheetMenuActions {
   redo: () => void
   canUndo: boolean
   canRedo: boolean
+  /**
+   * Cut, copy and paste the selection: the same as ⌘X, ⌘C and ⌘V, so the
+   * menu writes the TSV and PlexiiCells' own flavour in one clipboard entry
+   * (sheet/cellsClipboard.ts).
+   */
+  cut: () => void
+  copy: () => void
+  paste: () => void
   format: (patch: Partial<SheetCellFormat>) => void
   numberFormat: (f: SheetNumberFormat) => void
   insertRowAbove: () => void
@@ -114,6 +122,10 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
       build: () => [
         { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo, disabled: !a.canUndo },
         { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: a.redo, disabled: !a.canRedo },
+        { kind: 'sep' },
+        { kind: 'item', label: 'Cut', shortcut: '⌘X', icon: 'content_cut', run: a.cut },
+        { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copy },
+        { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.paste },
         { kind: 'sep' },
         { kind: 'item', label: 'Save selection as snippet…', icon: 'bookmark_add', run: a.saveSnippet }
       ]
