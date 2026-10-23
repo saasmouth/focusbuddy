@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { CORNER_PRIORITY, useCornerSlot } from '../lib/cornerStack'
 import Icon from './Icon'
 import { useMeetingRoomStore, type DockSide } from '../stores/meetingRoom'
 import { consentSummary } from '../lib/meetingConsent'
@@ -285,11 +286,27 @@ export default function MeetingOverlay(): JSX.Element | null {
     return () => window.removeEventListener('keydown', onKey)
   }, [status, layout, leave, bodyDouble, setLayout])
 
+  // The invite card joins the corner stack (lib/cornerStack), above a live
+  // call and below the quieter notices. Hooks run every render, so the slot is
+  // taken here rather than inside the branch below.
+  const inviteRef = useRef<HTMLDivElement>(null)
+  const inviteCorner = useCornerSlot(
+    'meeting-invite',
+    CORNER_PRIORITY.meetingInvite,
+    status === 'idle' && !!incomingInvite,
+    inviteRef
+  )
+
   // Incoming invite while not in a room: a compact ringing card.
   if (status === 'idle' && incomingInvite) {
     return (
       // Video stage: forced-dark chrome; white hairlines are relative to the stage, not the theme.
-      <div className="fixed bottom-5 right-5 z-[200] w-[320px] rounded-2xl bg-stone-900 text-white shadow-2xl border border-white/10 p-4" data-testid="meeting-invite">
+      <div
+        ref={inviteRef}
+        style={{ bottom: inviteCorner.bottom, right: inviteCorner.right }}
+        className="fixed z-[200] w-[320px] rounded-2xl bg-stone-900 text-white shadow-2xl border border-white/10 p-4"
+        data-testid="meeting-invite"
+      >
         <div className="flex items-center gap-3">
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[15px] font-semibold">
             {personInitials(incomingInvite.from)}

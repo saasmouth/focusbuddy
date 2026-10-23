@@ -82,6 +82,9 @@ export function commandRegistryProblems(): string[] {
     if (r && r[0] !== `tool:${t.id}`) out.push(`tool key "${k}" of ${t.id} is reserved for ${r[1]} ("${r[0]}", ${r[2]})`)
   }
   for (const c of ALL) if (c.pending && !c.enabled) out.push(`pending command "${c.id}" must say it is disabled (enabled: () => false)`)
+  // SPEC §9.5: a menu item that can be greyed says why. gate.ts gives a command
+  // both from one predicate, so they cannot disagree.
+  for (const c of COMMANDS) if (c.menu && c.enabled && !c.pending && !c.disabledReason) out.push(`menu command "${c.id}" can be disabled without a reason (use gate() from gate.ts)`)
   const menuPaths = new Set(MENUS.map((m) => m.path))
   for (const c of COMMANDS) {
     if (!c.menu) continue

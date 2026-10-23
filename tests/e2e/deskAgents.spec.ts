@@ -154,6 +154,9 @@ test('the onChange trigger fires a run when a wired input changes', async () => 
   expect((await agentContent(window, ids.taskId))?.lastRunAt ?? null).toBeNull()
 
   // Edit the wired sticky → the agent should run on the change.
+  // A sticky with text shows a rendered view and a click flips it to the
+  // textarea (70574c927), so click in first, as a person would.
+  await window.locator(`[data-widget-id="${ids.stickyId}"] .fb-sticky-rendered`).click()
   const srcArea = window.locator(`[data-widget-id="${ids.stickyId}"] textarea`)
   await srcArea.click()
   await srcArea.fill('New plan: call the supplier and update the deck.')

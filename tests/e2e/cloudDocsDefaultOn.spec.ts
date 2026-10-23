@@ -16,7 +16,8 @@
 // cert is self-signed, so Electron is launched with
 // --ignore-certificate-errors for this spec only.
 
-import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test'
+import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
+import { launchGuarded } from './_netGuard'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -58,12 +59,13 @@ test('fresh profile: cloud-docs sync default-on pushes a personal doc; opt-out t
   delete cleanEnv.ANTHROPIC_API_KEY
   delete cleanEnv.OPENAI_API_KEY
 
-  app = await electron.launch({
+  const launched = await launchGuarded({
     args: ['.', '--ignore-certificate-errors'],
     cwd: process.cwd(),
     env: { ...cleanEnv, FB_TEST_USER_DATA: userDataDir, NODE_ENV: 'test' },
     timeout: 20_000
   })
+  app = launched.app
   app.process().stdout?.on('data', (b) => process.stdout.write(`[main] ${b}`))
   app.process().stderr?.on('data', (b) => process.stderr.write(`[main] ${b}`))
   window = await app.firstWindow()

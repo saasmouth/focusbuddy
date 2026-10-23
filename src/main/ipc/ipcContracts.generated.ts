@@ -295,6 +295,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'onboarding:record': [{ kind: 'object', optional: false, nullable: false }],
   'people:setSelf': [{ kind: 'string', optional: false, nullable: true }],
   'planner:selectItems': [{ kind: 'string', optional: false, nullable: false }, { kind: 'any', optional: false, nullable: false }],
+  'print:sheetPdf': [{ kind: 'object', optional: false, nullable: false }],
   'privacy:setPrefs': [{ kind: 'object', optional: false, nullable: false }],
   'projects:addDep': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: false }, { kind: 'number', optional: true, nullable: false }],
   'projects:captureBaseline': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],

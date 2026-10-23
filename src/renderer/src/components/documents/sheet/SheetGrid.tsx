@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SheetTab } from '@shared/types'
 import { displayCell, buildSpillMap, sparklineForCell, type Grid, type Workbook } from '../../../lib/sheetFormula'
 import { formatValue } from '@shared/sheetFormat'
-import { cellFormat, colLabel } from '../../../lib/sheetBody'
+import { cellFormat, colLabel, columnName } from '../../../lib/sheetBody'
 import {
   applyCondFormat,
   validationForCell,
@@ -284,8 +284,13 @@ export default function SheetGrid(props: Props): JSX.Element {
                   >
                     {colLabel(c)}
                   </span>
+                  {/* The column's own name beside its letter. An unnamed
+                      column (still called by its letter) shows the letter
+                      once, not twice; typing here names it. */}
                   <input
-                    value={col}
+                    value={columnName(col, c)}
+                    aria-label={`Column ${colLabel(c)} name`}
+                    data-testid={`col-name-${c}`}
                     readOnly={props.readOnly}
                     onChange={(e) => props.onHeaderRename(c, e.target.value)}
                     className="w-full bg-transparent px-1 py-1.5 text-[12px] font-semibold text-stone-700 dark:text-stone-200 min-w-0"
@@ -690,7 +695,9 @@ export default function SheetGrid(props: Props): JSX.Element {
 // uses currentColor so it inherits the accent set on the wrapper and stays crisp
 // in dark mode. With fewer than the points a chart needs, or no numeric values at
 // all, it renders a faint baseline placeholder rather than inventing data.
-function SparklineCell({
+// Exported for paper: Print… and Download ▸ PDF render a sparkline with this
+// same component (lib/sheetPrintModel.ts), so it prints as it shows.
+export function SparklineCell({
   r,
   c,
   values,

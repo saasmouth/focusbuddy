@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { CORNER_PRIORITY, useCornerSlot } from '../lib/cornerStack'
 import Icon from './Icon'
 import { useCompletionOffer } from '../stores/completionOffer'
 import { useWorkItemStore } from '../stores/workItems'
@@ -35,11 +36,24 @@ export default function CompletionToast(): JSX.Element | null {
     return () => window.removeEventListener('keydown', onKey)
   }, [offer, items, resolve, closeItem])
 
+  // A slot in the corner stack (lib/cornerStack) rather than a bare
+  // `bottom-5`, which put this on top of the desk's minimap and on top of
+  // whatever else was already in the corner. Above the early return: hooks
+  // run every render.
+  const cornerRef = useRef<HTMLDivElement>(null)
+  const corner = useCornerSlot('completion-toast', CORNER_PRIORITY.toast, !!offer, cornerRef)
+
   if (!offer) return null
+  // Queued, not squeezed in: with the corner full this waits for room rather
+  // than covering a control or another overlay. The offer stays in the store,
+  // so it appears as soon as there is space.
+  if (!corner.visible) return null
   return (
     <div
+      ref={cornerRef}
+      style={{ bottom: corner.bottom, right: corner.right }}
       data-testid="completion-toast"
-      className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-xl border border-[var(--edge-firm)] bg-[var(--surface-raised)] shadow-lg pl-3.5 pr-2 py-2.5 max-w-[380px]"
+      className="fixed z-50 flex items-center gap-3 rounded-xl border border-[var(--edge-firm)] bg-[var(--surface-raised)] shadow-lg pl-3.5 pr-2 py-2.5 max-w-[380px]"
     >
       <Icon name="task_alt" size={17} className="shrink-0 text-emerald-500" />
       <div className="min-w-0 flex-1">

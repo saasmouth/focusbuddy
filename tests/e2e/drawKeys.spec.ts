@@ -247,9 +247,10 @@ test('KEY-6 the menus show Illustrator’s keys', async () => {
     'Select all on active artboard=⌥⌘A',
     // Saved snippets have no Illustrator key, so none is bound.
     'Save selection as snippet…=',
-    'Insert snippet…=',
-    'Keyboard shortcuts…=⌥⇧⌘K'
+    'Insert snippet…='
   ])
+  // In Help since 4.3.41 (SPEC §9.2, E-16), on Illustrator's key: ⌘/ is Add new fill.
+  expect(await shortcuts('help')).toContain('Keyboard shortcuts=⌥⇧⌘K')
   expect(await shortcuts('view')).toEqual([
     'Fit Artboard in Window=⌘0',
     'Fit All in Window=⌥⌘0',

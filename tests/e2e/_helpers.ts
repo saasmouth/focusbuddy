@@ -1,5 +1,4 @@
 import {
-  _electron as electron,
   expect,
   type ElectronApplication,
   type Locator,
@@ -8,6 +7,7 @@ import {
 import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { launchGuarded, type NetGuard } from './_netGuard'
 
 /**
  * Boot the built Electron app with an isolated userData directory so each test
@@ -21,6 +21,8 @@ export interface LaunchedApp {
   window: Page
   userDataDir: string
   dispose: () => Promise<void>
+  /** The e2e net guard for this launch (_netGuard.ts): what it refused. */
+  netGuard: NetGuard
 }
 
 export async function launchApp(opts?: {
@@ -41,6 +43,8 @@ export async function launchApp(opts?: {
   // such as `-r <module>` there (Playwright strips NODE_OPTIONS), which is how
   // _networkInventory.spec.ts preloads its main-process socket recorder.
   preArgs?: string[]
+  // netGuard.spec.ts only — see launchGuarded's selfTest.
+  netGuardSelfTest?: boolean
 }): Promise<LaunchedApp> {
   const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'plexii-e2e-'))
   const ownsDir = !opts?.userDataDir
@@ -60,7 +64,10 @@ export async function launchApp(opts?: {
   delete cleanEnv.ANTHROPIC_API_KEY
   delete cleanEnv.OPENAI_API_KEY
 
-  const app = await electron.launch({
+  // launchGuarded holds the first window until the net guard's routes are in
+  // place, so no request or socket from this app reaches a production host
+  // (see _netGuard.ts).
+  const { app, guard: netGuard } = await launchGuarded({
     args: [...(opts?.preArgs ?? []), '.', ...(opts?.extraArgs ?? [])],
     cwd: process.cwd(),
     env: {
@@ -77,7 +84,7 @@ export async function launchApp(opts?: {
       ...(opts?.env ?? {})
     },
     timeout: 20_000
-  })
+  }, { selfTest: opts?.netGuardSelfTest })
   // Forward main-process stdout/stderr to test stdout so debugging "page
   // closed" failures actually shows the real Electron error.
   app.process().stdout?.on('data', (b) => process.stdout.write(`[main] ${b}`))
@@ -138,8 +145,15 @@ export async function launchApp(opts?: {
         // Best effort
       }
     }
+    // Fails the spec if it reached for production and the failure was not
+    // already reported to the running test.
+    try {
+      netGuard.assertClean()
+    } finally {
+      netGuard.finish()
+    }
   }
-  return { app, window, userDataDir, dispose }
+  return { app, window, userDataDir, dispose, netGuard }
 }
 
 /**
@@ -427,9 +441,10 @@ const SEGMENT_OF: Record<string, ProductRoute> = {
   tasks: { mode: 'direct', go: 'goAllTasks' },
   reports: { mode: 'direct', go: 'goReports' },
   // Flow / API live in the PlexiBrain area; jump there via the always-visible
-  // area switcher, then click the app tile.
+  // area switcher, then click the app's menu row.
   flow: { mode: 'seg', switch: 'plexibrain', app: 'flows' },
   api: { mode: 'seg', switch: 'plexibrain', app: 'api' },
+  search: { mode: 'seg', switch: 'plexibrain', app: 'search' },
   chat: { mode: 'comms', app: 'chat' },
   inbox: { mode: 'comms', app: 'inbox' },
   // PlexiiCall is a PlexiiApps tile (office-sideapp-*), not a Tools one.
@@ -465,8 +480,14 @@ export async function openProduct(window: Page, product: keyof typeof SEGMENT_OF
     return
   }
 
+  // The area's apps are rows in the side menu's accordion (nav-<area>-<app>)
+  // since b7dae811; the segment-app-* tiles went with the per-area menus.
   await switchArea(window, route.switch)
-  await window.locator(`[data-testid="segment-app-${route.app}"]`).click()
+  // The old `segment-app-${app}` was never a control: SegmentShell passes that
+  // string to PageEnter as `id`, and PageEnter uses `id` only as a React key
+  // (chrome/pageEnter.tsx), so the click matched nothing and waited out the
+  // full 30s timeout.
+  await window.locator(`[data-testid="nav-${route.switch}-${route.app}"]`).first().click()
 }
 
 // Navigate through the exposed view store. The object-based IA no longer has
@@ -477,6 +498,9 @@ export async function gotoView(
   window: Page,
   fn:
     | 'goHome'
+    | 'goSuite'
+    | 'goSign'
+    | 'goMarketplace'
     | 'goDocuments'
     | 'goCalendar'
     | 'goVault'

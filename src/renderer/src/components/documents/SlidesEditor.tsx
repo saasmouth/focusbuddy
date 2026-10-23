@@ -9,9 +9,13 @@ import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import SlideFace from './slides/SlideFace'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
 import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import SlidesMenuBar from './editor/SlidesMenuBar'
+import { buildDeckCommands } from './slides/deckCommands'
+import { barProps, ctxRow, paletteEntries } from '../../lib/menus/officeCommand'
+import { runCommandKey } from '../../lib/menus/commandKeys'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
@@ -34,7 +38,7 @@ import {
   updateElement,
   deleteElement,
   duplicateElement,
-  reorderZ,
+  reorderMany,
   setElementText,
   styleTextElement,
   setParagraphAlign,
@@ -49,7 +53,7 @@ import {
   type AlignEdge
 } from './slides/slideOps'
 import { useElementClipboard } from './slides/useElementClipboard'
-import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
+import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import Icon from '../Icon'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 import SnippetLibrary from '../snippets/SnippetLibrary'
@@ -372,25 +376,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     onChange(next)
   }
 
-  // Deck-level undo/redo on Cmd/Ctrl+Z (and Shift for redo), except while editing
-  // text in an input or textarea (where the browser's own text undo should win).
-  // A document listener rather than a div handler so it fires regardless of which
-  // child has focus.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent): void {
-      // ⇧⌘Z is the Redo the menu shows; ⌘Y stays bound too (E-13).
-      const k = e.key.toLowerCase()
-      if (!(e.metaKey || e.ctrlKey) || (k !== 'z' && k !== 'y')) return
-      const tag = (document.activeElement?.tagName ?? '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea') return
-      e.preventDefault()
-      if (k === 'y' || e.shiftKey) redoLast()
-      else undoLast()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body])
+  // Undo / Redo keys run from the command registry in the editor's key
+  // handler below (one binding per key; SPEC §9.9).
 
   // ── Slide rail ops ────────────────────────────────────────────────────────
   // Insert a new slide built from a starter template, right after the current
@@ -703,6 +690,10 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     setSelectedIds([])
   }
 
+  // Print… prints what Download ▸ PDF saves: the same deck (main renders both
+  // through slidesPrintRender), one slide per page.
+  usePrintSource(documentOps, () => ({ app: 'deck', title, body }))
+
   // ── Import / export ───────────────────────────────────────────────────────
   async function exportFile(format: 'pptx' | 'pdf'): Promise<void> {
     setStatus('Exporting…')
@@ -760,7 +751,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     mutateSlide((s) => ungroupElements(s, selectedIds))
   }
   function reorderSelection(dir: 'front' | 'back' | 'forward' | 'backmost'): void {
-    mutateSlide((s) => selectedIds.reduce((acc, id) => reorderZ(acc, id, dir), s))
+    mutateSlide((s) => reorderMany(s, selectedIds, dir))
   }
   function duplicateSelection(): void {
     if (!selectedIds.length) return
@@ -858,10 +849,18 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
           return
         }
       }
-      // ⌘A Select all on this slide: the key Edit › Select all shows (SPEC §9.2).
-      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a') {
+      // Every keyed Deck command, from its definition (slides/deckCommands,
+      // lib/menus/commandKeys): the key a menu or the ribbon shows is the key
+      // that runs it, and a command that is off is not run. ⌘Z / ⇧⌘Z, ⌘A, ⌘D,
+      // ⌫, ⌘G / ⇧⌘G, ⇧⌘] / ⇧⌘[ and ⌘B / ⌘I / ⌘U all arrive here.
+      if (runCommandKey(Object.values(cmdsRef.current), e)) {
         e.preventDefault()
-        selectMany((slide?.elements ?? []).map((el) => el.id))
+        return
+      }
+      // ⌘Y also redoes (E-13: ⇧⌘Z is the Redo shown; ⌘Y stays bound, unshown).
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redoLast()
         return
       }
       if (!selectedIds.length) return
@@ -870,27 +869,12 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         setSelectedIds([])
         return
       }
-      if (mod && e.key.toLowerCase() === 'g') {
+      // Forward-delete does what ⌫ does, through the same gate (off for a viewer).
+      if (e.key === 'Delete') {
+        const del = cmdsRef.current.remove
+        if (del.enabled && !del.enabled()) return
         e.preventDefault()
-        if (e.shiftKey) doUngroup()
-        else doGroup()
-        return
-      }
-      if (mod && e.key.toLowerCase() === 'd') {
-        e.preventDefault()
-        duplicateSelection()
-        return
-      }
-      // ⇧⌘] / ⇧⌘[ Bring to front / Send to back (SPEC §9.3). By code: Shift
-      // turns the key into } and { on most layouts.
-      if (mod && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
-        e.preventDefault()
-        reorderSelection(e.code === 'BracketRight' ? 'front' : 'backmost')
-        return
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        deleteSelection()
+        del.run()
         return
       }
       const step = e.shiftKey ? 10 : 1
@@ -912,67 +896,61 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // Publish the deck's commands to the Cmd+K palette under the 'Slides' scope.
   // Selection-only actions appear with a selection; align/distribute/group only
   // when several elements are selected.
-  useRegisterEditorCommands(
-    'Slides',
-    () => {
-      const n = selectedIds.length
-      const multi = n >= 2
-      const cmds: EditorCommand[] = [
-        { id: 'sl-text', label: 'Insert text box', icon: 'title', group: 'Insert', run: insertText },
-        { id: 'sl-shape', label: 'Insert shape', icon: 'crop_square', group: 'Insert', keywords: 'rectangle box', run: () => insertShape('rect') },
-        { id: 'sl-ellipse', label: 'Insert ellipse', icon: 'circle', group: 'Insert', keywords: 'oval circle', run: () => insertShape('ellipse') },
-        { id: 'sl-image', label: 'Insert image', icon: 'image', group: 'Insert', keywords: 'picture photo', run: () => void insertImage() },
-        { id: 'sl-line', label: 'Insert line', icon: 'horizontal_rule', group: 'Insert', keywords: 'arrow connector', run: insertLine },
-        { id: 'sl-widget', label: 'Insert work widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: () => setWidgetPickerOpen(true) },
-        { id: 'sl-chart', label: 'Insert chart', icon: 'bar_chart', group: 'Insert', keywords: 'graph plot data sheet', run: insertChart },
-        { id: 'sl-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid rows columns cells', run: insertTable },
-        { id: 'sl-snippet', label: 'Insert snippet', icon: 'bookmarks', group: 'Insert', keywords: 'saved reuse library', run: () => setSnippetLibraryOpen(true) },
-        { id: 'sl-new', label: 'New slide', icon: 'add_to_photos', group: 'Slide', keywords: 'add template', run: openGallery },
-        { id: 'sl-present', label: 'Present deck', icon: 'play_arrow', group: 'Slide', keywords: 'slideshow play', run: () => setPresenting(true) },
-        { id: 'sl-ai', label: 'AI: generate or redesign slides', icon: 'auto_awesome', group: 'AI', keywords: 'design make beautiful', run: () => setSidePane('generate') },
-        { id: 'sl-undo', label: 'Undo', icon: 'undo', shortcut: '⌘Z', group: 'Edit', run: undoLast },
-        { id: 'sl-redo', label: 'Redo', icon: 'redo', shortcut: '⇧⌘Z', group: 'Edit', run: redoLast },
-        { id: 'sl-import', label: 'Import PowerPoint (.pptx)', icon: 'upload_file', group: 'File', keywords: 'open pptx', run: () => void importFile() },
-        { id: 'sl-export-pptx', label: 'Export PowerPoint (.pptx)', icon: 'slideshow', group: 'File', keywords: 'save pptx', run: () => void exportFile('pptx') },
-        { id: 'sl-export-pdf', label: 'Export PDF', icon: 'picture_as_pdf', group: 'File', keywords: 'save pdf', run: () => void exportFile('pdf') }
-      ]
-      if (n >= 1) {
-        cmds.push(
-          { id: 'sl-dup', label: multi ? `Duplicate ${n} elements` : 'Duplicate element', icon: 'content_copy', shortcut: '⌘D', group: 'Arrange', run: duplicateSelection },
-          { id: 'sl-del', label: multi ? `Delete ${n} elements` : 'Delete element', icon: 'delete', group: 'Arrange', keywords: 'remove', run: deleteSelection },
-          { id: 'sl-save-snippet', label: 'Save selection as snippet', icon: 'bookmark_add', group: 'Arrange', keywords: 'saved reuse library keep', run: saveSelectionAsSnippet },
-          { id: 'sl-ch', label: 'Centre on slide horizontally', icon: 'align_horizontal_center', group: 'Arrange', keywords: 'align center middle slide', run: () => centreSelection('h') },
-          { id: 'sl-cv', label: 'Centre on slide vertically', icon: 'align_vertical_center', group: 'Arrange', keywords: 'align center middle slide', run: () => centreSelection('v') },
-          { id: 'sl-front', label: 'Bring to front', icon: 'flip_to_front', group: 'Arrange', keywords: 'z order top', run: () => reorderSelection('front') },
-          { id: 'sl-forward', label: 'Bring forward', icon: 'arrow_upward', group: 'Arrange', keywords: 'z order', run: () => reorderSelection('forward') },
-          { id: 'sl-backward', label: 'Send backward', icon: 'arrow_downward', group: 'Arrange', keywords: 'z order', run: () => reorderSelection('back') },
-          { id: 'sl-back', label: 'Send to back', icon: 'flip_to_back', group: 'Arrange', keywords: 'z order bottom', run: () => reorderSelection('backmost') }
-        )
-      }
-      if (multi) {
-        cmds.push(
-          { id: 'sl-al', label: 'Align left edges', icon: 'align_horizontal_left', group: 'Align', keywords: 'left', run: () => doAlign('left') },
-          { id: 'sl-acx', label: 'Align horizontal centres', icon: 'align_horizontal_center', group: 'Align', keywords: 'center middle', run: () => doAlign('centerX') },
-          { id: 'sl-ar', label: 'Align right edges', icon: 'align_horizontal_right', group: 'Align', keywords: 'right', run: () => doAlign('right') },
-          { id: 'sl-at', label: 'Align top edges', icon: 'align_vertical_top', group: 'Align', keywords: 'top', run: () => doAlign('top') },
-          { id: 'sl-amy', label: 'Align vertical centres', icon: 'align_vertical_center', group: 'Align', keywords: 'middle center', run: () => doAlign('middleY') },
-          { id: 'sl-ab', label: 'Align bottom edges', icon: 'align_vertical_bottom', group: 'Align', keywords: 'bottom', run: () => doAlign('bottom') },
-          { id: 'sl-group', label: `Group ${n} elements`, icon: 'group_work', shortcut: '⌘G', group: 'Arrange', keywords: 'combine link', run: doGroup }
-        )
-        if (n >= 3) {
-          cmds.push(
-            { id: 'sl-dh', label: 'Distribute horizontally', icon: 'horizontal_distribute', group: 'Align', keywords: 'space even', run: () => doDistribute('h') },
-            { id: 'sl-dv', label: 'Distribute vertically', icon: 'vertical_distribute', group: 'Align', keywords: 'space even', run: () => doDistribute('v') }
-          )
-        }
-      }
-      if (anyGrouped) {
-        cmds.push({ id: 'sl-ungroup', label: 'Ungroup', icon: 'category', shortcut: '⇧⌘G', group: 'Arrange', keywords: 'split separate', run: doUngroup })
-      }
-      return cmds
+  // Every Deck action, defined once (SPEC §9): the menu bar, the ribbon, the
+  // right-click menu and the palette all render from this record.
+  const cmds = buildDeckCommands({
+    readOnly,
+    selected: selectedIds.length,
+    anyGrouped,
+    canUndo: undo.current.length > 0,
+    canRedo: redo.current.length > 0,
+    canPaste: clipboard.hasClip,
+    textMarks: selectedEl?.type === 'text' ? (selectedEl.paragraphs[0]?.runs[0] ?? {}) : null,
+    toggleMark: (mark) => {
+      if (selectedEl?.type !== 'text') return
+      const on = !selectedEl.paragraphs[0]?.runs[0]?.[mark]
+      textUpdate(selectedEl.id, (e) => styleTextElement(e, { [mark]: on }))
     },
-    [selectedIds, slideIdx, body, anyGrouped]
-  )
+    singleSlide,
+    undo: undoLast,
+    redo: redoLast,
+    cut: clipboard.cut,
+    copy: clipboard.copy,
+    paste: clipboard.paste,
+    duplicate: duplicateSelection,
+    remove: deleteSelection,
+    selectAll: () => selectMany((slide?.elements ?? []).map((e) => e.id)),
+    find: () => setFindOpen('find'),
+    findAndReplace: () => setFindOpen('replace'),
+    saveSnippet: saveSelectionAsSnippet,
+    insertSnippet: () => setSnippetLibraryOpen(true),
+    group: doGroup,
+    ungroup: doUngroup,
+    reorder: reorderSelection,
+    align: doAlign,
+    distribute: doDistribute,
+    centre: centreSelection,
+    insertText,
+    insertShape,
+    insertImage: () => void insertImage(),
+    insertLine,
+    insertTable,
+    insertChart,
+    insertWidget: () => setWidgetPickerOpen(true),
+    newSlide: openGallery,
+    duplicateSlide: () => duplicateSlide(slideIdx),
+    deleteSlide: () => deleteSlide(slideIdx),
+    present: () => setPresenting(true),
+    checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
+    importFile: () => void importFile(),
+    exportFile: (f) => void exportFile(f),
+    openAi: () => setSidePane('generate')
+  })
+  const cmdsRef = useRef(cmds)
+  cmdsRef.current = cmds
+
+  // The palette (Cmd+K) lists the live ones.
+  useRegisterEditorCommands('Slides', () => paletteEntries(Object.values(cmdsRef.current)), [selectedIds, slideIdx, body, anyGrouped, clipboard.hasClip])
 
   // The bar's and the rail's view of the editor, rebuilt each render.
   const isPanelOpen = (p: DeckPanel): boolean => openPanels.includes(p)
@@ -1009,6 +987,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     sidePane,
     openSidePane: (p) => setSidePane(p),
     toggleSidePane: (p) => setSidePane(sidePane === p ? null : p),
+    cmds,
     ed: {
       insertText,
       insertShape,
@@ -1076,6 +1055,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             testid="slides-toolbar"
             tabs={DECK_TABS}
             ctx={ctx}
+            readOnly={readOnly}
             activeTab={chrome.tab}
             onTabChange={chrome.setTab}
             collapsed={chrome.collapsed}
@@ -1084,50 +1064,19 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               <SlidesMenuBar
           actions={{
             title,
-            undo: undoLast,
-            redo: redoLast,
-            canUndo: undo.current.length > 0,
-            canRedo: redo.current.length > 0,
+            cmds,
             slideOps: !singleSlide,
             documentOps,
-            present: () => setPresenting(true),
-            checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
-            newSlide: () => addSlideFromTemplate('blank'),
-            duplicateSlide: () => duplicateSlide(slideIdx),
-            deleteSlide: () => deleteSlide(slideIdx),
-            copySelection: clipboard.copy,
-            cutSelection: clipboard.cut,
-            pasteClipboard: clipboard.paste,
-            canPaste: clipboard.hasClip,
-            hasSelection: selectedIds.length > 0,
-            moveSlideUp: () => moveSlide(slideIdx, -1),
-            moveSlideDown: () => moveSlide(slideIdx, 1),
-            duplicateSelection,
-            deleteSelection,
-            selectAll: () => selectMany((slide?.elements ?? []).map((e) => e.id)),
-            find: () => setFindOpen('find'),
-    findAndReplace: () => setFindOpen('replace'),
-            saveSelectionAsSnippet,
-            insertSnippet: () => setSnippetLibraryOpen(true),
-            insertText,
-            insertImage: () => void insertImage(),
             insertShape,
-            insertLine,
-            insertWidget: () => setWidgetPickerOpen(true),
-            insertChart,
-            insertTable,
-            align: (dir) => doAlign(dir),
-            group: doGroup,
-            ungroup: doUngroup,
-            exportFile: (f) => void exportFile(f),
-            importFile: () => void importFile()
+            moveSlideUp: () => moveSlide(slideIdx, -1),
+            moveSlideDown: () => moveSlide(slideIdx, 1)
           }}
               />
             }
             pinnedStart={
               <>
-                <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={undo.current.length === 0} onClick={undoLast} testid="slides-undo" />
-                <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={redo.current.length === 0} onClick={redoLast} testid="slides-redo" />
+                <BarButton {...barProps(cmds.undo)} onClick={cmds.undo.run} testid="slides-undo" />
+                <BarButton {...barProps(cmds.redo)} onClick={cmds.redo.run} testid="slides-redo" />
               </>
             }
             rightSlot={
@@ -1143,6 +1092,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             testid="slides-rail"
             items={railItems}
             ctx={ctx}
+            readOnly={readOnly}
             activeId={railIdForTool(tool)}
             openPanels={[...openPanels, ...(sidePane === 'ai' ? ['ai'] : [])]}
             lastUsed={chrome.lastUsed}
@@ -1270,31 +1220,26 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             items={
               deckMenu.onElement
                 ? objectMenu({
-                    cut: clipboard.cut,
-                    copy: clipboard.copy,
-                    paste: clipboard.paste,
-                    canPaste: clipboard.hasClip,
-                    duplicate: duplicateSelection,
-                    bringToFront: () => reorderSelection('front'),
-                    sendToBack: () => reorderSelection('backmost'),
-                    group: selectedIds.length >= 2 ? doGroup : undefined,
-                    ungroup: anyGrouped ? doUngroup : undefined,
-                    saveAsSnippet: saveSelectionAsSnippet,
-                    more: [
-                      { label: 'Bring forward', icon: 'arrow_upward', onClick: () => reorderSelection('forward') },
-                      { label: 'Send backward', icon: 'arrow_downward', onClick: () => reorderSelection('back') }
-                    ],
-                    del: deleteSelection
+                    cut: cmds.cut,
+                    copy: cmds.copy,
+                    paste: cmds.paste,
+                    duplicate: cmds.duplicate,
+                    bringToFront: cmds.bringToFront,
+                    sendToBack: cmds.sendToBack,
+                    group: selectedIds.length >= 2 ? cmds.group : undefined,
+                    ungroup: anyGrouped ? cmds.ungroup : undefined,
+                    saveAsSnippet: cmds.saveSnippet,
+                    more: [ctxRow(cmds.bringForward), ctxRow(cmds.sendBackward)],
+                    del: cmds.remove
                   })
                 : canvasMenu({
-                    paste: clipboard.paste,
-                    canPaste: clipboard.hasClip,
-                    insertSnippet: () => setSnippetLibraryOpen(true),
+                    paste: cmds.paste,
+                    insertSnippet: cmds.insertSnippet,
                     create: [
                       { label: 'Add text here', icon: 'title', onClick: () => placeHere('text', deckMenu.at) },
                       { label: 'Add a box here', icon: 'crop_square', onClick: () => placeHere('rect', deckMenu.at) }
                     ],
-                    selectAll: () => selectMany((slide?.elements ?? []).map((e) => e.id))
+                    selectAll: cmds.selectAll
                   })
             }
           />

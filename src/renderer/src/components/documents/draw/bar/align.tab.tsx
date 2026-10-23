@@ -5,19 +5,19 @@
 // it the key: it is outlined in bold, it never moves, and an exact spacing is
 // measured from it. It was the Align panel and the inspector's align row.
 
-import { BarCustom, BarGroup, BarSelect, BarSep } from '../../../office/shell'
+import { BarCustom, BarGroup, BarSelect, BarSep, READ_ONLY_REASON, barTip } from '../../../office/shell'
 import { DISTRIBUTE_EDGES, type DistributeEdge } from '@shared/draw/ops'
-import { activeKey, alignState, canAlign, canDistribute, type AlignToMode } from '../commands/align.commands'
+import { activeKey, alignState, type AlignToMode } from '../commands/align.commands'
 import type { DrawBarTab, EditorCtx } from '../editor/types'
 import { NumField } from '../transform/fields'
 import { CmdButton, useBarReadOnly, useEditor } from './controls'
 
 const ALIGN: Array<{ edge: string; icon: string; label: string }> = [
   { edge: 'left', icon: 'align_horizontal_left', label: 'Horizontal align left' },
-  { edge: 'center', icon: 'align_horizontal_center', label: 'Horizontal align center' },
+  { edge: 'center', icon: 'align_horizontal_center', label: 'Horizontal align centre' },
   { edge: 'right', icon: 'align_horizontal_right', label: 'Horizontal align right' },
   { edge: 'top', icon: 'align_vertical_top', label: 'Vertical align top' },
-  { edge: 'middle', icon: 'align_vertical_center', label: 'Vertical align center' },
+  { edge: 'middle', icon: 'align_vertical_center', label: 'Vertical align centre' },
   { edge: 'bottom', icon: 'align_vertical_bottom', label: 'Vertical align bottom' }
 ]
 
@@ -35,15 +35,11 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
   const readOnly = useBarReadOnly() || s.readOnly
   const a = alignState(s)
   const key = activeKey(s)
-  const alignOk = canAlign(ctx)
-  const distOk = canDistribute(ctx)
-  const alignWhy = a.to === 'key' && key ? 'select at least two objects, one of them the key' : 'select an object first'
-  const distWhy = 'select at least three objects (two with a key object and an exact spacing)'
   return (
     <>
       <BarGroup label="Align objects" testid="draw-align-panel">
         {ALIGN.map((b) => (
-          <CmdButton key={b.edge} ctx={ctx} id={`object.align.${b.edge}`} icon={b.icon} label={b.label} reason={alignOk ? undefined : alignWhy} testid={`draw-alignpanel-${b.edge}`} />
+          <CmdButton key={b.edge} ctx={ctx} id={`object.align.${b.edge}`} icon={b.icon} label={b.label} testid={`draw-alignpanel-${b.edge}`} />
         ))}
         <BarSelect<AlignToMode>
           label="Align to"
@@ -61,13 +57,13 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <BarSep />
       <BarGroup label="Distribute objects">
         {DISTRIBUTE_EDGES.map((e) => (
-          <CmdButton key={e} ctx={ctx} id={`object.distribute.${e}`} icon={DIST_ICON[e]} reason={distOk ? undefined : distWhy} testid={`draw-distribute-${e}`} />
+          <CmdButton key={e} ctx={ctx} id={`object.distribute.${e}`} icon={DIST_ICON[e]} testid={`draw-distribute-${e}`} />
         ))}
       </BarGroup>
       <BarSep />
       <BarGroup label="Distribute spacing">
-        <CmdButton ctx={ctx} id="object.distributeSpacing.v" icon="vertical_distribute" reason={distOk ? undefined : distWhy} testid="draw-distribute-space-v" />
-        <CmdButton ctx={ctx} id="object.distributeSpacing.h" icon="horizontal_distribute" reason={distOk ? undefined : distWhy} testid="draw-distribute-space-h" />
+        <CmdButton ctx={ctx} id="object.distributeSpacing.v" icon="vertical_distribute" testid="draw-distribute-space-v" />
+        <CmdButton ctx={ctx} id="object.distributeSpacing.h" icon="horizontal_distribute" testid="draw-distribute-space-h" />
         <BarCustom label="Spacing">
           <NumField
             label="Distribute spacing"
@@ -76,7 +72,7 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
             value={a.spacing}
             onCommit={(v) => ctx.run('object.alignSpacing', v)}
             disabled={readOnly}
-            title="Distribute spacing: an exact gap, measured from the key object. Leave empty for Auto (even gaps)."
+            title={readOnly ? barTip('Distribute spacing', undefined, READ_ONLY_REASON) : 'Distribute spacing: an exact gap, measured from the key object. Leave empty for Auto (even gaps).'}
             testId="draw-align-spacing"
             className="w-[64px]"
           />
@@ -85,7 +81,7 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
             className="text-[11px] px-1 h-6 rounded text-[var(--ink-50)] hover:text-[var(--ink-80)] hover:bg-[var(--surface-sunken)] disabled:opacity-40"
             disabled={readOnly || a.spacing === null}
             onClick={() => ctx.run('object.alignSpacing', null)}
-            title="Back to Auto: even gaps between the outermost objects"
+            title={readOnly ? barTip('Back to Auto', undefined, READ_ONLY_REASON) : 'Back to Auto: even gaps between the outermost objects'}
             data-testid="draw-align-spacing-auto"
           >
             Auto

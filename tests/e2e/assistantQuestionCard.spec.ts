@@ -99,6 +99,11 @@ async function openAssistant(window: Page): Promise<void> {
   // — without it the panel resolves as hidden and every case times out.
   await window.locator('[data-testid="assistant-tab-chat"]').click()
   await window.locator('[data-testid="assistant-panel"]').waitFor({ state: 'visible', timeout: 8000 })
+  // The composer's Auto mode may divert searchy text to the web (9c0ca7ae2).
+  // This spec drives the conversation, so lock Ask, which never diverts. The
+  // composer is empty here, so the tap only sets the mode.
+  await window.locator('[data-testid="composer-mode-ask"]').click()
+  await expect(window.locator('[data-testid="composer-mode-ask"]')).toHaveAttribute('aria-pressed', 'true')
 }
 
 async function ask(window: Page, text: string): Promise<void> {

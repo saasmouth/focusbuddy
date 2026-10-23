@@ -213,6 +213,9 @@ test('CUSTOMISE-DRAG — real drag while opted in restores on reopen; real toggl
       })
       return { deskAId: a.id, deskBId: b.id, widgetId: w.id }
     })
+    // Snap-to-grid is on by default since 2212d6f6 and would round the drop
+    // (190 -> 200); these assert the overlay round-trip, not the grid, so drag free.
+    await window.evaluate(() => localStorage.setItem('fb.canvas.snap', '0'))
     await window.reload()
     await waitForReady(window)
     await openDesk(window, seeded.deskAId)
@@ -385,6 +388,9 @@ test('CUSTOMISE-UNDO — real drag + Cmd-Z/Cmd-Shift-Z: OFF is unchanged (base),
       })
       return { deskId: a.id, widgetId: w.id }
     })
+    // Snap-to-grid is on by default since 2212d6f6 and would round the drop
+    // (190 -> 200); these assert the overlay round-trip, not the grid, so drag free.
+    await window.evaluate(() => localStorage.setItem('fb.canvas.snap', '0'))
     await window.reload()
     await waitForReady(window)
     await openDesk(window, seeded.deskId)

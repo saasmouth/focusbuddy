@@ -13,6 +13,7 @@ vi.mock('../../src/renderer/src/components/Tooltip', () => ({ default: ({ childr
 
 import { ContextBar, ToolRail } from '../../src/renderer/src/components/office/shell'
 import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DCtx } from '../../src/renderer/src/components/documents/diagram/ribbon'
+import { expectNotReadOnly } from './_notReadOnly'
 import type { MapEdge, MapNode } from '../../src/shared/types'
 
 let host: HTMLDivElement
@@ -36,7 +37,7 @@ type Sel = 'none' | 'node' | 'nodes' | 'edge' | 'table'
 function ctxFor(sel: Sel): DCtx {
   const nodes = [node('a'), node('b'), node('c'), node('t', { shape: 'table-3x3', cells: [['a', 'b']] })]
   const ids = sel === 'node' ? ['a'] : sel === 'nodes' ? ['a', 'b', 'c'] : sel === 'table' ? ['t'] : []
-  return diagramCtx({
+  const ctx = diagramCtx({
     cmd,
     page: { nodes, edges: [edge] },
     sel: { nodes: new Set(ids), edges: new Set(sel === 'edge' ? ['e1'] : []) },
@@ -55,6 +56,8 @@ function ctxFor(sel: Sel): DCtx {
     setStatus: () => {},
     pickImage: () => {}
   })
+  expectNotReadOnly('diagramShellMapping', ctx.cmds)
+  return ctx
 }
 
 function renderTab(tab: string, sel: Sel): void {

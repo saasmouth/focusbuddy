@@ -182,14 +182,19 @@ test('NM-4 — signin-forgot visible in login mode only; opens /account/forgot w
     { timeout: 10_000 }
   )
   const onb = window.locator('[role="dialog"][aria-label="Welcome to PlexiiDesk"]')
-  if (await onb.isVisible().catch(() => false)) {
-    await window.getByRole('button', { name: 'Get started' }).click().catch(() => {})
-    await window.locator('[data-testid="onboarding-key-skip"]').click().catch(() => {})
-    await window.locator('[data-testid="onboarding-tour-continue"]').click().catch(() => {})
-    await window.locator('[data-testid="onboarding-start-blank"]').click().catch(() => {})
+  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
+  // Whichever comes up first. A one-shot isVisible on onboarding raced its
+  // mount: checked too early, the Welcome dialog arrived after, and the sign-in
+  // dialog (which defers to it) never came.
+  await expect(onb.or(dialog)).toBeVisible({ timeout: 10_000 })
+  if (await onb.isVisible()) {
+    const BEST_EFFORT = { timeout: 5_000 }
+    await window.getByRole('button', { name: 'Get started' }).click(BEST_EFFORT).catch(() => {})
+    await window.locator('[data-testid="onboarding-key-skip"]').click(BEST_EFFORT).catch(() => {})
+    await window.locator('[data-testid="onboarding-tour-continue"]').click(BEST_EFFORT).catch(() => {})
+    await window.locator('[data-testid="onboarding-start-blank"]').click(BEST_EFFORT).catch(() => {})
   }
 
-  const dialog = window.locator('[role="dialog"][aria-label="Sign in to PlexiiDesk"]')
   await expect(dialog).toBeVisible({ timeout: 8_000 })
 
   // Ensure login mode is selected (fresh DB defaults to signup since there's no

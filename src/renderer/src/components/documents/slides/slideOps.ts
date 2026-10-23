@@ -54,8 +54,25 @@ export function duplicateElement(slide: Slide, id: string): { slide: Slide; newI
 }
 
 // Bring an element forward or back by swapping z with its neighbour.
+/**
+ * Move a whole selection, keeping its own relative order (Illustrator, Figma):
+ * the ids are taken in stacking order so the last one moved ends where the top
+ * of the selection should be.
+ */
+export function reorderMany(slide: Slide, ids: string[], dir: 'forward' | 'back' | 'front' | 'backmost'): Slide {
+  const z = new Map((slide.elements ?? []).map((e) => [e.id, e.z]))
+  // To front: lowest first, so the one that was highest lands on top. To back:
+  // highest first, so the lowest lands at the bottom. One step forward: highest
+  // first, so each steps over a neighbour outside the selection; back: lowest first.
+  const lowestFirst = dir === 'front' || dir === 'back'
+  const order = [...ids].filter((id) => z.has(id)).sort((a, b) => (lowestFirst ? 1 : -1) * (z.get(a)! - z.get(b)!))
+  return order.reduce((acc, id) => reorderZ(acc, id, dir), slide)
+}
+
 export function reorderZ(slide: Slide, id: string, dir: 'forward' | 'back' | 'front' | 'backmost'): Slide {
-  const els = [...(slide.elements ?? [])].sort((a, b) => a.z - b.z)
+  // Copies, not the elements themselves: the previous body is the undo
+  // snapshot, and writing z through to it made Undo after a reorder a no-op.
+  const els = (slide.elements ?? []).map((e) => ({ ...e })).sort((a, b) => a.z - b.z)
   const i = els.findIndex((e) => e.id === id)
   if (i === -1) return slide
   if (dir === 'front') els[i].z = Math.max(...els.map((e) => e.z)) + 1

@@ -24,6 +24,19 @@ import Icon from './Icon'
 import DeskShareSheet from './share/DeskShareSheet'
 import LiveDocSharing from './LiveDocSharing'
 
+// What the dialog calls the thing being shared, in the product's words. The
+// share kinds are storage kinds: a desk is a node of kind 'task' and a room one
+// of kind 'folder', so printing the kind put "Share this task" on a desk. A
+// docfolder is a folder in Files, and stays one.
+export const SHARE_KIND_LABEL: Record<ShareableKind, string> = {
+  folder: 'room',
+  task: 'desk',
+  widget: 'work widget',
+  document: 'document',
+  docfolder: 'folder',
+  file: 'file'
+}
+
 // Universal share dialog — opens from a folder, task, or widget right-click.
 // One flow regardless of the entity kind: pick scope (view-only or
 // collaborator-copy), mint a link, copy it, see existing links + revoke.
@@ -259,19 +272,10 @@ export default function ShareDialog({
     }
   }
 
-  const KIND_LABEL: Record<ShareableKind, string> = {
-    folder: 'folder',
-    task: 'task',
-    widget: 'desk item',
-    document: 'document',
-    docfolder: 'folder',
-    file: 'file'
-  }
-
   return createPortal(
     <Modal
       onClose={onClose}
-      label={`Share this ${KIND_LABEL[kind]}`}
+      label={`Share this ${SHARE_KIND_LABEL[kind]}`}
       z={260}
       className="fb-card w-[460px] max-h-[80vh] flex flex-col"
     >
@@ -281,7 +285,7 @@ export default function ShareDialog({
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-[var(--ink-100)]">
-              Share this {KIND_LABEL[kind]}
+              Share this {SHARE_KIND_LABEL[kind]}
             </h2>
             <p className="text-[11px] text-[var(--ink-50)] truncate">
               {label || '(untitled)'}
@@ -346,7 +350,7 @@ export default function ShareDialog({
                     View only
                   </div>
                   <div className="text-[11px] text-[var(--ink-50)] leading-snug">
-                    Anyone with the link can see this {KIND_LABEL[kind]}. No sign-up needed to view.
+                    Anyone with the link can see this {SHARE_KIND_LABEL[kind]}. No sign-up needed to view.
                   </div>
                 </div>
               </button>

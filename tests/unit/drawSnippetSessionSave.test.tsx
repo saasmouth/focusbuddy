@@ -291,7 +291,7 @@ describe('the Save command (file.save)', () => {
   it('is enabled only where the host saves on request, and says why otherwise', () => {
     const h = harness(blank([hRect('a', 0, 0, 10, 10)]))
     expect(save().enabled!(h.ed.ctx)).toBe(false)
-    expect(save().disabledReason!(h.ed.ctx)).toBe('drawings save as you work')
+    expect(save().disabledReason!(h.ed.ctx)).toBe('Drawings save as you work.')
     expect(save().keyWhen!(h.ed.ctx)).toBe(false)
 
     const request = vi.fn()
@@ -311,7 +311,7 @@ describe('the Save command (file.save)', () => {
     h.ed.ctx.host.saveRequest = () => request
     h.ed.store.setState({ readOnly: true })
     expect(save().enabled!(h.ed.ctx)).toBe(false)
-    expect(save().disabledReason!(h.ed.ctx)).toBe('this drawing is read-only')
+    expect(save().disabledReason!(h.ed.ctx)).toBe('This document is read-only.')
     h.key('s', { meta: true })
     h.ed.ctx.run('file.save')
     expect(request).not.toHaveBeenCalled()

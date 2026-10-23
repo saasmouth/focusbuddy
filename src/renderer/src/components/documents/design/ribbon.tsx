@@ -1,3 +1,5 @@
+import { barProps } from '../../../lib/menus/officeCommand'
+import type { DesignCommands } from './designCommands'
 import {
   BarButton,
   BarColor,
@@ -45,6 +47,8 @@ import { LAYOUT_STYLES } from '@shared/designAutoLayout'
 
 /** Everything the tabs read, and every command they run. */
 export interface DesignCtx {
+  /** The shared actions, defined once (design/designCommands): buttons render from these. */
+  cmds: DesignCommands
   design: DesignBody
   selected: SlideElement[]
   /** The first selected element, which is what single-element controls act on. */
@@ -78,7 +82,6 @@ export interface DesignCtx {
     removeBackground: () => void
     addPage: () => void
     duplicatePage: () => void
-    toggleGuides: () => void
     toggleFacing: () => void
     setBleed: (px: number) => void
     brandify: () => void
@@ -86,7 +89,6 @@ export interface DesignCtx {
     openPanel: (id: DesignPanelId) => void
     exportAs: (f: 'png' | 'pdf') => void
     exportPrint: () => void
-    checkA11y: () => void
   }
   /**
    * The Start-from control, rendered by the editor and passed in: it is a
@@ -145,9 +147,9 @@ function TextControls({ c, el, ids }: { c: DesignCtx; el: SlideTextElement; ids:
         onChange={(v) => c.cmd.patchText({ fontSize: v })}
         testid={ids ? 'design-font-size' : undefined}
       />
-      <BarToggle icon="format_bold" semantic="bold" label="Bold" pressed={run.bold === true} onChange={(v) => c.cmd.patchText({ bold: v })} testid={ids ? 'design-bold' : undefined} />
-      <BarToggle icon="format_italic" semantic="italic" label="Italic" pressed={run.italic === true} onChange={(v) => c.cmd.patchText({ italic: v })} testid={ids ? 'design-italic' : undefined} />
-      <BarToggle icon="format_underlined" semantic="underline" label="Underline" pressed={run.underline === true} onChange={(v) => c.cmd.patchText({ underline: v })} testid={ids ? 'design-underline' : undefined} />
+      <BarToggle {...barProps(c.cmds.bold)} semantic="bold" pressed={run.bold === true} onChange={c.cmds.bold.run} testid={ids ? 'design-bold' : undefined} />
+      <BarToggle {...barProps(c.cmds.italic)} semantic="italic" pressed={run.italic === true} onChange={c.cmds.italic.run} testid={ids ? 'design-italic' : undefined} />
+      <BarToggle {...barProps(c.cmds.underline)} semantic="underline" pressed={run.underline === true} onChange={c.cmds.underline.run} testid={ids ? 'design-underline' : undefined} />
       <BarColor
         icon="format_color_text"
         semantic="text-color"
@@ -231,8 +233,8 @@ const homeTab: BarTab<DesignCtx> = {
           />
         </BarGroup>
         <BarSep />
-        <BarButton icon="file_copy" label="Duplicate" shortcut="⌘D" onClick={c.cmd.duplicate} testid="design-duplicate" />
-        <BarButton icon="delete" label="Delete" shortcut="⌫" onClick={c.cmd.remove} testid="design-delete-element" />
+        <BarButton {...barProps(c.cmds.duplicate)} onClick={c.cmds.duplicate.run} testid="design-duplicate" />
+        <BarButton {...barProps(c.cmds.remove)} onClick={c.cmds.remove.run} testid="design-delete-element" />
       </>
     )
   }
@@ -245,14 +247,14 @@ const insertTab: BarTab<DesignCtx> = {
   render: (c) => (
     <>
       <BarGroup label="Page">
-        <BarButton icon="note_add" label="Add page" showLabel onClick={c.cmd.addPage} testid="design-insert-page" />
+        <BarButton {...barProps(c.cmds.addPage)} showLabel onClick={c.cmds.addPage.run} testid="design-insert-page" />
         <BarButton icon="file_copy" label="Duplicate this page" onClick={c.cmd.duplicatePage} testid="design-insert-duplicate-page" />
       </BarGroup>
       <BarSep />
       <BarGroup label="From a library">
         <BarDialogButton icon="photo_library" label="Stock photos…" onOpen={() => c.cmd.openPanel('stock')} testid="design-stock-btn" />
         <BarDialogButton icon="dashboard_customize" label="Templates…" onOpen={() => c.cmd.openPanel('templates')} testid="design-templates-open" />
-        <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.cmd.insertSnippet} testid="design-insert-snippet" />
+        <BarDialogButton {...barProps(c.cmds.insertSnippet)} onOpen={c.cmds.insertSnippet.run} testid="design-insert-snippet" />
       </BarGroup>
       <span className="shrink-0 px-1.5 text-[11px] text-[var(--ink-50)]">
         Text, shapes and lines are tools on the left: pick one, then click or drag on the page.
@@ -276,21 +278,21 @@ const arrangeTab: BarTab<DesignCtx> = {
               icon={icon}
               label={label}
               disabled={n < 2}
-              disabledReason="select two or more things"
+              disabledReason="Select two or more things."
               onClick={() => c.cmd.align(edge)}
               testid={`design-align-${String(edge)}`}
             />
           ))}
-          <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="select three or more things" onClick={() => c.cmd.distribute('h')} testid="design-distribute-h" />
-          <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="select three or more things" onClick={() => c.cmd.distribute('v')} testid="design-distribute-v" />
+          <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="Select three or more things." onClick={() => c.cmd.distribute('h')} testid="design-distribute-h" />
+          <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="Select three or more things." onClick={() => c.cmd.distribute('v')} testid="design-distribute-v" />
         </BarGroup>
         <BarSep />
         <BarGroup label="Group and order">
-          <BarButton icon="link" label="Group" shortcut="⌘G" disabled={n < 2} disabledReason="select two or more things" onClick={c.cmd.group} testid="design-group" />
-          <BarButton icon="link_off" label="Ungroup" disabled={n === 0} onClick={c.cmd.ungroup} testid="design-ungroup" />
-          <BarButton icon="flip_to_front" label="Bring forward" disabled={n === 0} onClick={() => c.cmd.order('forward')} testid="design-order-forward" />
-          <BarButton icon="flip_to_back" label="Send back" disabled={n === 0} onClick={() => c.cmd.order('back')} testid="design-order-back" />
-          <BarDialogButton icon="bookmark_add" label="Save as snippet" onOpen={c.cmd.saveSnippet} disabled={n === 0} disabledReason="select something first" testid="design-save-snippet" />
+          <BarButton {...barProps(c.cmds.group)} onClick={c.cmds.group.run} testid="design-group" />
+          <BarButton {...barProps(c.cmds.ungroup)} onClick={c.cmds.ungroup.run} testid="design-ungroup" />
+          <BarButton {...barProps(c.cmds.bringForward)} onClick={c.cmds.bringForward.run} testid="design-order-forward" />
+          <BarButton {...barProps(c.cmds.sendBackward)} onClick={c.cmds.sendBackward.run} testid="design-order-back" />
+          <BarDialogButton {...barProps(c.cmds.saveSnippet)} onOpen={c.cmds.saveSnippet.run} testid="design-save-snippet" />
         </BarGroup>
         <BarSep />
         <BarGroup label="Layer and wrap">
@@ -348,7 +350,8 @@ const layoutTab: BarTab<DesignCtx> = {
       </BarCustom>
       <BarSep />
       <BarDialogButton icon="grid_on" label="Margins, columns & layers…" onOpen={() => c.cmd.openPanel('layout')} testid="design-layout-btn" />
-      <BarToggle icon="visibility" label="Layout guides" pressed={c.guidesVisible} onChange={c.cmd.toggleGuides} testid="design-aids-toggle" />
+      {/* The viewer's own view of the page (ds-guides): live for a viewer, as Layout ▸ Show layout guides is. */}
+      <BarToggle {...barProps(c.cmds.toggleGuides)} icon="visibility" pressed={c.guidesVisible} onChange={c.cmds.toggleGuides.run} testid="design-aids-toggle" />
       <BarToggle icon="auto_stories" label="Facing pages" pressed={c.facing} onChange={c.cmd.toggleFacing} testid="design-facing-toggle-bar" />
       <BarSep />
       {/* Bleed belongs with page setup, not buried in the export menu where it
@@ -389,11 +392,12 @@ const reviewTab: BarTab<DesignCtx> = {
   render: (c) => (
     <>
       <BarDialogButton icon="fact_check" label="Preflight for print…" onOpen={() => c.cmd.openPanel('preflight')} testid="design-preflight-btn" />
-      <BarButton icon="accessibility_new" label="Check accessibility" showLabel onClick={c.cmd.checkA11y} testid="design-a11y-check" />
+      {/* From the registry (ds-a11y): it only reads the design, so a viewer keeps it, as in Tools ▸. */}
+      <BarButton {...barProps(c.cmds.checkA11y)} showLabel onClick={c.cmds.checkA11y.run} testid="design-a11y-check" />
       <BarSep />
       <BarMenu
         icon="download"
-        label="Export"
+        label="Download"
         testid="design-export-btn"
         items={[
           { label: 'Image (.png)', run: () => c.cmd.exportAs('png'), testid: 'design-export-png' },
@@ -454,7 +458,7 @@ const imageTab: BarTab<DesignCtx> = {
           data-testid="design-alt"
         />
       </BarCustom>
-      <BarButton icon="auto_awesome" label="Remove background" showLabel onClick={c.cmd.removeBackground} testid="design-remove-bg" />
+      <BarButton {...barProps(c.cmds.removeBackground)} showLabel onClick={c.cmds.removeBackground.run} testid="design-remove-bg" />
     </>
   )
 }

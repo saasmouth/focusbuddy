@@ -180,13 +180,37 @@ describe('drag-reorder — moveOrder / reorderRows / reorderColumns', () => {
     expect(deleteRowAt(base, 0).rowHeights?.[1]).toBe(60) // pulled up one
   })
   it('reorderColumns carries headers, cells, formats and widths', () => {
-    const base = { ...tab(), colWidths: { 1: 200 } }
+    const base = { ...tab(), columns: ['Name', 'Qty', 'Price'], colWidths: { 1: 200 } }
     const t = reorderColumns(base, [2, 0, 1]) // col 2 to front
-    expect(t.columns).toEqual(['C', 'A', 'B'])
+    expect(t.columns).toEqual(['Price', 'Name', 'Qty'])
     expect(t.rows[0]).toEqual(['3', '1', '2'])
     // bold on old (row2,col1) -> col1 moved to new index 2 -> key '2,2'
     expect(t.formats?.['2,2']?.bold).toBe(true)
     // width on old col 1 -> new col 2
     expect(t.colWidths?.[2]).toBe(200)
+  })
+})
+
+// rails-tabs-41 shots: a new sheet's headings read "A A", "B B". A column's
+// default name is its own letter, so it must never travel as a name: after a
+// column moves, an unnamed column is still unnamed (named by its NEW letter),
+// and only a name the user gave moves with it.
+describe('default column names follow their column', () => {
+  it('insertColAt: the new column and the ones it pushes right stay unnamed', () => {
+    const t = insertColAt(tab(), 1)
+    expect(t.columns).toEqual(['A', 'B', 'C', 'D'])
+    expect(t.rows[0]).toEqual(['1', '', '2', '3'])
+  })
+  it('deleteColAt: the columns that close the gap stay unnamed', () => {
+    expect(deleteColAt(tab(), 0).columns).toEqual(['A', 'B'])
+  })
+  it('reorderColumns: unnamed columns take their new letters', () => {
+    expect(reorderColumns(tab(), [2, 0, 1]).columns).toEqual(['A', 'B', 'C'])
+  })
+  it('a name the user gave travels with its column; defaults around it re-letter', () => {
+    const base = { ...tab(), columns: ['A', 'Revenue', 'C'] }
+    expect(insertColAt(base, 0).columns).toEqual(['A', 'B', 'Revenue', 'D'])
+    expect(deleteColAt(base, 0).columns).toEqual(['Revenue', 'B'])
+    expect(reorderColumns(base, [1, 2, 0]).columns).toEqual(['Revenue', 'B', 'C'])
   })
 })

@@ -36,6 +36,8 @@ async function setupProjectInGantt(
 
   // Click the project card to enter the Gantt
   await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+  // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+  await window.locator('[data-testid="projects-view-gantt"]').click()
   await expect(window.locator('[data-testid="projects-view-gantt"]')).toBeVisible({ timeout: 8_000 })
 
   return { folderId, taskIds }
@@ -362,6 +364,8 @@ test('E4. add dependency between two tasks via IPC then verify dep-type and dep-
     await window.locator('[data-testid="projects-back"]').click()
     await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({ timeout: 6_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator('[data-testid="projects-view-gantt"]')).toBeVisible({ timeout: 8_000 })
 
     // Open editor for taskIds[1] (the successor)
@@ -414,7 +418,8 @@ test('P1. portfolio stats tile visible when projects exist', async () => {
     await expect(stats).toBeVisible({ timeout: 6_000 })
 
     // Stat tiles contain key labels (real StatTile components with icon + label + value)
-    await expect(stats).toContainText('Projects')
+    // The tile reads 'Plans' since 9f72888e8 (Plans not Projects).
+    await expect(stats).toContainText('Plans')
     await expect(stats).toContainText('Tasks done')
     await expect(stats).toContainText('Avg complete')
     await expect(stats).toContainText('At risk')

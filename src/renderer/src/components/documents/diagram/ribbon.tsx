@@ -1,3 +1,5 @@
+import { barProps } from '../../../lib/menus/officeCommand'
+import { buildDiagramCommands, type DiagramCommands } from './diagramCommands'
 import type { MapArrowHead, MapEdge, MapNode, MapRouting, MapSettings } from '@shared/types'
 import type { Graph, Sel } from '@shared/diagram/ops'
 import { hiddenCount } from '@shared/diagram/ops'
@@ -18,6 +20,8 @@ import {
   BarSelect,
   BarSep,
   BarToggle,
+  barTip,
+  READ_ONLY_REASON,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
   railGroup,
@@ -42,6 +46,8 @@ export type DiagramSidePane = 'ai'
 
 export interface DCtx {
   cmd: Commands
+  /** Every shared action as an OfficeCommand (diagramCommands): buttons render from these. */
+  cmds: DiagramCommands
   page: Graph
   sel: Sel
   nodes: MapNode[]
@@ -63,15 +69,46 @@ export interface DCtx {
   toggleSidePane: (p: DiagramSidePane) => void
   setStatus: (msg: string) => void
   pickImage: (replaceNodeId?: string) => void
+  /** Edit's Undo / Redo rows: is there a step (read strictly, `=== true`). */
+  canUndo?: boolean
+  canRedo?: boolean
+  /** The chrome's own: File ▸ Import's pickers, the AI pane, the snippets library (absent: none offered). */
+  importFile?: (kind: 'drawio' | 'json') => void
+  openAi?: () => void
+  insertSnippet?: () => void
 }
 
 /** Build the per-render context from the editor's state. Pure. */
-export function diagramCtx(base: Omit<DCtx, 'nodes' | 'edges' | 'palette'>): DCtx {
+export function diagramCtx(base: Omit<DCtx, 'nodes' | 'edges' | 'palette' | 'cmds'>): DCtx {
+  const nodes = base.page.nodes.filter((n) => base.sel.nodes.has(n.id))
+  const edges = base.page.edges.filter((e) => base.sel.edges.has(e.id))
   return {
     ...base,
-    nodes: base.page.nodes.filter((n) => base.sel.nodes.has(n.id)),
-    edges: base.page.edges.filter((e) => base.sel.edges.has(e.id)),
-    palette: getTheme(base.themeId).palette
+    nodes,
+    edges,
+    palette: getTheme(base.themeId).palette,
+    cmds: buildDiagramCommands({
+      cmd: base.cmd,
+      readOnly: base.readOnly,
+      nodes: nodes.length,
+      edges: edges.length,
+      locked: nodes.some((n) => n.locked) || edges.some((e) => e.locked),
+      grouped: nodes.some((n) => n.groupId),
+      openFind: () => base.openDialog('find'),
+      canUndo: base.canUndo === true,
+      canRedo: base.canRedo === true,
+      settings: base.settings,
+      hidden: hiddenCount(base.page),
+      ui: {
+        setTool: (t) => base.setTool(t),
+        openDialog: (d) => base.openDialog(d),
+        pickImage: () => base.pickImage(),
+        openAi: base.openAi,
+        importFile: base.importFile,
+        setStatus: base.setStatus,
+        insertSnippet: base.insertSnippet
+      }
+    })
   }
 }
 
@@ -125,7 +162,7 @@ function TidyButton({ c }: { c: DCtx }): JSX.Element {
       showLabel
       testid="diagram-tidy"
       disabled={!c.page.edges.length}
-      disabledReason="add some lines first"
+      disabledReason="Add some lines first."
       onClick={() => c.setStatus(c.cmd.tidyConnections())}
     />
   )
@@ -151,17 +188,18 @@ function TextFormat({ c, ids }: { c: DCtx; ids: boolean }): JSX.Element {
   const { cmd, nodes } = c
   const res = nodes.map((n) => resolveNodeStyle(n, c.themeId))
   const r = <K extends keyof ReturnType<typeof resolveNodeStyle>>(k: K): ReturnType<typeof resolveNodeStyle>[K] | undefined => common(res, (x) => x[k])
-  const toggle = (k: 'bold' | 'italic' | 'underline' | 'strike'): void => cmd.setStyle({ [k]: r(k) ? undefined : true })
+  // The same toggle as ⌘B / ⌘I / ⌘U (commands.toggleTextStyle).
+  const toggle = (k: 'bold' | 'italic' | 'underline' | 'strike'): void => cmd.toggleTextStyle(k)
   return (
     <BarGroup label="Text">
       <BarCustom label="Font" semantic="font-family">
         <FontPicker value={r('fontFamily') ?? ''} mixed={r('fontFamily') === undefined} extra={FONTS} allowDefault={false} compact onChange={(v) => v && cmd.setStyle({ fontFamily: v })} testid={ids ? 'diagram-font' : undefined} />
       </BarCustom>
       <BarFontSize value={r('fontSize')} min={6} max={200} suffix="pt" onChange={(v) => cmd.setStyle({ fontSize: v })} testid={ids ? 'diagram-font-size' : undefined} width={44} />
-      <BarToggle icon="format_bold" semantic="bold" label="Bold" shortcut="⌘B" pressed={!!r('bold')} onChange={() => toggle('bold')} testid={ids ? 'diagram-bold' : undefined} />
-      <BarToggle icon="format_italic" semantic="italic" label="Italic" shortcut="⌘I" pressed={!!r('italic')} onChange={() => toggle('italic')} />
-      <BarToggle icon="format_underlined" semantic="underline" label="Underline" shortcut="⌘U" pressed={!!r('underline')} onChange={() => toggle('underline')} />
-      {ids && <BarToggle icon="strikethrough_s" label="Strikethrough" pressed={!!r('strike')} onChange={() => toggle('strike')} />}
+      <BarToggle {...barProps(c.cmds.bold)} semantic="bold" pressed={cmd.textStyleOn('bold')} onChange={c.cmds.bold.run} testid={ids ? 'diagram-bold' : undefined} />
+      <BarToggle {...barProps(c.cmds.italic)} semantic="italic" pressed={cmd.textStyleOn('italic')} onChange={c.cmds.italic.run} />
+      <BarToggle {...barProps(c.cmds.underline)} semantic="underline" pressed={cmd.textStyleOn('underline')} onChange={c.cmds.underline.run} />
+      {ids && <BarToggle icon="strikethrough_s" label="Strikethrough" pressed={cmd.textStyleOn('strike')} onChange={() => toggle('strike')} />}
       <BarColor icon="format_color_text" semantic="text-color" label="Text colour" value={common(nodes, (n) => n.style?.textColor)} palette={c.palette} onChange={(v) => cmd.setStyle({ textColor: v })} testid={ids ? 'diagram-text-color' : undefined} />
       <BarSep />
       <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={r('textAlign') === 'left'} onChange={() => cmd.setStyle({ textAlign: 'left' })} />
@@ -194,10 +232,10 @@ function AlignTools({ c, ids }: { c: DCtx; ids: boolean }): JSX.Element {
   return (
     <BarGroup label="Align and distribute" testid={ids ? 'map-align-tools' : undefined}>
       {ALIGNS.map(([edge, icon, label]) => (
-        <BarButton key={edge} icon={icon} label={label} disabled={n < 2} disabledReason="select two or more shapes" onClick={() => c.cmd.align(edge)} testid={ids ? `map-align-${edge}` : undefined} />
+        <BarButton key={edge} icon={icon} label={label} disabled={n < 2} disabledReason="Select two or more shapes." onClick={() => c.cmd.align(edge)} testid={ids ? `map-align-${edge}` : undefined} />
       ))}
-      <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="select three or more shapes" onClick={() => c.cmd.distribute('h')} testid={ids ? 'map-distribute-h' : undefined} />
-      <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="select three or more shapes" onClick={() => c.cmd.distribute('v')} testid={ids ? 'map-distribute-v' : undefined} />
+      <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="Select three or more shapes." onClick={() => c.cmd.distribute('h')} testid={ids ? 'map-distribute-h' : undefined} />
+      <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="Select three or more shapes." onClick={() => c.cmd.distribute('v')} testid={ids ? 'map-distribute-v' : undefined} />
     </BarGroup>
   )
 }
@@ -232,9 +270,9 @@ const homeTab: BarTab<DCtx> = {
           </>
         )}
         {!nodes.length && !edges.length && <span className="shrink-0 px-1.5 text-[11px] text-[var(--ink-50)]">Select a shape or line to format it</span>}
-        <BarButton icon="flip_to_front" label="Bring to front" shortcut="⇧⌘]" disabled={!nodes.length} onClick={() => cmd.order('front')} />
-        <BarButton icon="flip_to_back" label="Send to back" shortcut="⇧⌘[" disabled={!nodes.length} onClick={() => cmd.order('back')} />
-        <BarButton icon="link" label="Group" shortcut="⌘G" disabled={nodes.length < 2} disabledReason="select two or more shapes" onClick={cmd.group} />
+        <BarButton {...barProps(c.cmds.bringToFront)} onClick={c.cmds.bringToFront.run} />
+        <BarButton {...barProps(c.cmds.sendToBack)} onClick={c.cmds.sendToBack.run} />
+        <BarButton {...barProps(c.cmds.group)} onClick={c.cmds.group.run} />
         <BarMenu
           icon="align_horizontal_left"
           label="Align and distribute"
@@ -319,16 +357,16 @@ const arrangeTab: BarTab<DCtx> = {
         <BarButton icon="flip" label="Flip horizontally" disabled={!nodes.length} onClick={() => cmd.flip('x')} />
         <BarButton icon="swap_vert" label="Flip vertically" disabled={!nodes.length} onClick={() => cmd.flip('y')} />
         <BarSep />
-        <BarButton icon="flip_to_front" label="Bring to front" shortcut="⇧⌘]" disabled={!nodes.length} onClick={() => cmd.order('front')} testid="diagram-front" />
-        <BarButton icon="arrow_upward" label="Bring forward" shortcut="⌘]" disabled={!nodes.length} onClick={() => cmd.order('forward')} />
-        <BarButton icon="arrow_downward" label="Send backward" shortcut="⌘[" disabled={!nodes.length} onClick={() => cmd.order('backward')} />
-        <BarButton icon="flip_to_back" label="Send to back" shortcut="⇧⌘[" disabled={!nodes.length} onClick={() => cmd.order('back')} testid="diagram-back" />
+        <BarButton {...barProps(c.cmds.bringToFront)} onClick={c.cmds.bringToFront.run} testid="diagram-front" />
+        <BarButton {...barProps(c.cmds.bringForward)} onClick={c.cmds.bringForward.run} />
+        <BarButton {...barProps(c.cmds.sendBackward)} onClick={c.cmds.sendBackward.run} />
+        <BarButton {...barProps(c.cmds.sendToBack)} onClick={c.cmds.sendToBack.run} testid="diagram-back" />
         <BarSep />
-        <BarButton icon="link" label="Group" shortcut="⌘G" disabled={nodes.length < 2} disabledReason="select two or more shapes" onClick={cmd.group} testid="diagram-group" />
-        <BarButton icon="link_off" label="Ungroup" shortcut="⇧⌘G" disabled={!nodes.some((n) => n.groupId)} disabledReason="select a grouped shape" onClick={cmd.ungroup} />
-        <BarToggle icon={locked ? 'lock' : 'lock_open'} label={locked ? 'Unlock' : 'Lock'} shortcut="⇧⌘L" pressed={!!locked} disabled={!nodes.length && !c.edges.length} onChange={cmd.toggleLock} testid="diagram-lock" />
-        <BarButton icon="visibility_off" label="Hide" disabled={!nodes.length} onClick={cmd.hideSelection} testid="diagram-hide" />
-        <BarButton icon="visibility" label={hidden ? `Show all hidden (${hidden})` : 'Show all hidden'} showLabel={hidden > 0} disabled={!hidden} disabledReason="nothing is hidden" onClick={cmd.showAllHidden} testid="diagram-show-all-hidden" />
+        <BarButton {...barProps(c.cmds.group)} onClick={c.cmds.group.run} testid="diagram-group" />
+        <BarButton {...barProps(c.cmds.ungroup)} onClick={c.cmds.ungroup.run} />
+        <BarToggle {...barProps(c.cmds.lock)} pressed={!!locked} onChange={c.cmds.lock.run} testid="diagram-lock" />
+        <BarButton {...barProps(c.cmds.hide)} onClick={c.cmds.hide.run} testid="diagram-hide" />
+        <BarButton icon="visibility" label={hidden ? `Show all hidden (${hidden})` : 'Show all hidden'} showLabel={hidden > 0} disabled={!hidden} disabledReason="Nothing is hidden." onClick={cmd.showAllHidden} testid="diagram-show-all-hidden" />
         <BarSep />
         <AlignTools c={c} ids />
         <BarMenu
@@ -336,7 +374,7 @@ const arrangeTab: BarTab<DCtx> = {
           label="Match size"
           showLabel={false}
           disabled={nodes.length < 2}
-          disabledReason="select two or more shapes"
+          disabledReason="Select two or more shapes."
           items={[
             { label: 'Same width', run: () => cmd.matchSize('width') },
             { label: 'Same height', run: () => cmd.matchSize('height') },
@@ -405,12 +443,11 @@ const viewTab: BarTab<DCtx> = {
   label: 'View',
   role: 'view',
   render: (c) => {
-    const { cmd } = c
     return (
       <>
-        <BarButton icon="fit_screen" label="Fit page" showLabel shortcut="⇧1" onClick={cmd.fit} readOnlySafe />
-        <BarButton icon="zoom_in_map" label="Zoom to selection" shortcut="⇧2" disabled={!c.nodes.length} onClick={cmd.zoomToSelection} readOnlySafe />
-        <BarButton icon="crop_free" label="Actual size" shortcut="⌘0" onClick={() => cmd.zoomTo(1)} readOnlySafe />
+        <BarButton {...barProps(c.cmds.fit)} showLabel onClick={c.cmds.fit.run} />
+        <BarButton {...barProps(c.cmds.zoomToSelection)} onClick={c.cmds.zoomToSelection.run} />
+        <BarButton {...barProps(c.cmds.actualSize)} onClick={c.cmds.actualSize.run} />
         <BarSep />
         <BarToggle icon="category" label="Shape library" pressed={c.isPanelOpen('library')} onChange={() => c.togglePanel('library')} readOnlySafe testid="diagram-view-library" controls={shellPanelDomId('library')} />
         <BarToggle icon="layers" label="Layers" pressed={c.isPanelOpen('layers')} onChange={() => c.togglePanel('layers')} readOnlySafe testid="diagram-view-layers" controls={shellPanelDomId('layers')} />
@@ -443,6 +480,7 @@ const shapeTab: BarTab<DCtx> = {
             onChange={(e) => cmd.setNodes({ shape: e.target.value })}
             onKeyDown={(e) => e.stopPropagation()}
             disabled={c.readOnly}
+            title={c.readOnly ? barTip('Shape type', undefined, READ_ONLY_REASON) : undefined}
             className="fb-field h-6 px-1 text-[12px] w-[130px]"
             data-testid="diagram-change-shape"
           >
@@ -470,8 +508,8 @@ const shapeTab: BarTab<DCtx> = {
         <BarNumber label="Opacity" value={Math.round((common(res, (r) => r.opacity) ?? 1) * 100)} min={10} max={100} step={5} suffix="%" onChange={(v) => cmd.setStyle({ opacity: v / 100 }, 'opacity')} width={40} />
         <BarToggle icon="shadow" label="Drop shadow" pressed={!!common(res, (r) => r.shadow)} onChange={(v) => cmd.setStyle({ shadow: v || undefined })} testid="diagram-shadow" />
         <BarSep />
-        <BarButton icon="format_paint" label="Copy style" shortcut="⌥⌘C" onClick={cmd.copyStyle} />
-        <BarButton icon="format_color_fill" label="Paste style" shortcut="⌥⌘V" disabled={!cmd.hasStyleClipboard()} disabledReason="copy a style first" onClick={cmd.pasteStyle} />
+        <BarButton {...barProps(c.cmds.copyStyle)} onClick={c.cmds.copyStyle.run} />
+        <BarButton {...barProps(c.cmds.pasteStyle)} onClick={c.cmds.pasteStyle.run} />
         <BarButton icon="format_clear" label="Reset style" onClick={() => cmd.setNodes({ style: undefined })} />
         <BarSep />
         <BarDialogButton icon="emoji_symbols" label="Icon" onOpen={() => c.openPanel('icon')} testid="diagram-shape-icon" />
@@ -534,7 +572,7 @@ const lineTab: BarTab<DCtx> = {
         <BarSelect label="Pattern" value={common(res, (r) => r.dash) ?? 'solid'} options={DASHES.filter((d) => d.value !== 'none')} onChange={(v) => cmd.setEdges({ dash: v, style: undefined })} testid="diagram-line-dash" width={84} />
         <ArrowMenu label="Start" value={common(res, (r) => r.startArrow)} onChange={(v) => cmd.setEdges({ startArrow: v })} testid="diagram-start-arrow" />
         <ArrowMenu label="End" value={common(res, (r) => r.endArrow)} onChange={(v) => cmd.setEdges({ endArrow: v })} testid="diagram-end-arrow" />
-        <BarButton icon="swap_horiz" label="Swap arrows" disabled={!one} disabledReason="select one line" onClick={() => one && cmd.setEdges({ startArrow: one.endArrow ?? 'arrow', endArrow: one.startArrow ?? 'none' })} />
+        <BarButton icon="swap_horiz" label="Swap arrows" disabled={!one} disabledReason="Select one line." onClick={() => one && cmd.setEdges({ startArrow: one.endArrow ?? 'arrow', endArrow: one.startArrow ?? 'none' })} />
         <BarSep />
         {one && (
           <BarCustom label="Line label">
@@ -545,6 +583,7 @@ const lineTab: BarTab<DCtx> = {
               onKeyDown={(e) => e.stopPropagation()}
               placeholder="Line label"
               disabled={c.readOnly}
+              title={c.readOnly ? barTip('Line label', undefined, READ_ONLY_REASON) : undefined}
               className="fb-field h-6 px-1.5 text-[12px] w-[140px]"
               data-testid="diagram-edge-label-field"
             />

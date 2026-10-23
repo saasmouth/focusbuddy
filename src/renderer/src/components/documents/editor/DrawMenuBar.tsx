@@ -1,5 +1,5 @@
 import type { DocumentOps } from './documentOps'
-import { menuAction } from '../../../lib/menus/menuAction'
+import { documentCommands, menuItemOf } from '../../../lib/menus/officeCommand'
 import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
 
 // The PlexiDiagrams menu bar. Document-level File actions come from the
@@ -30,31 +30,33 @@ export interface DrawMenuActions {
 
 export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): JSX.Element {
   const a = actions
-  const ops = a.documentOps
+  // File's document rows, built from the host-bound ops (documentCommands): absent with none.
+  const doc = documentCommands(a.documentOps, 'map')
 
   const menus: MenuDef[] = [
     {
       id: 'file',
       label: 'File',
       build: (): MenuItem[] =>
-        ops
+        doc
           ? [
-              { kind: 'item', label: 'New diagram', icon: 'note_add', run: () => void ops.newDocument() },
-              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              menuItemOf(doc.newDocument),
+              menuItemOf(doc.makeCopy),
               { kind: 'sep' },
-              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
-              { kind: 'item', label: 'Version history', icon: 'history', run: ops.openHistory },
+              menuItemOf(doc.rename),
+              menuItemOf(doc.versionHistory),
               { kind: 'sep' },
+              ...(doc.print ? [menuItemOf(doc.print)] : []),
               ...a.file(),
               { kind: 'sep' },
-              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
+              menuItemOf(doc.moveToTrash)
             ]
           : a.file()
     },
     { id: 'edit', label: 'Edit', build: a.edit },
     { id: 'view', label: 'View', build: a.view },
     // The meeting item ends Insert, as in every office app (SPEC §9.2), not File.
-    { id: 'insert', label: 'Insert', build: () => [...a.insert(), ...(ops ? [{ kind: 'sep' as const }, { kind: 'item' as const, ...menuAction('meeting'), icon: 'videocam', run: ops.startMeeting }] : [])] },
+    { id: 'insert', label: 'Insert', build: () => [...a.insert(), ...(doc ? [{ kind: 'sep' as const }, menuItemOf(doc.meeting)] : [])] },
     { id: 'arrange', label: 'Arrange', build: a.arrange },
     { id: 'help', label: 'Help', build: a.help }
   ]

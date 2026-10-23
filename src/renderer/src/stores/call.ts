@@ -439,3 +439,11 @@ export const useCallStore = create<CallStore>((set, get) => {
     }
   }
 })
+
+// Test-only handle so e2e specs can drive the call overlay (incoming, connected) without a peer or a real
+// getUserMedia, neither of which exists headless.
+// Same convention as __fbView / __fbMeetingRoom: a thin handle to the real
+// store, so a spec drives the product rather than a stand-in for it.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbCall?: typeof useCallStore }).__fbCall = useCallStore
+}

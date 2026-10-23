@@ -373,5 +373,7 @@ test('AF-4 — on a segment takeover, fullscreen stays full-bleed', async () => 
 
   const overlayBox = (await overlay(window).boundingBox())!
   expect(Math.round(overlayBox.x)).toBe(0)
-  expect(Math.round(overlayBox.y)).toBe(0)
+  // Full-bleed below the h-10 title bar, not over it: since 1a4ee6fa the
+  // takeover is top-10 so the header's tools stay reachable.
+  expect(Math.round(overlayBox.y)).toBe(40)
 })

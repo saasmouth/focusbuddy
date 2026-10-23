@@ -41,6 +41,8 @@ async function setup(
   await openProduct(window, 'projects')
   await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({ timeout: 8_000 })
   await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+  // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+  await window.locator('[data-testid="projects-view-gantt"]').click()
   await expect(window.locator('[data-testid="projects-view-gantt"]')).toBeVisible({ timeout: 8_000 })
 
   return { folderId, taskIds }
@@ -184,6 +186,8 @@ test('VS7. assigned task appears under workload-row-person, not unassigned', asy
     await window.locator('[data-testid="projects-back"]').click()
     await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({ timeout: 6_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator('[data-testid="projects-view-gantt"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="projects-view-workload"]').click()
@@ -523,6 +527,8 @@ test('AP4. reopening the task editor shows the previously-saved assignee', async
     await window.locator('[data-testid="projects-back"]').click()
     await expect(window.locator('[data-testid="plexiprojects-view"]')).toBeVisible({ timeout: 6_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator('[data-testid="projects-view-gantt"]')).toBeVisible({ timeout: 8_000 })
 
     // Open editor

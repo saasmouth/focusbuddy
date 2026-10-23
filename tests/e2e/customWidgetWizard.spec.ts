@@ -9,7 +9,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { execFileSync } from 'child_process'
 import { join } from 'path'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 
 test.setTimeout(180_000)
 let launched: LaunchedApp | null = null
@@ -22,6 +22,9 @@ async function openWidget(window: Page, userDataDir: string, built: boolean): Pr
     env: { ...process.env, PLEXI_SEED_DB: join(userDataDir, 'focusbuddy.db') },
     stdio: 'pipe'
   })
+  // The seeded reload is the boot that offers the feature-spotlight card,
+  // which docks over this widget's wizard. Not under test: suppress it.
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.evaluate(async (wantBuilt) => {
@@ -45,6 +48,25 @@ async function openWidget(window: Page, userDataDir: string, built: boolean): Pr
   if (await chip.isVisible().catch(() => false)) {
     await chip.click().catch(() => undefined)
     await window.waitForTimeout(300)
+  }
+  // The open-items tray (fffb577ad) took the canvas's bottom strip, which is
+  // where this seeded widget's build controls and the wizard it opens sit.
+  // Pan the canvas up, as a person would, until the widget clears the tray.
+  if (!built) {
+    const tray = window.locator('[data-testid="open-tray"]')
+    const open = window.locator('[data-testid="custom-widget-wizard-open"]')
+    await expect(open).toBeVisible({ timeout: 10_000 })
+    const frame = window.locator('[data-widget-id]').filter({ has: open }).first()
+    await expect(async () => {
+      const [b, t] = await Promise.all([frame.boundingBox(), tray.boundingBox()])
+      if (!b || !t) return
+      if (b.y + b.height > t.y - 8) {
+        await window.mouse.move(t.x + t.width / 2, t.y - 300)
+        await window.mouse.wheel(0, 120)
+        const b2 = await frame.boundingBox()
+        expect(b2!.y + b2!.height).toBeLessThanOrEqual(t.y - 8)
+      }
+    }).toPass({ timeout: 10_000 })
   }
 }
 

@@ -164,7 +164,8 @@ export const commands: Command[] = [
     icon: 'flip',
     menu: { path: 'object/Transform', order: 0 },  // orders in different hundreds get a separator
     shortcut: '⇧⌘H',                                // the label shown in the menu
-    enabled: (ctx) => !ctx.get().readOnly && ctx.get().selection.length > 0, // must be pure
+    // enabled AND disabledReason, both from one pure predicate (commands/gate.ts)
+    ...gate(firstOf(notReadOnly, unless((ctx) => ctx.get().selection.length > 0, 'Select something to flip.'))),
     run: (ctx) => {
       const s = ctx.get()
       ctx.history.commit(mapObjects(s.doc, editableIds(s.doc, s.selection), (o) => /* … */ o), 'Flip horizontal')
@@ -182,9 +183,18 @@ export const commands: Command[] = [
 - `keyWhen(ctx)` (optional) decides whether a KEY binding fires now. When it
   returns false, the key falls through to the tool letters, which is how arrows
   do nothing when no object is selected.
-- A command that cannot work must show as disabled through `enabled`. It is
-  never a no-op that looks like it worked. A command that runs and fails sets
-  an honest `ctx.status(...)`.
+- A command that cannot work must show as disabled, and say why (SPEC §9.5).
+  Give it `...gate(why)` from `commands/gate.ts`: `why(ctx)` returns a short
+  sentence ("Select two or more paths to combine them.") or null, and both
+  `enabled` and `disabledReason` are read from it, so the grey state and the
+  sentence under it cannot disagree. `firstOf(notReadOnly, …)` puts the
+  read-only reason first; `unless(ok, 'sentence')` turns a check into a why.
+  The menu bar, the right-click menu and the bar buttons show the sentence.
+  `commandRegistryProblems()` fails on a menu command with `enabled` and no
+  reason, and `tests/unit/drawTools/menuReasons.test.ts` sweeps the menus
+  through blank, read-only, locked, selected and anchor states for a greyed
+  item without one. It is never a no-op that looks like it worked. A command
+  that runs and fails sets an honest `ctx.status(...)`.
 
 **Keyboard shortcut:** PlexiiDraw uses Illustrator's default keys. Look your
 command up in `commands/illustratorKeys.ts` (Adobe's whole table, row by row)
@@ -236,7 +246,7 @@ function GradientTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
   useEditor(ctx) // re-render with the editor
   return (
     <BarGroup label="Gradient">
-      <CmdButton ctx={ctx} id="paint.reverseGradient" icon="swap_horiz" reason="select a gradient fill" testid="draw-gradient-reverse" />
+      <CmdButton ctx={ctx} id="paint.reverseGradient" icon="swap_horiz" testid="draw-gradient-reverse" />
     </BarGroup>
   )
 }
@@ -255,7 +265,10 @@ export default gradient
 - Use the shell's bar primitives (`BarButton`, `BarToggle`, `BarNumber`,
   `BarSelect`, `BarColor`, `BarMenu`, `BarDialogButton`, `BarCustom`) or
   `CmdButton` / `CmdToggle`, which take the command's label, its LIVE key for
-  the tooltip, and its `enabled` state with a `reason` to show when it is off.
+  the tooltip, and its `enabled` state with the command's own `disabledReason`
+  as the off tooltip: the bar and the menu say the same sentence, and a
+  button has no reason of its own (`tests/unit/drawBarReasons.test.tsx`).
+  Give the reason to the command (`gate`), not to the button.
 - A contextual tab appears while `when` holds and never switches to itself
   (owner D3); when it vanishes while active, the bar falls back to Home.
 - A read-only drawing greys every control without `readOnlySafe` and says why

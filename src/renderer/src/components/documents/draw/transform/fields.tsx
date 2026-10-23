@@ -117,7 +117,15 @@ export function NumField({ label, prefix, value, kind, settings, onCommit, disab
 }
 
 /** The 9-point reference point locator; `compact` fits it in a bar row (26px). */
-export function RefLocator({ value, onChange, testId = 'draw-transform-ref', disabled, compact }: { value: RefPoint; onChange(r: RefPoint): void; testId?: string; disabled?: boolean; compact?: boolean }): JSX.Element {
+export function RefLocator({ value, onChange, testId = 'draw-transform-ref', disabled, disabledReason, compact }: {
+  value: RefPoint
+  onChange(r: RefPoint): void
+  testId?: string
+  disabled?: boolean
+  /** Why it is off, appended to each point's tooltip while `disabled` (the shell's "Label — reason"). */
+  disabledReason?: string
+  compact?: boolean
+}): JSX.Element {
   return (
     <div
       className={`grid grid-cols-3 rounded border border-[var(--edge-soft)] shrink-0 ${compact ? 'gap-px p-[2px]' : 'gap-[3px] p-1'}`}
@@ -132,7 +140,7 @@ export function RefLocator({ value, onChange, testId = 'draw-transform-ref', dis
           role="radio"
           aria-checked={value === r}
           aria-label={`Reference point: ${refPointLabel(r)}`}
-          title={`Reference point: ${refPointLabel(r)}`}
+          title={disabled && disabledReason ? `Reference point: ${refPointLabel(r)} — ${disabledReason}` : `Reference point: ${refPointLabel(r)}`}
           data-testid={`${testId}-${r}`}
           disabled={disabled}
           onClick={() => onChange(r)}

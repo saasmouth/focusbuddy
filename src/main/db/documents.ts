@@ -221,7 +221,14 @@ export function createDocument(draft: DocumentDraft): FbDocument {
     orgId: getActiveOrgId(),
     now
   })
-  return getDocument(id) as FbDocument
+  const created = getDocument(id) as FbDocument
+  // Announced like a document arriving through upsert. A document created here
+  // and not through the renderer's own store (an AI tool, a widget file, the
+  // API) was otherwise unknown to the renderer's list until something else
+  // refreshed it, and the open-document tray named it "Document", struck
+  // through as if deleted (rails-tabs-41 shots: Diagrams and Draw).
+  notifyDocumentChanged(created.id, created.bodyRev)
+  return created
 }
 
 export function updateDocument(id: string, patch: DocumentPatch): FbDocument | null {

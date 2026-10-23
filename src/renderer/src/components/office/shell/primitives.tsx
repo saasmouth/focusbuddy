@@ -9,7 +9,14 @@ import Tooltip from '../../Tooltip'
 // has to thread it by hand. None of these handle keys beyond their own focused
 // element (no document listeners).
 
-export const READ_ONLY_REASON = 'not available: this document is read-only'
+/**
+ * The one sentence every office app shows for an action a read-only document
+ * cannot take: in the bar, the rail, the menus and the commands (aggregator
+ * ruling, 4.3.41). This constant is its only source; an app imports it rather
+ * than writing its own (Draw's commands/gate.ts, Write's and Cells' registries,
+ * the snippet declines). officeReadOnlyReason.test.tsx holds every app to it.
+ */
+export const READ_ONLY_REASON = 'This document is read-only.'
 
 export const BarContext = createContext<{ readOnly: boolean }>({ readOnly: false })
 
@@ -36,16 +43,37 @@ export interface BarCommon {
   controls?: string
 }
 
-/** Resolve disabled + the reason shown in the tooltip. Exported for tests. */
+/**
+ * Resolve disabled + the reason shown in the tooltip. Exported for tests.
+ *
+ * In a read-only document every control that is not `readOnlySafe` is off. Its
+ * reason is the control's OWN when it has one (an off command says why: its
+ * pending note, its gated reason, `barProps` from the OfficeCommand registry),
+ * so the bar says exactly what the menu row for the same command says; only a
+ * control with no reason of its own is given READ_ONLY_REASON.
+ */
 export function useBarState(p: BarCommon): { disabled: boolean; reason?: string } {
   const { readOnly } = useContext(BarContext)
-  if (readOnly && !p.readOnlySafe) return { disabled: true, reason: READ_ONLY_REASON }
-  return { disabled: !!p.disabled, reason: p.disabled ? p.disabledReason : undefined }
+  const own = p.disabled ? p.disabledReason : undefined
+  if (readOnly && !p.readOnlySafe) return { disabled: true, reason: own || READ_ONLY_REASON }
+  return { disabled: !!p.disabled, reason: own }
 }
 
 export function barTip(label: string, shortcut?: string, reason?: string): string {
   if (reason) return `${label} — ${reason}`
   return shortcut ? `${label} (${shortcut})` : label
+}
+
+/**
+ * The words a bar control shows on its face. A label is the tooltip and the
+ * accessible name, and may be "Name — what it does"; only the name belongs on
+ * the button. Shown whole, Write's Styles button read "Styles — apply and
+ * customise paragraph styles" across two lines in the Home tab (rails-tabs-41
+ * shots). The description stays in the tooltip and the aria-label.
+ */
+export function barText(label: string): string {
+  const i = label.indexOf(' — ')
+  return i > 0 ? label.slice(0, i) : label
 }
 
 /**
@@ -107,7 +135,7 @@ export function BarPopover({ anchor, onClose, children, role = 'dialog', label, 
   )
 }
 
-const BTN = 'h-7 min-w-7 px-1.5 inline-flex items-center justify-center gap-1 rounded text-[12px] transition-colors disabled:opacity-35 disabled:cursor-not-allowed'
+const BTN = 'h-7 min-w-7 px-1.5 inline-flex items-center justify-center gap-1 rounded text-[12px] whitespace-nowrap shrink-0 transition-colors disabled:opacity-35 disabled:cursor-not-allowed'
 const IDLE = 'text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]'
 const ON = 'bg-accent/15 text-accent'
 
@@ -124,7 +152,7 @@ export function BarButton({ icon, label, showLabel, onClick, ...common }: IconLa
     <Tooltip content={tip} placement="bottom">
       <button type="button" aria-label={tip} aria-controls={common.controls} disabled={disabled} data-testid={common.testid} data-bar-kind="button" data-bar-semantic={common.semantic} onClick={onClick} className={`${BTN} ${IDLE}`}>
         {icon && <Icon name={icon} size={16} />}
-        {(showLabel || !icon) && <span>{label}</span>}
+        {(showLabel || !icon) && <span>{barText(label)}</span>}
       </button>
     </Tooltip>
   )
@@ -148,7 +176,7 @@ export function BarToggle({ icon, label, showLabel, pressed, onChange, ...common
         className={`${BTN} ${pressed ? ON : IDLE}`}
       >
         {icon && <Icon name={icon} size={16} />}
-        {(showLabel || !icon) && <span>{label}</span>}
+        {(showLabel || !icon) && <span>{barText(label)}</span>}
       </button>
     </Tooltip>
   )
@@ -157,8 +185,10 @@ export function BarToggle({ icon, label, showLabel, pressed, onChange, ...common
 /** Opens a dialog or overlay panel; always shows its label with an ellipsis (spec §2.5). */
 export function BarDialogButton({ icon, label, onOpen, ...common }: Omit<IconLabel, 'showLabel'> & { onOpen: () => void }): JSX.Element {
   const { disabled, reason } = useBarState(common)
-  const text = label.endsWith('…') ? label : `${label}…`
-  const tip = barTip(text, common.shortcut, reason)
+  const name = barText(label)
+  const text = name.endsWith('…') ? name : `${name}…`
+  // The tooltip keeps a description when the label has one; otherwise it is the face text.
+  const tip = barTip(name === label ? text : label, common.shortcut, reason)
   return (
     <Tooltip content={tip} placement="bottom">
       <button type="button" aria-label={tip} aria-haspopup="dialog" disabled={disabled} data-testid={common.testid} data-bar-kind="dialog" onClick={onOpen} className={`${BTN} ${IDLE}`}>
@@ -202,9 +232,16 @@ export function BarSelect<T extends string>({ label, value, options, onChange, w
   )
 }
 
-export function BarNumber({ label, value, onChange, min, max, step = 1, suffix, width = 56, ...common }: BarCommon & {
+export function BarNumber({ label, value, fallback, onChange, min, max, step = 1, suffix, width = 56, ...common }: BarCommon & {
   label: string
   value: number | undefined
+  /**
+   * The value in force when none is set (Write's text with no size of its own
+   * is still at the document's size). Shown instead of "—", which claims there
+   * is no value: an empty document's font size read "—" (rails-tabs-41 shots).
+   * Committing it unchanged is not an edit; changing it sets `value`.
+   */
+  fallback?: number
   onChange: (v: number) => void
   min?: number
   max?: number
@@ -214,15 +251,16 @@ export function BarNumber({ label, value, onChange, min, max, step = 1, suffix, 
 }): JSX.Element {
   const { disabled, reason } = useBarState(common)
   const tip = barTip(label, common.shortcut, reason)
-  const [draft, setDraft] = useState<string>(value === undefined ? '' : String(value))
-  useEffect(() => setDraft(value === undefined ? '' : String(value)), [value])
+  const shown = value ?? fallback
+  const [draft, setDraft] = useState<string>(shown === undefined ? '' : String(shown))
+  useEffect(() => setDraft(shown === undefined ? '' : String(shown)), [shown])
   const commit = (): void => {
     const n = Number(draft)
-    if (draft.trim() === '' || !Number.isFinite(n)) return setDraft(value === undefined ? '' : String(value))
+    if (draft.trim() === '' || !Number.isFinite(n)) return setDraft(shown === undefined ? '' : String(shown))
     const c = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n))
     // Leaving the field (or Enter) with the value unchanged is not an edit:
     // an app would otherwise record an empty undo step on every blur.
-    if (c === value) return setDraft(String(c))
+    if (c === shown) return setDraft(String(c))
     onChange(c)
   }
   return (
@@ -360,7 +398,7 @@ export function BarMenu({ icon, label, showLabel = true, valueLabel, items, ...c
       <Tooltip content={tip} placement="bottom">
         <button ref={btn} type="button" aria-label={tip} aria-haspopup="menu" aria-expanded={open} disabled={disabled} data-testid={common.testid} data-bar-kind="menu" data-bar-semantic={common.semantic} onClick={() => setOpen((v) => !v)} className={`${BTN} ${IDLE}`}>
           {icon && <Icon name={icon} size={16} />}
-          {valueLabel ?? (showLabel && <span>{label}</span>)}
+          {valueLabel ?? (showLabel && <span>{barText(label)}</span>)}
           <Icon name="expand_more" size={14} />
         </button>
       </Tooltip>
@@ -426,9 +464,11 @@ export function BarCustom({ children, label, testid, semantic }: { children: Rea
  * app's preset sizes in a menu beside it when it has them (Deck's pattern,
  * which kept Write's old size list reachable when its select became a number).
  */
-export function BarFontSize({ label = 'Font size', value, onChange, onClear, min = 1, max, suffix, width = 48, presets, ...common }: Omit<BarCommon, 'semantic'> & {
+export function BarFontSize({ label = 'Font size', value, fallback, onChange, onClear, min = 1, max, suffix, width = 48, presets, ...common }: Omit<BarCommon, 'semantic'> & {
   label?: string
   value: number | undefined
+  /** The size in force when the text sets none (see BarNumber). */
+  fallback?: number
   onChange: (v: number) => void
   min?: number
   max?: number
@@ -440,7 +480,7 @@ export function BarFontSize({ label = 'Font size', value, onChange, onClear, min
 }): JSX.Element {
   return (
     <>
-      <BarNumber label={label} value={value} onChange={onChange} min={min} max={max} suffix={suffix} width={width} semantic="font-size" {...common} />
+      <BarNumber label={label} value={value} fallback={fallback} onChange={onChange} min={min} max={max} suffix={suffix} width={width} semantic="font-size" {...common} />
       {presets && presets.length > 0 && (
         <BarMenu
           icon="format_size"

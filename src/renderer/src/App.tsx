@@ -747,7 +747,9 @@ export default function App(): JSX.Element {
                 className={`icon-btn ${filesOpen ? '!text-accent' : ''}`}
                 aria-label="Files beside your work"
                 aria-pressed={filesOpen}
-                aria-controls="files-panel"
+                // Only while the panel is mounted: an id that names nothing is
+                // an invalid aria-controls (axe critical, plxA11yWcagZoom).
+                aria-controls={filesOpen ? 'files-panel' : undefined}
                 data-testid="files-panel-toggle"
                 data-files-panel-control=""
               >

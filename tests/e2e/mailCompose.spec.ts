@@ -194,9 +194,9 @@ test('area4a - nodes.create IPC creates a top-level task without error', async (
   expect(realErrors, `Unexpected errors after task creation: ${realErrors.join(', ')}`).toHaveLength(0)
 })
 
-// ── Area 4b: "New top-level project" sidebar button → NewNodeDialog ───────────
+// ── Area 4b: the sidebar's "New desk" button → NewNodeDialog ─────────────────
 test('area4b - Projects sidebar New button creates a folder without error', async () => {
-  // The "New top-level project" sidebar button (title attr) opens NewNodeDialog
+  // The sidebar's create button opens NewNodeDialog
   // in folder mode. Verify it opens, fills, submits, and the node exists.
   launched = await launchApp()
   const { window } = launched
@@ -208,8 +208,11 @@ test('area4b - Projects sidebar New button creates a folder without error', asyn
   })
   const countBefore = Array.isArray(nodesBefore) ? nodesBefore.length : 0
 
-  // The Projects "add" button has title "New top-level project".
-  const projAddBtn = window.getByTitle('New top-level project').first()
+  // Renamed by 4802064e4 (Rooms/Desks Phase 2-5): the sidebar's create
+  // button is "New desk" now, not "New top-level project". Matched on the
+  // accessible name rather than the title, because the title is a whole
+  // sentence of help text that will keep changing.
+  const projAddBtn = window.getByRole('button', { name: /New desk/i }).first()
   await expect(projAddBtn).toBeVisible({ timeout: 5_000 })
   await projAddBtn.click()
 

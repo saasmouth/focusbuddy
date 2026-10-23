@@ -19,6 +19,13 @@ async function hideAssistant(window: LaunchedApp['window']): Promise<void> {
   await window.waitForTimeout(150)
 }
 
+async function openHistory(window: LaunchedApp['window']): Promise<void> {
+  // The header's open-history button went with the header bar in c48d0360;
+  // History is the first row of the floating toolbar, revealed on hover.
+  await window.locator('[data-testid="floating-toolbar"]').hover()
+  await window.getByTitle(/^Desk history/).click()
+}
+
 async function stickyContent(
   window: LaunchedApp['window'],
   taskId: string,
@@ -68,7 +75,7 @@ test('restore brings a past desk state back', async () => {
   expect(await stickyContent(window, ids.taskId, ids.stickyId)).toBe('STATE-B')
 
   // Open time travel; the only snapshot is the STATE-A desk and is auto-selected.
-  await window.locator('[data-testid="open-history"]').click()
+  await openHistory(window)
   await expect(window.locator('[data-testid="history-panel"]')).toBeVisible()
   await expect(window.locator('[data-testid="history-preview"]')).toContainText('STATE-A', {
     timeout: 5_000
@@ -113,12 +120,13 @@ test('branch creates a new desk from a snapshot and dives into it', async () => 
   await window.waitForTimeout(400)
   await hideAssistant(window)
 
-  await window.locator('[data-testid="open-history"]').click()
+  await openHistory(window)
   await expect(window.locator('[data-testid="history-panel"]')).toBeVisible()
   await window.locator('[data-testid="history-branch"]').click()
 
   // The canvas switches to the new branched desk.
-  await expect(window.locator('[data-testid="breadcrumb-current"]')).toContainText('(branch)', {
+  // The desk's name is on the desk context trigger since 4148318a (no breadcrumb).
+  await expect(window.locator('[data-testid="desk-context-trigger"]')).toContainText('(branch)', {
     timeout: 6_000
   })
   // And the branched desk carries a copy of the seed content.

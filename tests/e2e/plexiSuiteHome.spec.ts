@@ -3,7 +3,7 @@
 // the local-first upvote toggle, then confirm vote persistence in localStorage.
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { gotoView, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -15,19 +15,15 @@ test.afterEach(async () => {
 })
 
 async function openSuite(window: LaunchedApp['window']): Promise<void> {
-  // Click the PlexiSuite sidebar entry (aria-label or visible label).
-  const suiteBtn = window.locator('[data-testid="sidebar-btn-suite"], button[aria-label="PlexiiSuite"]').first()
-  // Fallback: find by text "PlexiSuite" in the sidebar strip.
-  const fallback = window.locator('button').filter({ hasText: 'PlexiiSuite' }).first()
-
-  // Try the test-id first, then text fallback.
-  const hasSuiteBtn = await suiteBtn.count()
-  if (hasSuiteBtn) {
-    await suiteBtn.click()
-  } else {
-    await fallback.click()
-  }
-
+  // STALE until now: this clicked a `sidebar-btn-suite` / aria-label
+  // "PlexiiSuite" entry, then fell back to any button containing that text.
+  // Neither exists — the object-based IA dropped the literal sidebar buttons
+  // for these destinations (see gotoView's note), so `count()` was 0 and the
+  // fallback click waited out the whole 30s test timeout.
+  //
+  // PlexiSuite is still perfectly reachable: view.ts has goSuite ({ kind:
+  // 'suite' }, which MainPane renders) and it is in fact the default view.
+  await gotoView(window, 'goSuite')
   await window.waitForSelector('[data-testid="plexisuite-home"]', { timeout: 8_000 })
 }
 
@@ -78,14 +74,18 @@ test('3 — ready products render full-colour; coming-soon products get badge + 
   await expect(dashTile.locator('text=Coming soon')).toHaveCount(0)
   await expect(dashTile.locator('text=Planned')).toHaveCount(0)
   // Ready tiles must NOT have an upvote button.
-  await expect(dashTile.locator('[data-testid="upvote-plexidash"]')).toHaveCount(0)
+  // Page-level, not tile-scoped: PLX-A11Y-001 (6652ef00c) made the upvote a
+  // SIBLING of the tile button rather than a descendant, to stop a button
+  // nesting inside a button. Tile-scoped, this count was 0 for every product,
+  // ready or not — it passed without ever testing anything.
+  await expect(window.locator('[data-testid="upvote-plexidash"]')).toHaveCount(0)
 
   // PlexiForms is now 'ready' (forms shipped). Confirm it has no badge and no upvote.
   const formsTile = window.locator('[data-testid="product-tile-plexiforms"]')
   await expect(formsTile).toBeVisible()
   await expect(formsTile.locator('text=Coming soon')).toHaveCount(0)
   await expect(formsTile.locator('text=Planned')).toHaveCount(0)
-  await expect(formsTile.locator('[data-testid="upvote-plexiforms"]')).toHaveCount(0)
+  await expect(window.locator('[data-testid="upvote-plexiforms"]')).toHaveCount(0)
 
   // The one remaining planned product is PlexiOps; it must show the Planned badge
   // and an upvote control. Projects, Flow, Forms, Reports, Sign, Meet and Brain
@@ -93,7 +93,7 @@ test('3 — ready products render full-colour; coming-soon products get badge + 
   const opsTile = window.locator('[data-testid="product-tile-plexiops"]')
   await expect(opsTile).toBeVisible()
   await expect(opsTile.locator('text=Planned')).toBeVisible()
-  await expect(opsTile.locator('[data-testid="upvote-plexiops"]')).toBeVisible()
+  await expect(window.locator('[data-testid="upvote-plexiops"]')).toBeVisible()
 
   // These have all shipped, so like PlexiDash they are full-colour with no badge
   // and no upvote.
@@ -102,7 +102,7 @@ test('3 — ready products render full-colour; coming-soon products get badge + 
     await expect(tile).toBeVisible()
     await expect(tile.locator('text=Coming soon')).toHaveCount(0)
     await expect(tile.locator('text=Planned')).toHaveCount(0)
-    await expect(tile.locator(`[data-testid="upvote-${key}"]`)).toHaveCount(0)
+    await expect(window.locator(`[data-testid="upvote-${key}"]`)).toHaveCount(0)
   }
 })
 
@@ -145,6 +145,21 @@ test('4b — clicking a coming-soon product tile opens product home with upvote 
 test('5 — upvote-plexiops toggles aria-pressed and count; persists in localStorage', async () => {
   launched = await launchApp()
   const { window } = launched
+
+  // The upvote POSTs the vote to api.plexiidesk.com. This spec's subject is the
+  // local-first half — aria-pressed, the count, and localStorage — and its own
+  // comment already assumed "server not reachable in test environment". Since
+  // the net guard (c750404d) that assumption is a failure, not a no-op, so the
+  // endpoint is answered locally: no production traffic, and the recorded vote
+  // still round-trips exactly as the test describes.
+  // Aborted locally rather than answered: this test asserts the LOCAL-FIRST
+  // count (the user's own vote and nothing else), so a stub that returns a
+  // count makes the app believe the server spoke — the first version fulfilled
+  // with { count: 1 } and the un-vote then still read 1. Aborting reproduces
+  // exactly the "server not synced" condition the test was written for, with
+  // no production request.
+  await window.route('**/features/*/vote', (route) => route.abort())
+
   await waitForReady(window)
   await openSuite(window)
 

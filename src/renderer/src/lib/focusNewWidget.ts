@@ -28,10 +28,32 @@ export function primaryInputOf(widgetId: string, root: ParentNode = document): H
   return null
 }
 
-/** Nothing owns the keyboard yet: the body (or nothing) has focus. */
+// Focus a closing menu gave back to its opener (SPEC §9.1). It is where the
+// person was, not a place they chose after the menu ran a row, so a row whose
+// action places a work widget ("Add to this desk" in a side-menu tile's
+// right-click menu) still hands that widget the keyboard. The mark lasts until
+// the person next points or types: from then on, the focus is theirs.
+let menuReturned: Element | null = null
+let clearArmed = false
+
+/** Focus `el` on behalf of a closing menu, and remember it was the menu. */
+export function returnMenuFocus(el: HTMLElement): void {
+  el.focus({ preventScroll: true })
+  menuReturned = document.activeElement === el ? el : null
+  if (!clearArmed && typeof document !== 'undefined') {
+    clearArmed = true
+    const clear = (): void => {
+      menuReturned = null
+    }
+    document.addEventListener('pointerdown', clear, true)
+    document.addEventListener('keydown', clear, true)
+  }
+}
+
+/** Nothing owns the keyboard yet: the body (or nothing) has focus, or only the focus a menu put back. */
 function focusIsFree(): boolean {
   const a = document.activeElement
-  return !a || a === document.body || a === document.documentElement
+  return !a || a === document.body || a === document.documentElement || (a === menuReturned && a.isConnected)
 }
 
 /**

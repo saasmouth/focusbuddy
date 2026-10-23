@@ -38,6 +38,10 @@ export const MENU = {
   find: { label: 'Find…', keys: ['mod', 'f'] },
   findAndReplace: { label: 'Find and replace…', keys: ['shift', 'mod', 'h'] },
   saveAsSnippet: { label: 'Save selection as snippet…', icon: 'bookmark_add' },
+  // One definition for both apps: Write strips marks and nodes, Cells resets
+  // cell format and number format, but it is the same action with the same
+  // label and the same key, so neither may drift.
+  clearFormatting: { label: 'Clear formatting', keys: ['mod', '\\'], icon: 'format_clear' },
   // Insert
   insertSnippet: { label: 'Insert snippet…', icon: 'bookmarks' },
   workWidgetFromDesk: { label: 'Work widget from a desk…' },

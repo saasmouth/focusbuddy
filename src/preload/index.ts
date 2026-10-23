@@ -1,3 +1,4 @@
+import type { PrintRequest, PrintResult, SheetPdfRequest } from '@shared/printJob'
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { AppClipboardRead } from '@shared/appClipboard'
@@ -2992,6 +2993,15 @@ const api = {
   },
   // Office interop for the document editor: import .docx, export .docx / PDF,
   // and pick an image to embed.
+  // Print… for the office apps: the app's own PDF render through the system
+  // print dialog (main: printDocument.ts). Desktop only; the renderer offers
+  // Print… only where this exists and the runtime is not the browser.
+  print: {
+    document: (input: PrintRequest): Promise<PrintResult> => ipcRenderer.invoke('print:document', input),
+    /** Cells' Download ▸ PDF, from the same render Print… uses. */
+    sheetPdf: (input: SheetPdfRequest): Promise<{ ok: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('print:sheetPdf', input)
+  },
   office: {
     importDocx: (): Promise<{ ok: boolean; html?: string; fileName?: string; page?: PageSetupInput; error?: string }> =>
       ipcRenderer.invoke('office:importDocx'),

@@ -20,7 +20,7 @@ import { setTransformPrefs, transformPrefs } from '../transform/prefs'
 import { orientationDelta, resizedAt, transformReadout } from '../transform/readout'
 import { CmdButton, canRun, keyOf, useBarReadOnly, useEditor } from './controls'
 
-const NOTHING = 'select an object first'
+const NOTHING = 'Select an object first.'
 
 /** The Transform cluster (X/Y/W/H, Rotate, Shear and the reference point). Also used by tests. */
 export function TransformCluster({ ctx }: { ctx: EditorCtx }): JSX.Element {
@@ -77,7 +77,7 @@ export function TransformCluster({ ctx }: { ctx: EditorCtx }): JSX.Element {
 
   return (
     <BarCustom label="Transform" testid="draw-transform-panel">
-      <RefLocator compact value={ref} onChange={(refPoint) => setTransformPrefs({ refPoint })} disabled={readOnly} />
+      <RefLocator compact value={ref} onChange={(refPoint) => setTransformPrefs({ refPoint })} disabled={readOnly} disabledReason={READ_ONLY_REASON} />
       <NumField label="X" prefix="X" kind="length" settings={settings} value={rp ? rp.x - board.x : null} onCommit={(v) => setPos('x', v)} disabled={off} title={tip('X')} testId="draw-transform-x" className="w-[74px]" />
       <NumField label="Y" prefix="Y" kind="length" settings={settings} value={rp ? rp.y - board.y : null} onCommit={(v) => setPos('y', v)} disabled={off} title={tip('Y')} testId="draw-transform-y" className="w-[74px]" />
       <NumField
@@ -149,9 +149,9 @@ function ObjectTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
     <>
       <TransformCluster ctx={ctx} />
       <BarGroup label="Flip">
-        <CmdButton ctx={ctx} id="object.flipHorizontal" icon="flip" reason={NOTHING} testid="draw-transform-flip-h" />
+        <CmdButton ctx={ctx} id="object.flipHorizontal" icon="flip" testid="draw-transform-flip-h" />
         <span className="inline-flex [&_.material-symbols-outlined]:rotate-90 [&_svg]:rotate-90">
-          <CmdButton ctx={ctx} id="object.flipVertical" icon="flip" reason={NOTHING} testid="draw-transform-flip-v" />
+          <CmdButton ctx={ctx} id="object.flipVertical" icon="flip" testid="draw-transform-flip-v" />
         </span>
       </BarGroup>
       <BarGroup label="Transform options">
@@ -161,11 +161,11 @@ function ObjectTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <BarSep />
       <BarGroup label="Arrange">
         {ARRANGE.map((a) => (
-          <CmdButton key={a.dir} ctx={ctx} id={`object.arrange.${a.dir}`} icon={a.icon} reason="nothing to move in the stacking order" testid={`draw-arrange-${a.dir}`} />
+          <CmdButton key={a.dir} ctx={ctx} id={`object.arrange.${a.dir}`} icon={a.icon} testid={`draw-arrange-${a.dir}`} />
         ))}
       </BarGroup>
       <BarSep />
-      <CmdButton ctx={ctx} id="object.transformAgain" icon="replay" reason="transform something first" testid="draw-transform-again" />
+      <CmdButton ctx={ctx} id="object.transformAgain" icon="replay" testid="draw-transform-again" />
       <BarMenu
         icon="transform"
         label="Transform"

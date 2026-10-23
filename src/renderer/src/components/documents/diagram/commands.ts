@@ -7,7 +7,7 @@ import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, addPage, renamePage, deletePage, movePage, pageList } from '@shared/diagram/pages'
 import type { History } from '@shared/diagram/history'
 import type { LiveUndo } from '../../../lib/yjsKeyedJson'
-import type { DiagramTheme } from '@shared/diagram/style'
+import { resolveNodeStyle, type DiagramTheme } from '@shared/diagram/style'
 import { tidyConnections } from '@shared/diagram/tidy'
 import { layoutDiagram, type LayoutAlgorithm } from '@shared/diagram/layout'
 import { mermaidToMap, mapToMermaid } from '@shared/diagram/mermaid'
@@ -18,12 +18,15 @@ import { fresh } from '@shared/diagram/sharedRefs'
 import { alignBoxes, distributeBoxes, type AlignEdge } from '../map/mapAlign'
 import { mapTemplate, type MapTemplateId } from '../map/mapTemplates'
 import { shortcutKey } from './keys'
+import type { AppClipboardRead } from '@shared/appClipboard'
 import { diagramBodyFromSelection, placeDiagramSnippet } from './diagramSnippets'
 import type { DiagramSnippetBody } from '@shared/snippets'
 import type { QuickDir } from './DiagramContext'
 import type { Tool } from './DiagramEditor'
 import { readClipboardForms } from '../../../lib/clipboardForms'
 import { fromAnotherApp, pasteConverted } from '../../../lib/clipboardPaste'
+import { writeGate, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import type { DiagramCommands } from './diagramCommands'
 
 // Every editor action in one place. Menus, the toolbar, keyboard shortcuts, the
 // context menu and the inspector all call these, so an action behaves the same
@@ -283,6 +286,36 @@ function makeCommands(d: Deps) {
       const c = viewportCenter()
       add(lines.map((l, i) => makeNode(lines.length > 1 ? 'process' : 'note', { x: c.x, y: c.y + i * 64 }, { label: l })))
     },
+    /**
+     * Edit › Paste and right-click › Paste: the same paste as ⌘V. The system
+     * clipboard is read whole (main reads it: text, HTML, our private flavours,
+     * a picture) and handed to paste() as the DataTransfer a ⌘V would carry.
+     * The menu used to paste with no data (only Diagrams' own copies landed) and
+     * the right-click menu with text only (pictures were dropped).
+     */
+    async pasteFromClipboard(): Promise<void> {
+      const api = (globalThis as unknown as { api?: { snippets?: { readClipboard?: () => Promise<AppClipboardRead> } } }).api
+      let read: AppClipboardRead | null = null
+      try {
+        read = (await api?.snippets?.readClipboard?.()) ?? null
+      } catch {
+        read = null
+      }
+      const dt = new DataTransfer()
+      if (read && !read.error) {
+        for (const [type, value] of Object.entries(read.custom ?? {})) dt.setData(type, value)
+        if (read.html) dt.setData('text/html', read.html)
+        if (read.text) dt.setData('text/plain', read.text)
+        if (read.image) {
+          const blob = await (await fetch(read.image.dataUrl)).blob()
+          dt.items.add(new File([blob], 'pasted.png', { type: blob.type || 'image/png' }))
+        }
+      } else {
+        const text = await navigator.clipboard?.readText().catch(() => '')
+        if (text) dt.setData('text/plain', text)
+      }
+      await cmds.paste(dt)
+    },
     duplicate(): void {
       if (!sel().nodes.size) return
       const { graph, sel: s } = ops.duplicate(page(), sel())
@@ -397,6 +430,21 @@ function makeCommands(d: Deps) {
     },
 
     // ── properties (inspector) ───────────────────────────────────────────
+    /**
+     * Bold / Italic / Underline / Strikethrough on the selection: ONE
+     * implementation for the ribbon and the keys (they used to disagree: the
+     * ribbon read the theme-resolved style of every selected shape, ⌘B the raw
+     * style of the first). On when every selected shape shows it, with the
+     * theme and the shape's own defaults applied; turning it off writes false,
+     * so a shape that is bold by default really loses it.
+     */
+    textStyleOn(key: 'bold' | 'italic' | 'underline' | 'strike'): boolean {
+      const ns = page().nodes.filter((n) => sel().nodes.has(n.id))
+      return ns.length > 0 && ns.every((n) => !!resolveNodeStyle(n, d.settings.theme)[key])
+    },
+    toggleTextStyle(key: 'bold' | 'italic' | 'underline' | 'strike'): void {
+      cmds.setStyle({ [key]: !cmds.textStyleOn(key) })
+    },
     setStyle(patch: Partial<MapNodeStyle>, key?: string): void {
       d.update((g) => ops.patchStyle(g, sel().nodes, patch), key)
     },
@@ -730,55 +778,45 @@ function makeCommands(d: Deps) {
     },
 
     // ── keyboard ─────────────────────────────────────────────────────────
-    handleKey(e: KeyboardEvent, ui: { setTool: (t: Tool) => void; tool: Tool }): boolean {
+    handleKey(e: KeyboardEvent, ui: { setTool: (t: Tool) => void; tool: Tool; keys: DiagramCommands; readOnly: boolean }): boolean {
       const mod = isMac ? e.metaKey : e.ctrlKey
       const k = shortcutKey(e)
       const step = e.shiftKey ? 10 : 1
-      if (k === 'delete' || k === 'backspace') return cmds.deleteSelection(), true
+      // Keys that a menu or the ribbon shows run from the command registry first
+      // (diagramCommands via commandKeys, in DiagramEditor's listener): ⌘Z, ⇧⌘Z,
+      // ⌫, ⌘D, Enter, T and the rest, each refused by its command's gate. What
+      // is left here has no shown key, and every one of them that changes the
+      // diagram goes through a gate too (viewer-registry-41: forward-delete,
+      // the arrows and ⌘Y used to change a viewer's copy). Navigation stays
+      // live: Esc, ⌘= and the Select and Hand tools.
+      const gated = (c: OfficeCommand): boolean => {
+        if (c.enabled && !c.enabled()) return false
+        c.run()
+        return true
+      }
+      // The arrows and the shape letters have no command of their own: the registry's write gate.
+      const writes = writeGate(ui.readOnly).enabled()
+      // Forward-delete is Delete's second key; ⌘Y is Redo's (E-13).
+      if (k === 'delete') return gated(ui.keys.remove)
       // Esc first disarms a tool (SPEC §3.2), then clears the selection.
       if (k === 'escape') return ui.tool !== 'select' ? ui.setTool('select') : cmds.clearSelection(), true
-      if (k === 'enter' && !mod) return cmds.editSelected(), true
-      if (k === 'arrowleft') return cmds.nudge(-step, 0), true
-      if (k === 'arrowright') return cmds.nudge(step, 0), true
-      if (k === 'arrowup') return cmds.nudge(0, -step), true
-      if (k === 'arrowdown') return cmds.nudge(0, step), true
+      if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown') {
+        if (!writes) return false
+        const [dx, dy] = k === 'arrowleft' ? [-step, 0] : k === 'arrowright' ? [step, 0] : k === 'arrowup' ? [0, -step] : [0, step]
+        return cmds.nudge(dx!, dy!), true
+      }
       if (mod) {
-        if (k === 'z' && !e.shiftKey) return cmds.undo(), true
-        if ((k === 'z' && e.shiftKey) || k === 'y') return cmds.redo(), true
-        if (k === 'a') return cmds.selectAll(), true
-        if (k === 'd') return cmds.duplicate(), true
-        if (k === 'g' && !e.shiftKey) return cmds.group(), true
-        if (k === 'g' && e.shiftKey) return cmds.ungroup(), true
-        if (k === 'l' && e.shiftKey) return cmds.toggleLock(), true
-        if (k === ']') return cmds.order(e.shiftKey ? 'front' : 'forward'), true
-        if (k === '[') return cmds.order(e.shiftKey ? 'back' : 'backward'), true
-        if (k === 'b') return toggleStyle('bold'), true
-        if (k === 'i') return toggleStyle('italic'), true
-        if (k === 'u') return toggleStyle('underline'), true
-        if (k === '=' || k === '+') return cmds.zoomIn(), true
-        if (k === '-') return cmds.zoomOut(), true
-        if (k === '0') return cmds.zoomTo(1), true
-        if (e.altKey && k === 'c') return cmds.copyStyle(), true
-        if (e.altKey && k === 'v') return cmds.pasteStyle(), true
+        if (k === 'y') return gated(ui.keys.redo)
+        if (k === '=' && !e.shiftKey) return cmds.zoomIn(), true
         return false
       }
-      if (e.shiftKey && k === '!') return cmds.fit(), true
-      if (e.shiftKey && (k === '1' || e.code === 'Digit1')) return cmds.fit(), true
-      if (e.shiftKey && (k === '2' || e.code === 'Digit2' || k === '@')) return cmds.zoomToSelection(), true
       if (k === 'v') return ui.setTool('select'), true
       if (k === 'h') return ui.setTool('pan'), true
-      if (k === 't') return ui.setTool('text'), true
-      // Suite shape letters (Illustrator's, as in Draw): M rectangle, L ellipse.
-      if (k === 'm') return ui.setTool('shape:process'), true
-      if (k === 'l') return ui.setTool('shape:circle'), true
+      // Suite shape letters (Illustrator's, as in Draw): M rectangle, L ellipse. They arm a tool that places a shape.
+      if (k === 'm' && writes) return ui.setTool('shape:process'), true
+      if (k === 'l' && writes) return ui.setTool('shape:circle'), true
       return false
     }
-  }
-
-  function toggleStyle(key: 'bold' | 'italic' | 'underline'): void {
-    const n = page().nodes.find((x) => sel().nodes.has(x.id))
-    if (!n) return
-    cmds.setStyle({ [key]: n.style?.[key] ? undefined : true })
   }
 
   // Imported/added content lands to the right of what's already there.

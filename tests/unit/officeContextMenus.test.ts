@@ -121,3 +121,28 @@ describe('no bespoke right-click menus in the office apps', () => {
     for (const rel of Object.keys(OWN_MENU_ALLOWED)) expect(office.map((p) => relative(root, p))).toContain(rel)
   })
 })
+
+// Right-click and the registry cannot disagree (SPEC §9.9; the 2e seam): a row
+// built from an OfficeCommand IS ctxRow(command) — same label, hint, off state
+// and reason — and the office right-click menus pass their commands, not bare
+// functions, for the shared rows.
+describe('right-click rows come from the command registry', () => {
+  it('a command in a group renders exactly as ctxRow renders it, off state and reason included', async () => {
+    const { ctxRow } = await import('../../src/renderer/src/lib/menus/officeCommand')
+    const cut = { id: 'x-cut', label: 'Cut', keys: ['mod', 'x'] as const, run: f, enabled: () => false, reason: () => 'Select something first' }
+    const del = { id: 'x-del', label: 'Delete', keys: ['backspace'] as const, run: f }
+    const rows = objectMenu({ cut, del }).filter((r) => !r.separator)
+    expect(rows[0]).toMatchObject({ label: ctxRow(cut).label, shortcut: ctxRow(cut).shortcut, disabled: true, hint: 'Select something first' })
+    expect(rows[1]).toMatchObject({ label: 'Delete', shortcut: '⌫', danger: true })
+  })
+
+  it.each([
+    ['SlidesEditor.tsx', /objectMenu\(\{\s*cut: cmds\.cut/],
+    ['DesignEditor.tsx', /objectMenu\(\{\s*cut: dcmds\.cut/],
+    ['diagram/ContextMenu.tsx', /cut: c\.cut/],
+    ['SheetEditor.tsx', /objectMenu\(\{\s*cut: commands\['sheet-cut'\]/]
+  ])('%s builds its object menu from its commands', (file, pattern) => {
+    const src = readFileSync(join(__dirname, '../../src/renderer/src/components/documents', file), 'utf8')
+    expect(src).toMatch(pattern)
+  })
+})

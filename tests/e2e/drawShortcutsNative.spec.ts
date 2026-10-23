@@ -16,6 +16,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { acquireRealInput, releaseRealInput } from './_realInputLock'
 import { barTab, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, storedView, v1Body } from './_drawHelpers'
 import { KEY, postKeyToPid, readPasteboard } from './_macPasteboard'
 
@@ -27,6 +28,9 @@ let savedText = ''
 test.skip(process.platform !== 'darwin', 'posts macOS key events')
 
 test.beforeAll(async () => {
+  // Real input is one spec at a time across workers (_realInputLock.ts).
+  test.setTimeout(240_000)
+  await acquireRealInput('drawShortcutsNative')
   app = await launchApp({ env: { PLEXI_APP: 'preview3' } })
   window = app.window
   await waitForReady(window)
@@ -37,9 +41,13 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await app.app.evaluate(({ clipboard }, t) => clipboard.writeText(t), savedText).catch(() => undefined)
-  await app.dispose()
-  rmSync(dir, { recursive: true, force: true })
+  try {
+    await app.app.evaluate(({ clipboard }, t) => clipboard.writeText(t), savedText).catch(() => undefined)
+    await app.dispose()
+    rmSync(dir, { recursive: true, force: true })
+  } finally {
+    releaseRealInput()
+  }
 })
 
 /** Replace the native Open dialog: record each title, and hand back `files` (or cancel). */

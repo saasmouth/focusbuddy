@@ -49,7 +49,7 @@ test('ZS-1 Zoom to Selection: greyed with its reason until something is selected
   await t('draw-studio-menubar-view').click()
   const item = window.locator('[data-testid="draw-studio-menubar-view-list"] button').filter({ hasText: 'Zoom to Selection' }).first()
   await expect(item).toBeDisabled()
-  await expect(item).toContainText('select something to zoom to')
+  await expect(item).toContainText('Select something to zoom to.')
   await window.keyboard.press('Escape')
   // …and so is the zoom menu's.
   await t('draw-zoom-menu').click()
@@ -124,7 +124,7 @@ test('CA-1 Object › Artboards › Convert to Artboards: off with its reason fo
   await window.mouse.click(oval.x, oval.y)
   const off = await artboardsMenuItem('Convert to Artboards')
   await expect(off).toBeDisabled()
-  await expect(off).toContainText('select one or more rectangles')
+  await expect(off).toContainText('Select one or more rectangles.')
   await window.keyboard.press('Escape')
   await window.keyboard.press('Escape')
 

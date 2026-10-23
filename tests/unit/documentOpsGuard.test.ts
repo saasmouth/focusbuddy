@@ -27,7 +27,15 @@ describe('office File menus act on the document the host binds, never the store�
     expect(src).not.toMatch(/useDocumentsStore/)
     expect(src).not.toMatch(/\bactive\??\.id\b/)
     expect(src, 'a meeting must never fall back to an empty id').not.toMatch(/\?\?\s*''/)
-    expect(src, 'document actions come from the host-bound DocumentOps').toMatch(/from '\.\/documentOps'/)
+    // Two host-bound shapes, both fine. Most bars take the DocumentOps the host
+    // bound and call them. PlexiiWrite and PlexiiCells go one better: their
+    // hosts build the DocumentCommands (one object, so the menu's ⌘P hint and
+    // the key matcher share it) and pass those in, so the menu bar never sees
+    // the ops at all. What this pins either way is that the id never comes from
+    // the store — which the three assertions above are what really enforce.
+    expect(src, 'document actions come from the host, not the store').toMatch(
+      /from '\.\/documentOps'|DocumentCommands/
+    )
   })
 
   it('createDocumentOps itself never reads `active` and never uses the id-less rename', () => {

@@ -1,4 +1,6 @@
 import type { DeckTheme, Slide, SlideElement, SlideLayout, SlideTransition } from '@shared/types'
+import type { DeckCommands } from './deckCommands'
+import { barMenuItem, barProps } from '../../../lib/menus/officeCommand'
 import { BUILTIN_THEMES } from '@shared/slideThemes'
 import { CHART_TYPES, type ChartType } from '@shared/chart'
 import {
@@ -50,6 +52,8 @@ type TextStyle = Partial<{ bold: boolean; italic: boolean; underline: boolean; c
 
 /** Everything the editor exposes to the bar and the rail. Built per render by SlidesEditor. */
 export interface DeckCtx {
+  /** Every Deck action, defined once (slides/deckCommands): buttons render from these. */
+  cmds: DeckCommands
   slide: Slide
   theme: DeckTheme
   /** The selection, whole groups included. */
@@ -155,7 +159,7 @@ export function deckPalette(theme: DeckTheme): string[] {
 
 const firstRun = (el: SlideElement): { bold?: boolean; italic?: boolean; underline?: boolean; color?: string; fontSize?: number } | undefined =>
   el.type === 'text' ? el.paragraphs[0]?.runs[0] : undefined
-const nothing = 'Select something on the slide first'
+const nothing = 'Select something on the slide first.'
 const fillColor = (el: SlideElement): string | undefined => ('fill' in el && el.fill && el.fill.type !== 'none' ? el.fill.color : undefined)
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -174,9 +178,9 @@ function TextControls({ c }: { c: DeckCtx }): JSX.Element | null {
       </BarCustom>
       <BarFontSize value={run?.fontSize ?? 24} min={6} max={400} width={52} presets={FONT_SIZES} onChange={(n) => c.ed.styleText(el.id, { fontSize: n })} testid="slides-font-size" />
       <BarSep />
-      <BarToggle icon="format_bold" semantic="bold" label="Bold" shortcut="⌘B" pressed={!!run?.bold} onChange={(v) => c.ed.styleText(el.id, { bold: v })} testid="slides-bold" />
-      <BarToggle icon="format_italic" semantic="italic" label="Italic" shortcut="⌘I" pressed={!!run?.italic} onChange={(v) => c.ed.styleText(el.id, { italic: v })} testid="slides-italic" />
-      <BarToggle icon="format_underlined" semantic="underline" label="Underline" shortcut="⌘U" pressed={!!run?.underline} onChange={(v) => c.ed.styleText(el.id, { underline: v })} testid="slides-underline" />
+      <BarToggle {...barProps(c.cmds.bold)} semantic="bold" pressed={!!run?.bold} onChange={c.cmds.bold.run} testid="slides-bold" />
+      <BarToggle {...barProps(c.cmds.italic)} semantic="italic" pressed={!!run?.italic} onChange={c.cmds.italic.run} testid="slides-italic" />
+      <BarToggle {...barProps(c.cmds.underline)} semantic="underline" pressed={!!run?.underline} onChange={c.cmds.underline.run} testid="slides-underline" />
       <BarColor icon="format_color_text" semantic="text-color" label="Text colour" value={run?.color} palette={deckPalette(c.theme)} onChange={(v) => v && c.ed.styleText(el.id, { color: v })} testid="slides-text-color" />
       <BarSep />
       <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={align === 'left'} onChange={() => c.ed.alignText(el.id, 'left')} testid="slides-align-text-left" />
@@ -228,8 +232,8 @@ const homeTab: BarTab<DeckCtx> = {
     <>
       {!c.selected.length && (
         <>
-          {!c.singleSlide && <BarButton icon="add_to_photos" label="New slide" showLabel onClick={c.ed.openGallery} testid="slides-home-new-slide" />}
-          {!c.singleSlide && <BarButton icon="file_copy" label="Duplicate slide" onClick={c.ed.duplicateSlide} testid="slides-home-duplicate-slide" />}
+          {!c.singleSlide && <BarButton {...barProps(c.cmds.newSlide)} showLabel onClick={c.cmds.newSlide.run} testid="slides-home-new-slide" />}
+          {!c.singleSlide && <BarButton {...barProps(c.cmds.duplicateSlide)} onClick={c.cmds.duplicateSlide.run} testid="slides-home-duplicate-slide" />}
           <BarMenu
             icon="dashboard"
             label="Layout"
@@ -260,8 +264,8 @@ const insertTab: BarTab<DeckCtx> = {
   render: (c) => (
     <>
       {/* One-shot inserts at the default position, keeping their meaning (§4.1); the rail's armed tools place where you click. */}
-      <BarButton icon="title" label="Text box" showLabel onClick={c.ed.insertText} testid="slides-insert-text" />
-      <BarButton icon="image" label="Image" showLabel onClick={c.ed.insertImage} testid="slides-insert-image" />
+      <BarButton {...barProps(c.cmds.insertText)} showLabel onClick={c.cmds.insertText.run} testid="slides-insert-text" />
+      <BarButton {...barProps(c.cmds.insertImage)} showLabel onClick={c.cmds.insertImage.run} testid="slides-insert-image" />
       <BarMenu
         icon="category"
         label="Shape"
@@ -275,16 +279,16 @@ const insertTab: BarTab<DeckCtx> = {
           { label: 'Line / arrow', icon: 'arrow_right_alt', run: c.ed.insertLine }
         ]}
       />
-      <BarButton icon="table_chart" label="Table" showLabel onClick={c.ed.insertTable} testid="slides-insert-table" />
-      <BarButton icon="bar_chart" label="Chart" showLabel onClick={c.ed.insertChart} testid="slides-insert-chart" />
-      <BarDialogButton icon="widgets" label="Work widget" onOpen={c.ed.insertWidget} testid="slides-insert-widget" />
-      <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.ed.insertSnippet} testid="slides-insert-snippet" />
+      <BarButton {...barProps(c.cmds.insertTable)} showLabel onClick={c.cmds.insertTable.run} testid="slides-insert-table" />
+      <BarButton {...barProps(c.cmds.insertChart)} showLabel onClick={c.cmds.insertChart.run} testid="slides-insert-chart" />
+      <BarDialogButton {...barProps(c.cmds.insertWidget)} onOpen={c.cmds.insertWidget.run} testid="slides-insert-widget" />
+      <BarDialogButton {...barProps(c.cmds.insertSnippet)} onOpen={c.cmds.insertSnippet.run} testid="slides-insert-snippet" />
       {/* The old toolbar's AI button opened deck generation in one click; it still does. */}
       <BarButton icon="auto_awesome" label="AI slides" showLabel onClick={() => c.openSidePane('generate')} controls={SIDE_PANE_DOM_ID} testid="slides-insert-ai" />
       {!c.singleSlide && (
         <>
           <BarSep />
-          <BarButton icon="add_to_photos" label="New slide" showLabel onClick={c.ed.openGallery} testid="slides-insert-new-slide" />
+          <BarButton {...barProps(c.cmds.newSlide)} showLabel onClick={c.cmds.newSlide.run} testid="slides-insert-new-slide" />
           <BarDialogButton icon="dashboard_customize" label="Templates" onOpen={c.ed.openGallery} testid="slides-templates-btn" />
         </>
       )}
@@ -361,7 +365,7 @@ const arrangeTab: BarTab<DeckCtx> = {
               label={{ x: 'X', y: 'Y', w: 'Width', h: 'Height' }[k]}
               value={el ? Math.round(el[k]) : undefined}
               disabled={!el}
-              disabledReason={multi ? 'Position and size edit one element at a time' : nothing}
+              disabledReason={multi ? 'Position and size edit one element at a time.' : nothing}
               min={k === 'w' || k === 'h' ? 0 : undefined}
               width={52}
               onChange={(v) => el && c.ed.updateEl(el.id, { [k]: v } as Partial<SlideElement>)}
@@ -377,32 +381,32 @@ const arrangeTab: BarTab<DeckCtx> = {
           disabled={none}
           disabledReason={nothing}
           items={[
-            { label: 'Align left edges', icon: 'align_horizontal_left', run: () => c.ed.align('left'), disabled: !multi },
-            { label: 'Align horizontal centres', icon: 'align_horizontal_center', run: () => c.ed.align('centerX'), disabled: !multi },
-            { label: 'Align right edges', icon: 'align_horizontal_right', run: () => c.ed.align('right'), disabled: !multi },
+            barMenuItem(c.cmds.alignLeft),
+            barMenuItem(c.cmds.alignCentreX),
+            barMenuItem(c.cmds.alignRight),
             'sep',
-            { label: 'Align top edges', icon: 'align_vertical_top', run: () => c.ed.align('top'), disabled: !multi },
-            { label: 'Align vertical centres', icon: 'align_vertical_center', run: () => c.ed.align('middleY'), disabled: !multi },
-            { label: 'Align bottom edges', icon: 'align_vertical_bottom', run: () => c.ed.align('bottom'), disabled: !multi },
+            barMenuItem(c.cmds.alignTop),
+            barMenuItem(c.cmds.alignMiddleY),
+            barMenuItem(c.cmds.alignBottom),
             'sep',
-            { label: 'Centre on slide horizontally', icon: 'align_horizontal_center', run: () => c.ed.centre('h') },
-            { label: 'Centre on slide vertically', icon: 'align_vertical_center', run: () => c.ed.centre('v') }
+            barMenuItem(c.cmds.centreH),
+            barMenuItem(c.cmds.centreV)
           ]}
         />
-        <BarButton icon="horizontal_distribute" label="Distribute horizontally" onClick={() => c.ed.distribute('h')} disabled={n < 3} disabledReason="Select three or more to distribute" testid="slides-distribute-h" />
-        <BarButton icon="vertical_distribute" label="Distribute vertically" onClick={() => c.ed.distribute('v')} disabled={n < 3} disabledReason="Select three or more to distribute" testid="slides-distribute-v" />
+        <BarButton {...barProps(c.cmds.distributeH)} onClick={c.cmds.distributeH.run} testid="slides-distribute-h" />
+        <BarButton {...barProps(c.cmds.distributeV)} onClick={c.cmds.distributeV.run} testid="slides-distribute-v" />
         <BarSep />
-        <BarButton icon="group_work" label="Group" shortcut="⌘G" onClick={c.ed.group} disabled={!multi} disabledReason="Select two or more to group" testid="slides-group" />
-        <BarButton icon="category" label="Ungroup" shortcut="⇧⌘G" onClick={c.ed.ungroup} disabled={!c.anyGrouped} disabledReason="Select a group to ungroup" testid="slides-ungroup" />
+        <BarButton {...barProps(c.cmds.group)} onClick={c.cmds.group.run} testid="slides-group" />
+        <BarButton {...barProps(c.cmds.ungroup)} onClick={c.cmds.ungroup.run} testid="slides-ungroup" />
         <BarSep />
-        <BarButton icon="flip_to_front" label="Bring to front" onClick={() => c.ed.reorder('front')} disabled={none} disabledReason={nothing} testid="slides-front" />
-        <BarButton icon="arrow_upward" label="Bring forward" onClick={() => c.ed.reorder('forward')} disabled={none} disabledReason={nothing} testid="slides-forward" />
-        <BarButton icon="arrow_downward" label="Send backward" onClick={() => c.ed.reorder('back')} disabled={none} disabledReason={nothing} testid="slides-backward" />
-        <BarButton icon="flip_to_back" label="Send to back" onClick={() => c.ed.reorder('backmost')} disabled={none} disabledReason={nothing} testid="slides-back" />
+        <BarButton {...barProps(c.cmds.bringToFront)} onClick={c.cmds.bringToFront.run} testid="slides-front" />
+        <BarButton {...barProps(c.cmds.bringForward)} onClick={c.cmds.bringForward.run} testid="slides-forward" />
+        <BarButton {...barProps(c.cmds.sendBackward)} onClick={c.cmds.sendBackward.run} testid="slides-backward" />
+        <BarButton {...barProps(c.cmds.sendToBack)} onClick={c.cmds.sendToBack.run} testid="slides-back" />
         <BarSep />
-        <BarButton icon="content_copy" label="Duplicate" shortcut="⌘D" onClick={c.ed.duplicateSelection} disabled={none} disabledReason={nothing} testid="slides-el-duplicate" />
-        <BarButton icon="delete" label="Delete" shortcut="⌫" onClick={c.ed.deleteSelection} disabled={none} disabledReason={nothing} testid="slides-el-delete" />
-        <BarDialogButton icon="bookmark_add" label="Save as snippet" onOpen={c.ed.saveSnippet} disabled={none} disabledReason={nothing} testid="slides-save-snippet" />
+        <BarButton {...barProps(c.cmds.duplicate)} onClick={c.cmds.duplicate.run} testid="slides-el-duplicate" />
+        <BarButton {...barProps(c.cmds.remove)} onClick={c.cmds.remove.run} testid="slides-el-delete" />
+        <BarDialogButton {...barProps(c.cmds.saveSnippet)} onOpen={c.cmds.saveSnippet.run} testid="slides-save-snippet" />
         <FrameControls c={c} />
       </>
     )
@@ -423,7 +427,7 @@ const shapeTab: BarTab<DeckCtx> = {
       <>
         <BarColor icon="format_color_fill" label="Fill" value={fill?.type === 'solid' ? fill.color : undefined} palette={pal} allowNone onChange={(v) => c.ed.updateEl(el.id, { fill: v ? { type: 'solid', color: v } : { type: 'none' } })} testid="slides-shape-fill" />
         <BarColor icon="border_color" label="Border colour" value={el.border?.color} palette={pal} allowNone onChange={(v) => c.ed.updateEl(el.id, { border: v ? { color: v, width: el.border?.width ?? 2 } : undefined })} testid="slides-shape-border" />
-        <BarNumber label="Border width" value={el.border?.width ?? 0} min={0} max={40} width={44} disabled={!el.border} disabledReason="Pick a border colour first" onChange={(n) => el.border && c.ed.updateEl(el.id, { border: { ...el.border, width: n } })} testid="slides-shape-border-width" />
+        <BarNumber label="Border width" value={el.border?.width ?? 0} min={0} max={40} width={44} disabled={!el.border} disabledReason="Pick a border colour first." onChange={(n) => el.border && c.ed.updateEl(el.id, { border: { ...el.border, width: n } })} testid="slides-shape-border-width" />
         <BarSep />
         {fill?.type === 'gradient' ? (
           <BarGroup label="Gradient" testid="shape-gradient">
@@ -500,13 +504,13 @@ const imageTab: BarTab<DeckCtx> = {
         <BarToggle icon={el.lockAspect ? 'lock' : 'lock_open'} label="Lock aspect ratio" pressed={!!el.lockAspect} onChange={(v) => c.ed.updateEl(el.id, { lockAspect: v })} testid="slides-image-lock" />
         <BarSep />
         <BarDialogButton icon="crop" label={el.crop ? 'Edit crop' : 'Crop'} onOpen={() => c.ed.crop(el.id)} testid="inspector-crop" />
-        <BarButton icon="crop_free" label="Remove the crop" onClick={() => c.ed.updateEl(el.id, { crop: undefined })} disabled={!el.crop} disabledReason="The image is not cropped" testid="slides-image-uncrop" />
+        <BarButton icon="crop_free" label="Remove the crop" onClick={() => c.ed.updateEl(el.id, { crop: undefined })} disabled={!el.crop} disabledReason="The image is not cropped." testid="slides-image-uncrop" />
         <BarButton
           icon="aspect_ratio"
           label="Reset proportions"
           onClick={() => el.naturalW && el.naturalH && c.ed.updateEl(el.id, { h: Math.round(el.w * (el.naturalH / el.naturalW)) })}
           disabled={!(el.naturalW && el.naturalH)}
-          disabledReason="The image's natural size is unknown"
+          disabledReason="The image's natural size is unknown."
           testid="slides-image-reset"
         />
         <BarColor icon="border_color" label="Image border colour" value={el.border?.color} palette={deckPalette(c.theme)} allowNone onChange={(v) => c.ed.updateEl(el.id, { border: v ? { color: v, width: el.border?.width ?? 2 } : undefined })} testid="slides-image-border" />
@@ -528,8 +532,8 @@ const tableTab: BarTab<DeckCtx> = {
       <>
         <BarButton icon="add" label="Add row" showLabel onClick={() => c.ed.updateEl(el.id, { cells: [...el.cells, new Array(cols).fill('')] })} testid="table-add-row" />
         <BarButton icon="add" label="Add column" showLabel onClick={() => c.ed.updateEl(el.id, { cells: el.cells.map((r) => [...r, '']) })} testid="table-add-col" />
-        <BarButton icon="remove" label="Remove last row" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.slice(0, -1) })} disabled={el.cells.length <= 1} disabledReason="A table keeps at least one row" testid="table-remove-row" />
-        <BarButton icon="remove" label="Remove last column" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.map((r) => r.slice(0, -1)) })} disabled={cols <= 1} disabledReason="A table keeps at least one column" testid="table-remove-col" />
+        <BarButton icon="remove" label="Remove last row" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.slice(0, -1) })} disabled={el.cells.length <= 1} disabledReason="A table keeps at least one row." testid="table-remove-row" />
+        <BarButton icon="remove" label="Remove last column" onClick={() => c.ed.updateEl(el.id, { cells: el.cells.map((r) => r.slice(0, -1)) })} disabled={cols <= 1} disabledReason="A table keeps at least one column." testid="table-remove-col" />
         <BarSep />
         <BarToggle icon="table_rows" label="Header row" showLabel pressed={!!el.headerRow} onChange={(v) => c.ed.updateEl(el.id, { headerRow: v })} testid="table-header-row" />
         <BarDialogButton icon="edit_note" label="Edit cells" onOpen={() => c.openPanel('cells')} controls={shellPanelDomId('cells')} testid="table-edit-cells" />
@@ -565,7 +569,7 @@ const chartTab: BarTab<DeckCtx> = {
         )}
         <BarSep />
         <BarDialogButton icon="table_chart" label="Link a sheet range" onOpen={() => c.ed.linkChart(el.id)} testid="chart-link" />
-        <BarButton icon="refresh" label="Refresh from sheet" showLabel onClick={() => c.ed.refreshChart(el.id)} disabled={!el.source} disabledReason="Link a sheet range first" testid="chart-refresh" />
+        <BarButton icon="refresh" label="Refresh from sheet" showLabel onClick={() => c.ed.refreshChart(el.id)} disabled={!el.source} disabledReason="Link a sheet range first." testid="chart-refresh" />
         {el.source && (
           <span className="px-1.5 text-[11px] text-[var(--ink-50)] max-w-[160px] truncate" title={el.source.range} data-testid="slides-chart-linked">
             Linked to {el.source.range}
@@ -590,7 +594,7 @@ const animationsTab: BarTab<DeckCtx> = {
           value={el?.anim?.type ?? 'none'}
           options={ANIMS}
           disabled={!el}
-          disabledReason={c.selected.length > 1 ? 'Animate one element at a time' : nothing}
+          disabledReason={c.selected.length > 1 ? 'Animate one element at a time.' : nothing}
           onChange={(v) => el && c.ed.updateEl(el.id, { anim: v === 'none' ? undefined : { ...(el.anim ?? {}), type: v as NonNullable<SlideElement['anim']>['type'] } })}
           testid="element-anim"
         />
@@ -601,7 +605,7 @@ const animationsTab: BarTab<DeckCtx> = {
           max={99}
           width={44}
           disabled={!el?.anim}
-          disabledReason="Choose an entrance animation first"
+          disabledReason="Choose an entrance animation first."
           onChange={(n) => el?.anim && c.ed.updateEl(el.id, { anim: { ...el.anim, order: Math.max(0, n) } })}
           testid="slides-anim-order"
         />
@@ -618,7 +622,7 @@ const reviewTab: BarTab<DeckCtx> = {
   role: 'review',
   render: (c) => (
     <>
-      <BarDialogButton icon="accessibility_new" label="Check accessibility" onOpen={c.ed.checkA11y} testid="slides-a11y-btn" />
+      <BarButton {...barProps(c.cmds.checkA11y)} onClick={c.cmds.checkA11y.run} testid="slides-a11y-btn" />
       <BarButton icon="speaker_notes" label="Speaker notes" showLabel onClick={c.ed.focusNotes} testid="slides-notes-focus" readOnlySafe />
       <BarButton icon="auto_awesome" label="PlexiiAssist" showLabel onClick={() => c.openSidePane('ai')} controls={SIDE_PANE_DOM_ID} testid="slides-review-ai" readOnlySafe />
     </>

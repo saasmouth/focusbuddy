@@ -10,8 +10,8 @@ import { getObjects } from '@shared/draw/ops'
 import type { DrawBarTab, EditorCtx } from '../editor/types'
 import { BarLabel, PaintButton, useEditor } from './controls'
 
-const NONE_SELECTED = 'select an object first'
-const NO_STROKE = 'choose a stroke paint first'
+const NONE_SELECTED = 'Select an object first.'
+const NO_STROKE = 'Choose a stroke paint first.'
 
 function Home({ ctx }: { ctx: EditorCtx }): JSX.Element {
   const s = useEditor(ctx)

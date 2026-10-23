@@ -66,3 +66,10 @@ export const useCompletionOffer = create<CompletionOfferStore>((set, get) => ({
     void window.api.signals.outcome(cur.signalId, cur.itemId, outcome)
   }
 }))
+
+// Test-only handle so e2e specs can drive the completion toast without finishing a real work item.
+// Same convention as __fbView / __fbMeetingRoom: a thin handle to the real
+// store, so a spec drives the product rather than a stand-in for it.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __fbCompletionOffer?: typeof useCompletionOffer }).__fbCompletionOffer = useCompletionOffer
+}

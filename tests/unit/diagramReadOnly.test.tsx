@@ -10,6 +10,7 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { menuPlatform } from '../../src/renderer/src/lib/menus/menuAction'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MapBody } from '../../src/shared/types'
 
@@ -150,5 +151,172 @@ describe('DiagramEditor readOnly never emits', () => {
     expect(onChange).toHaveBeenCalled()
     const last = onChange.mock.calls.at(-1)![0] as MapBody
     expect((last.pages ?? []).length, 'a third page was added').toBe(2)
+  })
+})
+
+// d8's trap 2: in a read-only document the REGISTRY gate is the key guard
+// (commandKeys.matchCommand runs nothing for a command that is off; the
+// editors' hand-written key branches are gone). ⌘A (Select all, read-only
+// safe) selects everything, then Duplicate, Delete, Group and Bring forward
+// are pressed: nothing may be written. The control presses the same keys in
+// the same editor, editable, and sees the write.
+// `meta` is the platform's command key (menuPlatform: ⌘ on macOS, Ctrl elsewhere,
+// which is what this harness's window.api reads as).
+const press = (k: string, o: { meta?: boolean; shift?: boolean; alt?: boolean; code?: string } = {}): KeyboardEvent => {
+  const mac = menuPlatform() === 'darwin'
+  const e = new KeyboardEvent('keydown', { key: k, code: o.code, metaKey: !!o.meta && mac, ctrlKey: !!o.meta && !mac, shiftKey: !!o.shift, altKey: !!o.alt, bubbles: true, cancelable: true })
+  act(() => {
+    document.dispatchEvent(e)
+  })
+  return e
+}
+// Each key on the state the last one left (a settle between them).
+const WRITING_KEYS = async (settle: () => Promise<void>): Promise<void> => {
+  for (const [k, o] of [
+    ['d', { meta: true, code: 'KeyD' }],
+    ['Backspace', { code: 'Backspace' }],
+    ['Delete', { code: 'Delete' }],
+    ['g', { meta: true, code: 'KeyG' }],
+    [']', { meta: true, shift: true, code: 'BracketRight' }]
+  ] as const) {
+    press(k, o)
+    await settle()
+  }
+}
+describe('PlexiiDiagrams: read-only keys write nothing (the registry gate is the key guard)', () => {
+  it('⌘A, then ⌘D, ⌫, Delete, ⌘G and ⇧⌘] write nothing', async () => {
+    const onChange = vi.fn()
+    await mount(true, onChange)
+    await settle()
+    onChange.mockClear()
+    press('a', { meta: true, code: 'KeyA' })
+    await settle()
+    await WRITING_KEYS(async () => { await settle() })
+    await settle()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('control: editable, ⌘A then ⌘D DOES write', async () => {
+    const onChange = vi.fn()
+    await mount(false, onChange)
+    await settle()
+    onChange.mockClear()
+    press('a', { meta: true, code: 'KeyA' })
+    await settle()
+    // ⌘D alone: the next keys would delete what it added.
+    press('d', { meta: true, code: 'KeyD' })
+    await settle()
+    expect(onChange, 'the harness sees the write when one is allowed').toHaveBeenCalled()
+  })
+
+  it('a right-click on a shape opens without throwing: the writing rows are off with the sentence, Copy is live', async () => {
+    await mount(true, vi.fn())
+    await settle()
+    const node = host.querySelector('.react-flow__node') as HTMLElement
+    expect(node, 'a shape to right-click').not.toBeNull()
+    act(() => {
+      node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }))
+    })
+    await settle()
+    const rows = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+    const row = (id: string): HTMLButtonElement | undefined => rows.find((r) => r.getAttribute('data-testid') === id)
+    // Edit text was written by hand, live for a viewer, until viewer-registry-41 (dg-edit-text).
+    for (const id of ['ctx-dg-edit-text', 'ctx-dg-cut', 'ctx-dg-paste', 'ctx-dg-duplicate', 'ctx-dg-front', 'ctx-dg-back', 'ctx-dg-delete']) {
+      expect(row(id), id).toBeDefined()
+      expect(row(id)!.disabled, `${id} is off`).toBe(true)
+      expect(row(id)!.title, `${id} says why`).toBe('This document is read-only.')
+    }
+    expect(row('ctx-dg-copy')!.disabled, 'Copy only reads').toBe(false)
+  })
+
+  it('Copy style (⌥⌘C) still runs by key: it only reads the selected shape', async () => {
+    await mount(true, vi.fn())
+    await settle()
+    press('a', { meta: true, code: 'KeyA' })
+    await settle()
+    // runCommandKey prevents the default only when it RAN a command.
+    expect(press('c', { meta: true, alt: true, code: 'KeyC' }).defaultPrevented, 'Copy style ran').toBe(true)
+    // While Duplicate, gated read-only, does not run.
+    expect(press('d', { meta: true, code: 'KeyD' }).defaultPrevented, 'Duplicate did not run').toBe(false)
+  })
+})
+
+// viewer-registry-41. The checks above watch onChange, which a read-only editor
+// never calls whatever happens on screen, so they could not see a key change
+// the VIEWER'S OWN COPY: forward-delete, the arrows, ⌘Y and Enter ran from
+// commands.handleKey with no gate, and the shapes moved or vanished in front
+// of the viewer. These watch the canvas itself, and whether the key was taken
+// at all (a handled key is preventDefault()ed; a refused one is left alone).
+const nodes = (): HTMLElement[] => [...host.querySelectorAll<HTMLElement>('.react-flow__node')]
+const where = (): string[] => nodes().map((n) => `${n.dataset.id}@${n.style.transform}`)
+const selected = (): number => nodes().filter((n) => n.classList.contains('selected')).length
+const viewport = (): string => (host.querySelector('.react-flow__viewport') as HTMLElement | null)?.style.transform ?? ''
+// The keys that change a diagram, each pressed with every shape selected.
+const VIEWER_KEYS: Array<[string, string, { meta?: boolean; shift?: boolean; code?: string }]> = [
+  ['forward-delete', 'Delete', { code: 'Delete' }],
+  ['an arrow nudge', 'ArrowRight', { code: 'ArrowRight' }],
+  ['a big nudge', 'ArrowDown', { shift: true, code: 'ArrowDown' }],
+  ['⌘Z', 'z', { meta: true, code: 'KeyZ' }],
+  ['⇧⌘Z', 'z', { meta: true, shift: true, code: 'KeyZ' }],
+  ['⌘Y', 'y', { meta: true, code: 'KeyY' }],
+  ['⌘D', 'd', { meta: true, code: 'KeyD' }],
+  ['⌫', 'Backspace', { code: 'Backspace' }],
+  ['Enter (edit the label)', 'Enter', { code: 'Enter' }],
+  ['T (the text tool)', 't', { code: 'KeyT' }],
+  ['M (the rectangle tool)', 'm', { code: 'KeyM' }]
+]
+
+describe('PlexiiDiagrams: a viewer\'s keys change nothing on screen; zoom and selection still work', () => {
+  it('forward-delete, the arrows, ⌘Z, ⇧⌘Z, ⌘Y, ⌘D, ⌫, Enter, T and M are refused, and the shapes stay put', async () => {
+    await mount(true, vi.fn())
+    await settle()
+    // Selection works (⌘A, read-only safe) and is what every writing key acts on.
+    expect(press('a', { meta: true, code: 'KeyA' }).defaultPrevented, '⌘A selects').toBe(true)
+    await settle()
+    expect(selected(), 'both shapes selected').toBe(2)
+    const before = where()
+    expect(before.length, 'two shapes on the canvas').toBe(2)
+    for (const [what, k, o] of VIEWER_KEYS) {
+      const e = press(k, o)
+      await settle()
+      expect(e.defaultPrevented, `${what}: refused, not taken`).toBe(false)
+      expect(where(), `${what}: the shapes are where they were`).toEqual(before)
+      expect(host.querySelector('[data-tool-locked], .react-flow__node textarea, .react-flow__node [contenteditable="true"]'), `${what}: no editor or armed tool`).toBeNull()
+    }
+    expect(selected(), 'still selected').toBe(2)
+    // Zoom still works: ⌘+ (Zoom in) runs, and the viewport scales.
+    const vp = viewport()
+    expect(press('+', { meta: true, code: 'Equal' }).defaultPrevented, '⌘+ zooms').toBe(true)
+    await settle()
+    expect(viewport(), 'the viewport zoomed').not.toBe(vp)
+    // And Esc (navigation) clears the selection.
+    expect(press('Escape', { code: 'Escape' }).defaultPrevented, 'Esc is taken').toBe(true)
+    await settle()
+    expect(selected(), 'Esc cleared the selection').toBe(0)
+  })
+
+  it('control: the same keys in the same editor, editable, DO change the canvas', async () => {
+    await mount(false, vi.fn())
+    await settle()
+    press('a', { meta: true, code: 'KeyA' })
+    await settle()
+    const before = where()
+    // An arrow nudge moves both shapes.
+    expect(press('ArrowRight', { code: 'ArrowRight' }).defaultPrevented).toBe(true)
+    await settle()
+    expect(where(), 'the arrow moved the shapes').not.toEqual(before)
+    // ⌘Z puts them back.
+    expect(press('z', { meta: true, code: 'KeyZ' }).defaultPrevented).toBe(true)
+    await settle()
+    expect(where(), '⌘Z undid the nudge').toEqual(before)
+    // ⌘D adds copies (undo cleared the selection: select again); forward-delete removes them.
+    press('a', { meta: true, code: 'KeyA' })
+    await settle()
+    expect(press('d', { meta: true, code: 'KeyD' }).defaultPrevented).toBe(true)
+    await settle()
+    expect(nodes().length, '⌘D duplicated').toBe(4)
+    expect(press('Delete', { code: 'Delete' }).defaultPrevented).toBe(true)
+    await settle()
+    expect(nodes().length, 'forward-delete removed the copies').toBe(2)
   })
 })

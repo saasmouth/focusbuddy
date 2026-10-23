@@ -20,8 +20,8 @@ import {
 import { drawDocToSvg } from '@shared/draw/svg'
 import * as raster from '../raster'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
+import { writableGate } from './gate'
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
 export const menus: MenuSpec[] = [{ path: 'layer', label: 'Layer', order: 40 }]
 
@@ -112,8 +112,8 @@ export async function mergeDown(ctx: EditorCtx, layerId: string): Promise<void> 
 }
 
 export const commands: Command[] = [
-  { id: 'layer.newVector', label: 'New vector layer', icon: 'shapes', menu: { path: 'layer', order: 100 }, enabled: writable, run: (ctx) => addLayerOfKind(ctx, 'vector') },
-  { id: 'layer.newRaster', label: 'New paint layer', icon: 'brush', menu: { path: 'layer', order: 110 }, enabled: writable, run: (ctx) => addLayerOfKind(ctx, 'raster') },
+  { id: 'layer.newVector', label: 'New vector layer', icon: 'shapes', menu: { path: 'layer', order: 100 }, ...writableGate, run: (ctx) => addLayerOfKind(ctx, 'vector') },
+  { id: 'layer.newRaster', label: 'New paint layer', icon: 'brush', menu: { path: 'layer', order: 110 }, ...writableGate, run: (ctx) => addLayerOfKind(ctx, 'raster') },
   {
     id: 'layer.activate',
     label: 'Make layer active',

@@ -25,6 +25,7 @@
  */
 
 import { test, expect } from '@playwright/test'
+import { launchGuarded } from './_netGuard'
 import { launchApp, waitForReady } from './_helpers'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -299,16 +300,15 @@ test('FM-A7: persistence — renamed folder survives a relaunch', async () => {
   }
 
   // Boot 2: reuse the same userDataDir.
-  const { _electron: electron } = await import('@playwright/test')
   const { mkdtempSync } = await import('fs')  // already imported but import again is fine
 
-  // We need to relaunch with the same userDataDir — use electron.launch directly.
+  // We need to relaunch with the same userDataDir — launch directly (through the net guard).
   const cleanEnv: NodeJS.ProcessEnv = { ...process.env }
   delete cleanEnv.ELECTRON_RUN_AS_NODE
   delete cleanEnv.ANTHROPIC_API_KEY
   delete cleanEnv.OPENAI_API_KEY
 
-  const app2 = await electron.launch({
+  const { app: app2 } = await launchGuarded({
     args: ['.'],
     cwd: process.cwd(),
     env: { ...cleanEnv, FB_TEST_USER_DATA: userDataDir, NODE_ENV: 'test' },

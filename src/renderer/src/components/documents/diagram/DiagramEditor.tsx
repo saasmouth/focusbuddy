@@ -31,6 +31,7 @@ import { nodeBox, nodeSize, portId, type Box } from '@shared/diagram/geom'
 import { routeAll } from '@shared/diagram/routing'
 import { snapToGrid, snapToGuides, type GuideLine } from '@shared/diagram/guides'
 import { History } from '@shared/diagram/history'
+import { usePrintSource } from '../editor/printSource'
 import { getTheme } from '@shared/diagram/style'
 import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, pageList } from '@shared/diagram/pages'
@@ -39,10 +40,12 @@ import { acceptsWidgetDrag, widgetIdFromDrop } from '../../../lib/widgetDropInse
 import { DiagramCtx, type DiagramCtxValue, type QuickDir } from './DiagramContext'
 import { ShapeNode, SELECT_COLOR } from './ShapeNode'
 import { DiagramEdge } from './DiagramEdge'
+import { MINIMAP_MARGIN, useMinimapPillLift } from './pillClearance'
 import { useDiagramCommands, type Commands } from './commands'
 import { DiagramChrome } from './DiagramChrome'
 import { QuickShapeMenu } from './QuickShapeMenu'
 import { ContextMenu, type ContextTarget } from './ContextMenu'
+import { buildDiagramCommands, dispatchDiagramKey } from './diagramCommands'
 import type { DiagramSnippetBody } from '@shared/snippets'
 import SaveSnippetDialog from '../../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../../snippets/SnippetLibrary'
@@ -83,6 +86,16 @@ const edgeTypes = { diagram: DiagramEdge }
 
 // 'shape:<id>' arms a shape: click places it, drag sizes it (SPEC §3.2).
 export type Tool = 'select' | 'pan' | 'text' | `shape:${string}`
+
+/**
+ * The page a Diagrams PDF holds: the current page's shapes, connectors and
+ * layers on the document's settings, without the page list. The same body
+ * commands.ts exportAs('pdf', 'page') sends to map:export.
+ */
+export function diagramPagePrintBody(body: MapBody, pageIdx: number): MapBody {
+  const g = getPage(body, pageIdx)
+  return { ...body, nodes: g.nodes, edges: g.edges, layers: g.layers, pages: undefined }
+}
 
 export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, singlePage = false, documentOps, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
@@ -130,6 +143,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // so an undo step's boundary is marked when it is FLUSHED: the previous
   // step's pending body is written first, then the Y undo stack stops
   // capturing, and everything written after belongs to the new step.
+  // Print… prints what Download ▸ PDF saves: the page on screen, as exportAs
+  // ('pdf', 'page') builds it in commands.ts (main renders both through
+  // mapPrintRender, the page fitted to the paper).
+  usePrintSource(documentOps, () => ({ app: 'diagram', title: title || 'diagram', map: diagramPagePrintBody(bodyRef.current, pageIdxRef.current) }))
   const liveUndoRef = useRef(liveUndo)
   liveUndoRef.current = liveUndo
   const flushRef = useRef<() => void>(() => undefined)
@@ -250,6 +267,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // Stable when the body has no settings: a fresh {} each render rebuilt the
   // command object every render (losing its state and re-rendering every node).
   const settings: MapSettings = body.settings ?? NO_SETTINGS
+  // Lift the minimap clear of the PlexiiAssist pill that floats over the corner.
+  const miniLift = useMinimapPillLift(wrapRef, settings.minimap !== false)
   const themeId = settings.theme ?? 'plexii'
   const theme = getTheme(themeId)
   const hiddenLayers = useMemo(() => ops.hiddenLayerIds(page), [page])
@@ -610,6 +629,26 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   )
 
   // ── keyboard, clipboard, drag-and-drop ──────────────────────────────────
+  // The shared actions with their keys (the same record the menus render),
+  // current every render, for the key listener below.
+  const selNodes = page.nodes.filter((n) => sel.nodes.has(n.id))
+  const selEdges = page.edges.filter((e) => sel.edges.has(e.id))
+  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, readOnly, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined, canUndo: true, canRedo: true }))
+  keyCmdsRef.current = buildDiagramCommands({
+    cmd,
+    readOnly,
+    // ⌘Z / ⇧⌘Z simply try (an empty history does nothing); only a viewer is refused.
+    canUndo: true,
+    canRedo: true,
+    // T arms the text tool through Insert ▸ Text's command, so a viewer's T arms nothing.
+    ui: { setTool },
+    nodes: selNodes.length,
+    edges: selEdges.length,
+    locked: selNodes.some((n) => n.locked) || selEdges.some((e) => e.locked),
+    grouped: selNodes.some((n) => n.groupId),
+    // Find's keys are the menu bar's (keyOwner); the listener never runs it.
+    openFind: () => undefined
+  })
   const isTyping = (t: EventTarget | null): boolean => {
     const el = t as HTMLElement | null
     return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
@@ -620,7 +659,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     const inEditor = (): boolean => wrap.contains(document.activeElement) || document.activeElement === document.body
     const onKey = (e: KeyboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
-      if (cmd.handleKey(e, { setTool, tool })) {
+      // Every key a menu or the ribbon shows runs from its definition
+      // (diagramCommands, lib/menus/commandKeys); a command that is off is not run,
+      // and every other key that changes the diagram takes a gate (dispatchDiagramKey).
+      if (dispatchDiagramKey(e, keyCmdsRef.current, cmd, { setTool, tool, readOnly })) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -631,6 +673,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     }
     const onCut = (e: ClipboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
+      // ⌘X arrives as the platform's cut event (keyOwner 'clipboard'), so it
+      // takes Cut's gate here: a viewer's ⌘X cuts nothing out of their copy.
+      const cut = keyCmdsRef.current.cut
+      if (cut.enabled && !cut.enabled()) return
       if (cmd.copy(e.clipboardData)) {
         cmd.deleteSelection()
         e.preventDefault()
@@ -814,7 +860,15 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
               if (!selRef.current.edges.has(ed.id)) setSel({ nodes: new Set(), edges: new Set([ed.id]) })
               openContext(e, { kind: 'edge', id: ed.id })
             }}
-            onPaneContextMenu={(e) => openContext(e, { kind: 'pane', flow: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) })}
+            onPaneContextMenu={(e) => {
+              // React Flow's pan-zoom layer reports a right-click on a shape as a
+              // pane right-click too, unless the shape carries `nopan`, which only
+              // draggable shapes do. So a VIEWER's right-click on a shape opened
+              // the canvas menu over the shape's own (viewer-registry-41): the
+              // shape or line handler has already opened the right one.
+              if ((e.target as Element | null)?.closest?.('.react-flow__node, .react-flow__edge')) return
+              openContext(e, { kind: 'pane', flow: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) })
+            }}
             onEdgeDoubleClick={(_e, ed) => !readOnly && setEditingId(`edge:${ed.id}`)}
             onMoveEnd={(_e, vp) => {
               const b = bodyRef.current
@@ -851,7 +905,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
               <Background variant={BackgroundVariant.Dots} gap={settings.gridSize ?? 16} size={1.4} color={theme.grid} />
             )}
             {settings.minimap !== false && (
-              <MiniMap pannable zoomable className="!bg-[var(--surface-sunken)] !rounded-md" nodeColor={(n) => (nodesById.get(n.id)?.color ?? '#94a3b8')} maskColor="rgba(120,120,140,0.12)" />
+              <MiniMap pannable zoomable style={miniLift ? { marginBottom: MINIMAP_MARGIN + miniLift } : undefined} className="!bg-[var(--surface-sunken)] !rounded-md" nodeColor={(n) => (nodesById.get(n.id)?.color ?? '#94a3b8')} maskColor="rgba(120,120,140,0.12)" />
             )}
             <ViewportPortal>
               {guides.map((g, i) =>

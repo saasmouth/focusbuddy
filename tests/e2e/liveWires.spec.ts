@@ -105,8 +105,11 @@ test('a mirror wire copies source content into the target on change', async () =
   await window.waitForTimeout(200)
 
   // Edit the SOURCE sticky, then blur so the store update fires the engine.
+  // A sticky with content renders until clicked (70574c92); the click opens the
+  // textarea, which takes focus.
+  await window.locator(`[data-widget-id="${ids.srcId}"] .fb-sticky-rendered`).click()
   const srcArea = window.locator(`[data-widget-id="${ids.srcId}"] textarea`)
-  await srcArea.click()
+  await expect(srcArea).toBeFocused()
   await srcArea.fill('MIRRORED-PAYLOAD')
   await srcArea.blur()
 
@@ -151,14 +154,29 @@ test('a transform wire runs on demand and settles without crashing (key-agnostic
   await window.locator(`[data-testid="wire-badge-${ids.linkId}"]`).click()
   await window.locator('[data-testid="wire-type-transform"]').click()
   await window.locator('[data-testid="wire-verb-input"]').fill('summarize the source in one short line')
+  // Record every text the button shows from here on. Without a key (or behind the
+  // e2e net guard) the call fails in milliseconds, so "Running…" can come and go
+  // between two polls; a poll for it was a race, the observer is not.
+  await window.evaluate(() => {
+    const btn = document.querySelector('[data-testid="wire-run-now"]')!
+    const w = window as unknown as { __wireRunTexts: string[] }
+    w.__wireRunTexts = []
+    new MutationObserver(() => w.__wireRunTexts.push(btn.textContent ?? '')).observe(btn, {
+      subtree: true,
+      childList: true,
+      characterData: true
+    })
+  })
   await window.locator('[data-testid="wire-run-now"]').click()
 
   // The path fires: the button enters its running state. (Whether the call then
   // succeeds or returns a no-key/network error depends on the environment — both
   // are graceful and the test must not depend on key presence.)
-  await expect(window.locator('[data-testid="wire-run-now"]')).toContainText(/Running/i, {
-    timeout: 4_000
-  })
+  await expect
+    .poll(() => window.evaluate(() => (window as unknown as { __wireRunTexts: string[] }).__wireRunTexts.some((t) => /Running/i.test(t))), {
+      timeout: 4_000
+    })
+    .toBe(true)
 
   // It settles back out of running within a reasonable window, and crucially the
   // editor is still mounted afterwards — no crash, no closed page.

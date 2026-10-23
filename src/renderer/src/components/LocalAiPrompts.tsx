@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { CORNER_PRIORITY, useCornerSlot } from '../lib/cornerStack'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { openAiSettings, useAiCreditsStore } from '../stores/aiCredits'
@@ -29,6 +30,11 @@ let missingDismissedThisSession = false
 export default function LocalAiPrompts(): JSX.Element | null {
   const [queue, setQueue] = useState<CloudConsentRequest[]>([])
   const [notice, setNotice] = useState<string | null>(null)
+  // The notice docks bottom-right, so it takes a slot in the corner stack
+  // (lib/cornerStack) instead of landing on the minimap and on whatever else
+  // is already there. Quieter than a call or an invite, louder than a toast.
+  const noticeRef = useRef<HTMLDivElement>(null)
+  const noticeCorner = useCornerSlot('local-ai-notice', CORNER_PRIORITY.notice, !!notice, noticeRef)
   const [noticeAction, setNoticeAction] = useState<'upgrade' | 'topup' | 'keys'>('upgrade')
   const [grounding, setGrounding] = useState<GroundingReport | null>(null)
   // AI set to run on this computer, with the model not here (it was chosen by
@@ -148,12 +154,16 @@ export default function LocalAiPrompts(): JSX.Element | null {
           <Icon name="memory" size={13} /> {LOCAL_WARMING_COPY}
         </div>
       )}
+      {/* Both intro cards sit UNDER modals (Modal's default z is 200, the release
+          modal's scrim too) and over the assistant's takeover (190): at z-225 the
+          card covered the release modal's Got it, the one way out of it after an
+          update (releaseAndTooltip RM-1). */}
       {intro && view === 'offer' && intro.model && (
         <div
           role="status"
           data-testid="local-ai-intro"
           data-variant="offer"
-          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[225] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[198] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
         >
           <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is available as a download</div>
           <div>
@@ -207,7 +217,7 @@ export default function LocalAiPrompts(): JSX.Element | null {
         <div
           role="status"
           data-testid="local-ai-intro"
-          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[225] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[198] w-[min(420px,calc(100vw-32px))] fb-card rounded-[var(--radius-field)] px-3 py-2.5 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug"
         >
           <div className="font-medium text-[var(--ink-100)] mb-1">Local AI is now built in</div>
           <div>
@@ -415,10 +425,12 @@ export default function LocalAiPrompts(): JSX.Element | null {
           )}
         </div>
       )}
-      {notice && (
+      {notice && noticeCorner.visible && (
         <div
+          ref={noticeRef}
+          style={{ bottom: noticeCorner.bottom, right: noticeCorner.right }}
           role="status"
-          className="fixed bottom-4 right-4 z-[9997] max-w-xs fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug flex gap-2 items-start"
+          className="fixed z-[9997] max-w-xs fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug flex gap-2 items-start"
           data-testid="local-ai-notice"
         >
           <span className="flex-1">

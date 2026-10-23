@@ -29,7 +29,7 @@ describe('Zoom to Selection: the command', () => {
     const { h, fits } = withFits(blank([rect('a', 10, 20, 40, 30)]))
     const c = commandById('view.zoomToSelection')!
     expect(c.enabled!(h.ed.ctx)).toBe(false)
-    expect(c.disabledReason!(h.ed.ctx)).toBe('select something to zoom to')
+    expect(c.disabledReason!(h.ed.ctx)).toBe('Select something to zoom to.')
     h.run('view.zoomToSelection')
     expect(fits).toHaveLength(0)
     expect(h.state().status).toBe('Select something to zoom to.')
@@ -89,7 +89,7 @@ describe('Zoom to Selection: menus and keys', () => {
   it('is in the View menu, greyed with its reason under it until something is selected', () => {
     const h = harness(blank([rect('a', 10, 20, 40, 30)]))
     const find = () => buildMenu(h.ed.ctx, 'view').find((i) => i.kind === 'item' && i.label === 'Zoom to Selection') as { disabled?: boolean; hint?: string } | undefined
-    expect(find()).toMatchObject({ disabled: true, hint: 'select something to zoom to' })
+    expect(find()).toMatchObject({ disabled: true, hint: 'Select something to zoom to.' })
     h.ed.ctx.select(['a'])
     const on = find()!
     expect(on.disabled).toBe(false)

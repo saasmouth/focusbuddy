@@ -169,11 +169,8 @@ export function applyEach(ctx: EditorCtx, params: TransformEachParams, copy: boo
   return true
 }
 
-/** Can Transform Again do anything now? */
-export function canTransformAgain(ctx: EditorCtx): boolean {
-  const s = ctx.get()
-  return !s.readOnly && lastTransform(s) !== null && editableSelection(s).length > 0
-}
+// Whether Transform Again can act now (and why not) is its command's gate:
+// commands/transform.commands.ts againWhy.
 
 /** Object › Transform › Transform Again (⌘D): the last transform, on what is selected now, copies included. */
 export function transformAgain(ctx: EditorCtx): boolean {

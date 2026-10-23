@@ -89,11 +89,11 @@ describe('Object › Artboards › Convert to Artboards', () => {
     const h = harness(blank([rect('a', 500, 10, 100, 60), rect('b', 10, 10, 30, 30, { shapeKind: 'ellipse', path: { subpaths: [{ closed: true, nodes: [{ x: 10, y: 10, outX: 20, outY: 0 }, { x: 40, y: 10 }, { x: 40, y: 40 }, { x: 10, y: 40 }] }] } })]))
     const c = commandById('artboard.convert')!
     expect(c.enabled!(h.ed.ctx)).toBe(false)
-    expect(c.disabledReason!(h.ed.ctx)).toBe('select one or more rectangles')
+    expect(c.disabledReason!(h.ed.ctx)).toBe('Select one or more rectangles.')
     h.ed.ctx.select(['b'])
     expect(c.enabled!(h.ed.ctx)).toBe(false)
     const item = buildMenu(h.ed.ctx, 'object').find((i) => i.kind === 'submenu' && i.label === 'Artboards') as { items: Array<{ label: string; disabled?: boolean; hint?: string }> }
-    expect(item.items.find((i) => i.label === 'Convert to Artboards')).toMatchObject({ disabled: true, hint: 'select one or more rectangles' })
+    expect(item.items.find((i) => i.label === 'Convert to Artboards')).toMatchObject({ disabled: true, hint: 'Select one or more rectangles.' })
     // Running it anyway (a key) explains and changes nothing.
     h.run('artboard.convert')
     expect(h.state().past).toHaveLength(0)

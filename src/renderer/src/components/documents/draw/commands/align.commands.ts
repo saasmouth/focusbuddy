@@ -7,6 +7,7 @@
 import { DISTRIBUTE_EDGES, alignTo, distributeEdges, distributeMinimum, distributeSpacing, validKey, type AlignEdgeId, type AlignTarget, type DistributeEdge } from '@shared/draw/ops'
 import type { Command, EditorCtx, EditorState, MenuSpec } from '../editor/types'
 import { editableSelection } from '../transform/apply'
+import { firstOf, gate, notReadOnly, unless, type Why } from './gate'
 
 export type AlignToMode = 'selection' | 'key' | 'artboard'
 
@@ -48,7 +49,6 @@ export function alignSelection(ctx: EditorCtx, edge: AlignEdgeId): void {
   if (next !== s.doc) ctx.history.commit(next, 'Align')
 }
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const editableCount = (ctx: EditorCtx): number => editableSelection(ctx.get()).length
 
 /** Is an exact spacing in force (a value, and a key object to measure from)? */
@@ -56,24 +56,32 @@ function exact(s: EditorState): boolean {
   return alignState(s).spacing !== null && activeKey(s) !== null
 }
 
-export function canAlign(ctx: EditorCtx): boolean {
-  if (!writable(ctx)) return false
+/** Why Align is off now, or null. A lone object aligns to the artboard; aligning to the key object needs something besides the key. */
+export const alignWhy: Why = firstOf(notReadOnly, (ctx) => {
   const s = ctx.get()
   const n = editableCount(ctx)
-  // A lone object aligns to the artboard; aligning to the key object needs something besides the key.
-  return alignState(s).to === 'key' && activeKey(s) ? n >= 2 : n >= 1
-}
+  if (alignState(s).to === 'key' && activeKey(s)) return n >= 2 ? null : 'Select another object besides the key object to align it.'
+  return n >= 1 ? null : 'Select one or more objects to align them.'
+})
 
-export function canDistribute(ctx: EditorCtx): boolean {
-  return writable(ctx) && editableCount(ctx) >= distributeMinimum(exact(ctx.get()))
-}
+/** Why Distribute is off now, or null: three objects (two with an exact spacing from a key object). */
+const distributeWhyFor = (what: string): Why =>
+  firstOf(notReadOnly, (ctx) => {
+    const min = distributeMinimum(exact(ctx.get()))
+    return editableCount(ctx) >= min ? null : `Select ${min === 2 ? 'two' : 'three'} or more objects to distribute ${what}.`
+  })
+export const distributeWhy: Why = distributeWhyFor('them')
+const distributeSpacingWhy: Why = distributeWhyFor('the space between them')
+
+export const canAlign = (ctx: EditorCtx): boolean => alignWhy(ctx) === null
+export const canDistribute = (ctx: EditorCtx): boolean => distributeWhy(ctx) === null
 
 const EDGE_LABEL: Record<DistributeEdge, string> = {
   top: 'Vertical distribute top',
-  vcenter: 'Vertical distribute center',
+  vcenter: 'Vertical distribute centre',
   bottom: 'Vertical distribute bottom',
   left: 'Horizontal distribute left',
-  hcenter: 'Horizontal distribute center',
+  hcenter: 'Horizontal distribute centre',
   right: 'Horizontal distribute right'
 }
 
@@ -85,7 +93,7 @@ export const commands: Command[] = [
       id: `object.distribute.${edge}`,
       label: EDGE_LABEL[edge],
       menu: { path: 'object/Align', order: 100 + i },
-      enabled: canDistribute,
+      ...gate(distributeWhy),
       run: (ctx) => {
         const s = ctx.get()
         const a = alignState(s)
@@ -99,7 +107,7 @@ export const commands: Command[] = [
       id: `object.distributeSpacing.${axis}`,
       label: axis === 'h' ? 'Horizontal distribute space' : 'Vertical distribute space',
       menu: { path: 'object/Align', order: 200 + i },
-      enabled: canDistribute,
+      ...gate(distributeSpacingWhy),
       run: (ctx) => {
         const s = ctx.get()
         const a = alignState(s)
@@ -134,7 +142,7 @@ export const commands: Command[] = [
   {
     id: 'object.alignKey',
     label: 'Make key object',
-    enabled: (ctx) => editableCount(ctx) > 1,
+    ...gate(unless((ctx) => editableCount(ctx) > 1, 'Select two or more objects to pick a key object.')),
     run: (ctx, id) => {
       const s = ctx.get()
       const key = validKey(s.doc, s.selection, typeof id === 'string' ? id : null)

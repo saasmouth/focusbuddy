@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { openProduct, launchApp, waitForReady } from './_helpers'
+import { gotoView, launchApp, openProduct, waitForReady } from './_helpers'
 
 // PlexiReports verification.
 // Node-create API used: window.api.tables.create({ taskId: null, title }) +
@@ -231,7 +231,10 @@ test('6. suite launcher: PlexiReports tile opens Insights (reporting home)', asy
     await waitForReady(window)
 
     // Go to suite home (already the default view, but navigate explicitly)
-    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
+    // STALE: there is no "PlexiiSuite" button to click — the object-based IA
+    // dropped the literal sidebar entries, so this waited out the full 30s
+    // timeout. goSuite ({ kind: 'suite' }) is the view store's own route to it.
+    await gotoView(window, 'goSuite')
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8_000 })
 
     // Click the PlexiReports tile — opens ProductHome

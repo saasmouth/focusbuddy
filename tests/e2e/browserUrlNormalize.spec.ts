@@ -80,8 +80,10 @@ async function typeInAddressBarAndCapture(
   // Find the address-bar input inside this widget's frame. It is a plain
   // text input in the toolbar chrome — not the full-form URL input (that
   // only appears in editing mode). We target it by its placeholder attribute.
+  // Since 7ad571c0c the widget and the panel share BrowserSurface, whose
+  // address bar is data-testid="browser-address".
   const toolbarInput = window.locator(
-    `[data-widget-id="${widgetId}"] input[placeholder="https://…"]`
+    `[data-widget-id="${widgetId}"] [data-testid="browser-address"]`
   ).first()
 
   await expect(toolbarInput).toBeVisible({ timeout: 5_000 })
@@ -100,7 +102,7 @@ async function typeInAddressBarAndCapture(
   return captured
 }
 
-test('search text in address bar resolves to google search URL', async () => {
+test('search text in address bar resolves to the pinned engine search URL', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -111,8 +113,10 @@ test('search text in address bar resolves to google search URL', async () => {
 
   console.log(`[browserUrlNormalize search] loadURL captured: ${result}`)
 
-  expect(result, 'loadURL must be called with a google search URL').not.toBeNull()
-  expect(result).toContain('https://www.google.com/search?q=')
+  // Searches run on the PINNED engine since 7ad571c0c (the widget used to
+  // hard-code Google); a fresh profile pins DuckDuckGo (e021bec8).
+  expect(result, 'loadURL must be called with the pinned engine search URL').not.toBeNull()
+  expect(result).toContain('https://duckduckgo.com/?q=')
   expect(result).toContain('pizza')
 })
 
@@ -129,5 +133,5 @@ test('real hostname in address bar resolves to https navigation, not a search', 
 
   expect(result, 'loadURL must be called with https://github.com/').not.toBeNull()
   expect(result).toBe('https://github.com/')
-  expect(result).not.toContain('google.com/search')
+  expect(result).not.toContain('duckduckgo.com/?q=')
 })

@@ -1,15 +1,34 @@
 import { expect, type Page } from '@playwright/test'
 import { ACTIVE } from '../../src/shared/productDomains'
 
-// A signed-in PlexiiChat session for e2e, with NOTHING reaching the real server.
+// A signed-in PlexiiChat session for e2e, answered locally.
 //
 // The built app talks to the production signal server (shared/productDomains
-// ACTIVE). A spec that seeds a session token and lets the renderer use it would
-// send that token to production: conversation refreshes, the realtime socket,
-// attachment uploads. So every renderer request to the signal origin is answered
-// here, from the conversations and messages the spec seeds, and the socket is
-// accepted locally and kept silent. Unmatched paths get an honest empty
-// `{ ok: true }` and are recorded, so a spec can see what the app asked for.
+// ACTIVE). A spec that seeds a session token lets the renderer use it, so every
+// renderer request to the signal origin is answered here, from the
+// conversations and messages the spec seeds, and the realtime socket is
+// accepted locally and kept silent (or played by `onSocket`). Unmatched paths
+// get an honest empty `{ ok: true }` and are recorded, so a spec can see what
+// the app asked for.
+//
+// WHAT IS GUARANTEED, AND BY WHAT. Until e2e-hermetic-41 this header said
+// "NOTHING reaching the real server", and it was false: `window.routeWebSocket`
+// only reaches documents created after it, so the app's first socket went to
+// wss://api.plexiidesk.com/ws carrying the fake token. Now:
+//
+//  - launchApp holds the first window until the net guard (_netGuard.ts) has
+//    put context.route + context.routeWebSocket in place, so Playwright's
+//    WebSocket mock is in the page from its first document. The page routes
+//    below are added BEFORE the session is seeded, so the first socket the
+//    seeded session opens is already theirs. No reload is needed.
+//  - Anything that still reaches for a production host — a socket opened before
+//    a route, a path this file does not answer that falls through to the
+//    network, main-process traffic — is aborted by the guard's session and Node
+//    layers and FAILS the spec, naming the URL.
+//
+// That is proven, not asserted: tests/e2e/netGuard.spec.ts (NG-6 signs in
+// through this helper and checks the socket was answered here and nothing
+// reached production), and the guard's mutation proofs in that spec's header.
 //
 // The session is seeded into the RENDERER's stores only (__fbAccount and
 // __fbMessaging, thin handles to the real stores). The main process never
@@ -31,9 +50,39 @@ export interface FakeSignal {
 const API = new URL(ACTIVE.api)
 const isSignal = (u: URL): boolean => u.origin === API.origin
 
+/**
+ * The signed-in account the fixture seeds.
+ *
+ * NAMES ARE OPTIONAL HERE, AND THAT MATTERS BOTH WAYS. From 4.3.41 an account
+ * must carry a first and last name, and LaunchSignInModal puts an account
+ * without both behind the un-skippable "Add your name" wall at z-280 — which
+ * covers the whole app, so a spec seeded without names can reach nothing. A
+ * spec that needs to BE somebody therefore passes `name`.
+ *
+ * Left out, the account stays nameless, exactly as the five existing callers
+ * have it. They test PlexiiChat surfaces that never render the wall, and
+ * changing the default under them would alter what their assertions see.
+ */
+export interface FakeName {
+  firstName: string
+  lastName: string
+}
+
 export async function signInWithFakeSignal(
   window: Page,
-  seed: { conversation?: FakeConversation; messages?: object[] }
+  seed: {
+    conversation?: FakeConversation
+    messages?: object[]
+    name?: FakeName
+    /**
+     * Play the server's part on the realtime socket (a spec that needs the
+     * live-document room, say). Default: accepted and silent. It takes effect
+     * for the first socket the seeded session opens: launchApp's net guard has
+     * Playwright's WebSocket mock in the page from its first document, so a
+     * page route added here applies without a reload.
+     */
+    onSocket?: Parameters<Page['routeWebSocket']>[1]
+  }
 ): Promise<FakeSignal> {
   // No conversation seeded = a signed-in account with an empty conversation list.
   const conv = seed.conversation
@@ -48,6 +97,7 @@ export async function signInWithFakeSignal(
       }
     : null
   const messages = seed.messages ?? []
+  const name = seed.name ?? null
   const fake: FakeSignal = { requests: [], uploads: [] }
 
   await window.route(
@@ -73,17 +123,30 @@ export async function signInWithFakeSignal(
       return json({ ok: true })
     }
   )
-  await window.routeWebSocket((u) => u.host === API.host, () => {
-    // Accepted and silent: no server is connected, so nothing is sent or received.
-  })
+  await window.routeWebSocket(
+    (u) => u.host === API.host,
+    seed.onSocket ??
+      (() => {
+        // Accepted and silent: no server is connected, so nothing is sent or received.
+      })
+  )
 
   const ok = await window.evaluate(
-    ({ conv, messages }) => {
+    ({ conv, messages, name }) => {
       type Store = { setState: (s: object) => void }
       const w = window as unknown as { __fbAccount?: Store; __fbMessaging?: Store }
       if (!w.__fbAccount || !w.__fbMessaging) return false
       w.__fbAccount.setState({
-        account: { id: 'acc_e2e', email: 'e2e@test.local', handle: 'e2e' },
+        account: {
+          id: 'acc_e2e',
+          email: 'e2e@test.local',
+          handle: 'e2e',
+          // Spread, so a nameless seed leaves the fields ABSENT rather than
+          // setting them to null — which is what the five existing callers
+          // have always had, and what keeps "Add your name" appearing for them
+          // if any of them ever starts asserting on it.
+          ...(name ? { firstName: name.firstName, lastName: name.lastName } : {})
+        },
         sessionToken: 'e2e-fake-token'
       })
       // The messaging store keeps its own token (normally set by connect(), which
@@ -95,8 +158,59 @@ export async function signInWithFakeSignal(
       )
       return true
     },
-    { conv, messages }
+    { conv, messages, name }
   )
   expect(ok, 'the renderer exposes __fbAccount and __fbMessaging').toBe(true)
   return fake
+}
+
+/**
+ * For specs that sign in with a STUB token through the real deep-link path
+ * (auth:incoming-token) and stub only the routes they assert on. Every other
+ * signal call the signed-in app makes — inbox, conversations, sync, orgs, the
+ * realtime socket — used to go to PRODUCTION with that stub token and get
+ * refused there. This answers them here, exactly as the deployed server
+ * answers an unknown token (focusbuddy-signal at signal-v126):
+ *
+ *  - HTTP: requireAccount fails, the route sets 401 and returns
+ *    `{ ok: false, error: 'Not authenticated.' }` (server.ts requireAccount
+ *    4780; e.g. GET /conversations 7574) — the body 155 of its routes return.
+ *  - Socket: the upgrade is accepted, and `authenticate` with an unknown token
+ *    gets `{ type: 'error', payload: { message: 'Session expired.' } }` and
+ *    nothing else (server.ts 9048-9052).
+ *
+ * Register it FIRST: Playwright tries the most recently added route first, so
+ * the spec's own stubs (accounts/me, capabilities) still answer theirs.
+ */
+export async function answerAsServerForUnknownToken(window: Page): Promise<string[]> {
+  const asked: string[] = []
+  await window.route(
+    (u) => isSignal(u),
+    async (route) => {
+      const req = route.request()
+      asked.push(`${req.method()} ${new URL(req.url()).pathname}`)
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'Not authenticated.' })
+      })
+    }
+  )
+  await window.routeWebSocket(
+    (u) => u.host === API.host,
+    (ws) => {
+      ws.onMessage((raw) => {
+        let msg: { type?: string }
+        try {
+          msg = JSON.parse(String(raw))
+        } catch {
+          return
+        }
+        if (msg.type === 'authenticate') {
+          ws.send(JSON.stringify({ type: 'error', payload: { message: 'Session expired.' } }))
+        }
+      })
+    }
+  )
+  return asked
 }

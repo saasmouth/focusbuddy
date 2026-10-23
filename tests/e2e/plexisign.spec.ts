@@ -5,7 +5,7 @@
  * No account / signal-server login needed. PlexiSign is local-first (SQLite only).
  */
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { gotoView, grantCapability, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -22,10 +22,21 @@ test('PlexiSign: create → send → sign both signers → completed + certifica
 
   await waitForReady(window)
 
-  // ── 1. Navigate to PlexiSign via sidebar label ──────────────────────────────
+  // PlexiSign is plan-gated (lib/viewCapability.ts maps the `sign` view kind to
+  // the `esign` capability), so without this the view renders "PlexiiSign is
+  // not on your plan" and nothing under test is reachable. _helpers'
+  // grantCapability is documented for exactly this: a spec about a feature's
+  // BEHAVIOUR rather than its entitlement. Gating itself is covered by
+  // officeEntitlements / segmentSwitcherEntitlements.
+  await grantCapability(window, 'esign')
+
+  // ── 1. Navigate to PlexiSign ────────────────────────────────────────────────
   // Two buttons named "PlexiSign" exist (sidebar nav + product-tile on home).
   // The sidebar nav button is the first one.
-  await window.getByRole('button', { name: 'PlexiiSign' }).first().click()
+  // STALE: the sidebar row is labelled "Sign" now, not "PlexiiSign"
+  // (lib/segmentApps.ts), so this matched nothing and waited out the test.
+  // view.ts has goSign ({ kind: 'sign' }).
+  await gotoView(window, 'goSign')
   const view = window.locator('[data-testid="plexisign"]')
   await expect(view).toBeVisible({ timeout: 8_000 })
 
