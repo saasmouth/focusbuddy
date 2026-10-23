@@ -402,12 +402,28 @@ function SessionShell({
   onClose: () => void
   children: ReactNode
 }): JSX.Element {
+  // tabIndex so Escape still reaches the dialog when focus is on the shell
+  // itself rather than inside one of the editors.
   return (
     <div
       className="flex h-full min-h-0 flex-col bg-[var(--surface-base)]"
       data-testid="snippet-session"
       role="dialog"
       aria-label={title}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape') return
+        // `defaultPrevented` is the whole reason this is safe to put on the
+        // shell. Escape means "cancel the nearest thing", and inside a session
+        // that is usually not the session: PlexiiCells cancels a cell edit with
+        // Escape and calls preventDefault without stopping propagation
+        // (SheetGrid's cell input), so the keypress arrives here too. Closing
+        // on it would abandon a sheet snippet because the user backed out of
+        // one cell. Anything nearer the user that handled it wins.
+        if (e.defaultPrevented) return
+        e.stopPropagation()
+        onClose()
+      }}
     >
       <header className="flex items-center gap-2 border-b border-[var(--edge-soft)] px-3 py-1.5">
         <Icon name="bookmark" size={14} className="text-[var(--ink-40)]" />

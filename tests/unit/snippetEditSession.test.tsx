@@ -269,6 +269,66 @@ describe('a conflict offers both ways out, explicitly', () => {
   })
 })
 
+describe('Escape closes, but only when nothing nearer wanted it', () => {
+  const mountWith = async (onClose: () => void): Promise<void> => {
+    await act(async () => {
+      root.render(
+        <SnippetEditSessionView snippetId="s1" onClose={onClose} editors={{ doc: stubEditor() }} />
+      )
+    })
+  }
+  const press = async (on: HTMLElement): Promise<void> => {
+    await act(async () => {
+      on.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    })
+  }
+  const shell = (): HTMLElement => host.querySelector('[data-testid="snippet-session"]') as HTMLElement
+
+  it('closes a clean session', async () => {
+    // A modal with no Escape is the kind of gap nobody files a bug about; they
+    // just hunt for the × every time.
+    const onClose = vi.fn()
+    await mountWith(onClose)
+    await press(shell())
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks before discarding unsaved work, like the × does', async () => {
+    const onClose = vi.fn()
+    ;(window as unknown as { confirm: () => boolean }).confirm = () => false
+    await mountWith(onClose)
+    await click('stub-change')
+    await press(shell())
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('ignores an Escape that something nearer the user already handled', async () => {
+    // The real case, and the reason this guard exists rather than a bare
+    // handler: PlexiiCells cancels a cell edit on Escape and calls
+    // preventDefault WITHOUT stopping propagation (SheetGrid's cell input), so
+    // the keypress reaches the session shell too. Closing on it would abandon a
+    // whole sheet snippet because the user backed out of one cell — and if the
+    // snippet were dirty they would get a discard prompt for pressing Escape in
+    // a cell, which is worse than useless.
+    const onClose = vi.fn()
+    await mountWith(onClose)
+    const inner = host.querySelector('[data-testid="stub-change"]') as HTMLElement
+    inner.addEventListener('keydown', (e) => e.preventDefault())
+    await press(inner)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('still closes on an Escape that bubbled up unclaimed', async () => {
+    // The mirror of the rule above: bubbling from inside an editor is normal —
+    // Write does nothing with Escape — so an unclaimed one must still work, or
+    // the guard would have broken Escape everywhere except the shell itself.
+    const onClose = vi.fn()
+    await mountWith(onClose)
+    await press(host.querySelector('[data-testid="stub-change"]') as HTMLElement)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('what a snippet cannot hold is said, not dropped', () => {
   it('names each loss, beside Save, before the decision is made', async () => {
     await mount()
