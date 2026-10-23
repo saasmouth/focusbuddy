@@ -202,13 +202,25 @@ export async function addComment(
   token: string,
   docId: string,
   body: string,
-  opts?: { id?: string; parentId?: string; anchor?: string | null }
+  opts?: {
+    id?: string
+    parentId?: string
+    anchor?: string | null
+    /**
+     * The comment's REAL creation time, for comments copied from a local
+     * document as it is shared. The server honours it only for the document's
+     * owner and only inside plausible bounds; every other caller omits it and
+     * gets the server's clock.
+     */
+    createdAt?: number
+  }
 ): Promise<DocComment | null> {
   const { json } = await call<{ ok: boolean; comment?: DocComment }>('POST', `/livedocs/${docId}/comments`, token, {
     body,
     id: opts?.id,
     parentId: opts?.parentId,
-    anchor: opts?.anchor
+    anchor: opts?.anchor,
+    createdAt: opts?.createdAt
   })
   return json?.comment ?? null
 }
