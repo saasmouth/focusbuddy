@@ -8,6 +8,7 @@ import {
 } from '@shared/snippets'
 import Icon from '../../Icon'
 import SnippetContent from '../../snippets/SnippetContent'
+import { onSnippetChanged } from '../../../stores/snippets'
 
 // A LIVE saved snippet inside a host. The host stores only the snippet's id;
 // this resolves it, so the master's current content is what shows and the host
@@ -78,24 +79,36 @@ export default function SnippetEmbed({
   const [focused, setFocused] = useState(false)
 
   useEffect(() => {
-    let live = true
     if (!snippetId) {
       setState({ phase: 'missing' })
       return
     }
+    let live = true
+    const resolve = (): void => {
+      window.api.snippets
+        .get(snippetId)
+        .then((s) => {
+          if (!live) return
+          setState(s ? { phase: 'ready', snippet: s } : { phase: 'missing' })
+        })
+        .catch((e: Error) => {
+          if (!live) return
+          setState({ phase: 'error', message: e.message || 'The snippet could not be read.' })
+        })
+    }
     setState({ phase: 'loading' })
-    window.api.snippets
-      .get(snippetId)
-      .then((s) => {
-        if (!live) return
-        setState(s ? { phase: 'ready', snippet: s } : { phase: 'missing' })
-      })
-      .catch((e: Error) => {
-        if (!live) return
-        setState({ phase: 'error', message: e.message || 'The snippet could not be read.' })
-      })
+    resolve()
+    // Resolve again whenever the master is edited, so an instance already on
+    // screen follows. Mount-only resolution is what made "changes appear
+    // everywhere it's used" true for hosts opened later and false for the one
+    // the user is looking at — including a second copy in the same document.
+    // Re-reading through the IPC rather than taking the edited body from the
+    // notification keeps the database the single source of truth, so what shows
+    // is what was actually stored.
+    const stop = onSnippetChanged(snippetId, resolve)
     return () => {
       live = false
+      stop()
     }
   }, [snippetId])
 
