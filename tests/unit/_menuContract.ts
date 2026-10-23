@@ -21,7 +21,7 @@ export const RETIRED_LABELS: Record<string, string> = {
 }
 
 // Words that keep their capital inside a sentence-case label (§9.4).
-const PROPER = /^(Plexii\w*|Focus|Trash|PDF|SVG|PNG|CSV|URL|AI|Markdown|Apps|Google|Drive|Slack|Gmail|Outlook|Notion|GitHub|Figma|Excel|Word|I|Mermaid|Room|Desk)$/
+const PROPER = /^(Plexii\w*|Focus|Trash|PDF|SVG|PNG|CSV|URL|AI|Markdown|Apps|Assist|Files|Finder|Google|Drive|Slack|Gmail|Outlook|Notion|GitHub|Figma|Excel|Word|I|Mermaid|Room|Desk)$/
 
 /** A label as it reads, without the submenu arrow some renderers append. */
 const clean = (l: string): string => l.replace(/\s*▸$/, '').trim()
