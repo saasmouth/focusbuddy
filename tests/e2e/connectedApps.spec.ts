@@ -34,9 +34,15 @@ test('seeded Connected Apps render in the sidebar once a desk is open', async ()
   await window.reload()
   await waitForReady(window)
 
-  // On Home — no desk open — the strip is not in the sidebar.
-  await expect(window.getByText('Gmail', { exact: true })).toHaveCount(0)
-
+  // THE HOME PRECONDITION IS GONE, and it was a precondition rather than the
+  // point. Connected Apps used to be a strip that appeared with a desk; it is
+  // a standing sidebar SECTION now (Sidebar.tsx renders it under its own
+  // "Connected Apps" head, gated on the section being expanded, not on a desk
+  // being open). Asserting its absence on Home therefore asserts the old
+  // layout, not the behaviour this test is named for.
+  //
+  // What the test is for — seeded apps render in the sidebar once a desk is
+  // open — is below and unchanged.
   await window.getByRole('button', { name: 'Connected apps desk' }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
 

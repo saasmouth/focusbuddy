@@ -195,6 +195,9 @@ test('area4a - nodes.create IPC creates a top-level task without error', async (
 })
 
 // ── Area 4b: the sidebar's "New desk" button → NewNodeDialog ─────────────────
+// Named for creating a "folder" when a top-level folder WAS the thing that
+// button made. It makes a DESK (a task) now; the subject — the button opens
+// the dialog and the dialog creates without error — is unchanged.
 test('area4b - Projects sidebar New button creates a folder without error', async () => {
   // The sidebar's create button opens NewNodeDialog
   // in folder mode. Verify it opens, fills, submits, and the node exists.
@@ -216,13 +219,17 @@ test('area4b - Projects sidebar New button creates a folder without error', asyn
   await expect(projAddBtn).toBeVisible({ timeout: 5_000 })
   await projAddBtn.click()
 
-  // NewNodeDialog opens in the sidebar (not a fixed overlay — it slides in).
-  // The heading says "New project (top level)".
-  const heading = window.getByRole('heading', { name: /new project/i })
+  // The dialog creates a DESK now, and says so. 4802064e4 (Rooms/Desks) made
+  // the sidebar's create button "New desk" and NewNodeDialog's title
+  // `${'New'} ${nounLabel}` where nounLabel is Room for a folder and Desk for
+  // a task (NewNodeDialog:302-303) — so "New project" names nothing any more,
+  // and neither does the old "e.g. client" placeholder.
+  const heading = window.getByRole('heading', { name: /new desk/i })
   await expect(heading).toBeVisible({ timeout: 5_000 })
 
-  await window.getByPlaceholder(/e\.g\. client/i).fill('E2E area4b project')
-  await window.getByRole('button', { name: /^Create$/i }).click()
+  await window.getByPlaceholder('What needs to happen?').fill('E2E area4b desk')
+  // The submit reads `Create ${nounLabel}`, so match the verb.
+  await window.getByRole('button', { name: /^Create / }).click()
 
   // Heading disappears when dialog closes.
   await expect(heading).toBeHidden({ timeout: 8_000 })

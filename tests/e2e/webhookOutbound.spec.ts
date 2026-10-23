@@ -324,7 +324,12 @@ test('(a2) "Send to a URL" is offered from the side menu and the right-click cre
   // The unified right-click menu nests the create-and-connect list under a
   // "Create" submenu (opens on hover), rather than a flat list.
   await window.getByRole('menuitem', { name: 'Create' }).hover()
-  await expect(window.getByText('Send to a URL', { exact: true })).toBeVisible({ timeout: 3_000 })
+  // AS A MENU ITEM, not as text. The side-menu tile asserted above is still on
+  // screen and carries the same words, so a bare getByText now matches twice
+  // and fails strict mode — which says nothing about the menu. Asking for the
+  // menuitem role is also the stronger claim: it is offered in the menu, not
+  // merely written somewhere.
+  await expect(window.getByRole('menuitem', { name: 'Send to a URL' })).toBeVisible({ timeout: 3_000 })
 })
 
 // ── (b) Send test POSTs the test body to the local server; honest result ──
