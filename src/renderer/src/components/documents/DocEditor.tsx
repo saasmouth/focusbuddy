@@ -222,6 +222,35 @@ interface Props {
   // state. Never fabricate threads here.
   comments?: PanelCommentThread[]
   canComment?: boolean
+  /**
+   * A reader, not an editor. Live-doc viewers were getting a full editor,
+   * because this was hard-coded false where WriteChrome is mounted.
+   *
+   * It means NO writes of any kind: the tiptap editor is not editable, onChange
+   * never fires, heading styles and page setup cannot be changed, paste and drop
+   * refuse, and nothing can insert a widget, document or snippet. Commenting is
+   * a SEPARATE capability (`canComment`), because a commenter is read-only for
+   * content while still writing threads.
+   *
+   * This is the client half. Server enforcement is the half that matters, and it
+   * is not here.
+   *
+   * ONLY LiveDocEditorView PASSES THIS. That is load-bearing, not incidental.
+   * DocEditor's other two callers (DocumentEditorView and OfficeDocWidget) never
+   * do, so every read-only document today is a COLLAB document — and that is
+   * what makes the guard below safe for comments.
+   *
+   * A comment anchor is a mark in the document body (editor/CommentMark.ts), so
+   * commenting is a document write. In a collab document the mark rides the Yjs
+   * CRDT and survives regardless of the onChange guard. In a NON-collab one,
+   * onChange is the save, so the mark would be lost on reload — a comment thread
+   * still created on the server, pointing at an anchor that no longer exists.
+   * So if you are about to pass readOnly from DocumentEditorView, that has to be
+   * solved first: either an anchor that is not a body write, or commenting off.
+   * f0 confirmed the caller list rather than assuming it; re-check it before
+   * relying on this note.
+   */
+  readOnly?: boolean
   onAddComment?: () => void
   onReplyComment?: (threadId: string, body: string) => void
   onJumpComment?: (threadId: string) => void
@@ -264,6 +293,7 @@ export default function DocEditor({
   onCommentClick,
   comments = [],
   canComment = false,
+  readOnly = false,
   onAddComment,
   onReplyComment,
   onJumpComment,
@@ -353,7 +383,14 @@ export default function DocEditor({
 
   // The live editor for handlers built inside its own options (handlePaste).
   const editorRef = useRef<Editor | null>(null)
+  // Read through a ref, not the prop: the handlers below are built ONCE at mount
+  // (see the note above onUpdate), so a closure over `readOnly` would keep
+  // whatever it was when the editor was created. 84 hit the same thing gating
+  // DiagramEditor.
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
   const editor = useEditor({
+    editable: !readOnly,
     extensions: buildDocExtensions({
       interactive: true,
       collab: ydoc,
@@ -374,6 +411,10 @@ export default function DocEditor({
       // ref so a save never reverts a just-changed heading style or page setup.
       const json = editor.getJSON()
       setHasTracked(hasTrackedChanges(json as TrackedNode))
+      // A reader never writes. This matters most in COLLAB: remote edits arrive
+      // through the Yjs doc and fire onUpdate here, so without this guard a
+      // viewer would be the one snapshotting other people's changes to storage.
+      if (readOnlyRef.current) return
       onChange(wrapDocBody(json, metaRef.current.headingStyles, metaRef.current.page))
     },
     onCreate({ editor }) {
@@ -386,6 +427,9 @@ export default function DocEditor({
         'data-testid': 'doc-editor-surface'
       },
       handlePaste(_view, event) {
+        // Swallowed rather than passed on: returning true tells ProseMirror it
+        // is handled, so nothing is inserted by either path.
+        if (readOnlyRef.current) return true
         // Another of our apps' content (a Deck/Design selection, a diagram, a
         // Cells range, a drawing or a picture) lands converted, the way a
         // snippet of it would. HTML and text keep Write's own paste.
@@ -471,11 +515,13 @@ export default function DocEditor({
       | { onInsertWidget?: (() => void) | null; onInsertDoc?: (() => void) | null; onInsertSnippet?: (() => void) | null }
       | undefined
     if (store) {
-      store.onInsertWidget = () => setWidgetPickerOpen(true)
-      store.onInsertDoc = () => setDocPickerOpen(true)
-      store.onInsertSnippet = () => setSnippetLibraryOpen(true)
+      // Left null for a reader, so the "/" menu's Insert items have nothing to
+      // call rather than opening a picker whose result could not be inserted.
+      store.onInsertWidget = readOnly ? null : () => setWidgetPickerOpen(true)
+      store.onInsertDoc = readOnly ? null : () => setDocPickerOpen(true)
+      store.onInsertSnippet = readOnly ? null : () => setSnippetLibraryOpen(true)
     }
-  }, [editor])
+  }, [editor, readOnly])
 
   // Remember the page-vs-continuous viewing preference (a personal one).
   useEffect(() => {
@@ -502,6 +548,7 @@ export default function DocEditor({
     setHeadingStyles((prev) => {
       const next: HeadingStyles = { ...prev, [level]: { ...prev[level], ...patch } }
       metaRef.current.headingStyles = next
+      if (readOnlyRef.current) return next
       onChange(wrapDocBody(editor?.getJSON() ?? initial.doc, next, metaRef.current.page))
       return next
     })
@@ -513,6 +560,7 @@ export default function DocEditor({
     setPage((prev) => {
       const next: PageSetup = { ...prev, ...patch, margin: { ...prev.margin, ...(patch.margin ?? {}) } }
       metaRef.current.page = next
+      if (readOnlyRef.current) return next
       onChange(wrapDocBody(editor?.getJSON() ?? initial.doc, metaRef.current.headingStyles, next))
       return next
     })
@@ -631,6 +679,7 @@ export default function DocEditor({
     }
 
     const onDrop = (e: DragEvent): void => {
+      if (readOnlyRef.current) return
       if (!acceptsWidgetDrag(e.dataTransfer)) return
       e.preventDefault()
       const at = editor.view.posAtCoords({ left: e.clientX, top: e.clientY })
@@ -960,7 +1009,7 @@ export default function DocEditor({
         <div className="flex-1 min-w-0 h-full">
         <WriteChrome
           editor={editor}
-          readOnly={false}
+          readOnly={readOnly}
           menuBar={
             <DocMenuBar
               editor={editor}
