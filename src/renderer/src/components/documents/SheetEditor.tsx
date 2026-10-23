@@ -44,6 +44,11 @@ import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
+import { buildCellsCommands } from './sheet/cellsCommands'
+import { runCommandKey } from '../../lib/menus/commandKeys'
+import ShortcutsModal from './editor/ShortcutsModal'
+import { paletteEntries } from '../../lib/menus/officeCommand'
+import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { joinGroups, objectMenu } from '../../lib/menus/officeContextMenu'
@@ -260,6 +265,8 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   const [lookupOpen, setLookupOpen] = useState(false)
   const [macrosOpen, setMacrosOpen] = useState(false)
   const [queryOpen, setQueryOpen] = useState(false)
+  // Help ▸ Keyboard shortcuts, owned here so the menu bar holds no state.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   // The right-side AI Assistant panel is shown by default and is collapsible.
   const [aiPanelOpen, setAiPanelOpen] = useState(true)
   const [liveWidth, setLiveWidth] = useState<{ c: number; w: number } | null>(null)
@@ -1126,10 +1133,18 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     }
     if (mod && e.key.toLowerCase() === 'a') {
       // Select the whole used grid so formatting (colour, bold, number format)
-      // can be applied across every cell at once.
+      // can be applied across every cell at once. It runs the SAME
+      // selectAllCells the menu's Select all runs, where it used to be a second
+      // copy of that function's first two setState calls — one implementation,
+      // so the menu row and the key cannot diverge.
+      //
+      // No behaviour changes by it: the three lines the copy omitted close a
+      // cell editor, drop a header drag and refocus the grid, and none is
+      // reachable here because this handler returns at `if (editing)` above and
+      // bails on INPUT targets. While a cell IS being edited, ⌘A selects that
+      // cell's text, as in Excel and Sheets, and must keep doing so.
       e.preventDefault()
-      setAnchor({ r: 0, c: 0 })
-      setFocus({ r: maxR, c: maxC })
+      selectAllCells()
       return
     }
     if (e.key === 'ArrowUp') { e.preventDefault(); move(Math.max(0, r - 1), c, e.shiftKey); return }
@@ -1140,6 +1155,16 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
       clearSelection()
+      return
+    }
+    // Everything the registry binds that the branches above do not already
+    // handle: ⌘B / ⌘I / ⌘U, Clear formatting ⌘\, Find ⌘F, Find and replace
+    // ⇧⌘H, Keyboard shortcuts ⌘/. Each was advertised in the menu and bound
+    // nowhere. Driven from the same `keys` the hint is formatted from, so the
+    // menu and the keyboard cannot disagree, and a view-only sheet runs none
+    // of them because the command reports itself disabled.
+    if (runCommandKey(Object.values(commands), e)) {
+      e.preventDefault()
       return
     }
     // A printable character starts editing with that character. preventDefault
@@ -1676,11 +1701,50 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     documentOps
   }
 
+  // PlexiiCells' ONE command registry, built in render from the live sheet.
+  // The menu bar, the ContextBar ribbon and the Cmd+K palette all render from
+  // it, so an action has one label, one key and one enabled state everywhere
+  // (SPEC §9). Built every render on purpose: `checked` and `enabled` read the
+  // live cell format, the live undo stacks and the live view-only flag.
+  const commands = buildCellsCommands({
+    a: sheetActions,
+    readOnly,
+    isMerged: selectionIsMerged,
+    mergeCells: toggleMerge,
+    insertLookup: () => setLookupOpen(true),
+    macros: () => setMacrosOpen(true),
+    query: () => setQueryOpen(true),
+    shortcuts: () => setShortcutsOpen(true),
+    // Read structurally, as `print` is: the export engine adds the op, and
+    // Download ▸ PDF is ABSENT rather than dead where it is missing.
+    exportPdf:
+      typeof (documentOps as { exportPdf?: unknown } | undefined)?.exportPdf === 'function'
+        ? () => void (documentOps as unknown as { exportPdf: () => unknown }).exportPdf()
+        : undefined
+  })
+
+  // The palette reads through a ref so every row runs the CURRENT closures,
+  // while the row LIST is rebuilt when view-only access changes: paletteEntries
+  // drops whatever is disabled, because a palette row cannot show why it is
+  // off. PlexiiCells had no palette entries at all before this.
+  const commandsRef = useRef(commands)
+  commandsRef.current = commands
+  // Every input a command's `enabled` or `label` reads: paletteEntries takes a
+  // SNAPSHOT, so a missing dep leaves a stale list — Undo absent from ⌘K after
+  // the first edit made it possible, or the filter row still reading "Create a
+  // filter" once one exists.
+  useRegisterEditorCommands(
+    'Spreadsheet',
+    () => paletteEntries(Object.values(commandsRef.current)),
+    [readOnly, sheetActions.canUndo, sheetActions.canRedo, sheetActions.filterActive, selectionIsMerged]
+  )
+
   return (
     <CellsChrome
       actions={sheetActions}
       readOnly={readOnly}
-      menuBar={<SheetMenuBar actions={sheetActions} />}
+      commands={commands}
+      menuBar={<SheetMenuBar commands={commands} documentOps={documentOps} />}
       activeFormat={cellFormat(tab, focus.r, focus.c)}
       activeFont={cellFormat(tab, focus.r, focus.c)?.fontFamily}
       isMerged={selectionIsMerged}
@@ -2248,6 +2312,8 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             onClose={() => setPivotOpen(false)}
           />
         )}
+
+        {shortcutsOpen && <ShortcutsModal commands={commands} onClose={() => setShortcutsOpen(false)} />}
 
         {lookupOpen && (
           <LookupDialog

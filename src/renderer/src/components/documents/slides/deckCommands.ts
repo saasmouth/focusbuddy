@@ -108,8 +108,8 @@ export function buildDeckCommands(d: DeckCommandDeps) {
     present: { id: 'sl-present', label: 'Present', icon: 'play_arrow', group: 'Slide', keywords: 'slideshow play deck', run: d.present } as OfficeCommand,
     checkA11y: { id: 'sl-a11y', label: 'Check accessibility', icon: 'accessibility_new', group: 'Review', keywords: 'contrast alt text', run: d.checkA11y } as OfficeCommand,
     importPptx: { id: 'sl-import', label: 'Import PowerPoint (.pptx)…', icon: 'upload_file', group: 'File', keywords: 'open pptx', ...(d.singleSlide ? noSlides : {}), run: d.importFile } as OfficeCommand,
-    downloadPptx: { id: 'sl-export-pptx', label: 'Download PowerPoint (.pptx)', submenuLabel: 'PowerPoint (.pptx)', icon: 'slideshow', group: 'File', keywords: 'export save pptx', run: () => d.exportFile('pptx') } as OfficeCommand,
-    downloadPdf: { id: 'sl-export-pdf', label: 'Download PDF document (.pdf)', submenuLabel: 'PDF document (.pdf)', icon: 'picture_as_pdf', group: 'File', keywords: 'export save pdf', run: () => d.exportFile('pdf') } as OfficeCommand,
+    downloadPptx: { id: 'sl-export-pptx', label: 'Download PowerPoint (.pptx)', shortLabel: 'PowerPoint (.pptx)', icon: 'slideshow', group: 'File', keywords: 'export save pptx', run: () => d.exportFile('pptx') } as OfficeCommand,
+    downloadPdf: { id: 'sl-export-pdf', label: 'Download PDF document (.pdf)', shortLabel: 'PDF document (.pdf)', icon: 'picture_as_pdf', group: 'File', keywords: 'export save pdf', run: () => d.exportFile('pdf') } as OfficeCommand,
     ai: { id: 'sl-ai', label: 'AI: generate or redesign slides', icon: 'auto_awesome', group: 'AI', keywords: 'design make beautiful', run: d.openAi } as OfficeCommand
   }
 }

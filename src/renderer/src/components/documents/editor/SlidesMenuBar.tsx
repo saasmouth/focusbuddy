@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { DocumentOps } from './documentOps'
 import { menuAction } from '../../../lib/menus/menuAction'
-import { documentCommands, menuItemOf } from '../../../lib/menus/officeCommand'
+import { documentCommands, menuItemOf, menuRow } from '../../../lib/menus/officeCommand'
 import type { DeckCommands } from '../slides/deckCommands'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
 
@@ -50,7 +50,7 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
     kind: 'submenu',
     label: menuAction('download').label,
     icon: 'download',
-    items: [menuItemOf(c.downloadPptx, { inSubmenu: true, icon: undefined }), menuItemOf(c.downloadPdf, { inSubmenu: true, icon: undefined })]
+    items: [menuRow(c.downloadPptx, { icon: undefined }), menuRow(c.downloadPdf, { icon: undefined })]
   }
 
   const menus: MenuDef[] = [

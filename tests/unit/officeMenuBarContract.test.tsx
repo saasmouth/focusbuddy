@@ -41,6 +41,8 @@ vi.mock('../../src/renderer/src/components/documents/editor/menuBarKit', async (
 })
 
 import DocMenuBar from '../../src/renderer/src/components/documents/editor/DocMenuBar'
+import { writeCommandsFor } from './_writeCommands'
+import { cellsCommandsFor } from './_cellsCommands'
 import SheetMenuBar from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 import SlidesMenuBar from '../../src/renderer/src/components/documents/editor/SlidesMenuBar'
 import { buildDeckCommands } from '../../src/renderer/src/components/documents/slides/deckCommands'
@@ -65,17 +67,16 @@ const live = { title: 'Doc', hasSelection: true, canPaste: true, canUndo: true, 
 const APPS: Record<string, { testid: string; render: () => JSX.Element }> = {
   Write: {
     testid: 'doc-menubar',
+    // Write's bar renders from its real command registry, so the labels, hints
+    // and enabled states walked here are the genuine ones.
     render: () => (
       <DocMenuBar
-        {...(actions({ title: 'Doc', pageView: false }) as object)}
-        editor={actions({ state: { selection: { empty: false } } })}
-        title="Doc"
-        pageView={false}
+        commands={writeCommandsFor(actions({ state: { selection: { empty: false } } }), { title: 'Doc', pageView: false })}
         documentOps={ops()}
       />
     )
   },
-  Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar actions={actions({ ...live, documentOps: ops() })} /> },
+  Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar commands={cellsCommandsFor()} documentOps={ops()} /> },
   Deck: {
     testid: 'slides-menubar',
     // Deck's menu renders its command record (slides/deckCommands); the real one, on stubs.

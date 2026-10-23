@@ -1,13 +1,15 @@
-import { useState } from 'react'
 import type { SheetCellFormat, SheetNumberFormat } from '@shared/types'
 import type { DocumentOps } from './documentOps'
-import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
-import { menuAction } from '../../../lib/menus/menuAction'
+import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
+import { documentCommands, menuItemOf, menuRow, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import type { CellsCommands } from '../sheet/cellsCommands'
 
-// A Google-Sheets-style menu bar for the spreadsheet editor. Every item maps to a
-// real SheetEditor operation (passed in as `actions`) or to the document ops the
-// HOST binds. A capability the editor does not have is simply not listed rather
-// than shown as a dead item.
+// A Google-Sheets-style menu bar for the spreadsheet editor. It declares the
+// SHAPE of the menus — which rows, in what order, under which separators — and
+// nothing else: every row's label, key hint, icon, enabled state, reason and
+// behaviour comes from the command registry (sheet/cellsCommands.ts), which the
+// ribbon and the Cmd+K palette render from too. So a row cannot say one thing
+// here and another there, and this file holds no state at all.
 //
 // This file does not read the documents store, and must not: it used to act on
 // the store's `active` document, which in a desk widget is not the spreadsheet
@@ -76,50 +78,64 @@ export interface SheetMenuActions {
   documentOps?: DocumentOps
 }
 
-export default function SheetMenuBar({ actions }: { actions: SheetMenuActions }): JSX.Element {
-  const a = actions
-  const fmt = a.activeFormat
-  const ops = a.documentOps
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+export default function SheetMenuBar({
+  commands,
+  documentOps
+}: {
+  /** PlexiiCells' commands, built by SheetEditor from the live sheet. */
+  commands: CellsCommands
+  /**
+   * The spreadsheet on screen, bound to its id by whichever host mounted this
+   * editor. Absent where there is no document — a snippet session — and then
+   * none of the document items are shown at all.
+   */
+  documentOps?: DocumentOps
+}): JSX.Element {
+  // A missing id is a programming error, not an empty menu.
+  const c = (id: string): OfficeCommand => {
+    const found = commands[id]
+    if (!found) throw new Error(`SheetMenuBar: no command "${id}" in the registry`)
+    return found
+  }
+  const item = (id: string): MenuItem => menuItemOf(c(id))
+  /** A row under a menu whose title supplies the verb (Download ▸ …, Alignment ▸ Left). */
+  const row = (id: string): MenuItem => menuRow(c(id))
+  /** A row that is there only where the host added the op (Download ▸ PDF). */
+  const maybe = (id: string): MenuItem[] => (commands[id] ? [row(id)] : [])
 
-  const numFmtKind = fmt?.numFmt?.kind ?? 'general'
+  const doc = documentCommands(documentOps, 'sheet')
 
   const menus: MenuDef[] = [
     {
       id: 'file',
       label: 'File',
       build: () => {
-        const docGroup: MenuItem[] = ops
+        const docGroup: MenuItem[] = doc
           ? [
-              { kind: 'item', label: 'New spreadsheet', icon: 'note_add', run: () => void ops.newDocument() },
-              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              menuItemOf(doc.newDocument),
+              menuItemOf(doc.makeCopy),
               { kind: 'sep' },
-              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
-              { kind: 'item', label: 'Version history', icon: 'history', run: () => ops.openHistory() }
+              menuItemOf(doc.rename),
+              menuItemOf(doc.versionHistory)
             ]
           : []
-        const trashGroup: MenuItem[] = ops
-          ? [
-              { kind: 'sep' },
-              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
-            ]
-          : []
+        const trashGroup: MenuItem[] = doc ? [{ kind: 'sep' }, menuItemOf(doc.moveToTrash)] : []
         return [
           ...docGroup,
+          // Real printing, only where the host can really print.
+          ...(doc?.print ? [menuItemOf(doc.print)] : []),
           // Import and Download are NOT document ops, despite living in this
           // menu: Import replaces the editor's body and emits onChange (the
           // host persists it, so it already lands on the right file), and
           // Download reads the body in memory. Both are correct with no
-          // document at all, so neither is gated.
-          { kind: 'item', label: 'Import (.xlsx / .csv)', icon: 'upload', run: a.importFile },
+          // document at all, so neither is gated on ops — Import is gated on
+          // view-only access instead, because it writes.
+          item('sheet-import'),
           {
             kind: 'submenu',
             label: 'Download',
             icon: 'download',
-            items: [
-              { kind: 'item', label: 'Microsoft Excel (.xlsx)', run: () => a.exportFile('xlsx') },
-              { kind: 'item', label: 'Comma-separated values (.csv)', run: () => a.exportFile('csv') }
-            ]
+            items: [row('sheet-export-xlsx'), row('sheet-export-csv'), ...maybe('sheet-export-pdf')]
           },
           ...trashGroup
         ]
@@ -129,54 +145,55 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: a.undo, disabled: !a.canUndo },
-        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: a.redo, disabled: !a.canRedo },
+        item('sheet-undo'),
+        item('sheet-redo'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: a.cut },
-        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: a.copy },
-        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: a.paste },
-        { kind: 'item', ...menuAction('delete'), icon: 'backspace', run: a.deleteSelection },
+        item('sheet-cut'),
+        item('sheet-copy'),
+        item('sheet-paste'),
+        item('sheet-delete'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: a.selectAll },
+        item('sheet-select-all'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('find'), icon: 'search', run: a.find },
-        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: a.findAndReplace },
+        item('sheet-find'),
+        item('sheet-find-replace'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('saveAsSnippet'), icon: 'bookmark_add', run: a.saveSnippet }
+        item('sheet-save-snippet')
       ]
     },
     {
       id: 'insert',
       label: 'Insert',
       build: () => [
-        { kind: 'item', label: 'Row above', icon: 'add', run: a.insertRowAbove },
-        { kind: 'item', label: 'Row below', run: a.insertRowBelow },
-        { kind: 'item', label: 'Column left', run: a.insertColLeft },
-        { kind: 'item', label: 'Column right', run: a.insertColRight },
+        row('sheet-row-above'),
+        row('sheet-row-below'),
+        row('sheet-col-left'),
+        row('sheet-col-right'),
         { kind: 'sep' },
         {
           kind: 'submenu',
           label: 'Chart',
           icon: 'bar_chart',
           items: [
-            { kind: 'item', label: 'Bar chart', run: () => a.insertChart('bar') },
-            { kind: 'item', label: 'Line chart', run: () => a.insertChart('line') },
-            { kind: 'item', label: 'Pie chart', run: () => a.insertChart('pie') }
+            row('sheet-chart-bar'),
+            row('sheet-chart-line'),
+            row('sheet-chart-pie'),
+            row('sheet-chart-area'),
+            row('sheet-chart-scatter')
           ]
         },
-        { kind: 'item', label: 'Pivot table', icon: 'pivot_table_chart', run: a.insertPivot },
-        { kind: 'item', label: 'Sparkline', icon: 'show_chart', run: a.insertSparkline },
+        item('sheet-pivot'),
+        item('sheet-sparkline'),
         { kind: 'sep' },
-        { kind: 'item', label: 'Sheet', icon: 'tab', run: a.addSheet },
-        { kind: 'item', label: 'Named range', icon: 'data_object', run: a.namedRanges },
+        // Named ranges used to be listed here too, under "Named range", and
+        // again in Data under "Named ranges" — one action, two labels. It lives
+        // in Data.
+        row('sheet-add-sheet'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: a.insertSnippet },
-        { kind: 'sep' },
+        item('sheet-insert-snippet'),
         // A meeting reaches other people, so a wrong id invites them to someone
         // else's spreadsheet. It went out with `id: active?.id ?? ''`.
-        ...(ops
-          ? ([{ kind: 'item', ...menuAction('meeting'), icon: 'videocam', run: () => ops.startMeeting() }] as MenuItem[])
-          : [])
+        ...(doc ? ([{ kind: 'sep' }, menuItemOf(doc.meeting)] as MenuItem[]) : [])
       ]
     },
     {
@@ -187,87 +204,54 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
           kind: 'submenu',
           label: 'Text',
           icon: 'format_bold',
-          items: [
-            { kind: 'item', label: 'Bold', shortcut: '⌘B', run: () => a.format({ bold: !fmt?.bold }), active: !!fmt?.bold },
-            { kind: 'item', label: 'Italic', shortcut: '⌘I', run: () => a.format({ italic: !fmt?.italic }), active: !!fmt?.italic },
-            { kind: 'item', label: 'Underline', shortcut: '⌘U', run: () => a.format({ underline: !fmt?.underline }), active: !!fmt?.underline }
-          ]
+          items: [row('sheet-bold'), row('sheet-italic'), row('sheet-underline')]
         },
         {
           kind: 'submenu',
           label: 'Number',
-          icon: 'tag',
+          icon: 'numbers',
           items: [
-            { kind: 'item', label: 'Automatic', run: () => a.numberFormat({ kind: 'general' }), active: numFmtKind === 'general' },
-            { kind: 'item', label: 'Number', run: () => a.numberFormat({ kind: 'number', decimals: 2, thousands: true }), active: numFmtKind === 'number' },
-            { kind: 'item', label: 'Percent', run: () => a.numberFormat({ kind: 'percent', decimals: 0 }), active: numFmtKind === 'percent' },
-            { kind: 'item', label: 'Currency', run: () => a.numberFormat({ kind: 'currency', decimals: 2, symbol: '$' }), active: numFmtKind === 'currency' },
-            { kind: 'item', label: 'Date', run: () => a.numberFormat({ kind: 'date', pattern: 'yyyy-MM-dd' }), active: numFmtKind === 'date' }
+            row('sheet-numfmt-general'),
+            row('sheet-numfmt-number'),
+            row('sheet-numfmt-percent'),
+            row('sheet-numfmt-currency'),
+            row('sheet-numfmt-date')
           ]
         },
         {
           kind: 'submenu',
           label: 'Alignment',
           icon: 'format_align_left',
-          items: [
-            { kind: 'item', label: 'Left', run: () => a.format({ align: 'left' }), active: fmt?.align === 'left' || fmt?.align == null },
-            { kind: 'item', label: 'Center', run: () => a.format({ align: 'center' }), active: fmt?.align === 'center' },
-            { kind: 'item', label: 'Right', run: () => a.format({ align: 'right' }), active: fmt?.align === 'right' }
-          ]
+          items: [row('sheet-align-left'), row('sheet-align-center'), row('sheet-align-right')]
         },
         { kind: 'sep' },
-        { kind: 'item', label: 'Conditional formatting', icon: 'palette', run: a.conditionalFormat },
-        { kind: 'item', label: 'Clear formatting', shortcut: '⌘\\', icon: 'format_clear', run: () => a.format({ bold: false, italic: false, underline: false, numFmt: { kind: 'general' } }) }
+        item('sheet-cond-format'),
+        item('sheet-clear-format')
       ]
     },
     {
       id: 'data',
       label: 'Data',
       build: () => [
-        { kind: 'item', label: 'Sort sheet A → Z', icon: 'sort', run: () => a.sort('asc') },
-        { kind: 'item', label: 'Sort sheet Z → A', run: () => a.sort('desc') },
+        item('sheet-sort-asc'),
+        item('sheet-sort-desc'),
         { kind: 'sep' },
-        { kind: 'item', label: a.filterActive ? 'Remove filter' : 'Create a filter', icon: 'filter_alt', run: a.toggleFilter, active: a.filterActive },
-        { kind: 'item', label: 'Data validation', icon: 'rule', run: a.dataValidation },
-        { kind: 'item', label: 'Named ranges', icon: 'data_object', run: a.namedRanges }
+        item('sheet-filter'),
+        item('sheet-validation'),
+        item('sheet-named-ranges')
       ]
     },
     {
       id: 'tools',
       label: 'Tools',
-      build: () => [{ kind: 'item', label: 'AI fill', icon: 'auto_awesome', run: a.aiFill }]
+      build: () => [item('sheet-ai-fill')]
     },
     {
       id: 'help',
       label: 'Help',
-      build: () => [{ kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setShortcutsOpen(true) }]
+      build: () => [item('sheet-shortcuts')]
     }
   ]
 
-  return (
-    <>
-      <MenuBarShell menus={menus} testid="sheet-menubar" />
-      {shortcutsOpen && (
-        <MenuModal title="Keyboard shortcuts" onClose={() => setShortcutsOpen(false)}>
-          <div className="space-y-1.5">
-            {([
-              ['Bold', '⌘B'],
-              ['Italic', '⌘I'],
-              ['Underline', '⌘U'],
-              ['Undo', '⌘Z'],
-              [menuAction('redo').label, menuAction('redo').shortcut!],
-              [menuAction('find').label, menuAction('find').shortcut!],
-              [menuAction('findAndReplace').label, menuAction('findAndReplace').shortcut!],
-              ['Clear formatting', '⌘\\']
-            ] as [string, string][]).map(([label, keys]) => (
-              <div key={label} className="flex items-center justify-between text-[13px]">
-                <span className="text-[var(--ink-70)]">{label}</span>
-                <span className="text-[var(--ink-40)] fb-tabular">{keys}</span>
-              </div>
-            ))}
-          </div>
-        </MenuModal>
-      )}
-    </>
-  )
+  return <MenuBarShell menus={menus} testid="sheet-menubar" />
 }

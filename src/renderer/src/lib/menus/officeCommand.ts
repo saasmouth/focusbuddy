@@ -17,17 +17,31 @@ export interface OfficeCommand {
   /** The existing code id (the palette's, where it had one). Never renamed. */
   id: string
   label: string
-  /**
-   * The name inside a submenu whose title already says the verb: under
-   * Download ▸, "Download PDF document (.pdf)" reads "PDF document (.pdf)".
-   * Only there (menuItemOf(c, { inSubmenu: true })); every other surface shows `label`.
-   */
-  submenuLabel?: string
   /** The key it is bound to. The hint is formatted per platform (⌘ on macOS, Ctrl elsewhere); no key, no hint. */
   keys?: ShortcutKeys
   /** Non-macOS key, where the platform binds a different one. */
   otherKeys?: ShortcutKeys
   icon?: string
+  /**
+   * The row's form under a menu whose own title already supplies the verb:
+   * "Microsoft Word (.docx)" under File ▸ Download ▸, "Left" under Format ▸
+   * Align ▸, "Image" under Insert. `label` stays the standalone form the flat
+   * command palette needs ("Download Word (.docx)…", "Align left", "Insert
+   * image"), so the two forms live in ONE definition and cannot drift apart.
+   * Render it with `menuRow`; `menuItemOf` and every other adapter keep
+   * `label`.
+   */
+  shortLabel?: string
+  /**
+   * The form an icon-first ribbon control shows. Two reasons it differs: the
+   * office ribbons settled on a shorter wording for a few rows before the
+   * lexicon existed and four apps' specs hold them to it ("Saved snippet…",
+   * "Save as snippet…"), and an icon-only button's tooltip can afford the
+   * sentence a menu row cannot ("Insert a sparkline of the selection into the
+   * next cell"). Only `barProps` reads it, so the menus and the palette keep
+   * `label` — and the forms live in ONE definition, so they cannot drift.
+   */
+  barLabel?: string
   /** Palette row hint ("Format", "Insert") and extra words its fuzzy match should know. */
   group?: string
   keywords?: string
@@ -58,12 +72,12 @@ function offState(c: OfficeCommand): { off: boolean; reason?: string } {
 }
 
 /** Menu-bar row (menuBarKit). */
-export function menuItemOf(c: OfficeCommand, extra: Partial<MenuItem & { kind: 'item' }> & { inSubmenu?: boolean } = {}): MenuItem {
+export function menuItemOf(c: OfficeCommand, extra: Partial<MenuItem & { kind: 'item' }> = {}): MenuItem {
   const { off, reason } = offState(c)
-  const { inSubmenu, ...rest } = extra
+  const rest = extra
   return {
     kind: 'item',
-    label: inSubmenu && c.submenuLabel ? c.submenuLabel : c.label,
+    label: c.label,
     ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
     ...(c.icon ? { icon: c.icon } : {}),
     run: c.run,
@@ -72,6 +86,14 @@ export function menuItemOf(c: OfficeCommand, extra: Partial<MenuItem & { kind: '
     ...(c.checked ? { active: c.checked() } : {}),
     ...rest
   }
+}
+
+/**
+ * Menu-bar row under a menu whose title supplies the verb: identical to
+ * `menuItemOf` but showing `shortLabel` where the command has one.
+ */
+export function menuRow(c: OfficeCommand, extra: Partial<MenuItem & { kind: 'item' }> = {}): MenuItem {
+  return menuItemOf(c, { ...(c.shortLabel ? { label: c.shortLabel } : {}), ...extra })
 }
 
 const strict = (): boolean => {
@@ -123,7 +145,7 @@ export function paletteEntries(cs: OfficeCommand[]): EditorCommand[] {
 export function barProps(c: OfficeCommand): { label: string; icon?: string; shortcut?: string; disabled?: boolean; disabledReason?: string } {
   const { off, reason } = offState(c)
   return {
-    label: c.label,
+    label: c.barLabel ?? c.label,
     ...(c.icon ? { icon: c.icon } : {}),
     ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
     ...(c.enabled ? { disabled: off } : {}),

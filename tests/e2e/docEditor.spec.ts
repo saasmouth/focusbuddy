@@ -200,15 +200,15 @@ test('DE-2 — toolbar formatting: bold, italic, underline, heading, bullet list
     await expect(window.locator('[data-testid="doc-styles-panel"]')).not.toBeVisible({ timeout: 2_000 })
 
     // Bullet list via toolbar
-    await toolbar.getByRole('button', { name: /Bullet list/i }).click()
+    await toolbar.getByRole('button', { name: /Bullet(ed)? list/i }).click()
     await expect(surface.locator('ul li').first()).toBeVisible()
 
     // Exit bullet list
-    await toolbar.getByRole('button', { name: /Bullet list/i }).click()
+    await toolbar.getByRole('button', { name: /Bullet(ed)? list/i }).click()
 
     // Center alignment — the paragraph renders with text-align: center.
     await selectAllInEditor(window)
-    await toolbar.getByRole('button', { name: /Align center/i }).click()
+    await toolbar.getByRole('button', { name: /Align cent(re|er)/i }).click()
     await expect(surface.locator('[style*="text-align: center"]').first()).toBeVisible({ timeout: 5_000 })
 
     // Align left to reset
