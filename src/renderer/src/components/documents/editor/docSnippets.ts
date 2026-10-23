@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { DocSnippetBody, Snippet, SnippetInsertResult, SnippetKind, SnippetLink, SnippetTarget } from '@shared/snippets'
 import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
+import { readClipboardForms, type ClipboardForms } from '../../../lib/clipboardForms'
+import { fromAnotherApp, pasteConverted, type PasteOutcome } from '../../../lib/clipboardPaste'
 import { registerSnippetTarget } from '../../../stores/snippets'
 
 // The document editor as a snippet surface: how a selection becomes a saved
@@ -130,4 +132,30 @@ export function useDocSnippetTarget(editor: Editor | null, instanceId: string, t
 /** The registry id for a document surface. One place, so host and picker agree. */
 export function docSnippetTargetId(instanceId: string): string {
   return `doc:${instanceId}`
+}
+
+/**
+ * Paste another of our apps' content into a document: read the clipboard as
+ * forms, convert to doc nodes, and insert them exactly as a converted snippet
+ * is inserted (insertSnippetDuplicate at the selection), showing the
+ * conversion's line. Write's own paste (HTML, text) is untouched: this runs
+ * only when pasteNeedsConversion says the browser's paste would get it wrong.
+ */
+export function pasteIntoDoc(editor: Editor, opts: { data?: DataTransfer | null; read?: ClipboardForms } = {}): Promise<PasteOutcome> {
+  return pasteConverted(
+    'doc',
+    (body) => {
+      if (!editor.isEditable || body.kind !== 'doc') return false
+      return editor.chain().focus().insertSnippetDuplicate(body.content).run()
+    },
+    opts
+  )
+}
+
+/** Edit › Paste: another app's content converted; anything else is not handled here (null), so the menu's own paste runs. */
+export async function menuPasteIntoDoc(editor: Editor): Promise<PasteOutcome | null> {
+  const read = await readClipboardForms()
+  const pictureOnly = !read.kind && read.forms.length > 0 && read.forms.every((f) => f.kind === 'svg' || f.kind === 'image')
+  if (!fromAnotherApp(read, 'doc') && !pictureOnly) return null
+  return pasteIntoDoc(editor, { read })
 }

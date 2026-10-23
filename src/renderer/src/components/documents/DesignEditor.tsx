@@ -81,6 +81,7 @@ import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import type { DesignSnippetBody, Snippet } from '@shared/snippets'
 import { designBodyFromSelection, designSnippetTargetId, insertDesignSnippet, suggestedDesignSnippetName, useDesignSnippetTarget } from './design/designSnippets'
 import { officeAccepts } from '../../lib/officeSnippets'
+import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
@@ -562,6 +563,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // functions it returns are what this editor's own Edit menu calls.
   const clipboard = useElementClipboard({
     app: 'design',
+    insertConverted: (b) => insertSnippetHere(pastedSnippet(b)),
     canvas: () => ({ w: designRef.current.width, h: designRef.current.height }),
     selected: () => {
       const els = designRef.current.elements ?? []

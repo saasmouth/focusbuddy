@@ -60,7 +60,8 @@ import { useSheetAi } from './sheet/useSheetAi'
 import Icon from '../Icon'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
-import { markCellsCopy } from '../../lib/clipboardForms'
+import { markCellsCopy, readClipboardForms } from '../../lib/clipboardForms'
+import { fromAnotherApp, pasteConverted, pastedSnippet } from '../../lib/clipboardPaste'
 import type { SheetSnippetBody, Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
 import { officeAccepts } from '../../lib/officeSnippets'
 import {
@@ -901,6 +902,18 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     if (mod && e.key.toLowerCase() === 'v') {
       e.preventDefault()
       const text = await navigator.clipboard.readText().catch(() => '')
+      // Another of our apps' content (a Write table, a Deck selection, a
+      // drawing) lands as a converted sheet snippet would: rows of values
+      // at the selection, or the reason it cannot (a picture). Cells' own
+      // copies and plain text from anywhere keep the paste below unchanged.
+      const ownCopy = !!clipboardCopy.current && clipboardCopy.current.text === text
+      if (!ownCopy) {
+        const read = await readClipboardForms()
+        if (fromAnotherApp(read, 'sheet') || (!text && read.forms.length > 0)) {
+          await pasteConverted('sheet', (body) => insertSnippetHere(pastedSnippet(body)), { read })
+          return
+        }
+      }
       if (!text) return
       const matrix = parseTsv(text)
       // Only shift formulas when the clipboard is still our own copy (we know its

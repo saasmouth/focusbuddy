@@ -13,3 +13,8 @@ export function announceConverted(text: string | null | undefined): void {
   if (!text) return
   useNoticeStore.getState().show({ text, icon: 'info' }, CONVERTED_NOTICE_MS)
 }
+
+/** A paste or insert that could not land, with the reason the conversion gave, verbatim. */
+export function announceRefused(reason: string): void {
+  useNoticeStore.getState().show({ text: reason, icon: 'warning' }, CONVERTED_NOTICE_MS)
+}

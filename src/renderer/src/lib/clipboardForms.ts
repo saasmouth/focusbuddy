@@ -80,6 +80,27 @@ export function markCellsCopy(text: string, origin: { r: number; c: number }): v
   cellsCopy = { text, origin: { r: origin.r, c: origin.c } }
 }
 
+/** Is this text exactly what PlexiiCells last copied (so a paste of it is a Cells range)? */
+export function isCellsCopyText(text: string | null | undefined): boolean {
+  return !!cellsCopy && typeof text === 'string' && text === cellsCopy.text
+}
+
+/**
+ * Should a paste event in an app that is not the copy's own be routed through
+ * the conversion, judged synchronously from the event (an editor must decide
+ * before the browser's own paste runs)? Yes for our apps' private types, a
+ * Diagrams clip or Cells range in the text, and a clipboard holding no text at
+ * all (a PlexiiDraw copy or a picture: there is nothing for a text paste to do).
+ */
+export function pasteNeedsConversion(data: DataTransfer | null | undefined): boolean {
+  if (!data) return false
+  const types = Array.from(data.types ?? [])
+  if (types.includes(ELEMENT_CLIP_MIME) || types.includes(DIAGRAM_CLIP_MIME)) return true
+  const text = types.includes('text/plain') ? data.getData('text/plain') : ''
+  if (text.includes('plexii-diagram/v1') || isCellsCopyText(text)) return true
+  return !text && !types.includes('text/html') && types.length > 0
+}
+
 /** Test seam. */
 export function resetCellsCopy(): void {
   cellsCopy = null

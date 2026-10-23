@@ -48,6 +48,7 @@ import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import type { Snippet, SlideSnippetBody } from '@shared/snippets'
 import { DECK_PAGE, deckSnippetTargetId, slideBodyFromSelection, slideElementsFromSnippet, suggestedSlideSnippetName, useDeckSnippetTarget } from './slides/deckSnippets'
 import { officeAccepts } from '../../lib/officeSnippets'
+import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
 
 // PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
@@ -664,6 +665,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   // clipboard events, so ⌘C/⌘V and the native Edit menu run the same code.
   const clipboard = useElementClipboard({
     app: 'slide',
+    insertConverted: (b) => insertSlideSnippet(pastedSnippet(b)),
     canvas: () => ({ w: body.size?.w ?? 1280, h: body.size?.h ?? 720 }),
     selected: () => {
       const ids = new Set(selectedIds)
