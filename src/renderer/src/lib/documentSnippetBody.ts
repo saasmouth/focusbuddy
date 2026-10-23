@@ -66,8 +66,14 @@ export function documentSnippetBody(doc: Pick<FbDocument, 'docType' | 'body' | '
         const v2 = normalizeBody(raw as SheetBody)
         const tab = v2.sheets[0]
         const range = tab ? usedRange(tab) : null
+        const body = tab && range ? sheetBodyFromSelection(tab, range) : null
+        // The whole sheet is dropped, so its column widths come too: a picture
+        // of it (PlexiiDraw, an image work widget) is drawn at the widths the
+        // sheet shows. A range saved as a snippet does not carry them.
+        const widths = Object.entries(tab?.colWidths ?? {}).filter(([c, w]) => Number(c) <= (range?.c1 ?? -1) && typeof w === 'number' && Number.isFinite(w) && w > 0)
+        if (body && widths.length) body.colWidths = Object.fromEntries(widths.map(([c, w]) => [Number(c), w]))
         return {
-          body: tab && range ? sheetBodyFromSelection(tab, range) : null,
+          body,
           lossy: more(v2.sheets.length, 'Only the first sheet comes in.', 'Only the first sheet comes in.')
         }
       }

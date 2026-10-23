@@ -42,7 +42,6 @@ const documentCannotGo = (dest: string): string => `A document cannot go into ${
 
 export const REASON = {
   cellsNoPictures: 'PlexiiCells holds values, not pictures.',
-  drawNoTables: 'PlexiiDraw has no tables; insert it into PlexiiWrite or a page instead.',
   drawingNeedsApp: 'A picture of this drawing can only be made in the app window.',
   linkedPictureDraw: 'This picture is linked rather than stored in the work widget, so PlexiiDraw cannot hold it yet.',
   empty: 'There is nothing in this snippet to insert.',
@@ -84,7 +83,6 @@ export const REASON = {
 
   // The same refusals worded for a drop (ConvertVerb 'drop'); insert and paste keep the lines above.
   emptyDrop: 'There is nothing in what was dropped to add.',
-  drawNoTablesDrop: 'PlexiiDraw has no tables; drop it into PlexiiWrite or a page instead.',
   widgetEmptyDrop: 'This work widget is empty, so there is nothing to add.'
 } as const
 
@@ -99,11 +97,6 @@ export type ConvertVerb = 'insert' | 'paste' | 'drop'
 /** "There is nothing in this snippet to insert.", or its drop wording. */
 export function emptyReason(verb?: ConvertVerb): string {
   return verb === 'drop' ? REASON.emptyDrop : REASON.empty
-}
-
-/** PlexiiDraw's no-tables refusal, worded by verb. */
-export function drawNoTablesReason(verb?: ConvertVerb): string {
-  return verb === 'drop' ? REASON.drawNoTablesDrop : REASON.drawNoTables
 }
 
 /** What a dropped file is, as a refusal names it. */

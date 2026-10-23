@@ -8,7 +8,7 @@
 // under a currency format), we return the original text rather than invent a
 // number.
 
-import type { SheetNumberFormat } from '@shared/types'
+import type { SheetNumberFormat } from './types'
 
 // One source of truth for the format shape lives in shared/types as
 // SheetNumberFormat; this alias keeps the existing local name.

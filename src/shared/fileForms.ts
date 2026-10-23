@@ -27,6 +27,7 @@ import { PDF_FIRST_PAGE } from './snippetForms'
 import { formsOfDocNodes } from './snippetForms/fromDoc'
 import { markdownLiteToNodes } from './snippetForms/markdownLite'
 import { looksLikeHeader, paragraphNode, rowsToGfm, rowsToTableNode } from './snippetForms/rows'
+import { sheetPicture } from './snippetForms/sheetPicture'
 import { sourceKindOf, type FileDragRef, type FileSourceKind } from './filesDragPayload'
 
 // ── Lines ────────────────────────────────────────────────────────────────────
@@ -222,10 +223,14 @@ export function textFileForms(ref: FileDragRef, text: string): Form[] {
     const rows = parseDelimited(body, ext === 'tsv' ? '\t' : ',')
     if (!rows.length) return [{ kind: 'text', value: '', lossy: [] }]
     const v = rowsValue(rows)
+    // A picture of the table, as a sheet has (snippetForms/fromSheet.ts): after
+    // the forms that keep the values, before the text.
+    const pic = sheetPicture({ rows, app: 'the original file' })
     return [
       { kind: 'rows', value: v, lossy: [] },
       { kind: 'docNodes', value: [rowsToTableNode(rows, v.header)], lossy: [] },
       { kind: 'markdown', value: rowsToGfm(rows), lossy: [] },
+      ...(pic ? [{ kind: 'svg' as const, value: pic.value, lossy: pic.lossy }] : []),
       { kind: 'text', value: body.trimEnd(), lossy: [] }
     ]
   }

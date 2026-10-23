@@ -4,9 +4,11 @@ import { putAsset } from '../draw/assets'
 import { isDrawImageSrc } from '../draw'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { REASON, drawNoTablesReason, fitWithin, linkRefusal, ok, pick, refusal } from './common'
+import { REASON, fitWithin, linkRefusal, ok, pick, refusal } from './common'
 import { formsOfSlide } from '../snippetForms/fromSlide'
 import { formsOfDesign } from '../snippetForms/fromDesign'
+import { sheetPicture } from '../snippetForms/sheetPicture'
+import type { Form } from '../snippetForms'
 
 function imageObject(dataUrl: string, w: number, h: number, alt: string): { node: DrawImageNode; assets: Record<string, unknown> } {
   const size = fitWithin(w, h, 2000, 2000)
@@ -19,21 +21,32 @@ function textObject(text: string): DrawTextNode {
 }
 
 /**
+ * Rows with no picture of their own (a paste that read only as a grid) as the
+ * same table picture a sheet has, so a grid lands in Draw as a table, never as
+ * a refusal. Null when the rows hold no text.
+ */
+function rowsPicture(forms: Form[]): Form | undefined {
+  const rows = forms.find((x) => x.kind === 'rows')
+  if (rows?.kind !== 'rows') return undefined
+  const pic = sheetPicture({ rows: rows.value.rows, app: 'the app it came from' })
+  return pic ? { kind: 'svg', value: pic.value, lossy: [...rows.lossy, ...pic.lossy] } : undefined
+}
+
+/**
  * Into PlexiiDraw: objects. A diagram's SVG is imported as EDITABLE vectors
  * (deps.svgToDraw, Draw's own importer); Deck and Design draw through HTML,
  * which no importer can turn back into shapes, so they land as a picture.
- * Text becomes a text object. A sheet is refused: Draw has no tables.
+ * A sheet (or a CSV) lands as a picture of its table (its svg form,
+ * snippetForms/sheetPicture.ts): Draw has no tables. Text becomes a text object.
  */
 export function toDraw(ctx: BuildContext): SnippetConversion {
   const { body, deps } = ctx
   if (body?.kind === 'draw') return ok(structuredClone(body), [])
-  if (body?.kind === 'sheet') return { ok: false, reason: drawNoTablesReason(ctx.verb) }
   // A drawing holds only embedded image bytes (isDrawImageSrc), so a remote
   // picture can never taint Draw's canvas: slide and design bodies are read
   // with Draw's own rule, and an image it refuses is left out and said so.
   const forms = body?.kind === 'slide' ? formsOfSlide(body, isDrawImageSrc) : body?.kind === 'design' ? formsOfDesign(body, isDrawImageSrc) : ctx.forms
-  const f = pick(forms, ['svg', 'image', 'text'], body)
-  if (!f && !body && forms.some((x) => x.kind === 'rows')) return { ok: false, reason: drawNoTablesReason(ctx.verb) }
+  const f = pick(forms, ['svg', 'image', 'text'], body) ?? rowsPicture(forms)
   if (!f) return linkRefusal(forms, 'draw') ?? refusal(body, 'draw', ctx.verb)
   switch (f.kind) {
     case 'svg': {

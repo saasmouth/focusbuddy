@@ -3,6 +3,7 @@ import type { ConvertDeps, Form } from '../snippetForms'
 import { padRows } from './tiptap'
 import { looksLikeHeader, rowsToGfm, rowsToTableNode, rowsToTsv } from './rows'
 import { L, outsideRefs } from './lossy'
+import { sheetPicture } from './sheetPicture'
 
 /** The block's input, every cell a string, ragged rows padded. */
 export function sheetInput(body: SheetSnippetBody): string[][] {
@@ -42,8 +43,18 @@ export function formsOfSheet(body: SheetSnippetBody, deps: ConvertDeps): Form[] 
   forms.push(
     { kind: 'rows', value: { rows, header }, lossy: [...lossy] },
     { kind: 'docNodes', value: [rowsToTableNode(rows, header)], lossy: [...lossy] },
-    { kind: 'markdown', value: rowsToGfm(rows), lossy: [...lossy] },
-    { kind: 'text', value: rowsToTsv(rows), lossy: [...lossy] }
+    { kind: 'markdown', value: rowsToGfm(rows), lossy: [...lossy] }
   )
+  // A picture of the table, for what holds only pictures (PlexiiDraw, an image
+  // work widget). After the forms that keep the values, so every destination
+  // that holds a table, a document or rows still takes those; before the
+  // text, so PlexiiDraw draws the table rather than a line of tabs. The
+  // picture keeps formats and merges, so only the formula lines carry over.
+  const pic = sheetPicture({ rows, formats: body.formats, merges: body.merges, colWidths: body.colWidths, app: 'PlexiiCells' })
+  if (pic) {
+    const kept = lossy.filter((l) => l !== L.cellFormatting && l !== L.mergedSplit && l !== L.validation)
+    forms.push({ kind: 'svg', value: pic.value, lossy: [...kept, ...pic.lossy] })
+  }
+  forms.push({ kind: 'text', value: rowsToTsv(rows), lossy: [...lossy] })
   return forms
 }

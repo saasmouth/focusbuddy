@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SheetTab } from '@shared/types'
 import { displayCell, buildSpillMap, sparklineForCell, type Grid, type Workbook } from '../../../lib/sheetFormula'
-import { formatValue } from '../../../lib/sheetFormat'
+import { formatValue } from '@shared/sheetFormat'
 import { cellFormat, colLabel } from '../../../lib/sheetBody'
 import {
   applyCondFormat,

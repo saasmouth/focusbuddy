@@ -95,6 +95,14 @@ export interface SheetSnippetBody {
   merges?: Array<{ r1: number; c1: number; r2: number; c2: number }>
   /** Data validation over parts of the block, relative and inclusive (SheetValidation without id). */
   validations?: Array<{ r1: number; c1: number; r2: number; c2: number; rule: unknown; strict?: boolean }>
+  /**
+   * Column widths in px by column of the block, where the sheet set one. Only
+   * a whole document dropped from Files carries them (documentSnippetBody); a
+   * range saved as a snippet does not (cellsSnippets.ts says why). Only the
+   * picture of the block reads them: inserting into a sheet leaves the
+   * destination's columns alone, as a paste does.
+   */
+  colWidths?: Record<number, number>
 }
 
 /** One or more slide elements, positioned relative to the block's top-left. */

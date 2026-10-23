@@ -138,9 +138,8 @@ const MATRIX: Record<ContentTarget, Row> = {
   },
   draw: {
     image: [C, C], svg: [C, C], pdf: [C, C],
-    // The plan's "Cells sheet → Draw: COPY picture" is a [new] cell 2e's
-    // builder does not make yet; it refuses with its own sentence.
-    write: [C, C], cells: [R(REASON.drawNoTablesDrop), R(REASON.drawNoTablesDrop)], deck: [C, C], design: [C, C], draw: [C, C], diagram: [C, C], widget: [C, C],
+    // The plan's "Cells sheet → Draw: COPY picture": a picture of its table.
+    write: [C, C], cells: [C, C], deck: [C, C], design: [C, C], draw: [C, C], diagram: [C, C], widget: [C, C],
     video: [cannot('PlexiiDraw', 'a video file'), cannot('PlexiiDraw', 'a video file')],
     audio: [cannot('PlexiiDraw', 'an audio file'), cannot('PlexiiDraw', 'an audio file')],
     md: [C, C], csv: [C, C], txt: [C, C],
@@ -212,13 +211,14 @@ const MATRIX: Record<ContentTarget, Row> = {
     folder: [folderTo('a table work widget'), folderTo('a table work widget')]
   },
   // An image work widget takes a picture; a document's or a PDF's only with ⌥.
+  // A sheet (a Cells document with ⌥, or a CSV) is a picture of its table.
   image: {
     image: [C, C], svg: [C, C], pdf: [R(IMAGE_NEEDS_PICTURE), C],
-    write: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], cells: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
+    write: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], cells: [R(IMAGE_NEEDS_PICTURE), C],
     deck: [R(IMAGE_NEEDS_PICTURE), C], design: [R(IMAGE_NEEDS_PICTURE), C], draw: [R(IMAGE_NEEDS_PICTURE), C], diagram: [R(IMAGE_NEEDS_PICTURE), C],
     widget: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
     video: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], audio: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
-    md: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], csv: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], txt: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
+    md: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], csv: [C, C], txt: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
     generic: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
     folder: [folderTo('an image work widget'), folderTo('an image work widget')]
   }

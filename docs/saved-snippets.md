@@ -159,8 +159,18 @@ representative bodies of each kind, and `officeAccepts(host)`
 (`renderer/src/lib/officeSnippets.ts`) caches it once per host, so the
 library's kind filter in each app shows exactly what conversion supports and
 can never drift from it. Today a sheet takes doc, widget and sheet (pictures
-are refused: "PlexiiCells holds values, not pictures."), Draw takes everything
-but a sheet ("PlexiiDraw has no tables…"), and the others take all seven.
+are refused: "PlexiiCells holds values, not pictures."), and the others take
+all seven. Draw has no tables, so a sheet lands there as a PICTURE of its
+table: `formsOf` offers every sheet (and a dropped .csv) an `svg` form drawn
+by `shared/snippetForms/sheetPicture.ts`, after the rows, table and markdown
+forms and before the text, so Deck, Design, Diagrams, Write and Cells still
+take their own table or rows and only picture-only destinations (Draw, an
+image work widget) take the picture. It shows what the cells display
+(formulas computed, number formats applied), keeps bold, italic, colours,
+alignment, merges and the sheet's column widths where a whole document is
+dropped, cuts long cells short with an ellipsis, and draws at most 60 rows
+by 16 columns, saying "Showing the first 60 rows of 250." past that. A sheet
+with no text has no picture, so Draw refuses it as empty.
 
 Insertion runs `insertIntoOffice`: a snippet of the host's own kind goes to
 the target's own insert untouched; any other kind is converted with
@@ -794,7 +804,7 @@ to, deps, { verb })` and `convertForms(forms, to, deps, source, { verb })` put
 an optional `verb` ('insert' | 'paste' | 'drop') on the `BuildContext`; it
 changes only the wording of a refusal or a no-content line ("Nothing that was
 dropped is something PlexiiDeck can hold.", "Drop it on a desk instead.",
-`REASON.emptyDrop`, `REASON.drawNoTablesDrop`, `REASON.widgetEmptyDrop`), never
+`REASON.emptyDrop`, `REASON.widgetEmptyDrop`), never
 what lands. No verb, 'insert' and 'paste' keep today's sentences exactly. A
 `FormsRead` (`ClipboardForms`) may carry `verb: 'drop'`; `convertClipboard`
 passes it on, so an office app's existing paste path given `{ read }` (Write's

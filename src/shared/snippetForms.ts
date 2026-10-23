@@ -66,7 +66,10 @@ export interface SvgValue {
   /**
    * True when the SVG is real vector markup an importer can turn back into
    * editable objects. False when it wraps HTML in a foreignObject, which can
-   * only ever be a picture.
+   * only ever be a picture, or when it is offered only AS a picture: a sheet's
+   * table (snippetForms/sheetPicture.ts) is vector markup, but its editable
+   * original is the sheet, and hundreds of loose boxes and words in a drawing
+   * would be worse than one picture of them.
    */
   vector: boolean
   /** Where the editable original lives. */

@@ -239,7 +239,7 @@ describe('small pieces', () => {
 
   it('what each work widget offers in its library is derived from what really lands', () => {
     expect(widgetAccepts('table')).toEqual(['doc', 'widget', 'sheet'])
-    expect(widgetAccepts('image')).toEqual(['widget', 'slide', 'design', 'diagram', 'draw'])
+    expect(widgetAccepts('image')).toEqual(['widget', 'sheet', 'slide', 'design', 'diagram', 'draw'])
     expect(widgetAccepts('page')).toEqual(['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw'])
     // Stickies list pictures too, so inserting one shows the owner's refusal.
     expect(widgetAccepts('sticky')).toEqual(['doc', 'widget', 'sheet', 'slide', 'design', 'diagram', 'draw'])

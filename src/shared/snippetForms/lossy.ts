@@ -31,6 +31,8 @@ export const L = {
   colourSize: 'Text colour, size and highlighting are not kept.',
   alignment: 'Text alignment is not kept.',
   unsupportedImage: 'An image with an unsupported address was left out.',
+  cellsCut: 'Long cells are cut short.',
+  cellFonts: 'Cell fonts become the standard one.',
   textBoxesSeparate: 'Text boxes arrive as separate frames; to make the text flow, select them and use Link text frames on the Text tab.'
 } as const
 
@@ -39,6 +41,16 @@ export function outsideRefs(n: number): string {
   return n === 1
     ? '1 formula points outside the saved cells and shows #REF!.'
     : `${n} formulas point outside the saved cells and show #REF!.`
+}
+
+/** What a picture of a sheet leaves out past its row limit: "Showing the first 60 rows of 250." */
+export function rowsShown(shown: number, total: number): string {
+  return `Showing the first ${shown} rows of ${total}.`
+}
+
+/** The same for columns: "Showing the first 16 columns of 40." */
+export function columnsShown(shown: number, total: number): string {
+  return `Showing the first ${shown} columns of ${total}.`
 }
 
 /** What a diagram drops past its 50-note limit. */
