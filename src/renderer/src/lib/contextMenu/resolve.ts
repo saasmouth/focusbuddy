@@ -142,6 +142,25 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   const attnTaken = !!attn && !suppress['attention']
   if (attnTaken) slots.push(toItem(attn, ctx))
 
+  // Paste into this widget, through the same conversion as inserting a saved
+  // snippet (lib/widgetSnippetInsert.ts). Only on widgets that take a paste.
+  if (ctx.frame?.onPaste) {
+    slots.push(
+      toItem(
+        {
+          id: 'core/context/paste',
+          section: MenuSection.Context,
+          priority: -500,
+          label: 'Paste',
+          icon: 'content_paste',
+          shortcut: '⌘V',
+          onSelect: (c) => c.frame?.onPaste?.()
+        },
+        ctx
+      )
+    )
+  }
+
   // 1. Context — kind-specific header extras (a widget's own rows) first, then
   // the registered context-band rows.
   if (ctx.headerExtras && ctx.headerExtras.length) {

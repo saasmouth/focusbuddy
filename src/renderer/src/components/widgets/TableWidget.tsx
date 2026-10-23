@@ -40,6 +40,7 @@ import Icon from '../Icon'
 import { ListView, CardsView, KanbanView, CalendarView, GanttView } from './TableViews'
 import UnifiedConnectedMenu from '../contextMenu/UnifiedConnectedMenu'
 import TableFilterBar from './TableFilterBar'
+import { useTableWidgetSnippets } from './useWidgetSnippets'
 import { applyFilters, groupRows } from '../../lib/tableFilter'
 import type { RowGroup } from '../../lib/tableFilter'
 
@@ -283,6 +284,11 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
   }, [])
+
+  // A destination for saved snippets and ⌘V: rows appended to this table,
+  // matched to its columns (the import wizard's own planner). Declared above
+  // the early return so the hook order never changes.
+  const snippets = useTableWidgetSnippets(widget, table ? table.id : null)
 
   // The frame's rename now writes through to the table.
   //
@@ -837,6 +843,13 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
 
     // Cmd/Ctrl + C / V over the selection.
     const mod = e.metaKey || e.ctrlKey
+    // ⌘V with no cells selected appends what is on the clipboard as new rows,
+    // through the same conversion as inserting a saved snippet.
+    if (mod && !selRange && !inEditor && e.key.toLowerCase() === 'v') {
+      e.preventDefault()
+      void snippets.pasteRows()
+      return
+    }
     if (!mod || !selRange) return
     const multi = selRange.r0 !== selRange.r1 || selRange.c0 !== selRange.c1
     if (inEditor && !multi) return // editing one cell — let the input copy/paste
@@ -1502,6 +1515,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
       // The count rides in the one title bar rather than earning a second.
       headerLabel={`${table.title || 'Untitled table'} · ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`}
       headerAccent="bg-[var(--edge-firm)]"
+      snippets={snippets}
       // The header's AI button opens THIS table's assistant rather than the
       // generic "ask about this widget", because the table has a real one that
       // proposes columns and then rows. The in-body buttons beside the

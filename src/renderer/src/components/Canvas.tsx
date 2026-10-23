@@ -22,7 +22,8 @@ import ViewSelector from './views/ViewSelector'
 import type { AiBuildSuggestion } from '@shared/types'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
 import SnippetLibrary from './snippets/SnippetLibrary'
-import { deskSnippetTargetId, useDeskSnippetTarget } from './desk/deskSnippets'
+import { deskAcceptedKinds, deskSnippetTargetId, pasteOntoDesk, useDeskPaste, useDeskSnippetTarget } from './desk/deskSnippets'
+import { snapshotFromSystem } from '../lib/widgetSnippetInsert'
 import WidgetSetupPreview from './contextMenu/WidgetSetupPreview'
 import BrowserContextMenu from './contextMenu/BrowserContextMenu'
 // Side-effect import registers the core widget context-action providers (sticky
@@ -465,6 +466,9 @@ export default function Canvas(): JSX.Element {
   // This desk is a snippet destination while it is open, so a saved work
   // widget can be placed on it from the library.
   useDeskSnippetTarget(activeTaskId, activeTask?.title ?? '')
+  // ⌘V on the bare desk places the clipboard as a work widget (deskSnippets.ts).
+  const deskPasteSurface = useCallback(() => dropRef.current, [])
+  useDeskPaste(activeTaskId, deskPasteSurface)
   const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
   const { assignToRoom, createRoomAndAssign } = useFreeDesk()
   const focusSessionActive = useFocusSessionStore((s) => !!activeTaskId && s.active?.taskId === activeTaskId)
@@ -2033,8 +2037,22 @@ export default function Canvas(): JSX.Element {
         // one concept, instead of the same list in two places.
       ]
     }
+    // Paste what is on the clipboard here, as the work widget that holds it
+    // (desk/deskSnippets.ts pasteOntoDesk): the same as ⌘V on the bare desk,
+    // placed at the click instead of beside the last-touched widget.
+    const taskForPaste = activeTaskId
+    const paste: CtxMenuItem = {
+      label: 'Paste',
+      icon: 'content_paste',
+      shortcut: '⌘V',
+      onClick: () =>
+        void snapshotFromSystem().then((snap) =>
+          pasteOntoDesk(taskForPaste, snap, (w) => ({ x: cx - w / 2, y: cy - 20 }))
+        )
+    }
     return [
       addWidget,
+      paste,
       { separator: true },
       arrange,
       { separator: true },
@@ -3340,7 +3358,7 @@ export default function Canvas(): JSX.Element {
       )}
       {snippetLibraryOpen && activeTaskId && (
         <SnippetLibrary
-          kinds={['widget']}
+          kinds={deskAcceptedKinds()}
           targetId={deskSnippetTargetId(activeTaskId)}
           onClose={() => setSnippetLibraryOpen(false)}
         />

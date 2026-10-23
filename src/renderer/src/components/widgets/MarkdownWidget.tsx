@@ -15,6 +15,8 @@ import { useWidgetStore } from '../../stores/widgets'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { WidgetImage } from './widgetImage'
+import { useEditorWidgetSnippets } from './useWidgetSnippets'
 
 interface Props {
   widget: Widget
@@ -147,6 +149,7 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
   // Brief status under the toolbar after an export ("Saved note.pdf" / "Export cancelled").
   const [exportMsg, setExportMsg] = useState<string | null>(null)
 
+  const pasteRef = useRef<(e: ClipboardEvent) => boolean>(() => false)
   const editor = useEditor(
     {
       extensions: [
@@ -165,6 +168,9 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
         // it round-trips through the stored markdown as HTML, which is why the
         // Markdown extension below runs with html: true.
         TableKit.configure({ table: { resizable: false } }),
+        // Pictures (owner decision): stored as fb-file:// on insert or paste, and
+        // written as ![alt](src) in markdown.
+        WidgetImage,
         Placeholder.configure({
           placeholder:
             'Type or paste markdown. ⌘B bold · ⌘I italic · type "# " for a heading · "- " for a list · "[ ] " for a task · paste a |---| table'
@@ -213,6 +219,12 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
       // the two rich surfaces feel the same. We let the "/" type normally and
       // anchor the menu on the next tick once the caret has moved past it.
       editorProps: {
+        // ⌘V of what the editor cannot read itself (a picture, a drawing, a
+        // grid of cells) goes through the snippet conversion; text and HTML keep
+        // the editor's own paste.
+        handlePaste(_view, event) {
+          return pasteRef.current(event)
+        },
         handleKeyDown(_view, event) {
           if (event.key === '/' && !slashOpen) {
             setTimeout(() => {
@@ -239,6 +251,10 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
     // Re-init when widget id changes (e.g. focus-mode swap)
     [widget.id]
   )
+
+  // A destination for saved snippets and ⌘V.
+  const snippets = useEditorWidgetSnippets(widget, 'markdown', editor)
+  pasteRef.current = snippets.handlePaste
 
   // If the widget's content changes externally while we're mounted (e.g. AI Setup spawn
   // followed by a server-side update), reconcile — but never clobber an unsaved local
@@ -425,7 +441,7 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
   if (inline) return body
 
   return (
-    <WidgetFrame widget={widget} headerLabel="markdown" headerAccent="bg-stone-200/70 dark:bg-white/[0.07]">
+    <WidgetFrame widget={widget} headerLabel="markdown" headerAccent="bg-stone-200/70 dark:bg-white/[0.07]" snippets={snippets}>
       {body}
     </WidgetFrame>
   )

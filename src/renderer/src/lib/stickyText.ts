@@ -17,7 +17,9 @@ function isSeparatorRow(line: string): boolean {
 function splitCells(rowLine: string): string[] {
   const m = TABLE_ROW_RE.exec(rowLine)
   const inner = m ? m[1] : rowLine.replace(/^\s*\|/, '').replace(/\|\s*$/, '')
-  return inner.split('|').map((c) => c.trim())
+  // A cell may hold an escaped pipe ("a \\| b", how a pasted or inserted
+  // grid writes a value containing one): split only on bare pipes.
+  return inner.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'))
 }
 
 export type StickyBlock =

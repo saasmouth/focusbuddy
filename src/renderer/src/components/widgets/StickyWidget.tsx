@@ -7,6 +7,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import Icon from '../Icon'
+import { useTextWidgetSnippets } from './useWidgetSnippets'
 import {
   STICKY_CHECK_RE,
   STICKY_BULLET_RE,
@@ -100,6 +101,19 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
       }
     }
   }, [update, widget.id])
+
+  // A destination for saved snippets and ⌘V: text spliced in at the caret, a
+  // grid as a pipe table, a picture refused with where it can go.
+  const snippets = useTextWidgetSnippets(
+    widget,
+    'sticky',
+    () => textRef.current,
+    (next, caret) => {
+      setText(next)
+      if (editing) requestAnimationFrame(() => textareaRef.current?.setSelectionRange(caret, caret))
+    },
+    () => textareaRef.current
+  )
 
   const bgColor = widget.color ?? '#fef08a'
   const hasChecklist = hasChecklistText(text)
@@ -265,6 +279,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
         mentions.close()
         setEditing(false)
       }}
+      onPaste={snippets.onTextareaPaste}
       placeholder="Write a note… **bold**, - bullet, [ ] task"
       onContextMenu={(e) => {
         if (e.shiftKey) return
@@ -373,7 +388,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
   if (inline) return content
 
   return (
-    <WidgetFrame widget={widget} headerLabel="sticky" headerAccent="bg-black/5 dark:bg-white/[0.06]">
+    <WidgetFrame widget={widget} headerLabel="sticky" headerAccent="bg-black/5 dark:bg-white/[0.06]" snippets={snippets}>
       {content}
     </WidgetFrame>
   )
