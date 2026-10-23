@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useOnboarding } from '../../stores/onboarding'
-import { useCornerChromeLift } from './cornerClearance'
+import { CORNER_PRIORITY, useCornerSlot } from '../../lib/cornerStack'
 import { moduleById } from '../../lib/onboarding/registry'
 import Icon from '../Icon'
 import PlexiiIcon from '../PlexiiIcon'
@@ -22,9 +22,6 @@ import { useInterruptionClear } from '../../lib/useInterruptionClear'
 // Deliberately a corner card, not a blocking modal, and always dismissible, so
 // it never becomes a reason to bounce.
 
-/** The card's resting offset from the window bottom — the old `bottom-5`. */
-const BASE_BOTTOM_PX = 20
-
 function estLabel(seconds: number): string {
   if (seconds < 60) return `${seconds}-second`
   return `${Math.round(seconds / 60)}-minute`
@@ -43,21 +40,30 @@ export default function FeatureSpotlightPopup(): JSX.Element | null {
 
   // Above the early return, every render: a hook behind a condition changes the
   // hook count when the card appears and crashes the tree (React #311). It is
-  // handed `showing` instead, and measures nothing while the card is away.
+  // handed `showing` instead, and takes no slot while the card is away.
+  //
+  // It was the first thing taught to clear the corner, by measuring the desk's
+  // chrome on its own. It now takes a SLOT in the shared stack instead, so it
+  // also clears the call, the invite and the notices — and so that the next
+  // overlay docked here inherits the rule rather than rediscovering it.
   const cardRef = useRef<HTMLDivElement | null>(null)
-  const lift = useCornerChromeLift(cardRef, BASE_BOTTOM_PX, showing)
+  const corner = useCornerSlot('feature-spotlight', CORNER_PRIORITY.featureSpotlight, showing, cardRef)
 
   if (!showing || !mod) return null
+  // The largest and the least urgent thing in the corner, so it is the first
+  // to stand down when there is no room. Queued, not collapsed: a shrunken
+  // card is still something to mis-press, and the tour is offered again on the
+  // next launch anyway.
+  if (!corner.visible) return null
 
   return createPortal(
     // Onboarding stage: forced-dark card in every theme; hairlines are relative to the stage.
     <div
       ref={cardRef}
       className="fixed right-5 z-[230] w-[340px] max-w-[92vw] rounded-2xl bg-[rgba(16,24,39,0.97)] border border-white/10 shadow-2xl text-stone-100 p-4 fb-fade-in-up"
-      // `bottom-5` was a class; it is the BASE now, and the lift is added to
-      // it, so the card still rests in the corner whenever that corner is
-      // empty and `lift` is 0.
-      style={{ bottom: BASE_BOTTOM_PX + lift }}
+      // The stack decides where this sits; `bottom-5` as a class could not be
+      // added to, and an inline style beside it would silently win.
+      style={{ bottom: corner.bottom }}
       role="dialog"
       aria-label={`New: ${mod.title}`}
       data-testid="feature-spotlight-popup"
