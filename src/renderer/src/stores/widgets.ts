@@ -27,6 +27,7 @@ import { useAccountStore } from './account'
 import { refreshFileDesks } from '../lib/linkBadge'
 import { currentDeviceClass } from '../lib/deviceClass'
 import type { DeskLayout } from '@shared/deskLayout'
+import { clampToKindMin } from '@shared/widgetSizing'
 import {
   isOverlayEligible,
   patchTouchesOverlayGeometry,
@@ -452,6 +453,13 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     return widget
   },
   update: async (id, patch) => {
+    // A resize never goes below the kind's minimum, here as in main
+    // (updateWidget), so the optimistic copy and a per-device overlay write hold
+    // the size the frame renders instead of one it cannot show.
+    if (patch.width !== undefined || patch.height !== undefined) {
+      const kind = get().widgets.find((w) => w.id === id)?.kind
+      if (kind) patch = clampToKindMin(kind, patch)
+    }
     // The full-pane view of a WIDGET FILE renders a synthetic widget whose id is
     // `wf:<file id>` (docs/widget-files.md). It has no desk and no row in the
     // widgets table, so its edits go to the file — which fans them out to every

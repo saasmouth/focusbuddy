@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { adoptWidgetAsFile, syncWidgetFileFromInstance } from './widgetFiles'
 import { WIDGET_FILE_GROUP_PREFIX } from '@shared/widgetFiles'
+import { clampToKindMin } from '@shared/widgetSizing'
 import type { Widget, WidgetDraft, WidgetPatch } from '@shared/types'
 
 interface WidgetRow {
@@ -204,8 +205,12 @@ export function createWidget(draft: WidgetDraft): Widget {
     content: draft.content,
     x: draft.x ?? 60,
     y: draft.y ?? 60,
-    width: draft.width ?? (draft.kind === 'webview' ? 520 : draft.kind === 'living-doc' ? 500 : 260),
-    height: draft.height ?? (draft.kind === 'webview' ? 360 : draft.kind === 'living-doc' ? 400 : 200),
+    // Stored at the size the frame renders: never below the kind's minimum
+    // (an API, agent or MCP create can ask for less than the canvas allows).
+    ...clampToKindMin(draft.kind, {
+      width: draft.width ?? (draft.kind === 'webview' ? 520 : draft.kind === 'living-doc' ? 500 : 260),
+      height: draft.height ?? (draft.kind === 'webview' ? 360 : draft.kind === 'living-doc' ? 400 : 200)
+    }),
     zIndex: nextZ(draft.taskId),
     color: draft.color ?? null,
     pinned,
@@ -250,6 +255,13 @@ export function createWidgetIfTaskExists(draft: WidgetDraft): Widget | null {
 
 export function updateWidget(id: string, patch: WidgetPatch): Widget | null {
   const db = getDb()
+  // A resize is stored at the size the frame renders: never below the kind's
+  // minimum, whoever sent it (the canvas already stops there; an API or agent
+  // patch may not).
+  if (patch.width !== undefined || patch.height !== undefined) {
+    const kindRow = db.prepare('SELECT kind FROM widgets WHERE id = ?').get(id) as { kind: string } | undefined
+    if (kindRow) patch = clampToKindMin(kindRow.kind, patch)
+  }
   const fields: string[] = []
   const params: Record<string, unknown> = { id, now: Date.now() }
   const cols: Array<[keyof WidgetPatch, string]> = [

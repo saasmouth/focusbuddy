@@ -137,18 +137,22 @@ test('(a) Tidy > Square grid resizes widgets to fill their cell, no overlaps', a
   const after = await widgetRects(window, ids)
   const [w0, w1, w2, w3] = ids.map((id) => after[id])
 
-  // Column 0 = w0,w2 (widest 150); column 1 = w1,w3 (widest 300).
-  // Row 0 = w0,w1 (tallest 100); row 1 = w2,w3 (tallest 250).
+  // A shape is stored at no less than its 180x120 minimum (the size its frame
+  // renders), so the seeds are really w0 180x120, w1 300x120, w2 180x250,
+  // w3 180x120, and Tidy grows from those.
+  // Column 0 = w0,w2 (widest 180); column 1 = w1,w3 (widest 300).
+  // Row 0 = w0,w1 (tallest 120); row 1 = w2,w3 (tallest 250).
   // DEC-040: a widget grows toward its cell but at most 1.25x its natural size
   // (MAX_TIDY_GROWTH), so w3 closes part of the gap instead of being stretched
-  // to the widest/tallest neighbour: 150 -> 188 wide, 100 -> 125 tall.
-  expect(w0.width, 'col0 width = widest in col0').toBe(150)
-  expect(w3.width, 'w3 grew toward col1 width (300), capped at 1.25x: 188').toBe(188)
+  // to the widest/tallest neighbour: 180 -> 225 wide, 120 -> 150 tall.
+  expect(before[ids[0]].height, 'w0 stored at the shape minimum height, not the 100 asked for').toBe(120)
+  expect(w0.width, 'col0 width = widest in col0').toBe(180)
+  expect(w3.width, 'w3 grew toward col1 width (300), capped at 1.25x: 225').toBe(225)
   expect(w1.width, 'w1 stays at its own (already max) width').toBe(300)
   expect(w2.height, 'row1 height = tallest in row1').toBe(250)
-  expect(w3.height, 'w3 grew toward row1 height (250), capped at 1.25x: 125').toBe(125)
-  expect(w0.height, 'w0 stays at row0 tallest (100)').toBe(100)
-  expect(w1.height, 'w1 stays at row0 tallest (100)').toBe(100)
+  expect(w3.height, 'w3 grew toward row1 height (250), capped at 1.25x: 150').toBe(150)
+  expect(w0.height, 'w0 stays at row0 tallest (120)').toBe(120)
+  expect(w1.height, 'w1 stays at row0 tallest (120)').toBe(120)
 
   // No pairwise overlap among the 4 resized widgets.
   const rects = [w0, w1, w2, w3]
@@ -165,7 +169,7 @@ test('(a) Tidy > Square grid resizes widgets to fill their cell, no overlaps', a
 // ---------------------------------------------------------------------------
 // (b) Flow (default Tidy pill button): a row is filled edge to edge.
 // ---------------------------------------------------------------------------
-test('(b) FloatingPill Tidy (default flow) puts the row on one line, growing each widget toward the row at most 1.25x', async () => {
+test('(b) FloatingPill Tidy (default flow) puts the row on one line at a uniform height, growing each widget at most 1.25x', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -194,16 +198,18 @@ test('(b) FloatingPill Tidy (default flow) puts the row on one line, growing eac
   const rects = ids.map((id) => after[id])
 
   // All 3 items land on one row (the canvas is wide). Each grows toward the
-  // row's leftover width and its tallest member (150), but DEC-040 caps growth
-  // at 1.25x natural (MAX_TIDY_GROWTH): the old "uniform row height" stretched
-  // a short widget to its tallest neighbour, which is what the operator asked
-  // tidy to stop doing. Exact sizes, from grow(natural, cell):
-  //   w0 200x120 -> 250x150   w1 250x90 -> 313x113   w2 180x150 -> 225x150
+  // row's leftover width and its tallest member (150), capped by DEC-040 at
+  // 1.25x natural (MAX_TIDY_GROWTH). w1 asked for 90 tall but is stored at the
+  // shape minimum it renders at, 120, so it grows from 120 and the row comes out
+  // level. Exact sizes, from grow(natural, cell):
+  //   w0 200x120 -> 250x150   w1 250x120 -> 313x150   w2 180x150 -> 225x150
+  // (Before the store clamped to the minimum, w1 grew from an unseen 90 to 113
+  // while its frame showed 120.)
   const ys = new Set(rects.map((r) => r.y))
   expect(ys.size, 'all 3 fit on a single row').toBe(1)
   expect(rects.map((r) => [r.width, r.height]), 'each grew toward the row, capped at 1.25x').toEqual([
     [250, 150],
-    [313, 113],
+    [313, 150],
     [225, 150]
   ])
 
@@ -241,6 +247,9 @@ test('(c) Tidy > Square grid of six resizes into an aligned 3x2 grid with no ove
     { title: 'w5', x: 1700, y: 650, w: 120, h: 90 }
   ])
   await openTask(window, /Tidy resize rows test/)
+  // What is stored (and rendered) before tidy: each seed raised to the shape
+  // minimum, 180x120, where it asked for less.
+  const before = await widgetRects(window, ids)
 
   await tidyWith(window, 'square')
   await window.waitForTimeout(500)
@@ -254,14 +263,15 @@ test('(c) Tidy > Square grid of six resizes into an aligned 3x2 grid with no ove
   const ys = new Set(rects.map((r) => r.y))
   expect(ys.size, 'two rows').toBe(2)
 
-  // Every widget that shares w1's column (width 200) grew to 200; every widget
-  // in w3's row (height 200) grew to 200 — direct evidence the grid actually
-  // resized to fill cells, not just repositioned.
-  for (const r of rects) {
-    expect(r.width, 'no widget shrank below its own natural width').toBeGreaterThanOrEqual(120)
-    expect(r.height, 'no widget shrank below its own natural height').toBeGreaterThanOrEqual(90)
-  }
-  const grew = rects.some((r) => r.width > 120 || r.height > 90)
+  // Nothing shrank from its stored size, and at least one widget grew toward its
+  // cell (w1's 200-wide column, w3's 200-tall row) — direct evidence the grid
+  // resized to fill cells, not just repositioned. Measured against what was
+  // stored before tidy, so the minimum clamp alone can never satisfy it.
+  ids.forEach((id, i) => {
+    expect(after[id].width, `w${i} did not shrink below its stored width`).toBeGreaterThanOrEqual(before[id].width)
+    expect(after[id].height, `w${i} did not shrink below its stored height`).toBeGreaterThanOrEqual(before[id].height)
+  })
+  const grew = ids.some((id) => after[id].width > before[id].width || after[id].height > before[id].height)
   expect(grew, 'at least one widget grew to fill its cell').toBe(true)
 
   // No overlaps across all 6 resized widgets.
@@ -319,13 +329,14 @@ test('(d) Tidy does not resize a section widget, only repositions loose widgets'
   // The two loose widgets were still resized/repositioned normally. The section
   // is placed by tidy too (just never resized), so three items make one row
   // (balancedColumns(3) = 3): each widget is the sole occupant of its column, so
-  // keeps its own width; the row is as tall as the section's frame, so each
-  // 90px widget grows toward it, capped by DEC-040 at 1.25x: 113.
+  // keeps its own width; the row is as tall as the empty section's frame (140).
+  // The widgets asked for 90 tall but are stored at the shape minimum, 120 (w1's
+  // 120 width likewise becomes 180), and each grows toward 140 (cap 150): 140.
   const others = await widgetRects(window, ids)
   expect(others[ids[0]].width, 'loose widget w0 kept its own column width').toBe(300)
-  expect(others[ids[1]].width, 'loose widget w1 kept its own column width').toBe(120)
-  expect(others[ids[0]].height, 'w0 grew toward the section-tall row, capped at 1.25x (113)').toBe(113)
-  expect(others[ids[1]].height, 'w1 grew toward the section-tall row, capped at 1.25x (113)').toBe(113)
+  expect(others[ids[1]].width, 'loose widget w1 kept its own column width (shape minimum 180)').toBe(180)
+  expect(others[ids[0]].height, 'w0 grew from 120 to the section-tall row (140)').toBe(140)
+  expect(others[ids[1]].height, 'w1 grew from 120 to the section-tall row (140)').toBe(140)
 
   await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible()
 })
