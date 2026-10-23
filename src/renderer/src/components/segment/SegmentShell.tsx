@@ -76,7 +76,7 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
   // area, exactly like the global Desk sidebar. Its state persists per reload.
   const { minimized, minimize, restore } = useMinimizable('fb.segmentMenu.minimized')
   // The shell's test id is its KIND (segment-plexibrain), never its wordmark:
-  // it was derived from the display wordmark, so the Plexi -> Plexii rename
+  // it was derived from the display wordmark, so the product-name respelling
   // (0066db39) silently turned segment-plexibrain into segment-plexiibrain and
   // left brainIngest, brainSyncPrune and plexiPeople waiting on an id that no
   // longer existed. Display names change; ids do not (lexicon rule).

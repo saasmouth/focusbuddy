@@ -349,7 +349,7 @@ export default function SnippetEmbed({
         <div
           // Absolute within this embed, so it is correct at any container size
           // and cannot escape into the page.
-          className="absolute right-0 top-0 z-10 inline-flex items-center gap-1 rounded-bl-[var(--radius-row)] border-b border-l border-[var(--edge-soft)] bg-[var(--surface-raised)]/95 px-1.5 py-0.5 text-[11px] shadow-sm backdrop-blur-sm"
+          className="absolute right-0 top-0 z-10 inline-flex items-center gap-1 rounded-bl-[var(--radius-row)] border-b border-l border-[var(--edge-soft)] bg-[var(--surface-raised)] px-1.5 py-0.5 text-[11px] shadow-sm backdrop-blur-sm"
           data-testid="snippet-embed-chrome"
         >
           <Icon name={snippetKindIcon(snippet.kind)} size={12} className="text-[var(--ink-40)]" />
