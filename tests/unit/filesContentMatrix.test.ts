@@ -10,7 +10,7 @@
 // the plan, the choice of forms here, and 2e's builders cannot drift apart
 // without this failing.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { convertForms } from '../../src/shared/snippetConvert'
 import { formsOf, PDF_FIRST_PAGE, type Form } from '../../src/shared/snippetForms'
 import { REASON } from '../../src/shared/snippetConvert/common'
@@ -30,6 +30,20 @@ import {
 import type { FileDragRef } from '../../src/shared/filesDragPayload'
 import type { SnippetKind } from '../../src/shared/snippets'
 import * as F from './snippetConvertFixtures'
+import { formsOfSheet } from '../../src/shared/snippetForms/fromSheet'
+import { sheetFromXlsxBytes } from '../../src/main/sheetXlsxRead'
+import { plainWorkbook } from './xlsxDropFixtures'
+
+// The main-process reader is driven in-process with a real workbook; its file
+// store is not reached (the bytes are handed to it).
+vi.mock('../../src/main/db/files', () => ({ getFile: () => null, readFileBytes: async () => null }))
+
+/** What the drop reader makes of a real .xlsx: its first sheet's forms (filesDragForms readWorkbook). */
+function xlsxForms(): Form[] {
+  const r = sheetFromXlsxBytes(plainWorkbook())
+  if (!r.ok) throw new Error(r.reason)
+  return formsOfSheet(r.body, F.DEPS, { app: 'the original file' })
+}
 
 // ── Sources: a ref, and what the reader would have read for it ──────────────
 
@@ -60,6 +74,7 @@ const SRC: Record<string, Source> = {
   audio: { ref: file('m4a', 'memo.m4a', 'audio/mp4', 900_000), content: {} },
   md: { ref: file('md1', 'notes.md', 'text/markdown', 40), content: { sizeBytes: 40, text: '# Notes\n\nShip **today**.\n' } },
   csv: { ref: file('csv1', 'scores.csv', 'text/csv', CSV.length), content: { sizeBytes: CSV.length, text: CSV } },
+  xlsx: { ref: file('xlsx1', 'scores.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 9000), content: { sizeBytes: 9000, docForms: xlsxForms() } },
   txt: { ref: file('txt1', 'todo.txt', 'text/plain', 20), content: { sizeBytes: 20, text: 'Buy milk\nCall Ada' } },
   generic: { ref: file('zip1', 'bundle.zip', 'application/zip', 9000), content: {} },
   folder: { ref: { entryId: 'dir1', kind: 'folder', name: 'Brand assets' }, content: {} }
@@ -115,7 +130,7 @@ const MATRIX: Record<ContentTarget, Row> = {
   doc: {
     image: [C, L], svg: [C, L], pdf: [L, C],
     write: [L, C], cells: [L, C], deck: [L, C], design: [L, C], draw: [L, C], diagram: [L, C], widget: [L, C],
-    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
+    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], xlsx: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
   },
   // PlexiiDeck: content, never a link; what it cannot hold is refused with where it can go.
   slide: {
@@ -123,7 +138,7 @@ const MATRIX: Record<ContentTarget, Row> = {
     write: [C, C], cells: [C, C], deck: [C, C], design: [C, C], draw: [C, C], diagram: [C, C], widget: [C, C],
     video: [cannot('PlexiiDeck', 'a video file'), cannot('PlexiiDeck', 'a video file')],
     audio: [cannot('PlexiiDeck', 'an audio file'), cannot('PlexiiDeck', 'an audio file')],
-    md: [C, C], csv: [C, C], txt: [C, C],
+    md: [C, C], csv: [C, C], xlsx: [C, C], txt: [C, C],
     generic: [cannot('PlexiiDeck', 'this kind of file'), cannot('PlexiiDeck', 'this kind of file')],
     folder: [folderTo('PlexiiDeck'), folderTo('PlexiiDeck')]
   },
@@ -132,7 +147,7 @@ const MATRIX: Record<ContentTarget, Row> = {
     write: [C, C], cells: [C, C], deck: [C, C], design: [C, C], draw: [C, C], diagram: [C, C], widget: [C, C],
     video: [cannot('PlexiiDesign', 'a video file'), cannot('PlexiiDesign', 'a video file')],
     audio: [cannot('PlexiiDesign', 'an audio file'), cannot('PlexiiDesign', 'an audio file')],
-    md: [C, C], csv: [C, C], txt: [C, C],
+    md: [C, C], csv: [C, C], xlsx: [C, C], txt: [C, C],
     generic: [cannot('PlexiiDesign', 'this kind of file'), cannot('PlexiiDesign', 'this kind of file')],
     folder: [folderTo('PlexiiDesign'), folderTo('PlexiiDesign')]
   },
@@ -142,7 +157,7 @@ const MATRIX: Record<ContentTarget, Row> = {
     write: [C, C], cells: [C, C], deck: [C, C], design: [C, C], draw: [C, C], diagram: [C, C], widget: [C, C],
     video: [cannot('PlexiiDraw', 'a video file'), cannot('PlexiiDraw', 'a video file')],
     audio: [cannot('PlexiiDraw', 'an audio file'), cannot('PlexiiDraw', 'an audio file')],
-    md: [C, C], csv: [C, C], txt: [C, C],
+    md: [C, C], csv: [C, C], xlsx: [C, C], txt: [C, C],
     generic: [cannot('PlexiiDraw', 'this kind of file'), cannot('PlexiiDraw', 'this kind of file')],
     folder: [folderTo('PlexiiDraw'), folderTo('PlexiiDraw')]
   },
@@ -151,7 +166,7 @@ const MATRIX: Record<ContentTarget, Row> = {
     write: [C, C], cells: [C, C], deck: [C, C], design: [C, C], draw: [C, C], diagram: [C, C], widget: [C, C],
     video: [cannot('PlexiiDiagrams', 'a video file'), cannot('PlexiiDiagrams', 'a video file')],
     audio: [cannot('PlexiiDiagrams', 'an audio file'), cannot('PlexiiDiagrams', 'an audio file')],
-    md: [C, C], csv: [C, C], txt: [C, C],
+    md: [C, C], csv: [C, C], xlsx: [C, C], txt: [C, C],
     generic: [cannot('PlexiiDiagrams', 'this kind of file'), cannot('PlexiiDiagrams', 'this kind of file')],
     folder: [folderTo('PlexiiDiagrams'), folderTo('PlexiiDiagrams')]
   },
@@ -167,7 +182,7 @@ const MATRIX: Record<ContentTarget, Row> = {
     diagram: [R(REASON.cellsNoPictures), R(REASON.cellsNoPictures)],
     widget: [C, C],
     video: [R(REASON.cellsFiles), R(REASON.cellsFiles)], audio: [R(REASON.cellsFiles), R(REASON.cellsFiles)],
-    md: [C, C], csv: [C, C], txt: [C, C],
+    md: [C, C], csv: [C, C], xlsx: [C, C], txt: [C, C],
     generic: [R(REASON.cellsFiles), R(REASON.cellsFiles)],
     folder: [folderTo('PlexiiCells'), folderTo('PlexiiCells')]
   },
@@ -175,25 +190,25 @@ const MATRIX: Record<ContentTarget, Row> = {
   page: {
     image: [C, L], svg: [C, L], pdf: [L, C],
     write: [L, C], cells: [L, C], deck: [L, C], design: [L, C], draw: [L, C], diagram: [L, C], widget: [L, C],
-    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
+    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], xlsx: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
   },
   markdown: {
     image: [C, L], svg: [C, L], pdf: [L, C],
     write: [L, C], cells: [L, C], deck: [L, C], design: [L, C], draw: [L, C], diagram: [L, C], widget: [L, C],
-    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
+    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], xlsx: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
   },
   // Stickies and notes hold text: pictures are refused, links become "title (href)".
   sticky: {
     // ⌥ copies the WORDS (the fixture drawing has text; a PDF page has none, so its link stays).
     image: [R(STICKY_PICTURES()), L], svg: [R(STICKY_PICTURES()), L], pdf: [L, L],
     write: [L, C], cells: [L, C], deck: [L, C], design: [L, C], draw: [L, C], diagram: [L, C], widget: [L, C],
-    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
+    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], xlsx: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
   },
   note: {
     // ⌥ copies the WORDS (the fixture drawing has text; a PDF page has none, so its link stays).
     image: [R(NOTE_PICTURES()), L], svg: [R(NOTE_PICTURES()), L], pdf: [L, L],
     write: [L, C], cells: [L, C], deck: [L, C], design: [L, C], draw: [L, C], diagram: [L, C], widget: [L, C],
-    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
+    video: [L, L], audio: [L, L], md: [C, L], csv: [C, L], xlsx: [C, L], txt: [C, L], generic: [L, L], folder: [L, L]
   },
   // A table work widget takes rows. A .md or .txt file is its lines, one per
   // row (as in PlexiiCells); the plan's stricter "csv/tsv only" cell would
@@ -206,19 +221,19 @@ const MATRIX: Record<ContentTarget, Row> = {
     draw: [R(TABLE_NO_PICTURES), R(TABLE_NO_PICTURES)], diagram: [R(TABLE_NO_PICTURES), R(TABLE_NO_PICTURES)],
     widget: [C, C],
     video: [R(REASON.tableFile), R(REASON.tableFile)], audio: [R(REASON.tableFile), R(REASON.tableFile)],
-    md: [C, C], csv: [C, C], txt: [C, C],
+    md: [C, C], csv: [C, C], xlsx: [C, C], txt: [C, C],
     generic: [R(REASON.tableFile), R(REASON.tableFile)],
     folder: [folderTo('a table work widget'), folderTo('a table work widget')]
   },
   // An image work widget takes a picture; a document's or a PDF's only with ⌥.
-  // A sheet (a Cells document with ⌥, or a CSV) is a picture of its table.
+  // A sheet (a Cells document with ⌥, a CSV or an Excel workbook) is a picture of its table.
   image: {
     image: [C, C], svg: [C, C], pdf: [R(IMAGE_NEEDS_PICTURE), C],
     write: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], cells: [R(IMAGE_NEEDS_PICTURE), C],
     deck: [R(IMAGE_NEEDS_PICTURE), C], design: [R(IMAGE_NEEDS_PICTURE), C], draw: [R(IMAGE_NEEDS_PICTURE), C], diagram: [R(IMAGE_NEEDS_PICTURE), C],
     widget: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
     video: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], audio: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
-    md: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], csv: [C, C], txt: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
+    md: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)], csv: [C, C], xlsx: [C, C], txt: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
     generic: [R(IMAGE_NEEDS_PICTURE), R(IMAGE_NEEDS_PICTURE)],
     folder: [folderTo('an image work widget'), folderTo('an image work widget')]
   }

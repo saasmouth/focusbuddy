@@ -174,3 +174,21 @@ describe('xlsx export → SheetJS import round-trip', () => {
     expect(freeze['Plain']).toBeUndefined() // no pane written, none invented
   })
 })
+
+describe('numbers under a format import as their true value', () => {
+  // Excel's formatted text ("$1,234.50", "25%") is text to the formula engine,
+  // which counts it as 0 in arithmetic; a percent format would show "25%" as 2500%.
+  it('currency, percent and thousands keep the number; the format shows it', () => {
+    const ws = XLSX.utils.aoa_to_sheet([[1234.5, 0.25, 1234567, 'x']])
+    ws['A1'].z = '"$"#,##0.00'
+    ws['B1'].z = '0%'
+    ws['C1'].z = '#,##0'
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'S')
+    const back = XLSX.read(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer', cellFormula: true, cellNF: true, cellText: true })
+    const tab = worksheetToTab(back.Sheets.S, 'S')
+    expect(tab.rows[0]).toEqual(['1234.5', '0.25', '1234567', 'x'])
+    expect(tab.formats?.['0,0']?.numFmt).toMatchObject({ kind: 'currency' })
+    expect(tab.formats?.['0,1']?.numFmt).toMatchObject({ kind: 'percent' })
+  })
+})

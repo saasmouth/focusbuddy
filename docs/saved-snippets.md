@@ -170,7 +170,22 @@ image work widget) take the picture. It shows what the cells display
 alignment, merges and the sheet's column widths where a whole document is
 dropped, cuts long cells short with an ellipsis, and draws at most 60 rows
 by 16 columns, saying "Showing the first 60 rows of 250." past that. A sheet
-with no text has no picture, so Draw refuses it as empty.
+with no text has no picture, so Draw refuses it as empty. The table forms
+(rows, a table, markdown, text) show values under their number formats too
+(`shownRows`), so a price reads $1.50 in Write and Deck as it does in the grid.
+
+An Excel workbook (.xlsx, .xlsm) dropped from Files is a sheet as well. The
+main process reads it (`files:readSheet`, `main/sheetXlsxRead.ts`, with the
+same SheetJS worksheet step as Cells' Import) into the first sheet's snippet
+body: values, formulas (live, except one that reads another sheet, which
+keeps the value Excel saved), number formats, bold, italic, underline,
+alignment and RGB colours, merges and column widths. Only an id crosses IPC;
+the row's type, a 10 MB cap, a 100,000-cell cap and a 200 MB unpacked cap are
+checked in main, and a password-protected or damaged workbook is refused with
+why. What the body does not keep is detected in the package and said only
+when present: "First sheet of 3.", charts, pictures, shapes, pivot tables,
+comments, conditional formatting, data validation, macros
+(`shared/xlsxSheet.ts`, `snippetForms/lossy.ts`).
 
 Insertion runs `insertIntoOffice`: a snippet of the host's own kind goes to
 the target's own insert untouched; any other kind is converted with

@@ -17,8 +17,12 @@
 //   the content (a PDF's first page, a document's slide or rows), and the link
 //   only as the last resort, so its refusal names somewhere it can go.
 //
-//   CONTENT FILES (pictures, SVG, .md .txt .csv .tsv .json) are what you put
-//   in: they land as their content, and ⌥ makes a link instead.
+//   CONTENT FILES (pictures, SVG, .md .txt .csv .tsv .json, and Excel
+//   workbooks .xlsx .xlsm) are what you put in: they land as their content,
+//   and ⌥ makes a link instead. A workbook is its first sheet, read in the
+//   main process into PlexiiCells' own sheet body (shared/xlsxSheet.ts), so it
+//   lands as a Cells range would: a real table in Cells, Write, Deck and
+//   Design, a picture of the table where only pictures go.
 //
 // Every refusal and notice line is plain, British, with no em dashes.
 
@@ -29,6 +33,7 @@ import { markdownLiteToNodes } from './snippetForms/markdownLite'
 import { looksLikeHeader, paragraphNode, rowsToGfm, rowsToTableNode } from './snippetForms/rows'
 import { sheetPicture } from './snippetForms/sheetPicture'
 import { sourceKindOf, type FileDragRef, type FileSourceKind } from './filesDragPayload'
+import { NOTICE_WORKBOOK_LINK, XLSX_DROP_MAX_BYTES, workbookTooLarge } from './xlsxSheet'
 
 // ── Lines ────────────────────────────────────────────────────────────────────
 
@@ -101,7 +106,7 @@ export function isReferenceKind(k: FileSourceKind): boolean {
 
 /** Does this kind need the file's bytes to make its content (so missing bytes matter)? */
 export function needsBytes(k: FileSourceKind): boolean {
-  return k === 'image' || k === 'svg' || k === 'pdf' || k === 'text'
+  return k === 'image' || k === 'svg' || k === 'pdf' || k === 'text' || k === 'sheet'
 }
 
 // ── The link ─────────────────────────────────────────────────────────────────
@@ -202,8 +207,13 @@ export interface FileContent {
   svg?: { text: string; width: number; height: number }
   /** The text of a text-like file. */
   text?: string
-  /** A document's or work widget file's own forms (formsOf its snippet body), native first. */
+  /**
+   * A document's or work widget file's own forms (formsOf its snippet body),
+   * native first. For an Excel workbook, the forms of its first sheet's body.
+   */
   docForms?: Form[]
+  /** An Excel workbook that could not be read as a table: why, verbatim, and whether only its size stood in the way. */
+  sheetRefused?: { reason: string; tooLarge: boolean }
 }
 
 const TEXT_EXT = /\.([a-z0-9]+)$/i
@@ -277,6 +287,7 @@ export function contentForms(ref: FileDragRef, content: FileContent): Form[] {
       return content.text === undefined ? [] : textFileForms(ref, content.text)
     case 'office-doc':
     case 'widget':
+    case 'sheet':
       return content.docForms ?? []
     default:
       return []
@@ -346,6 +357,14 @@ export function formsForTarget(ref: FileDragRef, content: FileContent, o: Target
   if (!isReferenceKind(kind)) {
     // Content files: the content; ⌥ makes a link where links are held.
     if (alt && holdsLinks) return { forms: [link] }
+    if (kind === 'sheet') {
+      // A workbook that could not be read is refused with why. One that is
+      // only too large is a link where links are held, said so, as a too-long
+      // text file is.
+      const size = content.sizeBytes ?? 0
+      const r = content.sheetRefused ?? (size > XLSX_DROP_MAX_BYTES ? { reason: workbookTooLarge(size), tooLarge: true } : undefined)
+      if (r) return r.tooLarge && holdsLinks ? { forms: [linkForm(ref, [NOTICE_WORKBOOK_LINK])] } : { forms: [], refused: r.reason }
+    }
     return { forms: content_.length ? content_ : [link] }
   }
 

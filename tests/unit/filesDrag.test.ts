@@ -111,6 +111,7 @@ describe('Files drag payload', () => {
     expect(sourceKindOf({ ...img, mimeType: 'video/mp4', ext: 'mp4' })).toBe('video')
     expect(sourceKindOf({ ...img, mimeType: 'audio/mpeg', ext: 'mp3' })).toBe('audio')
     expect(sourceKindOf({ ...img, mimeType: 'text/csv', ext: 'csv' })).toBe('text')
+    expect(sourceKindOf({ ...img, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ext: 'xlsx' })).toBe('sheet')
     expect(sourceKindOf({ ...img, mimeType: 'application/zip', ext: 'zip' })).toBe('generic')
     expect(sourceKindOf(folder)).toBe('folder')
     expect(sourceKindOf(doc)).toBe('office-doc')

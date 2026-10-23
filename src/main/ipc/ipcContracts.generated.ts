@@ -198,6 +198,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'files:open': [{ kind: 'string', optional: false, nullable: false }],
   'files:openExternal': [{ kind: 'string', optional: false, nullable: false }],
   'files:read': [{ kind: 'string', optional: false, nullable: false }],
+  'files:readSheet': [{ kind: 'string', optional: false, nullable: false }],
   'files:suggestTags': [{ kind: 'string', optional: false, nullable: false }],
   'files:thumbnail': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'flows:create': [{ kind: 'object', optional: false, nullable: false }],

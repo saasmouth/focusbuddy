@@ -23,6 +23,7 @@ import { toDiagram } from './snippetConvert/toDiagram'
 import { toDraw } from './snippetConvert/toDraw'
 import { toWidget } from './snippetConvert/toWidget'
 import { DEST_APP, SOURCE_APP, type ConvertVerb } from './snippetConvert/common'
+import { tidyNotes } from './snippetForms/lossy'
 
 export type { ConvertDeps, DrawImport, DrawPicture, Form, FormKind, SheetEvaluation } from './snippetForms'
 export type { ConvertVerb } from './snippetConvert/common'
@@ -113,7 +114,7 @@ export function convertForms(forms: Form[], to: SnippetKind, deps: ConvertDeps =
 /** One plain line saying a snippet or paste was converted, from its lossy list. Null when it landed as itself. */
 export function conversionNotice(from: SnippetKind | null, to: SnippetKind, lossy: string[]): string | null {
   if (from === to) return null
-  const lines = [...new Set(lossy.map((l) => l.trim()).filter(Boolean))]
+  const lines = tidyNotes(lossy)
   if (lines.length) return lines.join(' ')
   return from ? `Converted from ${SOURCE_APP[from]} for ${DEST_APP[to]}.` : null
 }

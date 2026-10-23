@@ -77,6 +77,7 @@ const DESK_ROUTE: Record<FileSourceKind, { route: PlacementRoute; widgetKind?: W
   video: { route: 'file-widget', widgetKind: 'file' },
   audio: { route: 'file-widget', widgetKind: 'file' },
   text: { route: 'file-widget', widgetKind: 'file' },
+  sheet: { route: 'file-widget', widgetKind: 'file' },
   generic: { route: 'file-widget', widgetKind: 'file' },
   folder: { route: 'drive-widget', widgetKind: 'drive' }
 }

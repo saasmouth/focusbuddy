@@ -32,6 +32,7 @@ const SAMPLE: Record<FileSourceKind, FileDragRef> = {
   video: { entryId: 'vid', kind: 'file', name: 'demo.mp4', mimeType: 'video/mp4', ext: 'mp4', sizeBytes: 9000 },
   audio: { entryId: 'aud', kind: 'file', name: 'memo.m4a', mimeType: 'audio/mp4', ext: 'm4a', sizeBytes: 9000 },
   text: { entryId: 'csv', kind: 'file', name: 'rows.csv', mimeType: 'text/csv', ext: 'csv', sizeBytes: 20 },
+  sheet: { entryId: 'xlsx', kind: 'file', name: 'Budget.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ext: 'xlsx', sizeBytes: 9000 },
   generic: { entryId: 'zip', kind: 'file', name: 'bundle.zip', mimeType: 'application/zip', ext: 'zip', sizeBytes: 9000 },
   folder: { entryId: 'dir', kind: 'folder', name: 'Plans' }
 }
@@ -47,6 +48,7 @@ const EXPECTED: Record<PlacementTarget, Record<FileSourceKind, { route: string; 
     video: { route: 'file-widget', widgetKind: 'file' },
     audio: { route: 'file-widget', widgetKind: 'file' },
     text: { route: 'file-widget', widgetKind: 'file' },
+    sheet: { route: 'file-widget', widgetKind: 'file' },
     generic: { route: 'file-widget', widgetKind: 'file' },
     folder: { route: 'drive-widget', widgetKind: 'drive' }
   },

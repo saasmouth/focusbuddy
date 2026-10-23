@@ -14,6 +14,7 @@ import type { FormsRead } from './clipboardForms'
 import type { TargetOptions } from '@shared/fileForms'
 import { composeDropNotice } from './filesDrop'
 import { useNoticeStore } from '../stores/notice'
+import { tidyNotes } from '@shared/snippetForms/lossy'
 
 /** How long the drop's line stays (the conversion notice's own duration). */
 const DROP_NOTICE_MS = 9000
@@ -104,7 +105,7 @@ function interpret(r: PasteOutcome | SnippetInsertResult): { landed: boolean; re
 export function dropLine(outcomes: ItemOutcome[]): string | null {
   const placed = outcomes.filter((o) => o.landed).length
   const refused = outcomes.filter((o) => !o.landed).map((o) => ({ name: o.ref.name, reason: o.reason ?? '' }))
-  const lines = Array.from(new Set(outcomes.flatMap((o) => o.lines).map((l) => l.trim()).filter(Boolean)))
+  const lines = tidyNotes(outcomes.flatMap((o) => o.lines))
   if (outcomes.length === 1) {
     const o = outcomes[0]!
     return o.landed ? (lines.length ? lines.join(' ') : null) : o.reason || null
