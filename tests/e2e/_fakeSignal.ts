@@ -163,3 +163,54 @@ export async function signInWithFakeSignal(
   expect(ok, 'the renderer exposes __fbAccount and __fbMessaging').toBe(true)
   return fake
 }
+
+/**
+ * For specs that sign in with a STUB token through the real deep-link path
+ * (auth:incoming-token) and stub only the routes they assert on. Every other
+ * signal call the signed-in app makes — inbox, conversations, sync, orgs, the
+ * realtime socket — used to go to PRODUCTION with that stub token and get
+ * refused there. This answers them here, exactly as the deployed server
+ * answers an unknown token (focusbuddy-signal at signal-v126):
+ *
+ *  - HTTP: requireAccount fails, the route sets 401 and returns
+ *    `{ ok: false, error: 'Not authenticated.' }` (server.ts requireAccount
+ *    4780; e.g. GET /conversations 7574) — the body 155 of its routes return.
+ *  - Socket: the upgrade is accepted, and `authenticate` with an unknown token
+ *    gets `{ type: 'error', payload: { message: 'Session expired.' } }` and
+ *    nothing else (server.ts 9048-9052).
+ *
+ * Register it FIRST: Playwright tries the most recently added route first, so
+ * the spec's own stubs (accounts/me, capabilities) still answer theirs.
+ */
+export async function answerAsServerForUnknownToken(window: Page): Promise<string[]> {
+  const asked: string[] = []
+  await window.route(
+    (u) => isSignal(u),
+    async (route) => {
+      const req = route.request()
+      asked.push(`${req.method()} ${new URL(req.url()).pathname}`)
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'Not authenticated.' })
+      })
+    }
+  )
+  await window.routeWebSocket(
+    (u) => u.host === API.host,
+    (ws) => {
+      ws.onMessage((raw) => {
+        let msg: { type?: string }
+        try {
+          msg = JSON.parse(String(raw))
+        } catch {
+          return
+        }
+        if (msg.type === 'authenticate') {
+          ws.send(JSON.stringify({ type: 'error', payload: { message: 'Session expired.' } }))
+        }
+      })
+    }
+  )
+  return asked
+}

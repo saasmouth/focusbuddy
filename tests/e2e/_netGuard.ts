@@ -194,6 +194,14 @@ export async function launchGuarded(
     ...options,
     args,
     env: {
+      // Main's own signal base (src/main/ai/creditMode.ts SIGNAL_BASE) defaults
+      // to focusbuddy-signal.fly.dev — production under its other name — and a
+      // spec that signs in through the deep link hands main a real-looking
+      // token, which it used to send there (/ai/credits). Main honours
+      // FB_SIGNAL_URL, so point it at a closed loopback port: the call fails
+      // locally, as it would offline. A spec that runs a local signal server
+      // passes its own FB_SIGNAL_URL and wins.
+      FB_SIGNAL_URL: 'http://127.0.0.1:9',
       ...(options.env ?? {}),
       PLEXII_E2E_NETGUARD_RULES: JSON.stringify(rules.map((r) => r.host)),
       PLEXII_E2E_NETGUARD_LOG: logFile,
