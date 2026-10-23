@@ -579,9 +579,23 @@ if (typeof window !== 'undefined') {
 //
 // The echo of our own write is ignored by revision, not by a flag: the writer
 // already knows the number it just wrote.
+// A document the list does not have yet (created in the main process, or on
+// another device and pulled): refresh the list, coalesced so a burst of creates
+// is one read. Without it the list, which the open-document tray and the hub
+// read, never learnt of the document, and the tray called it gone.
+let listRefresh: ReturnType<typeof setTimeout> | null = null
+function refreshListSoon(): void {
+  if (listRefresh) return
+  listRefresh = setTimeout(() => {
+    listRefresh = null
+    void useDocumentsStore.getState().refresh()
+  }, 150)
+}
+
 if (typeof window !== 'undefined' && window.api?.documents?.onChanged) {
   window.api.documents.onChanged((id, bodyRev) => {
     const s = useDocumentsStore.getState()
+    if (!s.list.some((d) => d.id === id)) refreshListSoon()
     if (s.active?.id !== id) return
     if (s.active.bodyRev === bodyRev) return // our own save, already applied
     // The echo of a write still in flight. It cannot be recognised by its

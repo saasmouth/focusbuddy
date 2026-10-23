@@ -3,6 +3,7 @@ import { useMinimizable } from '../chrome/floatingMenu'
 import DocMentionPicker from './editor/DocMentionPicker'
 import type { DocMentionQuery } from './editor/docMentions'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import { DOC_SURFACE_CLASS } from './editor/surface'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import { buildDocExtensions } from './editor/extensions'
 import { htmlToDocContent } from '../../lib/docHtml'
@@ -456,8 +457,10 @@ export default function DocEditor({
     },
     editorProps: {
       attributes: {
-        class:
-          'prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[60vh] text-[15px] leading-relaxed',
+        // DOC_SURFACE_CLASS carries Write's own surface rules (the empty-
+        // document placeholder, globals.css); the shared .tiptap-editor rules
+        // are the widgets' and never reached this editor.
+        class: `${DOC_SURFACE_CLASS} prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[60vh] text-[15px] leading-relaxed`,
         'data-testid': 'doc-editor-surface'
       },
       // Something dragged out of Files: handled HERE, ahead of ProseMirror's

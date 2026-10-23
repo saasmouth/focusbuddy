@@ -294,6 +294,16 @@ describe('who gets told, and who does not', () => {
     expect(announced.calls).toEqual([])
   })
 
+  it('announces a document being created, at the version it starts at', () => {
+    // A document created in the main process (an AI tool, a widget file, the
+    // API) reaches the renderer's list only through this. Unannounced, the
+    // open-document tray showed it as "Document", struck through as deleted
+    // (rails-tabs-41 shots, Diagrams and Draw).
+    announced.calls = []
+    const doc = createDocument({ docType: 'map', title: 'New diagram' })
+    expect(announced.calls).toEqual([{ id: doc.id, bodyRev: doc.bodyRev }])
+  })
+
   it('announces a document arriving through upsert', () => {
     // The cloud-pull path. An editor sitting open on this document has to hear
     // about it, or it keeps showing a body the server has already replaced.

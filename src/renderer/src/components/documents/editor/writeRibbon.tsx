@@ -16,6 +16,7 @@ import {
 import FontPicker from './FontPicker'
 import { barProps, type OfficeCommand } from '../../../lib/menus/officeCommand'
 import type { WriteCommands } from './writeCommands'
+import { caretFontSize } from './fontSize'
 import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './headingStyles'
 
 // PlexiiWrite on the office shell (SPEC §6.2): the ToolRail items and every
@@ -164,6 +165,7 @@ const homeTab: BarTab<WCtx> = {
         </BarCustom>
         <BarFontSize
           value={fontSize ? Number(fontSize) : undefined}
+          fallback={caretFontSize(editor)}
           presets={FONT_SIZES}
           onChange={(v) => chain(c).setFontSize(`${v}px`).run()}
           onClear={() => chain(c).unsetFontSize().run()}
