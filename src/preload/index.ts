@@ -109,7 +109,10 @@ interface DocCommentDto {
   id: string
   docId: string
   parentId: string | null
+  /** The old mark-based anchor, for comments written before `anchor`. */
   anchorId: string | null
+  /** Where the comment is, as shared/commentAnchor.ts writes it (JSON). */
+  anchor: string | null
   author: string
   body: string
   resolved: boolean
@@ -2455,10 +2458,16 @@ const api = {
       body: string
       author: string
       anchorId?: string | null
+      /** The anchor JSON: a range plus a quote of the commented text. */
+      anchor?: string | null
       parentId?: string | null
     }): Promise<DocCommentDto> => ipcRenderer.invoke('docComments:add', input),
     resolveComment: (id: string, resolved: boolean): Promise<boolean> =>
       ipcRenderer.invoke('docComments:resolve', id, resolved),
+    // Save an anchor that was re-found after the body changed without a
+    // transaction to map through.
+    setCommentAnchor: (id: string, anchor: string | null): Promise<boolean> =>
+      ipcRenderer.invoke('docComments:setAnchor', id, anchor),
     listSnapshots: (docId: string): Promise<DocSnapshotMeta[]> =>
       ipcRenderer.invoke('documents:listSnapshots', docId),
     restoreSnapshot: (snapshotId: string): Promise<FbDocument | null> =>

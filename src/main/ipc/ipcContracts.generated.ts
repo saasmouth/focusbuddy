@@ -132,6 +132,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'docComments:add': [{ kind: 'object', optional: false, nullable: false }],
   'docComments:list': [{ kind: 'string', optional: false, nullable: false }],
   'docComments:resolve': [{ kind: 'string', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }],
+  'docComments:setAnchor': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: true }],
   'documents:create': [{ kind: 'object', optional: false, nullable: false }],
   'documents:delete': [{ kind: 'string', optional: false, nullable: false }],
   'documents:enrich': [{ kind: 'string', optional: false, nullable: false }],
