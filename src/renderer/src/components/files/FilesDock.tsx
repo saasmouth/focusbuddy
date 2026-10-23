@@ -190,12 +190,12 @@ export function FilesFlyout(): JSX.Element | null {
     // shadow, and never reads as part of whatever it covers (the office rail).
     boxShadow: docked
       ? '0 0 0 1px var(--edge-hairline), var(--shadow-cast), var(--shadow-inset-highlight)'
-      : '0 0 0 1px var(--edge-soft), 0 18px 48px -12px rgba(0,0,0,0.38), 0 6px 16px -6px rgba(0,0,0,0.22), var(--shadow-inset-highlight)'
+      : '0 0 0 1px var(--edge-firm), 0 18px 48px -12px rgba(0,0,0,0.38), 0 6px 16px -6px rgba(0,0,0,0.22), var(--shadow-inset-highlight)'
   }
 
   return createPortal(
     <div
-      className={`titlebar-nodrag fb-floating-chrome fixed z-[150] flex rounded-[var(--radius-card)] bg-[var(--surface-raised)] overflow-hidden transition-opacity duration-100 ${
+      className={`titlebar-nodrag fb-floating-chrome fixed z-[95] flex rounded-[var(--radius-card)] bg-[var(--surface-raised)] overflow-hidden transition-opacity duration-100 ${
         sheet && dragging ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={style}

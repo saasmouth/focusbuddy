@@ -182,7 +182,9 @@ export function syncLayout(
   stored: WorkcentreLayout | null | undefined,
   objects: { id: string; preferred: { w: number; h: number } }[],
   cols: number,
-  mins: Mins = {}
+  mins: Mins = {},
+  /** New objects dropped at a cell (Files drops): placed there with moveTile instead of first fit. */
+  pending: Record<string, { x: number; y: number }> = {}
 ): WorkcentreLayout {
   const present = new Set(objects.map((o) => o.id))
   const storedCols = stored?.cols && stored.cols > 0 ? stored.cols : cols
@@ -190,6 +192,9 @@ export function syncLayout(
     .filter(([id]) => present.has(id))
     .map(([id, t]) => clampTile({ id, ...t }, storedCols, mins[id]))
   tiles = reflow(tiles, storedCols, cols, mins)
+  // Every present object with a pending cell, new or already tiled (the
+  // layout may have synced once between the create and the request).
+  const dropped = objects.filter((o) => pending[o.id]).map((o) => o.id)
   for (const o of objects) {
     if (tiles.some((t) => t.id === o.id)) continue
     const size = clampTile({ id: o.id, x: 0, y: 0, ...o.preferred }, cols, mins[o.id])
@@ -197,6 +202,10 @@ export function syncLayout(
     tiles.push({ ...size, ...at })
   }
   tiles = compact(tiles)
+  // A tile dropped at a cell claims it: neighbours are pushed down, as when a
+  // tile is moved there by hand. Later drops of the same gesture are applied
+  // first, so the first item ends at the drop cell and the rest flow below it.
+  for (const id of [...dropped].reverse()) tiles = moveTile(tiles, id, pending[id]!, cols, mins)
   return { cols, items: Object.fromEntries(tiles.map(({ id, ...t }) => [id, t])) }
 }
 

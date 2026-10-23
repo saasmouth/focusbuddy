@@ -11,8 +11,11 @@
 //   offers the dock (a snap preview) and docks on release.
 // - Default position: top right, under the header, away from the bottom
 //   corners where the feature-spotlight and local-AI cards take clicks.
-// - z-index 215: above desk chrome, below dialogs, the notice toast and the
-//   onboarding cards.
+// - z-index 99: above everything the desk and the office apps draw (their
+//   own layers stop at 70), below every menu and popover opened from the
+//   chrome (100 and up: the desk view selector is 130), the assistant (120),
+//   dialogs, the notice toast and the onboarding cards. At 215 (the plan's
+//   number) a header menu opened UNDER it; the flyout is 95 for the same reason.
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -160,18 +163,18 @@ export default function FilesFloat(): JSX.Element | null {
         <div
           aria-hidden="true"
           data-testid="files-float-snap"
-          className="fixed z-[214] left-[10px] w-[320px] rounded-[var(--radius-card)] border-2 border-dashed border-[rgb(var(--accent)/0.6)] bg-[rgb(var(--accent)/0.08)] pointer-events-none"
+          className="fixed z-[98] left-[10px] w-[320px] rounded-[var(--radius-card)] border-2 border-dashed border-[rgb(var(--accent)/0.6)] bg-[rgb(var(--accent)/0.08)] pointer-events-none"
           style={{ top: HEADER_BOTTOM + 10, bottom: 10 }}
         />
       )}
       <div
-        className="titlebar-nodrag fb-floating-chrome fixed z-[215] flex flex-col rounded-[var(--radius-card)] bg-[var(--surface-raised)] overflow-hidden"
+        className="titlebar-nodrag fb-floating-chrome fixed z-[99] flex flex-col rounded-[var(--radius-card)] bg-[var(--surface-raised)] overflow-hidden"
         style={{
           left: rect.x,
           top: rect.y,
           width: rect.w,
           height: rect.h,
-          boxShadow: '0 0 0 1px var(--edge-soft), 0 22px 56px -14px rgba(0,0,0,0.42), 0 6px 18px -6px rgba(0,0,0,0.24), var(--shadow-inset-highlight)'
+          boxShadow: '0 0 0 1px var(--edge-firm), 0 22px 56px -14px rgba(0,0,0,0.42), 0 6px 18px -6px rgba(0,0,0,0.24), var(--shadow-inset-highlight)'
         }}
         data-testid="files-float"
         role="dialog"

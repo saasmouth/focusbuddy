@@ -7,6 +7,10 @@ import Icon from '../Icon'
 import { useWidgetStore } from '../../stores/widgets'
 import { useViewStore } from '../../stores/view'
 import { useFileManagerStore } from '../../stores/fileManager'
+import { useOrgStore } from '../../stores/org'
+import { FILES_DRAG_MIME, readFilesDrag, refFromEntry, setFilesDragImage, writeFilesDrag } from '../../lib/filesDrag'
+import { moveFilesInto } from '../../lib/filesDrop'
+import { useNoticeStore } from '../../stores/notice'
 
 interface Props {
   widget: Widget
@@ -92,9 +96,26 @@ export default function DriveWidget({ widget, inline = false }: Props): JSX.Elem
     await refresh()
   }
 
+  /** What this drive takes: things from Files (moved in) and Finder files (saved in). */
+  const takes = (dt: DataTransfer): boolean => dt.types.includes(FILES_DRAG_MIME) || dt.types.includes('Files')
+
   async function handleDrop(e: React.DragEvent): Promise<void> {
-    e.preventDefault()
     setDropping(false)
+    // Only the drops it takes: anything else (a palette kind, a link) falls
+    // through to the desk, which places it beside this drive.
+    if (!takes(e.dataTransfer)) return
+    e.preventDefault()
+    if (e.dataTransfer.types.includes(FILES_DRAG_MIME)) {
+      const read = readFilesDrag(e.dataTransfer)
+      if (!read.ok) {
+        if (read.reason) useNoticeStore.getState().show({ text: read.reason, icon: 'info' })
+        return
+      }
+      // Moved into the bound folder (one undo); a folder into itself is refused.
+      await moveFilesInto(read.payload.refs, parentId)
+      await refresh()
+      return
+    }
     const dropped = Array.from(e.dataTransfer.files ?? [])
     if (dropped.length) await ingestInto(dropped)
   }
@@ -126,6 +147,7 @@ export default function DriveWidget({ widget, inline = false }: Props): JSX.Elem
         dropping ? 'ring-2 ring-accent ring-inset' : ''
       }`}
       onDragOver={(e) => {
+        if (!takes(e.dataTransfer)) return
         e.preventDefault()
         setDropping(true)
       }}
@@ -177,6 +199,13 @@ export default function DriveWidget({ widget, inline = false }: Props): JSX.Elem
             {entries.map((e) => (
               <button
                 key={e.id}
+                draggable
+                onDragStart={(ev) => {
+                  // A drive row drags like a Files row: onto the desk, a folder, another drive.
+                  const refs = [refFromEntry(e, useOrgStore.getState().activeOrgId)]
+                  writeFilesDrag(ev.dataTransfer, refs, 'drive-widget')
+                  setFilesDragImage(ev.dataTransfer, refs)
+                }}
                 onClick={() => {
                   if (e.kind === 'folder') {
                     // Drill into a subfolder inside the widget.

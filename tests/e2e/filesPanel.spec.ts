@@ -421,3 +421,37 @@ for (const theme of ['light', 'dark'] as const) {
     }
   })
 }
+
+test('FP-10 menus opened from the chrome sit ABOVE the flyout (the desk view selector)', async () => {
+  test.setTimeout(90_000)
+  const { window, seed } = await boot()
+  await goDesk(window, seed.taskId)
+  await window.locator('[data-testid="files-panel-toggle"]').click()
+  await expect(window.locator('[data-testid="files-flyout"]')).toBeVisible()
+  await window.locator('[data-testid="view-selector-btn"]').first().click()
+  const opt = window.locator('[data-testid="view-opt-workcentre"]')
+  await expect(opt).toBeVisible()
+  // Hit-tested, not just visible: toBeVisible passes on a covered element.
+  const onTop = await opt.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+    return !!hit && (hit === el || el.contains(hit))
+  })
+  expect(onTop, 'the flyout covers the view selector menu').toBe(true)
+  await opt.click({ timeout: 5_000 })
+  await expect(window.locator('[data-testid="workcentre-view"]')).toBeVisible()
+})
+
+test('FP-11 the folder path button opens and closes its menu (a second click closes it)', async () => {
+  test.setTimeout(60_000)
+  const { window, seed } = await boot()
+  await goDesk(window, seed.taskId)
+  await window.locator('[data-testid="files-panel-toggle"]').click()
+  const path = window.locator('[data-testid="files-panel-path"]')
+  await path.click()
+  await expect(window.locator('[data-testid="files-panel-path-menu"]')).toBeVisible()
+  await expect(path).toHaveAttribute('aria-expanded', 'true')
+  await path.click()
+  await expect(window.locator('[data-testid="files-panel-path-menu"]')).toHaveCount(0)
+  await expect(path).toHaveAttribute('aria-expanded', 'false')
+})

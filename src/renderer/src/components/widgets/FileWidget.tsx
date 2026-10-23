@@ -14,6 +14,8 @@ import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { fileSrc } from '../../lib/fileUrl'
 import { useSiteIcon } from '../../lib/siteIcon'
 import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
+import { readFilesDrag } from '../../lib/filesDrag'
+import { useNoticeStore } from '../../stores/notice'
 
 interface Props {
   widget: Widget
@@ -81,6 +83,18 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
   async function handleDrop(e: React.DragEvent): Promise<void> {
     e.preventDefault()
     setDropping(false)
+    // One file from Files: this widget shows THAT row (a reference, never a
+    // re-ingested copy). Folders and several items are the desk's to place.
+    const fromFiles = readFilesDrag(e.dataTransfer)
+    if (fromFiles.ok) {
+      const refs = fromFiles.payload.refs
+      if (refs.length === 1 && refs[0]!.kind === 'file') {
+        void update(widget.id, { content: refs[0]!.entryId, title: refs[0]!.name })
+      } else {
+        useNoticeStore.getState().show({ text: 'An empty file work widget takes one file. Drop the rest on the desk.', icon: 'info' })
+      }
+      return
+    }
     // A drag of a URL (e.g. dragged from the browser tab strip) shows up as
     // dataTransfer.types containing 'text/uri-list' or 'text/plain'.
     const text =
