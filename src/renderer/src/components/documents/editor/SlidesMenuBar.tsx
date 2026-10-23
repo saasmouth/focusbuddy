@@ -24,6 +24,14 @@ export interface SlidesMenuActions {
   canRedo: boolean
   /** False while editing a single-slide fragment (a slide snippet): slide-level items are disabled. */
   slideOps?: boolean
+  /**
+   * False when the deck on screen is not a document (a slide snippet session).
+   * The File menu's document items act on the documents store's ACTIVE document,
+   * which is then some other document: Make a copy would copy it, Rename would
+   * rename it, Move to trash would trash it, and New would create a row. All are
+   * disabled; Download (a file, no row) stays.
+   */
+  documentOps?: boolean
   present: () => void
   checkA11y: () => void
   newSlide: () => void
@@ -103,12 +111,12 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
       id: 'file',
       label: 'File',
       build: () => [
-        { kind: 'item', label: 'New presentation', icon: 'note_add', run: () => void newDeck() },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy() },
+        { kind: 'item', label: 'New presentation', icon: 'note_add', run: () => void newDeck(), disabled: a.documentOps === false },
+        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy(), disabled: a.documentOps === false },
         { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) } },
-        { kind: 'item', label: 'Import (.pptx)', icon: 'upload', run: a.importFile },
+        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename, disabled: a.documentOps === false },
+        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) }, disabled: a.documentOps === false },
+        { kind: 'item', label: 'Import (.pptx)', icon: 'upload', run: a.importFile, disabled: a.documentOps === false },
         {
           kind: 'submenu',
           label: 'Download',
@@ -119,7 +127,7 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
           ]
         },
         { kind: 'sep' },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash() }
+        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash(), disabled: a.documentOps === false }
       ]
     },
     {

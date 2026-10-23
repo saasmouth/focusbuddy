@@ -606,7 +606,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     }
   }
   async function importFile(): Promise<void> {
-    if (readOnly) return
+    if (readOnly || singleSlide) return
     setStatus('Importing…')
     try {
       const res = await window.api.slides.import()
@@ -971,6 +971,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             canUndo: undo.current.length > 0,
             canRedo: redo.current.length > 0,
             slideOps: !singleSlide,
+            documentOps: !singleSlide,
             present: () => setPresenting(true),
             checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
             newSlide: () => addSlideFromTemplate('blank'),
@@ -1197,8 +1198,11 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             />
             )}
           </div>
-          {/* Speaker notes stay under the canvas (owner ruling, SPEC §6.4). */}
-          <div className="max-w-3xl mx-auto mt-3">
+          {/* Speaker notes stay under the canvas (owner ruling, SPEC §6.4). Not in
+              a single-slide session: a slide snippet is a fragment of elements
+              with nowhere to keep notes, so a notes box there would take text a
+              successful Save then drops. */}
+          {!singleSlide && <div className="max-w-3xl mx-auto mt-3">
             <label htmlFor="slides-notes" className="block text-[11px] uppercase tracking-wide text-[var(--ink-40)] mb-1">Speaker notes</label>
             <textarea
               id="slides-notes"
@@ -1211,7 +1215,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               placeholder="What to actually say on this slide"
               className="fb-field w-full bg-[var(--surface-raised)] px-3 py-2 text-[13px] resize-none"
             />
-          </div>
+          </div>}
         </div>
       </OfficeShellLayout>
 

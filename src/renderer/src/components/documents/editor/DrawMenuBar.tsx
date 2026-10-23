@@ -20,6 +20,14 @@ export interface DrawMenuActions {
   insert: () => MenuItem[]
   arrange: () => MenuItem[]
   help: () => MenuItem[]
+  /**
+   * False when the diagram on screen is not a document (a diagram snippet
+   * session). The document items below act on the documents store's ACTIVE
+   * document, which is then some other document: Make a copy would copy it,
+   * Rename rename it, Move to trash trash it, New create a row. All are
+   * disabled; the editor's own import/export items stay.
+   */
+  documentOps?: boolean
 }
 
 export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): JSX.Element {
@@ -65,16 +73,16 @@ export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): 
       id: 'file',
       label: 'File',
       build: () => [
-        { kind: 'item', label: 'New diagram', icon: 'note_add', run: () => void newDiagram() },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy() },
+        { kind: 'item', label: 'New diagram', icon: 'note_add', run: () => void newDiagram(), disabled: a.documentOps === false },
+        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy(), disabled: a.documentOps === false },
         { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) } },
+        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename, disabled: a.documentOps === false },
+        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) }, disabled: a.documentOps === false },
         { kind: 'sep' },
         ...a.file(),
         { kind: 'sep' },
-        { kind: 'item', label: 'Start a meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Diagram meeting' }) },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash() }
+        { kind: 'item', label: 'Start a meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Diagram meeting' }), disabled: a.documentOps === false },
+        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash(), disabled: a.documentOps === false }
       ]
     },
     { id: 'edit', label: 'Edit', build: a.edit },
