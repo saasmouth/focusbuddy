@@ -28,6 +28,7 @@ import {
   localAnchorFor,
   positionText,
   resolveForEditor,
+  upgradeAnchorForCollab,
   yjsAnchorFor,
   yjsCandidate
 } from '../../src/renderer/src/components/documents/editor/commentPositions'
@@ -196,5 +197,91 @@ describe('a live anchor survives what an offset cannot', () => {
     ])
     expect(ranges).toHaveLength(0)
     expect(orphans[0]!.reason).toBe('missing')
+  })
+})
+
+// ── Upgrading a local anchor once the room is bound ─────────────────────────
+// A live document really does acquire local anchors: yjsAnchorFor returns null
+// before the binding exists, so a comment left in the gap between the editor
+// mounting and the room syncing is anchored by offsets — which go stale the
+// first time another peer types in front of them.
+
+describe('upgradeAnchorForCollab converts only what it has verified', () => {
+  it('converts a local anchor that still holds its quote, and the result survives concurrency', () => {
+    const a = peer(new Y.Doc())
+    a.editor.commands.setContent(`<p>${TEXT}</p>`)
+    const b = peer(new Y.Doc())
+    sync(a, b)
+
+    const at = positionText(a.editor.state.doc).indexOf('second clause')
+    const local = localAnchorFor(a.editor, at, at + 'second clause'.length)
+    const live = upgradeAnchorForCollab(a.editor, local)
+    expect(live?.kind).toBe('yjs')
+    expect(live!.quote?.text).toBe('second clause')
+
+    // The thing the upgrade was for: another peer types in front of it, and the
+    // upgraded anchor is BELIEVED where the local one would have been re-found.
+    b.editor.commands.setTextSelection(1)
+    b.editor.commands.insertContent('Another sentence from somebody else. ')
+    sync(a, b)
+    const { ranges } = resolveForEditor(a.editor, [{ id: 'c1', anchor: live }])
+    expect(ranges[0]!.corrected).toBeUndefined()
+    expect(textAt(a, ranges[0]!.from, ranges[0]!.to)).toBe('second clause')
+  })
+
+  it('converts a DRIFTED anchor at the text it re-found, not at its stale range', () => {
+    const a = peer(new Y.Doc())
+    a.editor.commands.setContent(`<p>${TEXT}</p>`)
+    const at = positionText(a.editor.state.doc).indexOf('second clause')
+    const local = localAnchorFor(a.editor, at, at + 'second clause'.length)
+    // The body gains text in front, by a path with no transaction: the stored
+    // range now points at the wrong words.
+    a.editor.commands.setContent(`<p>A sentence added in front. ${TEXT}</p>`)
+    expect(textAt(a, local.from, local.to)).not.toBe('second clause')
+
+    const live = upgradeAnchorForCollab(a.editor, local)
+    expect(live, 'drift is re-found, not refused').not.toBeNull()
+    const { ranges } = resolveForEditor(a.editor, [{ id: 'c1', anchor: live }])
+    expect(textAt(a, ranges[0]!.from, ranges[0]!.to)).toBe('second clause')
+  })
+
+  it('refuses an ORPHAN rather than baking a guess into relative positions', () => {
+    const a = peer(new Y.Doc())
+    a.editor.commands.setContent(`<p>${TEXT}</p>`)
+    const at = positionText(a.editor.state.doc).indexOf('second clause')
+    const local = localAnchorFor(a.editor, at, at + 'second clause'.length)
+    a.editor.commands.setContent('<p>Replaced with something else entirely.</p>')
+    expect(upgradeAnchorForCollab(a.editor, local)).toBeNull()
+  })
+
+  it('refuses an anchor with NO QUOTE, which is blind by definition', () => {
+    const a = peer(new Y.Doc())
+    a.editor.commands.setContent(`<p>${TEXT}</p>`)
+    // Conversion is irreversible — a relative position references an item, so
+    // afterwards there is nothing left to check it against. An unverifiable
+    // range keeps working as a local anchor instead.
+    expect(upgradeAnchorForCollab(a.editor, { kind: 'local', from: 5, to: 18 })).toBeNull()
+  })
+
+  it('refuses when there is no binding, and does nothing to an already-live anchor', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const plain = new Editor({
+      element: host,
+      extensions: [Document, Paragraph, Text, CommentDecorations],
+      content: `<p>${TEXT}</p>`
+    })
+    const at = positionText(plain.state.doc).indexOf('second clause')
+    const local = localAnchorFor(plain, at, at + 'second clause'.length)
+    expect(upgradeAnchorForCollab(plain, local)).toBeNull()
+    plain.destroy()
+    host.remove()
+
+    const a = peer(new Y.Doc())
+    a.editor.commands.setContent(`<p>${TEXT}</p>`)
+    const live = yjsAnchorFor(a.editor, 5, 18)!
+    expect(upgradeAnchorForCollab(a.editor, live), 'already live: nothing to convert').toBeNull()
+    expect(upgradeAnchorForCollab(a.editor, null)).toBeNull()
+    expect(upgradeAnchorForCollab(a.editor, 'not an anchor')).toBeNull()
   })
 })
