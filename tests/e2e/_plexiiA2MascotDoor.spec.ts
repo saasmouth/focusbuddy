@@ -1,11 +1,21 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { launchApp, suppressFeatureSpotlights, waitForReady } from './_helpers'
 
 // A2 mascot door (AI-01, R11): the assistant panel's composer is the third
 // door. A bare URL diverts Enter to the in-app browser with a visible
 // preview; take-me-to navigates to a real desk; a question grows no chrome
 // and stays pure chat. Throwaway; delete when A2 closes.
 const OUT = process.env.SHOT_DIR ?? '/tmp'
+
+// The bottom-right feature-spotlight card ("New: Rooms, Desks and Plans")
+// docks exactly over the assistant pill and the docked composer, and is
+// offered on the first boot after core onboarding, which for these tests is
+// the boot after the reload. Since 5ef579b2 it waits for a 750ms quiet window
+// (useInterruptionClear) before mounting, so it now arrives after
+// waitForReady's one-shot dismiss and intercepted the pill and composer
+// clicks (call log: feature-spotlight-popup "subtree intercepts pointer
+// events"). Marking the tours seen before the reload keeps it away, as the
+// app does once a person has seen them.
 
 test('plexii A2 mascot door: the composer previews, diverts, and stays chat-first', async () => {
   const launched = await launchApp()
@@ -18,6 +28,7 @@ test('plexii A2 mascot door: the composer previews, diverts, and stays chat-firs
     const api = (window as unknown as { api: { nodes: { create: (d: unknown) => Promise<unknown> } } }).api
     await api.nodes.create({ parentId: null, kind: 'task', title: 'Wedding desk' })
   })
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
 
@@ -67,6 +78,7 @@ test('plexii A2 pills: Home bar and composer modes act and stick', async () => {
   await waitForReady(window)
   await window.setViewportSize({ width: 1440, height: 900 })
   await window.evaluate((t) => localStorage.setItem('fb.theme.mode', t), process.env.SHOT_THEME ?? 'dark')
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
 

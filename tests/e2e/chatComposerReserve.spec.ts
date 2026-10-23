@@ -26,8 +26,17 @@ test('the transcript reserves whatever height the composer actually takes', asyn
   // The overlaid composer appears as soon as the transcript has content:
   // fullscreenHome is `isFullscreen && messages.length === 0`. Sending one turn
   // is the state every real conversation is in.
-  await window.getByRole('button', { name: /^Plexii$/ }).first().click()
-  const composer = window.locator('[data-testid="chat-composer"]').first()
+  //
+  // Into the Plexii hub. It used to be a "Plexii" row in the side menu;
+  // cb832f33 (4.3.25) removed that row so the hub has one door, the wordmark
+  // on the assistant itself (AssistantHeader, assistant-open-hub). The hub
+  // page suppresses the floating assistant, so exactly one ChatPanel is on
+  // screen, as before.
+  await window.locator('[data-testid="assistant-pill"]').click()
+  await window.locator('[data-testid="assistant-open-hub"]').click()
+  await expect(window.locator('[data-testid="assistant-pill"]')).toHaveCount(0)
+  const composer = window.locator('[data-testid="chat-composer"]')
+  await expect(composer).toHaveCount(1)
   await composer.waitFor({ state: 'visible', timeout: 10_000 })
   await composer.click()
   await window.keyboard.type('Tell me about the plan', { delay: 5 })
@@ -49,7 +58,10 @@ test('the transcript reserves whatever height the composer actually takes', asyn
     })
 
   const before = await read()
-  test.skip(!before.docked, 'composer is not docked in this layout, so nothing overlays')
+  // The hub shows the docked composer once the transcript has a message (see
+  // 5d0c1dd5): it must overlay, or this measures nothing. Asserted rather than
+  // skipped, so a layout change cannot turn the check off silently.
+  expect(before.docked, 'the composer is docked over the transcript').toBe(true)
   expect(before.pad, 'the reservation should cover the composer').toBeGreaterThanOrEqual(before.composer)
 
   // Grow the composer the way several wrapped reference chips would.
