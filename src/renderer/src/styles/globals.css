@@ -1931,6 +1931,18 @@ body {
   pointer-events: none;
   height: 0;
 }
+/* PlexiiWrite's empty document says where to type. The Placeholder extension
+   has always set data-placeholder on Write's first paragraph, but the rule
+   above is scoped to .tiptap-editor (the page and markdown widgets), so Write
+   drew nothing: a new document was a bare canvas with no page and no prompt
+   (rails-tabs-41 shots, Write-home.png). */
+.doc-surface p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--ink-40);
+  pointer-events: none;
+  height: 0;
+}
 .tiptap-editor .ProseMirror > *:first-child {
   margin-top: 0;
 }
