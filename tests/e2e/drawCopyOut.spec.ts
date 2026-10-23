@@ -172,6 +172,9 @@ test('CO-4 right-click on the art › Copy runs the same Copy', async () => {
   // Right-clicking an unselected object selects it first, as in Illustrator.
   await window.mouse.click(p.x, p.y, { button: 'right' })
   await expect(window.locator('[data-testid="draw-context-menu"]')).toBeVisible()
+  // A greyed row says why, as the menu bar does (SPEC §9.5): one rectangle is no group.
+  await expect(window.locator('[data-testid="draw-context-object.ungroup"]')).toBeDisabled()
+  await expect(window.locator('[data-testid="draw-context-object.ungroup"]')).toContainText('Select a group to ungroup.')
   const before = readPasteboard().changeCount
   await window.locator('[data-testid="draw-context-edit.copy"]').click()
   await expect(window.locator('[data-testid="draw-context-menu"]')).toHaveCount(0)

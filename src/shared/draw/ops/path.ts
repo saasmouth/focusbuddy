@@ -54,6 +54,11 @@ function orderedPaths(doc: DrawDoc, ids: string[]): DrawPathNode[] {
   return out
 }
 
+/** The paths among `ids` a Pathfinder combines (paths at a vector layer's top level), bottom-most first; fewer than two does nothing. */
+export function pathfinderOperands(doc: DrawDoc, ids: string[]): DrawPathNode[] {
+  return orderedPaths(doc, ids)
+}
+
 /**
  * Combine two or more selected paths. The result inherits the appearance of
  * the BOTTOM-most operand. Non-path nodes in the selection are left untouched

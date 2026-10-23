@@ -15,7 +15,7 @@ import {
   elementText,
   groupElements,
   moveElementsBy,
-  reorderZ,
+  reorderMany,
   setElementText,
   ungroupElements,
   updateElement,
@@ -83,6 +83,7 @@ import type { FindRecord, RecordHit } from '../../lib/recordFind'
 import type { FindOptions } from '../../lib/docFind'
 import { marksForElement } from './design/designFindHighlights'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
@@ -96,6 +97,9 @@ import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
+import { barProps, ctxRow } from '../../lib/menus/officeCommand'
+import { runCommandKey } from '../../lib/menus/commandKeys'
+import { buildDesignCommands, type DesignCommands } from './design/designCommands'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -286,6 +290,7 @@ export default function DesignEditor({
   // Right-click on the page (SPEC §9.3): a frame gets the object menu, the empty
   // page the canvas menu; text being typed in keeps the native text menu.
   const [designMenu, setDesignMenu] = useState<{ x: number; y: number; onElement: boolean } | null>(null)
+  const dcmdsRef = useRef<DesignCommands | null>(null)
   const [snippetDraft, setSnippetDraft] = useState<DesignSnippetBody | null>(null)
   // This mounted editor, as a snippet destination: the same design open in the
   // editor and in a desk widget is two destinations, so the id is the mount.
@@ -747,7 +752,7 @@ export default function DesignEditor({
   }
   function reorderSelected(dir: 'front' | 'backmost' | 'forward' | 'back'): void {
     if (!selectedIds.length) return
-    mutate((s) => selectedIds.reduce((acc, id) => reorderZ(acc, id, dir), s))
+    mutate((s) => reorderMany(s, selectedIds, dir))
   }
   function openDesignMenu(e: React.MouseEvent): void {
     if (readOnly) return
@@ -769,13 +774,7 @@ export default function DesignEditor({
       const t = e.target as HTMLElement | null
       const editing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       const key = e.key.toLowerCase()
-      if (mod && key === 'z') {
-        if (editing) return
-        e.preventDefault()
-        if (e.shiftKey) redo()
-        else undo()
-        return
-      }
+      // ⌘Y also redoes (E-13: ⇧⌘Z is the Redo shown, run from the registry below).
       if (mod && key === 'y') {
         if (editing) return
         e.preventDefault()
@@ -812,29 +811,17 @@ export default function DesignEditor({
         }
       }
 
-      if (mod && key === 'd') {
+      // Every keyed Design command, from its definition (design/designCommands,
+      // lib/menus/commandKeys): the key a menu or the ribbon shows is the key
+      // that runs it, and a command that is off is not run. ⌘Z / ⇧⌘Z, ⌘D, ⌫,
+      // ⌘A, ⌘G / ⇧⌘G, ⇧⌘] / ⇧⌘[ and ⌘B / ⌘I / ⌘U all arrive here.
+      const c = dcmdsRef.current
+      if (c && runCommandKey(Object.values(c), e)) {
         e.preventDefault()
-        duplicateSelected()
         return
       }
-      if (mod && key === 'g') {
-        e.preventDefault()
-        if (e.shiftKey) ungroup()
-        else group()
-        return
-      }
-      // ⇧⌘] / ⇧⌘[ by code: Shift turns the key into } and { on most layouts.
-      if (mod && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
-        e.preventDefault()
-        reorderSelected(e.code === 'BracketRight' ? 'front' : 'backmost')
-        return
-      }
-      if (mod && key === 'a' && !e.shiftKey) {
-        e.preventDefault()
-        selectAll()
-        return
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length) {
+      // Forward-delete does what ⌫ does.
+      if (e.key === 'Delete' && selectedIds.length) {
         e.preventDefault()
         deleteSelected()
       }
@@ -1210,6 +1197,10 @@ export default function DesignEditor({
     update({ elements: els, brandApplied: true })
   }
 
+  // Print… prints what Download ▸ PDF saves: the same design, every page at its
+  // own size (main renders both through designPrintRender).
+  usePrintSource(documentOps, () => ({ app: 'design', title: title || 'design', design }))
+
   async function exportAs(format: 'png' | 'pdf', printMarks = false): Promise<void> {
     setBusy(printMarks ? 'Exporting print PDF…' : `Exporting ${format.toUpperCase()}…`)
     setStatus(null)
@@ -1491,7 +1482,34 @@ export default function DesignEditor({
   // tabs call (SPEC §6.3, owner ruling D1). The tabs are declarative; all the
   // document knowledge stays here, where it already was.
   const selectedEls = (design.elements ?? []).filter((e) => selectedIds.includes(e.id))
+  // The shared actions, defined once (design/designCommands): the ribbon, the
+  // menu bar and the right-click menu render from this record.
+  const firstText = selectedEls[0]?.type === 'text' ? selectedEls[0] : null
+  const dcmds = buildDesignCommands({
+    selected: selectedIds.length,
+    textMarks: firstText ? (firstText.paragraphs[0]?.runs[0] ?? {}) : null,
+    grouped: canvasElements.some((el) => selectedIds.includes(el.id) && el.groupId),
+    canPaste: clipboard.hasClip,
+    undo,
+    redo,
+    cut: clipboard.cut,
+    copy: clipboard.copy,
+    paste: clipboard.paste,
+    duplicate: duplicateSelected,
+    remove: deleteSelected,
+    selectAll,
+    group,
+    ungroup,
+    reorder: reorderSelected,
+    saveSnippet: saveSelectionAsSnippet,
+    insertSnippet: () => setSnippetLibraryOpen(true),
+    toggleMark: (m) => barCtx.cmd.patchText({ [m]: !firstText?.paragraphs[0]?.runs[0]?.[m] }),
+    removeBackground: () => void removeBgSelected(),
+    addPage
+  })
+  dcmdsRef.current = dcmds
   const barCtx: DesignCtx = {
+    cmds: dcmds,
     design,
     selected: selectedEls,
     first: selectedEls[0] ?? null,
@@ -1544,10 +1562,9 @@ export default function DesignEditor({
       distribute,
       group,
       ungroup,
-      order: (dir) => {
-        const id = selectedIds[0]
-        if (id) mutate((sl) => reorderZ(sl, id, dir))
-      },
+      // The same reorder as the keys and right-click: every selected frame, in
+      // its own order (it used to move only the first one).
+      order: reorderSelected,
       duplicate: duplicateSelected,
       remove: deleteSelected,
       saveSnippet: saveSelectionAsSnippet,
@@ -1615,6 +1632,7 @@ export default function DesignEditor({
           documentOps={documentOps}
           actions={{
             title,
+            cmds: dcmds,
             undo,
             redo,
             deleteSelected,
@@ -2070,8 +2088,8 @@ export default function DesignEditor({
                   28x28 everywhere else, carried a `title` and no accessible
                   name, and showed no shortcut. Found by d8's cross-app style
                   report, where it was the only divergence across six apps. */}
-              <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={past.length === 0} onClick={undo} testid="design-undo" />
-              <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={future.length === 0} onClick={redo} testid="design-redo" />
+              <BarButton {...barProps(dcmds.undo)} disabled={past.length === 0} onClick={undo} testid="design-undo" />
+              <BarButton {...barProps(dcmds.redo)} disabled={future.length === 0} onClick={redo} testid="design-redo" />
             </>
           }
           rightSlot={
@@ -2289,27 +2307,22 @@ export default function DesignEditor({
           items={
             designMenu.onElement
               ? objectMenu({
-                  cut: clipboard.cut,
-                  copy: clipboard.copy,
-                  paste: clipboard.paste,
-                  canPaste: clipboard.hasClip,
-                  duplicate: duplicateSelected,
-                  bringToFront: () => reorderSelected('front'),
-                  sendToBack: () => reorderSelected('backmost'),
-                  group: selectedIds.length >= 2 ? group : undefined,
-                  ungroup: canvasElements.some((el) => selectedIds.includes(el.id) && el.groupId) ? ungroup : undefined,
-                  saveAsSnippet: saveSelectionAsSnippet,
-                  more: [
-                    { label: 'Bring forward', icon: 'arrow_upward', onClick: () => reorderSelected('forward') },
-                    { label: 'Send backward', icon: 'arrow_downward', onClick: () => reorderSelected('back') }
-                  ],
-                  del: deleteSelected
+                  cut: dcmds.cut,
+                  copy: dcmds.copy,
+                  paste: dcmds.paste,
+                  duplicate: dcmds.duplicate,
+                  bringToFront: dcmds.bringToFront,
+                  sendToBack: dcmds.sendToBack,
+                  group: selectedIds.length >= 2 ? dcmds.group : undefined,
+                  ungroup: dcmds.ungroup.enabled?.() ? dcmds.ungroup : undefined,
+                  saveAsSnippet: dcmds.saveSnippet,
+                  more: [ctxRow(dcmds.bringForward), ctxRow(dcmds.sendBackward)],
+                  del: dcmds.remove
                 })
               : canvasMenu({
-                  paste: clipboard.paste,
-                  canPaste: clipboard.hasClip,
-                  insertSnippet: () => setSnippetLibraryOpen(true),
-                  selectAll
+                  paste: dcmds.paste,
+                  insertSnippet: dcmds.insertSnippet,
+                  selectAll: dcmds.selectAll
                 })
           }
         />

@@ -6,8 +6,8 @@ import { applyPaintFollow, artboardResizeOffset, planPaintFollow, primaryArtboar
 import { relayPaint } from '../editor/artboards'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 import { documentCommand } from '../editor/session'
+import { writableGate } from './gate'
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 
 export const menus: MenuSpec[] = [
   { path: 'document', label: 'Document', order: 50 },
@@ -56,13 +56,13 @@ export const commands: Command[] = [
     label: 'Artboard size…',
     icon: 'aspect_ratio',
     menu: { path: 'document', order: 100 },
-    enabled: writable,
+    ...writableGate,
     run: (ctx) => ctx.set({ dialog: { id: 'artboard-size' } })
   },
   {
     id: 'document.resize',
     label: 'Resize artboard',
-    enabled: writable,
+    ...writableGate,
     run: (ctx, args) => {
       const { w, h, anchor } = args as { w: number; h: number; anchor?: ArtboardAnchor }
       return resizeArtboardTo(ctx, w, h, anchor ?? 'nw')
@@ -73,7 +73,7 @@ export const commands: Command[] = [
       id: `document.background.${b.id}`,
       label: b.label,
       menu: { path: 'document/Background', order: i },
-      enabled: writable,
+      ...writableGate,
       run: (ctx) => ctx.history.commit(setArtboardBackground(ctx.doc(), b.paint), 'Background')
     })
   ),

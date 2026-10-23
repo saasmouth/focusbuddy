@@ -2928,6 +2928,16 @@ export interface SheetTab {
     source: { columns: string[]; rows: string[][] }
     steps: unknown[]
   }
+  // Page setup (4.3.41). Both optional, and absent means today's behaviour, so a
+  // sheet saved before them prints exactly as one saved after with the defaults.
+  // Read by Print… and Download ▸ PDF (lib/sheetPrintModel.ts); set by the page
+  // setup UI through lib/sheetPageSetup.ts.
+  /** Print the cell gridlines. Absent = true. */
+  showGridlines?: boolean
+  /** The A1 range to print (e.g. "A1:H40"). Absent = the used range. */
+  printArea?: string
+  /** Rows printed at the top of every page, as an A1 row range ("1:2"). Absent = none. */
+  repeatRows?: string
 }
 
 export interface SheetBodyV2 {

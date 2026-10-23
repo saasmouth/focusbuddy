@@ -2,6 +2,8 @@ import type { Graph, Sel } from '@shared/diagram/ops'
 import CanvasContextMenu, { type CtxMenuItem } from '../../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../../lib/menus/officeContextMenu'
 import { hint } from '../../../lib/menus/menuAction'
+import { ctxRow } from '../../../lib/menus/officeCommand'
+import { buildDiagramCommands } from './diagramCommands'
 import type { Commands } from './commands'
 
 // Right-click menu for shapes, lines and the empty canvas: the kit's menu in
@@ -39,8 +41,11 @@ export function ContextMenu({
   const nodes = page.nodes.filter((n) => sel.nodes.has(n.id))
   const locked = nodes.some((n) => n.locked) || page.edges.some((e) => sel.edges.has(e.id) && e.locked)
   const grouped = nodes.some((n) => n.groupId)
-  const paste = (): void => void navigator.clipboard?.readText().then((t) => cmd.paste(dataFromText(t))).catch(() => cmd.paste(null))
-  const lock: CtxMenuItem = { label: locked ? 'Unlock' : 'Lock', icon: locked ? 'lock_open' : 'lock', shortcut: hint(['shift', 'mod', 'l']), onClick: cmd.toggleLock }
+  // The same paste as ⌘V and Edit › Paste (commands.pasteFromClipboard).
+  // The same definitions as the menu bar and the ribbon (diagramCommands).
+  const c = buildDiagramCommands({ cmd, nodes: nodes.length, edges: page.edges.filter((e) => sel.edges.has(e.id)).length, locked, grouped, openFind: () => undefined })
+  const paste = c.paste
+  const lock = ctxRow(c.lock)
 
   const items: CtxMenuItem[] =
     target.kind === 'pane'
@@ -51,10 +56,10 @@ export function ContextMenu({
             { label: 'Add text here', icon: 'title', onClick: () => cmd.addShape('note', { center: target.flow, edit: true }) },
             { label: 'Add a box here', icon: 'crop_square', onClick: () => cmd.addShape('process', { center: target.flow, edit: true }) }
           ],
-          selectAll: cmd.selectAll,
+          selectAll: c.selectAll,
           view: [
             { label: 'Tidy connections', icon: 'cleaning_services', onClick: () => void cmd.tidyConnections() },
-            { label: 'Fit page', icon: 'fit_screen', shortcut: hint(['shift', '1']), onClick: cmd.fit }
+            ctxRow(c.fit)
           ]
         })
       : target.kind === 'edge'
@@ -74,7 +79,7 @@ export function ContextMenu({
               }
             ],
             more: [lock],
-            del: cmd.deleteSelection
+            del: c.remove
           })
         : objectMenu({
             object: [
@@ -87,29 +92,22 @@ export function ContextMenu({
                 hint: nodes.length !== 1 ? 'Select one shape' : undefined
               }
             ],
-            cut: () => document.execCommand('cut'),
-            copy: () => document.execCommand('copy'),
+            cut: c.cut,
+            copy: c.copy,
             paste,
-            duplicate: cmd.duplicate,
-            bringToFront: () => cmd.order('front'),
-            sendToBack: () => cmd.order('back'),
-            group: nodes.length > 1 ? cmd.group : undefined,
-            ungroup: grouped ? cmd.ungroup : undefined,
+            duplicate: c.duplicate,
+            bringToFront: c.bringToFront,
+            sendToBack: c.sendToBack,
+            group: nodes.length > 1 ? c.group : undefined,
+            ungroup: grouped ? c.ungroup : undefined,
             saveAsSnippet: onSaveSnippet,
             more: [
-              { label: 'Copy style', icon: 'format_paint', shortcut: hint(['alt', 'mod', 'c']), onClick: cmd.copyStyle },
-              {
-                label: 'Paste style',
-                icon: 'format_color_fill',
-                shortcut: hint(['alt', 'mod', 'v']),
-                onClick: cmd.pasteStyle,
-                disabled: !cmd.hasStyleClipboard(),
-                hint: cmd.hasStyleClipboard() ? undefined : 'Copy a style first'
-              },
+              ctxRow(c.copyStyle),
+              ctxRow(c.pasteStyle),
               { separator: true },
               lock,
-              { label: nodes.length > 1 ? 'Hide shapes' : 'Hide shape', icon: 'visibility_off', onClick: cmd.hideSelection, testid: 'diagram-ctx-hide' },
-              { label: 'Zoom to shape', icon: 'zoom_in', shortcut: hint(['shift', '2']), onClick: cmd.zoomToSelection },
+              ctxRow(c.hide, { testid: 'diagram-ctx-hide' }),
+              ctxRow(c.zoomToSelection),
               {
                 label: 'Tidy these connections',
                 icon: 'cleaning_services',
@@ -118,14 +116,8 @@ export function ContextMenu({
                 hint: nodes.length < 2 ? 'Select two or more shapes' : undefined
               }
             ],
-            del: cmd.deleteSelection
+            del: c.remove
           })
 
   return <CanvasContextMenu testid="diagram-context-menu" x={x} y={y} items={items} onClose={onClose} />
-}
-
-function dataFromText(text: string): DataTransfer {
-  const dt = new DataTransfer()
-  dt.setData('text/plain', text)
-  return dt
 }

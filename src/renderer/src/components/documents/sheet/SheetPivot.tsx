@@ -16,7 +16,8 @@ interface Props {
   onUpdateSpec: (next: SheetPivotSpec) => void
 }
 
-function fmt(n: number | null): string {
+// Exported for paper: a printed pivot shows its numbers exactly as this table does.
+export function fmt(n: number | null): string {
   if (n === null) return ''
   return Number.isInteger(n) ? String(n) : (Math.round(n * 100) / 100).toString()
 }

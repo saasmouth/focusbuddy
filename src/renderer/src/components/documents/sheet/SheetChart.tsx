@@ -24,7 +24,8 @@ export default function SheetChart({ spec, tab, onRemove }: Props): JSX.Element 
   }
 
   return (
-    <div className="fb-card p-3" data-testid="sheet-chart">
+    // data-chart-id: Print… snapshots this chart's drawing (lib/sheetPrintModel.ts).
+    <div className="fb-card p-3" data-testid="sheet-chart" data-chart-id={spec.id}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-[12px] font-semibold text-[var(--ink-70)]">
           {spec.title || `${spec.type[0].toUpperCase()}${spec.type.slice(1)} chart`}

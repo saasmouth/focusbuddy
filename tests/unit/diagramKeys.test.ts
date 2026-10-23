@@ -5,6 +5,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { shortcutKey } from '../../src/renderer/src/components/documents/diagram/keys'
+import { matchCommand } from '../../src/renderer/src/lib/menus/commandKeys'
 
 const ev = (key: string, code: string, altKey = false) => ({ key, code, altKey })
 
@@ -32,11 +33,14 @@ describe('shortcutKey', () => {
     expect(shortcutKey(ev('Escape', 'Escape'))).toBe('escape')
   })
 
-  it('the diagram key handler uses it, so the style shortcuts can match', () => {
-    const src = readFileSync(join(__dirname, '../../src/renderer/src/components/documents/diagram/commands.ts'), 'utf-8')
-    expect(src).toContain('const k = shortcutKey(e)')
-    expect(src).toContain("if (e.altKey && k === 'c') return cmds.copyStyle(), true")
-    expect(src).toContain("if (e.altKey && k === 'v') return cmds.pasteStyle(), true")
+  it('the registry key matcher reads Option-composed letters too, so ⌥⌘C / ⌥⌘V reach Copy / Paste style', () => {
+    // The style keys run from the command registry now (diagramCommands via
+    // commandKeys), which must match what macOS really sends.
+    const copyStyle = { id: 'dg-copy-style', label: 'Copy style', keys: ['alt', 'mod', 'c'] as const, run: () => undefined }
+    const pasteStyle = { id: 'dg-paste-style', label: 'Paste style', keys: ['alt', 'mod', 'v'] as const, run: () => undefined }
+    const ev = (key: string, code: string) => ({ key, code, metaKey: true, altKey: true })
+    expect(matchCommand([copyStyle, pasteStyle], ev('ç', 'KeyC'), 'darwin')?.id).toBe('dg-copy-style')
+    expect(matchCommand([copyStyle, pasteStyle], ev('√', 'KeyV'), 'darwin')?.id).toBe('dg-paste-style')
   })
 })
 

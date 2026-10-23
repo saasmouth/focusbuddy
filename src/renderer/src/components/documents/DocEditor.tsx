@@ -22,6 +22,7 @@ import {
 } from './editor/headingStyles'
 import DocMenuBar from './editor/DocMenuBar'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
 import { commentIdAt } from './editor/CommentDecorations'
 import WriteChrome from './WriteChrome'
 import SnippetLibrary from '../snippets/SnippetLibrary'
@@ -34,9 +35,27 @@ import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
 import FindReplace from './editor/FindReplace'
 import { registerTextMenuHandler } from '../../lib/textMenuHandlers'
+import { insertLink, type DocDialog } from './editor/docActions'
+import { A11yModal, WordCountModal } from './editor/DocMenuBar'
+import ShortcutsModal from './editor/ShortcutsModal'
+import { buildWriteCommands, type WriteCommands } from './editor/writeCommands'
+import { runCommandKey } from '../../lib/menus/commandKeys'
+
+// The registry ids whose keys Write binds itself. Everything else with a key is
+// bound by somebody else, and the registry now says who:
+//   - TipTap's own keymap: ⌘B / ⌘I / ⌘U, ⌘Z, ⌘A and the clipboard chains, plus
+//     handlePaste's careful work, which this must not take over.
+//   - keyOwner 'menubar': Find ⌘F, Find and replace ⇧⌘H, Print ⌘P and Keyboard
+//     shortcuts ⌘/ are MenuBarShell's window listeners, and matchCommand skips
+//     them so one press cannot fire twice.
+//   - keyOwner 'clipboard': Cut, Copy, Paste are the platform's own events.
+// Which leaves exactly one key for this handler, and ⌘\ is the one PlexiiWrite
+// advertised in its Format menu and bound nowhere.
+const KEY_BOUND_HERE = ['doc-clear-format']
+import { documentCommands, paletteEntries, type OfficeCommand } from '../../lib/menus/officeCommand'
 import { docSidePanes, type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
 import { useDocAi } from './editor/useDocAi'
-import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
+import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import type { Doc as YDoc } from 'yjs'
 import type { Awareness } from 'y-protocols/awareness'
 import Icon from '../Icon'
@@ -320,6 +339,11 @@ export default function DocEditor({
   const [findOpen, setFindOpen] = useState(false)
   // Opened as Find and replace… (⇧⌘H, E-14) rather than Find… (⌘F).
   const [findReplace, setFindReplace] = useState(false)
+  // Word count and the accessibility check, opened from the menu bar (Tools) and the ribbon (Review) alike.
+  const [docDialog, setDocDialog] = useState<DocDialog | null>(null)
+  // Help ▸ Keyboard shortcuts, owned here like Word count and the
+  // accessibility check: the menu bar holds no state of its own.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   // `@` in the document body. The query the extension reports, and a handler
   // the picker registers so Enter picks a mention instead of breaking the line.
   const [mentionQuery, setMentionQuery] = useState<DocMentionQuery | null>(null)
@@ -469,19 +493,34 @@ export default function DocEditor({
         return true
       },
       handleKeyDown(_view, event) {
-        // Not with Option/Alt: ⌥⌘F (Ctrl+Alt+F) opens Files beside, and on Windows
-        // Ctrl+Alt+F must not also open Find.
-        if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'f') {
+        // The keys the registry leaves to this editor, matched against the same
+        // `keys` its menu hints are formatted from — so Write cannot advertise a
+        // key it does not bind. Today that is Clear formatting ⌘\, which the
+        // Format menu advertised and nothing bound.
+        //
+        // Everything else with a key belongs to somebody else, and the registry
+        // says who: TipTap's keymap (⌘B / ⌘I / ⌘U, ⌘Z, ⌘A, and handlePaste's
+        // careful work above), keyOwner 'menubar' (Find ⌘F, Find and replace
+        // ⇧⌘H, Print ⌘P, Keyboard shortcuts ⌘/) or keyOwner 'clipboard'. The
+        // owned ones are skipped here so one press cannot fire twice.
+        //
+        // The document commands join in, which is what binds ⌘P where the host
+        // can print — and they go through the ref because the editor captures
+        // these props once: a stale copy would decide a viewer's keys from
+        // whatever readOnly was at mount.
+        //
+        // ⌥ is excluded by construction, not by hand: modifiers must match
+        // exactly, so ⌥⌘F (Files beside, Ctrl+Alt+F on Windows) cannot also
+        // reach a ⌘F command. Note that leaving ⇧⌘H to the menu bar removed the
+        // accidental shield this handler used to give it — see
+        // tests/unit/writeAdvertisedKeysWin.test.ts and the Highlight extension.
+        const live = commandsRef.current
+        const bound = [
+          ...(live ? KEY_BOUND_HERE.map((id) => live[id]).filter(Boolean) : []),
+          ...docKeysRef.current
+        ]
+        if (runCommandKey(bound, event)) {
           event.preventDefault()
-          setFindOpen(true)
-          return true
-        }
-        // ⇧⌘H Find and replace… (E-14). Taken here, ahead of TipTap Highlight's
-        // unadvertised default for the same key; Highlight stays on the toolbar.
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'h') {
-          event.preventDefault()
-          setFindReplace(true)
-          setFindOpen(true)
           return true
         }
         return false
@@ -502,15 +541,27 @@ export default function DocEditor({
     }
   })
 
+  /**
+   * Open Save selection as snippet… for this editor's selection. One
+   * definition: the Edit menu, the ribbon, the Cmd+K palette and the native
+   * text menu all reach it, and the body it captures existed three times
+   * before — once per surface that offered the action.
+   *
+   * An empty selection still opens the dialog, with an empty body: it then
+   * says there is nothing to save, which is clearer than a control that
+   * appears to do nothing.
+   */
+  function openSaveSnippet(ed: Editor): void {
+    setSnippetDraftBody(docBodyFromSelection(ed) ?? { kind: 'doc', content: [], text: '' })
+  }
+
   // The native text menu's "Save selection as snippet…" (SPEC §9.3 text shape;
   // wp3's textMenuHandlers): on Write's page it saves the rich selection, the
   // same body as Edit › Save selection as snippet…. Ask PlexiiAssist keeps the
   // generic route (the passage quoted in the composer).
   useEffect(() => {
     if (!editor) return
-    return registerTextMenuHandler(editor.view.dom, {
-      saveSnippet: () => setSnippetDraftBody(docBodyFromSelection(editor) ?? { kind: 'doc', content: [], text: '' })
-    })
+    return registerTextMenuHandler(editor.view.dom, { saveSnippet: () => openSaveSnippet(editor) })
   }, [editor])
   editorRef.current = editor
 
@@ -524,19 +575,28 @@ export default function DocEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
-  // Publish this editor's commands to the global palette (Cmd+K) while it is
-  // mounted. Toggles use functional setState so the closures never go stale and
-  // the registry only needs to rebuild when the editor instance changes.
-  useRegisterEditorCommands(
-    'Document',
-    () =>
-      buildDocCommands(editor, {
-        toggleFocus: () => setFocusMode((v) => !v),
-        toggleOutline: () => {
+  // PlexiiWrite's ONE command registry, built in render from this editor's real
+  // functions. The menu bar, the ContextBar ribbon and the Cmd+K palette all
+  // render from it, so an action has one label, one key and one enabled state
+  // everywhere (SPEC §9). Built every render on purpose: `checked` and
+  // `enabled` have to read the live selection and the live view-only flag, and
+  // ~60 small objects cost nothing beside the editor's own render.
+  const commands: WriteCommands | null = editor
+    ? buildWriteCommands({
+        editor,
+        readOnly,
+        title,
+        focusMode: () => setFocusMode((v) => !v),
+        outline: () => {
           setPanelTab('outline')
           setPanelOpen(true)
         },
-        togglePageView: () => setPageView((v) => !v),
+        comments: () => {
+          setPanelTab('comments')
+          setPanelOpen(true)
+        },
+        pageView,
+        setPageView,
         setPortrait: () => {
           updatePageSetup({ orientation: 'portrait' })
           setPageView(true)
@@ -545,19 +605,55 @@ export default function DocEditor({
           updatePageSetup({ orientation: 'landscape' })
           setPageView(true)
         },
-        openFind: () => setFindOpen(true),
+        find: () => setFindOpen(true),
+        findReplace: () => {
+          setFindReplace(true)
+          setFindOpen(true)
+        },
+        dialog: setDocDialog,
+        shortcuts: () => setShortcutsOpen(true),
         draftAi: () => ai.openInsert(),
         rewriteAi: () => ai.openRewrite(),
         insertImage: () => void insertImage(),
-        insertTable: () =>
-          editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
         insertWidget: () => setWidgetPickerOpen(true),
         insertDoc: () => setDocPickerOpen(true),
+        insertSnippet: () => setSnippetLibraryOpen(true),
+        saveSnippet: () => openSaveSnippet(editor),
         importDocx: () => void importDocx(),
         exportDocx: () => void exportDocx(),
         exportPdf: () => void exportPdf()
-      }),
-    [editor]
+      })
+    : null
+
+  // File's document actions, built ONCE here from the host-bound ops. The menu
+  // bar renders these and handleKeyDown matches them, so Print's ⌘P hint and
+  // Print's binding are the same object — a copy built inside the menu bar
+  // would show the hint while nothing bound the key, which is how every other
+  // advertised-but-unbound key in these apps happened.
+  const doc = documentCommands(documentOps, 'doc')
+
+  // The palette reads through a ref so every row runs the CURRENT closures,
+  // while the row LIST is rebuilt when the editor or view-only access changes:
+  // paletteEntries drops whatever is disabled, because a palette row cannot
+  // show why it is off, and that membership depends on readOnly.
+  const commandsRef = useRef<WriteCommands | null>(commands)
+  commandsRef.current = commands
+  // Keyless document actions never match, so passing the whole group costs
+  // nothing and means a key added to one of them is bound the same day.
+  const docKeysRef = useRef<OfficeCommand[]>([])
+  docKeysRef.current = doc ? Object.values(doc) : []
+
+  // Publish this editor's commands to the global palette (Cmd+K) while it is
+  // mounted.
+  // The deps are every input a command's `enabled` reads, not just the editor:
+  // paletteEntries takes a SNAPSHOT, so a dep that is missing here shows a
+  // stale list — Undo absent from ⌘K after the first keystroke made it
+  // possible. `can()` is evaluated each render, which is what makes the
+  // dependency real.
+  useRegisterEditorCommands(
+    'Document',
+    () => (commandsRef.current ? paletteEntries(Object.values(commandsRef.current)) : []),
+    [editor, readOnly, editor?.can().undo(), editor?.can().redo()]
   )
 
   // Let the "/" slash menu's Insert items open these React pickers. The slash
@@ -683,6 +779,10 @@ export default function DocEditor({
       setBusyOffice(null)
     }
   }
+
+  // Print… prints what Download ▸ PDF saves: the same HTML and page setup
+  // (main renders both through writePrintRender), so the page breaks match.
+  usePrintSource(documentOps, () => (editor ? { app: 'write', title, html: editor.getHTML(), page } : null))
 
   async function exportPdf(): Promise<void> {
     if (!editor) return
@@ -870,7 +970,9 @@ export default function DocEditor({
   // early return (Rules of Hooks); the hook does nothing until there is an editor.
   useDocSnippetTarget(editor, scopeClass, title)
 
-  if (!editor) return <div />
+  // `commands` is non-null exactly when `editor` is; guarding both here lets
+  // TypeScript carry that to the menu bar without an assertion.
+  if (!editor || !commands) return <div />
 
   // Continuous flow keeps its comfortable reading measure; page view hands the
   // sheet its own paper width, so the editor body just renders into whichever
@@ -930,6 +1032,9 @@ export default function DocEditor({
 
       <DocBubbleMenu editor={editor} onAiRewrite={ai.openRewrite} />
 
+      {shortcutsOpen && <ShortcutsModal commands={commands} onClose={() => setShortcutsOpen(false)} />}
+      {editor && docDialog === 'wordcount' && <WordCountModal editor={editor} onClose={() => setDocDialog(null)} />}
+      {editor && docDialog === 'a11y' && <A11yModal editor={editor} onClose={() => setDocDialog(null)} />}
       {findOpen && (
         <FindReplace
           editor={editor}
@@ -1108,41 +1213,9 @@ export default function DocEditor({
         <WriteChrome
           editor={editor}
           readOnly={readOnly}
+          commands={commands}
           menuBar={
-            <DocMenuBar
-              editor={editor}
-              title={title}
-              documentOps={documentOps}
-              onInsertImage={() => void insertImage()}
-              onInsertWidget={() => setWidgetPickerOpen(true)}
-              onInsertSnippet={() => setSnippetLibraryOpen(true)}
-              onSaveSnippet={() => {
-                // An empty selection still opens the dialog, with an empty
-                // body: it then says there is nothing to save, which is clearer
-                // than a menu item that appears to do nothing.
-                setSnippetDraftBody(
-                  (editor && docBodyFromSelection(editor)) ?? { kind: 'doc', content: [], text: '' }
-                )
-              }}
-              onExportDocx={() => void exportDocx()}
-              onExportPdf={() => void exportPdf()}
-              onFind={() => setFindOpen(true)}
-              onFindReplace={() => {
-                setFindReplace(true)
-                setFindOpen(true)
-              }}
-              onFocusMode={() => setFocusMode(true)}
-              pageView={pageView}
-              onSetPageView={setPageView}
-              onOutline={() => {
-                setPanelTab('outline')
-                setPanelOpen(true)
-              }}
-              onComments={() => {
-                setPanelTab('comments')
-                setPanelOpen(true)
-              }}
-            />
+            <DocMenuBar commands={commands} doc={doc} />
           }
           styleLabel={styleLabel}
           currentHeadingLevel={currentHeadingLevel}
@@ -1177,20 +1250,7 @@ export default function DocEditor({
             } else setPanelOpen(false)
           }}
           panes={sidePanes}
-          onInsertImage={() => void insertImage()}
-          onInsertWidget={() => setWidgetPickerOpen(true)}
-          onInsertSnippet={() => setSnippetLibraryOpen(true)}
-          onSaveSnippet={() => {
-            // Empty selection still opens the dialog, which then says there
-            // is nothing to save — clearer than a control that does nothing.
-            setSnippetDraftBody(
-              (editor && docBodyFromSelection(editor)) ?? { kind: 'doc', content: [], text: '' }
-            )
-          }}
-          onOpenLink={() => setFindOpen(false)}
-          onImportDocx={() => void importDocx()}
-          onExportDocx={() => void exportDocx()}
-          onExportPdf={() => void exportPdf()}
+          onOpenLink={() => editor && void insertLink(editor)}
           onAskAi={ai.openInsert}
           onOpenAssistant={() => {
             // The one assistant: with a global overlay present, open that,
@@ -1205,10 +1265,7 @@ export default function DocEditor({
               setPanelOpen(true)
             }
           }}
-          onFocusMode={() => setFocusMode(true)}
           onFind={() => setFindOpen((v) => !v)}
-          onWordCount={() => setFindOpen(false)}
-          onA11y={() => setFindOpen(false)}
           marginsPanel={<MarginMenu margin={page.margin} onPick={(m) => updatePageSetup({ margin: m })} />}
           headerFooterPanel={
             <HeaderFooterMenu header={page.header} footer={page.footer} onChange={(patch) => updatePageSetup(patch)} />
@@ -1695,75 +1752,3 @@ function ReadingMeta({ editor }: { editor: Editor }): JSX.Element {
   )
 }
 
-interface DocCommandHandlers {
-  toggleFocus: () => void
-  toggleOutline: () => void
-  togglePageView: () => void
-  setPortrait: () => void
-  setLandscape: () => void
-  openFind: () => void
-  draftAi: () => void
-  rewriteAi: () => void
-  insertImage: () => void
-  insertTable: () => void
-  insertWidget: () => void
-  insertDoc: () => void
-  importDocx: () => void
-  exportDocx: () => void
-  exportPdf: () => void
-}
-
-// The document editor's command catalog, published to the Cmd+K palette. Every
-// formatting, structure, insert, view and Office action lives here so a power
-// user never has to reach for the toolbar, which is the keyboard-first promise
-// Word and Google Docs never delivered.
-function buildDocCommands(editor: Editor | null, h: DocCommandHandlers): EditorCommand[] {
-  if (!editor) return []
-  const chain = (): ReturnType<Editor['chain']> => editor.chain().focus()
-  return [
-    // Format
-    { id: 'doc-bold', label: 'Bold', icon: 'format_bold', shortcut: '⌘B', group: 'Format', keywords: 'strong', run: () => chain().toggleBold().run() },
-    { id: 'doc-italic', label: 'Italic', icon: 'format_italic', shortcut: '⌘I', group: 'Format', keywords: 'emphasis', run: () => chain().toggleItalic().run() },
-    { id: 'doc-underline', label: 'Underline', icon: 'format_underlined', shortcut: '⌘U', group: 'Format', run: () => chain().toggleUnderline().run() },
-    { id: 'doc-strike', label: 'Strikethrough', icon: 'strikethrough_s', group: 'Format', keywords: 'cross out', run: () => chain().toggleStrike().run() },
-    { id: 'doc-code', label: 'Inline code', icon: 'code', group: 'Format', keywords: 'monospace', run: () => chain().toggleCode().run() },
-    { id: 'doc-highlight', label: 'Highlight', icon: 'ink_highlighter', group: 'Format', keywords: 'mark', run: () => chain().toggleHighlight().run() },
-    { id: 'doc-clear-format', label: 'Clear formatting', icon: 'format_clear', group: 'Format', keywords: 'remove strip reset marks', run: () => chain().unsetAllMarks().clearNodes().run() },
-    // Structure
-    { id: 'doc-h1', label: 'Heading 1', icon: 'title', group: 'Style', keywords: 'title big', run: () => chain().toggleHeading({ level: 1 }).run() },
-    { id: 'doc-h2', label: 'Heading 2', icon: 'title', group: 'Style', keywords: 'subheading', run: () => chain().toggleHeading({ level: 2 }).run() },
-    { id: 'doc-h3', label: 'Heading 3', icon: 'title', group: 'Style', keywords: 'subheading', run: () => chain().toggleHeading({ level: 3 }).run() },
-    { id: 'doc-paragraph', label: 'Body text', icon: 'notes', group: 'Style', keywords: 'normal paragraph', run: () => chain().setParagraph().run() },
-    { id: 'doc-bullets', label: 'Bulleted list', icon: 'format_list_bulleted', group: 'Style', keywords: 'unordered', run: () => chain().toggleBulletList().run() },
-    { id: 'doc-numbers', label: 'Numbered list', icon: 'format_list_numbered', group: 'Style', keywords: 'ordered', run: () => chain().toggleOrderedList().run() },
-    { id: 'doc-checklist', label: 'Checklist', icon: 'checklist', group: 'Style', keywords: 'task todo', run: () => chain().toggleTaskList().run() },
-    { id: 'doc-quote', label: 'Quote block', icon: 'format_quote', group: 'Style', keywords: 'blockquote', run: () => chain().toggleBlockquote().run() },
-    { id: 'doc-codeblock', label: 'Code block', icon: 'data_object', group: 'Style', keywords: 'snippet syntax', run: () => chain().toggleCodeBlock().run() },
-    { id: 'doc-divider', label: 'Divider', icon: 'horizontal_rule', group: 'Style', keywords: 'horizontal rule separator', run: () => chain().setHorizontalRule().run() },
-    // Align
-    { id: 'doc-align-left', label: 'Align left', icon: 'format_align_left', group: 'Align', run: () => chain().setTextAlign('left').run() },
-    { id: 'doc-align-center', label: 'Align centre', icon: 'format_align_center', group: 'Align', keywords: 'center', run: () => chain().setTextAlign('center').run() },
-    { id: 'doc-align-right', label: 'Align right', icon: 'format_align_right', group: 'Align', run: () => chain().setTextAlign('right').run() },
-    { id: 'doc-align-justify', label: 'Justify', icon: 'format_align_justify', group: 'Align', run: () => chain().setTextAlign('justify').run() },
-    // Insert
-    { id: 'doc-insert-image', label: 'Insert image', icon: 'image', group: 'Insert', keywords: 'picture photo', run: h.insertImage },
-    { id: 'doc-insert-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid', run: h.insertTable },
-    { id: 'doc-insert-widget', label: 'Insert work widget from a desk', icon: 'widgets', group: 'Insert', keywords: 'embed desk canvas', run: h.insertWidget },
-    { id: 'doc-insert-doc', label: 'Insert office file', icon: 'description', group: 'Insert', keywords: 'embed document sheet slides plexioffice', run: h.insertDoc },
-    // Find
-    { id: 'doc-find', label: 'Find and replace', icon: 'search', shortcut: '⌘F', group: 'Edit', keywords: 'search replace', run: h.openFind },
-    // AI
-    { id: 'doc-ai-draft', label: 'Draft with AI', icon: 'auto_awesome', group: 'AI', keywords: 'generate write', run: h.draftAi },
-    { id: 'doc-ai-rewrite', label: 'Rewrite selection with AI', icon: 'auto_awesome', group: 'AI', keywords: 'improve tone', run: h.rewriteAi },
-    // View
-    { id: 'doc-focus', label: 'Toggle focus mode', icon: 'center_focus_strong', group: 'View', keywords: 'zen distraction free writing', run: h.toggleFocus },
-    { id: 'doc-outline', label: 'Toggle outline', icon: 'format_list_bulleted', group: 'View', keywords: 'navigation headings map', run: h.toggleOutline },
-    { id: 'doc-pageview', label: 'Toggle page view', icon: 'description', group: 'View', keywords: 'page continuous print layout paper', run: h.togglePageView },
-    { id: 'doc-portrait', label: 'Page orientation: portrait', icon: 'crop_portrait', group: 'View', keywords: 'orientation vertical tall', run: h.setPortrait },
-    { id: 'doc-landscape', label: 'Page orientation: landscape', icon: 'crop_landscape', group: 'View', keywords: 'orientation horizontal wide', run: h.setLandscape },
-    // Office
-    { id: 'doc-import-docx', label: 'Import Word (.docx)', icon: 'upload_file', group: 'File', keywords: 'open word', run: h.importDocx },
-    { id: 'doc-export-docx', label: 'Export Word (.docx)', icon: 'description', group: 'File', keywords: 'save word', run: h.exportDocx },
-    { id: 'doc-export-pdf', label: 'Export PDF', icon: 'picture_as_pdf', group: 'File', keywords: 'save pdf', run: h.exportPdf }
-  ]
-}

@@ -695,7 +695,9 @@ export default function SheetGrid(props: Props): JSX.Element {
 // uses currentColor so it inherits the accent set on the wrapper and stays crisp
 // in dark mode. With fewer than the points a chart needs, or no numeric values at
 // all, it renders a faint baseline placeholder rather than inventing data.
-function SparklineCell({
+// Exported for paper: Print… and Download ▸ PDF render a sparkline with this
+// same component (lib/sheetPrintModel.ts), so it prints as it shows.
+export function SparklineCell({
   r,
   c,
   values,

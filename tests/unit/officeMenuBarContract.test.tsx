@@ -15,6 +15,7 @@
 // these, by real clicks.
 
 import { act } from 'react'
+import { documentCommands } from '../../src/renderer/src/lib/menus/officeCommand'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MenuDef, MenuItem } from '../../src/renderer/src/components/documents/editor/menuBarKit'
@@ -41,8 +42,12 @@ vi.mock('../../src/renderer/src/components/documents/editor/menuBarKit', async (
 })
 
 import DocMenuBar from '../../src/renderer/src/components/documents/editor/DocMenuBar'
+import { writeCommandsFor } from './_writeCommands'
+import { cellsCommandsFor } from './_cellsCommands'
 import SheetMenuBar from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 import SlidesMenuBar from '../../src/renderer/src/components/documents/editor/SlidesMenuBar'
+import { buildDeckCommands } from '../../src/renderer/src/components/documents/slides/deckCommands'
+import { buildDesignCommands } from '../../src/renderer/src/components/documents/design/designCommands'
 import DesignMenuBar from '../../src/renderer/src/components/documents/editor/DesignMenuBar'
 
 // Anything an app reads off its actions, its editor or its ops: callable, and
@@ -63,19 +68,38 @@ const live = { title: 'Doc', hasSelection: true, canPaste: true, canUndo: true, 
 const APPS: Record<string, { testid: string; render: () => JSX.Element }> = {
   Write: {
     testid: 'doc-menubar',
+    // Write's bar renders from its real command registry, so the labels, hints
+    // and enabled states walked here are the genuine ones.
     render: () => (
       <DocMenuBar
-        {...(actions({ title: 'Doc', pageView: false }) as object)}
-        editor={actions({ state: { selection: { empty: false } } })}
-        title="Doc"
-        pageView={false}
-        documentOps={ops()}
+        commands={writeCommandsFor(actions({ state: { selection: { empty: false } } }), { title: 'Doc', pageView: false })}
+        doc={documentCommands(ops(), 'doc')}
       />
     )
   },
-  Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar actions={actions({ ...live, documentOps: ops() })} /> },
-  Deck: { testid: 'slides-menubar', render: () => <SlidesMenuBar actions={actions({ ...live, documentOps: ops() })} /> },
-  Design: { testid: 'design-menubar', render: () => <DesignMenuBar actions={actions(live)} documentOps={ops()} /> }
+  Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar commands={cellsCommandsFor()} doc={documentCommands(ops(), 'sheet')} /> },
+  Deck: {
+    testid: 'slides-menubar',
+    // Deck's menu renders its command record (slides/deckCommands); the real one, on stubs.
+    render: () => (
+      <SlidesMenuBar
+        actions={actions({
+          ...live,
+          documentOps: ops(),
+          cmds: buildDeckCommands(actions({ selected: 2, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))
+        })}
+      />
+    )
+  },
+  Design: {
+    testid: 'design-menubar',
+    render: () => (
+      <DesignMenuBar
+        actions={actions({ ...live, cmds: buildDesignCommands(actions({ selected: 2, grouped: true, canPaste: true, textMarks: {} })) })}
+        documentOps={ops()}
+      />
+    )
+  }
 }
 
 // §9.2 — the shared Edit actions, in contract order.

@@ -26,6 +26,10 @@ import { WRITE_TABS, writeRailItems, type WCtx } from '../../src/renderer/src/co
 import { CELLS_TABS, cellsRailItems, type CCtx } from '../../src/renderer/src/components/documents/sheet/cellsRibbon'
 import { DECK_TABS, deckRailItems, type DeckCtx } from '../../src/renderer/src/components/documents/slides/ribbon'
 import { DESIGN_TABS, type DesignCtx } from '../../src/renderer/src/components/documents/design/ribbon'
+import { writeCommandsFor } from './_writeCommands'
+import { cellsCommandsFor } from './_cellsCommands'
+import { buildDesignCommands, type DesignCommandDeps } from '../../src/renderer/src/components/documents/design/designCommands'
+import { buildDeckCommands, type DeckCommandDeps } from '../../src/renderer/src/components/documents/slides/deckCommands'
 import { designRailItems, type DesignRailCmds } from '../../src/renderer/src/components/documents/design/rail'
 import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DCtx } from '../../src/renderer/src/components/documents/diagram/ribbon'
 import { drawBarTabs } from '../../src/renderer/src/components/documents/draw/bar/registry'
@@ -56,9 +60,13 @@ const anyFn = <T,>(over: Record<string, unknown> = {}): T => new Proxy(over, { g
 // ── Fixtures: each app's context with one text-bearing selection ─────────────
 
 const fakeEditor = { isActive: () => false, getAttributes: () => ({}), can: () => ({ undo: () => false, redo: () => false }) } as unknown as Editor
-const writeCtx = anyFn<WCtx>({ editor: fakeEditor, readOnly: false, pageView: true, styleLabel: 'Normal', sidePane: null, isPanelOpen: () => false, hasTracked: false })
-const cellsCtx = (filterActive = false): CCtx =>
-  anyFn<CCtx>({ a: anyFn<SheetMenuActions>({ filterActive }), readOnly: false, fmt: undefined, activeFont: undefined, isMerged: false, isPanelOpen: () => false, sidePane: null })
+// Write's and Cells' ribbons render their command registries (ec's writeCommands /
+// cellsCommands, SPEC §9.9): the real ones, on stubs.
+const writeCtx = anyFn<WCtx>({ editor: fakeEditor, readOnly: false, pageView: true, styleLabel: 'Normal', sidePane: null, isPanelOpen: () => false, hasTracked: false, commands: writeCommandsFor(fakeEditor) })
+const cellsCtx = (filterActive = false): CCtx => {
+  const a = anyFn<SheetMenuActions>({ filterActive })
+  return anyFn<CCtx>({ a, readOnly: false, fmt: undefined, activeFont: undefined, isMerged: false, isPanelOpen: () => false, sidePane: null, commands: cellsCommandsFor({ a }) })
+}
 
 const textEl = { id: 't', type: 'text', x: 0, y: 0, w: 200, h: 60, z: 1, paragraphs: [{ runs: [{ text: 'Hi', fontSize: 24 }] }] } as unknown as SlideElement
 const deckCtx: DeckCtx = anyFn<DeckCtx>({
@@ -71,11 +79,14 @@ const deckCtx: DeckCtx = anyFn<DeckCtx>({
   tool: 'select',
   isPanelOpen: () => false,
   sidePane: null,
-  ed: anyFn({})
+  ed: anyFn({}),
+  // The ribbon's shared buttons render Deck's command record (SPEC §9.9).
+  cmds: buildDeckCommands(anyFn<DeckCommandDeps>({ selected: 1, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: {} }))
 })
 const designCtx: DesignCtx = (() => {
   const design = normalizeDesignBody({ width: 794, height: 1123, elements: [textEl] })
-  return { design, selected: [textEl], first: textEl, fonts: ['Inter'], palette: ['#000000'], cmd: anyFn({}), startFrom: null, guidesVisible: true, facing: false, bleed: 0, layers: [] }
+  const cmds = buildDesignCommands(anyFn<DesignCommandDeps>({ selected: 1, grouped: false, canPaste: false, textMarks: {} }))
+  return { cmds, design, selected: [textEl], first: textEl, fonts: ['Inter'], palette: ['#000000'], cmd: anyFn({}), startFrom: null, guidesVisible: true, facing: false, bleed: 0, layers: [] }
 })()
 const node = (id: string): MapNode => ({ id, x: 0, y: 0, label: id, shape: 'process', color: '#2563eb' })
 const diagCtx: DCtx = diagramCtx(
@@ -125,7 +136,8 @@ const APPS: App<never>[] = [
   { name: 'Write', rail: writeRailItems, railCtx: writeCtx, tabs: WRITE_TABS, ctx: writeCtx, textTab: 'home', exceptions: [], bound: { bold: true, italic: true, underline: true } },
   { name: 'Cells', rail: cellsRailItems, railCtx: cellsCtx(), tabs: CELLS_TABS, ctx: cellsCtx(), textTab: 'home', exceptions: CONTROL_EXCEPTIONS.Cells!, bound: { bold: true, italic: true, underline: true } },
   { name: 'Deck', rail: deckRailItems, railCtx: deckCtx, tabs: DECK_TABS, ctx: deckCtx, textTab: 'home', exceptions: [], bound: { bold: true, italic: true, underline: true } },
-  { name: 'Design', rail: designRailItems, railCtx: anyFn<DesignRailCmds>(), tabs: DESIGN_TABS, ctx: designCtx, textTab: 'home', exceptions: [], bound: {} },
+  // Design binds ⌘B/⌘I/⌘U on the selected text frame (039a5e41), so its hints show.
+  { name: 'Design', rail: designRailItems, railCtx: anyFn<DesignRailCmds>(), tabs: DESIGN_TABS, ctx: designCtx, textTab: 'home', exceptions: [], bound: { bold: true, italic: true, underline: true } },
   { name: 'Diagrams', rail: diagramRailItems, railCtx: diagCtx, tabs: DIAGRAM_TABS, ctx: diagCtx, textTab: 'home', exceptions: [], bound: { bold: true, italic: true, underline: true } },
   { name: 'Draw', rail: drawRailItems, railCtx: drawCtx, tabs: drawTabs, ctx: drawCtx, textTab: 'type', exceptions: CONTROL_EXCEPTIONS.Draw!, bound: {} }
 ] as unknown as App<never>[]

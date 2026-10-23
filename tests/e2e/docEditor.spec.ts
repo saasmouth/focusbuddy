@@ -200,15 +200,15 @@ test('DE-2 — toolbar formatting: bold, italic, underline, heading, bullet list
     await expect(window.locator('[data-testid="doc-styles-panel"]')).not.toBeVisible({ timeout: 2_000 })
 
     // Bullet list via toolbar
-    await toolbar.getByRole('button', { name: /Bullet list/i }).click()
+    await toolbar.getByRole('button', { name: /Bullet(ed)? list/i }).click()
     await expect(surface.locator('ul li').first()).toBeVisible()
 
     // Exit bullet list
-    await toolbar.getByRole('button', { name: /Bullet list/i }).click()
+    await toolbar.getByRole('button', { name: /Bullet(ed)? list/i }).click()
 
     // Center alignment — the paragraph renders with text-align: center.
     await selectAllInEditor(window)
-    await toolbar.getByRole('button', { name: /Align center/i }).click()
+    await toolbar.getByRole('button', { name: /Align cent(re|er)/i }).click()
     await expect(surface.locator('[style*="text-align: center"]').first()).toBeVisible({ timeout: 5_000 })
 
     // Align left to reset
@@ -519,8 +519,8 @@ test('DE-8b — Office export: stubbed IPC exportDocx + exportPdf show saved pat
 
     // Export Word — open Office menu and click Export Word
     await window.getByRole('button', { name: /Open or export Office files/i }).click()
-    await expect(window.locator('text=Export Word (.docx)')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Export Word (.docx)').click()
+    await expect(window.locator('text=Download Word (.docx)…')).toBeVisible({ timeout: 3_000 })
+    await window.locator('text=Download Word (.docx)…').click()
 
     await expect(window.locator('[data-testid="doc-office-status"]')).toContainText(fakePath, {
       timeout: 5_000
@@ -537,8 +537,8 @@ test('DE-8b — Office export: stubbed IPC exportDocx + exportPdf show saved pat
     await stubIpcExportOffice(app, fakePdfPath)
 
     await window.getByRole('button', { name: /Open or export Office files/i }).click()
-    await expect(window.locator('text=Export PDF')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Export PDF').click()
+    await expect(window.locator('text=Download PDF…')).toBeVisible({ timeout: 3_000 })
+    await window.locator('text=Download PDF…').click()
 
     await expect(window.locator('[data-testid="doc-office-status"]')).toContainText(fakePdfPath, {
       timeout: 5_000
@@ -775,7 +775,7 @@ test('DE-14 — palette: scope chip shows "Document" while editor is open; "bold
     // Clear and type "focus" — "Toggle focus mode" should appear.
     await input.fill('focus')
     await window.waitForTimeout(300)
-    const focusRow = palette.locator('[role="option"]').filter({ hasText: 'Toggle focus mode' }).first()
+    const focusRow = palette.locator('[role="option"]').filter({ hasText: 'Focus mode' }).first()
     await expect(focusRow).toBeVisible({ timeout: 3_000 })
 
     // Run the Bold command via click — should close the palette without error.

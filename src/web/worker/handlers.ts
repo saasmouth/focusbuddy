@@ -133,7 +133,9 @@ export const PARITY: ReadonlyArray<{ channel: string; missing: string }> = [
   { channel: 'documents:update', missing: 'a named snapshot, and re-embedding' },
   { channel: 'documents:delete', missing: 'answer-cache invalidation' },
   { channel: 'knowledge:create', missing: 'embedding the new entry for semantic search' },
-  { channel: 'knowledge:update', missing: 're-embedding the edited entry' }
+  { channel: 'knowledge:update', missing: 're-embedding the edited entry' },
+  { channel: 'print:document', missing: 'printing: a browser tab has no printer (Print… is left out in this runtime)' },
+  { channel: 'print:sheetPdf', missing: "Cells' PDF export: no offscreen window or save dialog here" }
 ]
 
 // `_origin` appears on several write handlers and is deliberately unused: the
@@ -547,6 +549,14 @@ export const HANDLERS: Record<string, Handler> = {
     setPeopleDirectory(Array.isArray(people) ? people : [])),
   'people:setSelf': h((accountId: string | null) =>
     setSelfAccountId(typeof accountId === 'string' ? accountId : null)),
+
+  // ── Print… ─────────────────────────────────────────────────────────────────
+  // A tab has no printer and no save dialog, so these answer honestly rather
+  // than pretend. The renderer never offers Print… or Cells' Download ▸ PDF in
+  // this runtime (DocumentOps.print/exportPdf are absent: SPEC §9.5); these
+  // exist so a stray call gets a reason, not "No handler registered". See PARITY.
+  'print:document': h((_input: unknown) => ({ ok: false, error: 'Printing needs the PlexiiDesk desktop app.' })),
+  'print:sheetPdf': h((_input: unknown) => ({ ok: false, error: 'Exporting a PDF needs the PlexiiDesk desktop app.' })),
 }
 
 /** Channels this runtime answers. The renderer asks before it calls. */

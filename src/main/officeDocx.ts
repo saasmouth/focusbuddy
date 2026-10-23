@@ -5,6 +5,7 @@
 // communicates to the user; what we keep, we keep faithfully.
 
 import { dialog, BrowserWindow } from 'electron'
+import { renderToPdf, type PrintRender } from './printRender'
 import { basename, extname } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 // mammoth and @turbodocx/html-to-docx are imported lazily inside the functions
@@ -296,18 +297,13 @@ export async function exportDocx(input: { html: string; title: string; page?: Pa
   }
 }
 
-// Render the editor's HTML to a PDF using an offscreen window and Chromium's
-// print engine, so the PDF matches what the user sees.
-export async function exportPdf(input: { html: string; title: string; page?: PageSetupInput }): Promise<OfficeExportResult> {
-  const win = focusedWindow()
-  const safe = (input.title || 'document').replace(/[/\\?%*:|"<>]/g, '-')
-  const res = await dialog.showSaveDialog(win!, {
-    title: 'Export as PDF',
-    defaultPath: `${safe}.pdf`,
-    filters: [{ name: 'PDF', extensions: ['pdf'] }]
-  })
-  if (res.canceled || !res.filePath) return { ok: false }
-
+/**
+ * Write's print-ready render: the editor's HTML in the document's own page
+ * geometry (size, orientation, margins as CSS @page) with basic prose
+ * typography. Download ▸ PDF printToPDF()s it; Print… print()s it
+ * (printRender.ts), so the paper's page breaks are the PDF's.
+ */
+export function writePrintRender(input: { html: string; page?: PageSetupInput }): PrintRender {
   const setup = input.page ?? DEFAULT_PAGE
   const landscape = setup.orientation === 'landscape'
   const sizeName = setup.size === 'a4' ? 'A4' : 'Letter'
@@ -325,23 +321,35 @@ export async function exportPdf(input: { html: string; title: string; page?: Pag
     img { max-width: 100%; }
     blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 12px; color: #555; }
   </style></head><body>${input.html}</body></html>`
-
-  const offscreen = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
-  try {
-    await offscreen.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    const pdf = await offscreen.webContents.printToPDF({
+  return {
+    html,
+    pdf: {
       printBackground: true,
       pageSize: sizeName,
       landscape,
       // Electron 44 dropped `marginType`; explicit numbers are the custom case.
       margins: { top: m.top, right: m.right, bottom: m.bottom, left: m.left }
-    })
+    }
+  }
+}
+
+// Render the editor's HTML to a PDF using an offscreen window and Chromium's
+// print engine, so the PDF matches what the user sees.
+export async function exportPdf(input: { html: string; title: string; page?: PageSetupInput }): Promise<OfficeExportResult> {
+  const win = focusedWindow()
+  const safe = (input.title || 'document').replace(/[/\\?%*:|"<>]/g, '-')
+  const res = await dialog.showSaveDialog(win!, {
+    title: 'Export as PDF',
+    defaultPath: `${safe}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  })
+  if (res.canceled || !res.filePath) return { ok: false }
+  try {
+    const pdf = await renderToPdf(writePrintRender(input))
     await writeFile(res.filePath, pdf)
     return { ok: true, path: res.filePath }
   } catch (e) {
     return { ok: false, error: `Could not export PDF: ${(e as Error).message}` }
-  } finally {
-    offscreen.destroy()
   }
 }
 

@@ -32,6 +32,7 @@ import { applyStoryFlows } from '../../src/shared/designStories'
 import { defaultSwatches, type DesignSwatch } from '../../src/shared/designSwatches'
 import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { DESIGN_TABS, type DesignCtx } from '../../src/renderer/src/components/documents/design/ribbon'
+import { buildDesignCommands, type DesignCommandDeps } from '../../src/renderer/src/components/documents/design/designCommands'
 import type { SlideElement, SlideTextElement } from '../../src/shared/types'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -492,7 +493,15 @@ describe('the design as a snippet target', () => {
 describe('where the commands live on the shell', () => {
   function ctx(selected: SlideElement[], cmds: Partial<DesignCtx['cmd']>): DesignCtx {
     const design = normalizeDesignBody({ width: 794, height: 1123, elements: selected })
+    const noop = (): void => undefined
+    // The ribbon renders Design's command record (design/designCommands); its
+    // snippet commands reach the same functions the old `cmd` hooks did.
+    const deps = new Proxy(
+      { selected: selected.length, grouped: false, canPaste: false, textMarks: null, saveSnippet: cmds.saveSnippet ?? noop, insertSnippet: cmds.insertSnippet ?? noop } as Record<string, unknown>,
+      { get: (t, k) => (k in t ? t[k as string] : noop) }
+    ) as unknown as DesignCommandDeps
     return {
+      cmds: buildDesignCommands(deps),
       design,
       selected,
       first: selected[0] ?? null,
@@ -508,15 +517,16 @@ describe('where the commands live on the shell', () => {
   }
   const btn = (id: string): HTMLButtonElement => document.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)!
 
-  it('Insert › Saved snippet… opens the library', () => {
+  it('Insert › Insert snippet… opens the library', () => {
     const insertSnippet = vi.fn()
     act(() => root.render(<ContextBar<DesignCtx> testid="design-toolbar" tabs={DESIGN_TABS} ctx={ctx([], { insertSnippet })} activeTab="insert" onTabChange={() => {}} menuBar={null} />))
-    expect(btn('design-insert-snippet').textContent).toContain('Saved snippet…')
+    // The lexicon's label, the same as the menu bar's (SPEC §9.9).
+    expect(btn('design-insert-snippet').getAttribute('aria-label')).toContain('Insert snippet…')
     act(() => btn('design-insert-snippet').click())
     expect(insertSnippet).toHaveBeenCalledTimes(1)
   })
 
-  it('Arrange › Save as snippet… sits with the selection actions, and is off with nothing selected', () => {
+  it('Arrange › Save selection as snippet… sits with the selection actions, and is off with nothing selected', () => {
     const saveSnippet = vi.fn()
     act(() => root.render(<ContextBar<DesignCtx> testid="design-toolbar" tabs={DESIGN_TABS} ctx={ctx([], { saveSnippet })} activeTab="arrange" onTabChange={() => {}} menuBar={null} />))
     expect(btn('design-save-snippet').disabled).toBe(true)

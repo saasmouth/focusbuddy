@@ -813,7 +813,7 @@ test('SL-12 — interop: export stub shows path in slides-status; import stub lo
 
     // Open IO menu again and click Import.
     await fileMenu()
-    await window.locator('[data-testid="slides-menubar-file-list"]').getByText('Import (.pptx)', { exact: true }).click()
+    await window.locator('[data-testid="slides-menubar-file-list"]').getByText('Import PowerPoint (.pptx)…', { exact: true }).click()
     await window.waitForTimeout(500)
 
     // Status should mention "Imported".
@@ -1071,14 +1071,14 @@ test('SL-16 — palette: scope chip reads "Slides"; "present" and "insert" surfa
     await input.fill('present')
     await window.waitForTimeout(300)
     await expect(
-      palette.locator('[role="option"]').filter({ hasText: 'Present deck' }).first()
+      palette.locator('[role="option"]').filter({ hasText: 'Present' }).first()
     ).toBeVisible({ timeout: 3_000 })
 
     // "insert" surfaces the Insert-group commands.
     await input.fill('insert')
     await window.waitForTimeout(300)
     await expect(
-      palette.locator('[role="option"]').filter({ hasText: 'Insert text box' }).first()
+      palette.locator('[role="option"]').filter({ hasText: 'Text box' }).first()
     ).toBeVisible({ timeout: 3_000 })
 
     // Close palette before inserting a shape.
@@ -1092,11 +1092,11 @@ test('SL-16 — palette: scope chip reads "Slides"; "present" and "insert" surfa
     await window.keyboard.press('Meta+k')
     await expect(palette).toBeVisible({ timeout: 4_000 })
 
-    // "duplicate" surfaces 'Duplicate element'.
+    // "duplicate" surfaces Duplicate (one label on every surface, SPEC §9.9).
     await input.fill('duplicate')
     await window.waitForTimeout(300)
     await expect(
-      palette.locator('[role="option"]').filter({ hasText: 'Duplicate element' }).first()
+      palette.locator('[role="option"]').filter({ hasText: 'Duplicate' }).first()
     ).toBeVisible({ timeout: 3_000 })
 
     // "centre" surfaces 'Centre on slide horizontally'.

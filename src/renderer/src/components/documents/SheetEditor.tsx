@@ -44,10 +44,30 @@ import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
+import { buildCellsCommands } from './sheet/cellsCommands'
+import type { OfficeCommand } from '../../lib/menus/officeCommand'
+import {
+  pageSetupOf,
+  rangeToA1,
+  remapTabPageSetup,
+  rowsToA1,
+  setPrintArea,
+  setRepeatRows,
+  setShowGridlines
+} from '../../lib/sheetPageSetup'
+import PageSetupDialog from './sheet/PageSetupDialog'
+import { runCommandKey } from '../../lib/menus/commandKeys'
+import ShortcutsModal from './editor/ShortcutsModal'
+import { documentCommands, paletteEntries } from '../../lib/menus/officeCommand'
+import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { joinGroups, objectMenu } from '../../lib/menus/officeContextMenu'
+import { ctxRow } from '../../lib/menus/officeCommand'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
+import { sheetPrintModel } from '../../lib/sheetPrintModel'
+import { paperForLocale } from '@shared/sheetPrint'
 import SheetTabStrip from './sheet/SheetTabStrip'
 import SheetChart from './sheet/SheetChart'
 import SheetPivot from './sheet/SheetPivot'
@@ -185,9 +205,18 @@ function fixFormulas(
   mapRow: (r: number) => number | null,
   mapCol: (c: number) => number | null
 ): SheetTab {
+  // The PAGE SETUP moves with the data too, through the very same maps: a print
+  // area and a repeat-rows range have to follow their rows and columns, and be
+  // cleared rather than silently repointed when every line in them is deleted —
+  // otherwise inserting one row above a print area prints the wrong block, and
+  // deleting the area prints the rows that slid into its place.
+  //
+  // Done HERE, not at the six wrappers and drag-reorder paths that call this,
+  // so none of them can be written without it.
+  const base = remapTabPageSetup(t, mapRow, mapCol)
   return {
-    ...t,
-    rows: t.rows.map((row) =>
+    ...base,
+    rows: base.rows.map((row) =>
       row.map((cell) => (cell.trim().startsWith('=') ? remapFormulaRefs(cell, mapRow, mapCol) : cell))
     )
   }
@@ -257,6 +286,12 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   const [lookupOpen, setLookupOpen] = useState(false)
   const [macrosOpen, setMacrosOpen] = useState(false)
   const [queryOpen, setQueryOpen] = useState(false)
+  // Help ▸ Keyboard shortcuts, owned here so the menu bar holds no state.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  // Declared up here so onGridKeyDown, defined above where `doc` is built, can
+  // close over a stable ref rather than a value that does not exist yet.
+  const docRef = useRef<OfficeCommand[]>([])
+  const [pageSetupOpen, setPageSetupOpen] = useState(false)
   // The right-side AI Assistant panel is shown by default and is collapsible.
   const [aiPanelOpen, setAiPanelOpen] = useState(true)
   const [liveWidth, setLiveWidth] = useState<{ c: number; w: number } | null>(null)
@@ -1123,10 +1158,18 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     }
     if (mod && e.key.toLowerCase() === 'a') {
       // Select the whole used grid so formatting (colour, bold, number format)
-      // can be applied across every cell at once.
+      // can be applied across every cell at once. It runs the SAME
+      // selectAllCells the menu's Select all runs, where it used to be a second
+      // copy of that function's first two setState calls — one implementation,
+      // so the menu row and the key cannot diverge.
+      //
+      // No behaviour changes by it: the three lines the copy omitted close a
+      // cell editor, drop a header drag and refocus the grid, and none is
+      // reachable here because this handler returns at `if (editing)` above and
+      // bails on INPUT targets. While a cell IS being edited, ⌘A selects that
+      // cell's text, as in Excel and Sheets, and must keep doing so.
       e.preventDefault()
-      setAnchor({ r: 0, c: 0 })
-      setFocus({ r: maxR, c: maxC })
+      selectAllCells()
       return
     }
     if (e.key === 'ArrowUp') { e.preventDefault(); move(Math.max(0, r - 1), c, e.shiftKey); return }
@@ -1137,6 +1180,18 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
       clearSelection()
+      return
+    }
+    // Everything the registry binds that the branches above do not already
+    // handle: ⌘B / ⌘I / ⌘U, Clear formatting ⌘\, Find ⌘F, Find and replace
+    // ⇧⌘H, Keyboard shortcuts ⌘/. Each was advertised in the menu and bound
+    // nowhere. Driven from the same `keys` the hint is formatted from, so the
+    // menu and the keyboard cannot disagree, and a view-only sheet runs none
+    // of them because the command reports itself disabled.
+    // The document actions join the sheet's own, so ⌘P is bound wherever the
+    // host can really print. Keyless ones never match.
+    if (runCommandKey([...Object.values(commands), ...(docRef.current ?? [])], e)) {
+      e.preventDefault()
       return
     }
     // A printable character starts editing with that character. preventDefault
@@ -1588,6 +1643,41 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     return true
   }
   useCellsSnippetTarget(snippetScope, title, insertSnippetHere)
+  // Print… and Download ▸ PDF (DocumentOps.print / exportPdf) both print the
+  // active tab as the grid shows it, paged over-then-down on the locale's paper
+  // (lib/sheetPrintModel.ts, shared/sheetPrint.ts).
+  usePrintSource(documentOps, async () => {
+    const t = activeTab(body)
+    // Charts print as the editor drew them: a snapshot of each one's rendered
+    // PlexiChart in the chart list below the grid (SheetChart, data-chart-id).
+    const chartSnapshots: Record<string, { html: string; w: number; h: number }> = {}
+    for (const spec of t.charts ?? []) {
+      const drawn = document.querySelector<HTMLElement>(`[data-chart-id="${CSS.escape(spec.id)}"] .recharts-wrapper`)
+      if (!drawn) continue
+      const box = drawn.getBoundingClientRect()
+      if (box.width > 0 && box.height > 0) chartSnapshots[spec.id] = { html: drawn.outerHTML, w: Math.round(box.width), h: Math.round(box.height) }
+    }
+    // Placed work widgets print as named boxes: their names, by id.
+    const widgetNames: Record<string, string> = {}
+    await Promise.all(
+      (t.widgets ?? []).map(async (pl) => {
+        try {
+          const w = pl.widgetId.startsWith('wf:')
+            ? await window.api.widgetFiles.get(pl.widgetId.slice(3))
+            : await window.api.widgets.get(pl.widgetId)
+          if (w?.title) widgetNames[pl.widgetId] = w.title
+        } catch {
+          // A name we cannot read prints as "Work widget"; the box still prints.
+        }
+      })
+    )
+    return {
+      app: 'cells',
+      title: title || 'spreadsheet',
+      sheet: sheetPrintModel(body, undefined, { chartSnapshots, widgetNames }),
+      paper: paperForLocale(navigator.language)
+    }
+  })
 
   // The sheet's operations, built once. SheetMenuBar takes them as its
   // `actions`, and the ribbon reads the same object through CellsChrome —
@@ -1638,11 +1728,58 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     documentOps
   }
 
+  // PlexiiCells' ONE command registry, built in render from the live sheet.
+  // The menu bar, the ContextBar ribbon and the Cmd+K palette all render from
+  // it, so an action has one label, one key and one enabled state everywhere
+  // (SPEC §9). Built every render on purpose: `checked` and `enabled` read the
+  // live cell format, the live undo stacks and the live view-only flag.
+  const commands = buildCellsCommands({
+    a: sheetActions,
+    readOnly,
+    isMerged: selectionIsMerged,
+    mergeCells: toggleMerge,
+    insertLookup: () => setLookupOpen(true),
+    macros: () => setMacrosOpen(true),
+    query: () => setQueryOpen(true),
+    shortcuts: () => setShortcutsOpen(true),
+    pageSetup: () => setPageSetupOpen(true),
+    // Read structurally, as `print` is: the export engine adds the op, and
+    // Download ▸ PDF is ABSENT rather than dead where it is missing.
+    exportPdf:
+      typeof (documentOps as { exportPdf?: unknown } | undefined)?.exportPdf === 'function'
+        ? () => void (documentOps as unknown as { exportPdf: () => unknown }).exportPdf()
+        : undefined
+  })
+
+  // File's document actions, built ONCE here from the host-bound ops. The menu
+  // bar renders these and the grid's key handler matches them, so Print's ⌘P
+  // hint and Print's binding are the same object — a copy built inside the menu
+  // bar would show the hint while nothing bound the key.
+  const doc = documentCommands(documentOps, 'sheet')
+
+  // The palette reads through a ref so every row runs the CURRENT closures,
+  // while the row LIST is rebuilt when view-only access changes: paletteEntries
+  // drops whatever is disabled, because a palette row cannot show why it is
+  // off. PlexiiCells had no palette entries at all before this.
+  const commandsRef = useRef(commands)
+  commandsRef.current = commands
+  docRef.current = doc ? Object.values(doc) : []
+  // Every input a command's `enabled` or `label` reads: paletteEntries takes a
+  // SNAPSHOT, so a missing dep leaves a stale list — Undo absent from ⌘K after
+  // the first edit made it possible, or the filter row still reading "Create a
+  // filter" once one exists.
+  useRegisterEditorCommands(
+    'Spreadsheet',
+    () => paletteEntries(Object.values(commandsRef.current)),
+    [readOnly, sheetActions.canUndo, sheetActions.canRedo, sheetActions.filterActive, selectionIsMerged]
+  )
+
   return (
     <CellsChrome
       actions={sheetActions}
       readOnly={readOnly}
-      menuBar={<SheetMenuBar actions={sheetActions} />}
+      commands={commands}
+      menuBar={<SheetMenuBar commands={commands} doc={doc} />}
       activeFormat={cellFormat(tab, focus.r, focus.c)}
       activeFont={cellFormat(tab, focus.r, focus.c)?.fontFamily}
       isMerged={selectionIsMerged}
@@ -2106,23 +2243,24 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             x={cellMenu.x}
             y={cellMenu.y}
             onClose={() => setCellMenu(null)}
+            // The same command definitions as the menu bar, ribbon and palette
+            // (cellsCommands, through ctxRow): one label, hint and read-only
+            // reason per action on every surface (SPEC §9.9; the 2e seam).
             items={objectMenu({
-              cut: readOnly ? undefined : sheetActions.cut,
-              copy: sheetActions.copy,
-              paste: readOnly ? undefined : sheetActions.paste,
-              saveAsSnippet: sheetActions.saveSnippet,
-              more: readOnly
-                ? undefined
-                : [
-                    { label: 'Insert row above', icon: 'add', onClick: sheetActions.insertRowAbove },
-                    { label: 'Insert row below', icon: 'add', onClick: sheetActions.insertRowBelow },
-                    { label: 'Insert column left', icon: 'add', onClick: sheetActions.insertColLeft },
-                    { label: 'Insert column right', icon: 'add', onClick: sheetActions.insertColRight },
-                    { separator: true },
-                    { label: 'Sort sheet A → Z', icon: 'sort', onClick: () => sheetActions.sort('asc') },
-                    { label: 'Sort sheet Z → A', onClick: () => sheetActions.sort('desc') }
-                  ],
-              del: readOnly ? undefined : clearSelection
+              cut: commands['sheet-cut'],
+              copy: commands['sheet-copy'],
+              paste: commands['sheet-paste'],
+              saveAsSnippet: commands['sheet-save-snippet'],
+              more: [
+                ctxRow(commands['sheet-row-above']!),
+                ctxRow(commands['sheet-row-below']!),
+                ctxRow(commands['sheet-col-left']!),
+                ctxRow(commands['sheet-col-right']!),
+                { separator: true },
+                ctxRow(commands['sheet-sort-asc']!),
+                ctxRow(commands['sheet-sort-desc']!)
+              ],
+              del: commands['sheet-delete']
             })}
           />
         )}
@@ -2208,6 +2346,24 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             }))}
             onCreate={insertPivot}
             onClose={() => setPivotOpen(false)}
+          />
+        )}
+
+        {shortcutsOpen && <ShortcutsModal commands={commands} onClose={() => setShortcutsOpen(false)} />}
+
+        {pageSetupOpen && (
+          <PageSetupDialog
+            // Read straight off the tab, so the dialog cannot disagree with what
+            // will print — including after a structural edit moved the ranges.
+            {...pageSetupOf(tab)}
+            selectionA1={rangeToA1({ r1: selection.r0, c1: selection.c0, r2: selection.r1, c2: selection.c1 })}
+            selectionRowsA1={rowsToA1({ r1: selection.r0, r2: selection.r1 })}
+            // Through `commit`, so each change is undoable and a view-only sheet
+            // writes nothing even if the dialog were somehow reached.
+            onSetPrintArea={(a1) => commit(setPrintArea(body, idx, a1))}
+            onSetRepeatRows={(a1) => commit(setRepeatRows(body, idx, a1))}
+            onSetShowGridlines={(show) => commit(setShowGridlines(body, idx, show))}
+            onClose={() => setPageSetupOpen(false)}
           />
         )}
 

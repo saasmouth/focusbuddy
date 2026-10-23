@@ -262,7 +262,6 @@ These thresholds are constants in `office/shell/layout.ts`, so every app shares 
      | Cells | Font size | `SheetCellFormat` has no font size: cells use the sheet default. Adding one is a model, renderer and .xlsx change, not chrome |
      | Draw | Underline | `DrawTextNode` has no text decoration; the model, the SVG and the PDF export would all need it |
      | Cells | Macros and Query as bottom panels (§6.6 listed them so) | They are SheetEditor's modals, so they are `dialog` items in the App section. A declared panel needs an opener AND a body (§5a.14); they become panels only when they really are |
-     | Design | ⌘B/⌘I/⌘U hints | Not bound while editing Design text, so no hint is shown (§9.4). Binding them is the keymap owner's call |
 
 ## 4. Testid policy
 
@@ -626,7 +625,42 @@ The calls as they were put:
 - `tests/unit/officeContextMenus.test.ts`: the kit's object and empty-canvas shapes (`officeContextMenu.ts`) against `expectMenuContract` (2e's shared helper), plus a source guard: an office file that handles `contextmenu` and keeps menu state must use the kit (allowlist: Draw, E-16). Mutation-checked.
 - `tests/unit/menuBarKeys.test.tsx`: the bar's ⌘/ beats App's global sheet, ⌘F yields to an editor that took it and to form fields, and a hidden bar answers neither.
 - `tests/unit/recordFind.test.ts`: the shared find core, including run-preserving replace.
+- `tests/unit/officeCommand.test.ts`: the adapters render one label, hint and reason on every surface; `ctxRow` refuses a silent disabled row; `documentCommands` reaches only its host's document (two hosts, two documents; seen red with a factory that kept the current ops); Print only where the host prints.
+- `tests/unit/officeCommandRegistry.test.ts`: ids unique within and across apps; every command that can be off says why; centre/colour; no Mac glyph on Windows; a source rule that the converted surfaces carry no hard-coded glyph hint.
+- `tests/unit/reorderZ.test.ts`: the undo snapshot survives a reorder; a multi-selection keeps its order.
+- `tests/e2e/writeRibbonActions.spec.ts`, `deckOneAction.spec.ts`, `canvasOneAction.spec.ts`: one real-click proof per merged duplicate and per newly bound key.
 - `tests/e2e/officeMenus.spec.ts`: by real clicks in the built app, per app: Edit and Help as rendered (order, labels, hints), ⌘/ opens the app's sheet and not the global one, ⌘F opens Find and replace, and a right-click on an object opens the kit menu (role=menu) in the shared order with Delete last in the danger colour and the menu bar's hints.
+
+### 9.9 One definition per action (registry, 4.3.41-local.2)
+
+Owner addition: "office app top menus aren't repeated, rather, combined and consistent so they all act the same." Rule (9d): every office action has ONE definition, an `OfficeCommand` (`lib/menus/officeCommand.ts`: id, label, keys, icon, enabled with its reason, checked, run). The menu bar (`menuItemOf`), the ribbon (`barProps`, `barMenuItem`), the right-click menu (`ctxRow`, through `objectMenu`/`canvasMenu`) and the palette (`paletteEntries`) render from it, so an action that appears on several surfaces is the same object on each: same name, same hint, same behaviour, by construction.
+
+- Ids are the existing code ids (palette ids `sl-*`, `doc-*`; Draw's registry ids); new ones take the app's prefix (`dg-`, `ds-`, `ce-`). Never renamed.
+- Hints come from `keys` only, through one formatter (`⌘` on macOS, `Ctrl` elsewhere). No surface writes a glyph string.
+- File's document actions are built from the host-bound DocumentOps (`documentCommands`): no document id or store `active` lives in a registry; no ops, no rows (absent, §9.5).
+- Diagrams' `cmd` and Draw's command registry adapt into it; nothing is rewritten.
+- Right-click consumes the same commands through the kit (seam agreed with 2e): `ctxRow` throws on a disabled command without a reason. Editable text keeps the native menu.
+
+Per app: Deck `slides/deckCommands.ts`, Diagrams `diagram/diagramCommands.ts`, Design `design/designCommands.ts` (d8); Write and Cells `buildWriteCommands`/`buildCellsCommands` (ec). Rails and ContextBar tabs: 82's rule and guards.
+
+**True duplicates found and merged** (each with a proof seen red before the fix):
+
+| App | Action | Was | Now |
+|---|---|---|---|
+| Write | Link, Word count, Check accessibility (ribbon) | wired to `setFindOpen(false)`: did nothing | the menu's command (`insertLink`; DocEditor owns the dialogs) |
+| Write | Paste (menu) | inserted plain text, dropping formatting | ProseMirror's own paste (`view.pasteHTML`), the pipeline ⌘V runs |
+| Deck | New slide | menu added a blank slide; ribbon and palette opened the gallery | one command: the gallery |
+| Design | Bring forward / Send backward (ribbon) | moved only the first selected frame | `reorderSelected`, every selected frame |
+| Diagrams | Bold / Italic / Underline | ribbon read the theme-resolved style of all selected shapes, ⌘B the raw style of the first | one `toggleTextStyle`; off writes false |
+| Diagrams | Paste | menu pasted no outside data; right-click text only | one `pasteFromClipboard` feeding paste() what ⌘V carries |
+| Deck, Design | stacking | `reorderZ` wrote through to the undo snapshot (Undo after a reorder did nothing); a multi-selection lost its order | copies; `reorderMany` keeps the selection's order |
+| Write, Cells | Find, Highlight, Heading, Select all, Clear formatting, save-snippet body | two or three code paths each | ec's slice |
+
+**A key shown is a key bound (9d: the class closed).** Each editor's key handler runs its commands by their `keys` (`lib/menus/commandKeys`: `runCommandKey`, Write, Cells, Deck, Design, Diagrams); hand-written branches for the same keys are gone, so the hint and the binding are one definition. Keys owned elsewhere are marked `keyOwner` and never matched by the editor: the menu bar binds ⌘F, ⇧⌘H, ⌘P and ⌘/ to its own rows (MenuBarShell, only while the row shows that key), and ⌘X/⌘C/⌘V arrive as the platform's clipboard events. Draw's keymap is both its hint and its binding. Guard: `officeCommandKeys.test.ts` (every keyed command reached by the event a real keyboard sends, on macOS and Windows; every editor dispatches its registry; Draw resolves each shown key) and `printKeys.spec.ts` (real ⌘P in each app).
+
+**Right-click from the registry.** Deck, Design, Diagrams and Cells build their object and canvas menus from their commands (`objectMenu`/`canvasMenu` take OfficeCommands and render them with `ctxRow`), so a right-click row and the menu bar cannot disagree on label, hint, enabled state or reason (`officeContextMenus.test.ts`). Cells' column/row header menus act on the clicked header, not the selection, so they stay header actions with the same labels. Write's text keeps the native menu (2e).
+
+Labels taken to the majority: Fit page, Zoom to selection, Lock/Unlock (icon shows the action), Hide, Deck's align names, Download (not Export), Remove background, centre/colour (9d), Present (no fake ▶ hint). Keys that menus showed and nothing bound are bound: Deck and Design ⌘B/⌘I/⌘U on the selected text box or frame (through commit, so read-only cannot write).
 
 ## 10. Delivery and estimate (re-estimated for D1 and D4)
 

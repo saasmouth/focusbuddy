@@ -12,6 +12,7 @@
 // six menu items and the typechecker says nothing.
 
 import { act } from 'react'
+import { documentCommands } from '../../src/renderer/src/lib/menus/officeCommand'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
@@ -21,6 +22,8 @@ vi.mock('../../src/renderer/src/components/Icon', () => ({
 }))
 
 import DocMenuBar from '../../src/renderer/src/components/documents/editor/DocMenuBar'
+import { writeCommandsFor } from './_writeCommands'
+import { cellsCommandsFor } from './_cellsCommands'
 import SheetMenuBar from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 
 const ops = (): DocumentOps => ({
@@ -76,23 +79,7 @@ describe('PlexiiWrite', () => {
   const mount = async (documentOps?: DocumentOps): Promise<void> => {
     await act(async () => {
       root.render(
-        <DocMenuBar
-          editor={stubEditor() as never}
-          title="A document"
-          documentOps={documentOps}
-          onInsertImage={() => {}}
-          onInsertWidget={() => {}}
-          onInsertSnippet={() => {}}
-          onSaveSnippet={() => {}}
-          onExportDocx={() => {}}
-          onExportPdf={() => {}}
-          onFind={() => {}}
-          onFocusMode={() => {}}
-          pageView
-          onSetPageView={() => {}}
-          onOutline={() => {}}
-          onComments={() => {}}
-        />
+        <DocMenuBar commands={writeCommandsFor(stubEditor())} doc={documentCommands(documentOps, 'doc')} />
       )
     })
   }
@@ -109,13 +96,33 @@ describe('PlexiiWrite', () => {
     for (const label of DOC_ITEMS) expect(file).not.toContain(label)
   })
 
-  it('still offers Download and Print without a document', async () => {
-    // These act on the editor's own content, so removing them would have been
+  it('still offers Download without a document', async () => {
+    // Download acts on the editor's own content, so removing it would have been
     // the overcorrection: a snippet session can still export what it is showing.
     await mount(undefined)
-    const file = await openMenu('doc-menu-file')
-    expect(file).toContain('Download')
-    expect(file).toContain('Print')
+    expect(await openMenu('doc-menu-file')).toContain('Download')
+  })
+
+  it('offers Print only where the host can really print', async () => {
+    // The row this replaced was labelled "Print (PDF)" and ran the PDF export:
+    // a menu row that said Print and did not print. Real printing is
+    // documentCommands().print, which the host adds to its ops, so it is absent
+    // with no document AND absent with ops that cannot print — never a row that
+    // lies about what it does. Download ▸ PDF is still there in both cases.
+    await mount(undefined)
+    expect(await openMenu('doc-menu-file')).not.toContain('Print')
+    await act(async () => root.unmount())
+    root = createRoot(host)
+    await mount(ops())
+    expect(await openMenu('doc-menu-file')).not.toContain('Print')
+    // Positive control: with an ops that CAN print, the row is there, so the two
+    // assertions above are about the gate and not about a row that never exists.
+    await act(async () => root.unmount())
+    root = createRoot(host)
+    // `print` is read structurally: agent 19's print engine adds the optional op,
+    // so it is not on DocumentOps in this tree yet.
+    await mount({ ...ops(), print: vi.fn() } as unknown as DocumentOps)
+    expect(await openMenu('doc-menu-file')).toContain('Print')
   })
 
   it('gates Insert > Meeting too, which is not in the File menu', async () => {
@@ -176,7 +183,7 @@ describe('PlexiiCells', () => {
   })
   const mount = async (documentOps?: DocumentOps): Promise<void> => {
     await act(async () => {
-      root.render(<SheetMenuBar actions={actions(documentOps) as never} />)
+      root.render(<SheetMenuBar commands={cellsCommandsFor()} doc={documentCommands(documentOps, 'sheet')} />)
     })
   }
 

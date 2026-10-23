@@ -46,23 +46,26 @@ interface CmdProps {
   label?: string
   showLabel?: boolean
   args?: unknown
-  /** Why it is off when the command says it cannot run (shown in the tooltip). */
-  reason?: string
   readOnlySafe?: boolean
   testid?: string
-  /** Off for a reason of the caller's even though the command could run (Pathfinder needs two paths). */
-  off?: boolean
 }
 
-/** Why a command is off: its own pending note, the caller's reason, or a plain fallback. */
-function offReason(id: string, reason?: string, ctx?: EditorCtx): string {
+/**
+ * Why a command's button is off: the command's own sentence (its pending
+ * note, or its gated `disabledReason`, commands/gate.ts), the same one the
+ * menu shows under the item. A button has no reason of its own, so the bar
+ * and the menu can never say different things. The fallback is only for a
+ * command that can be off without a reason, which the registry guard forbids
+ * for menu commands.
+ */
+export function offReason(id: string, ctx: EditorCtx): string {
   const c = commandById(id)
-  return c?.pending ?? reason ?? (ctx && c?.disabledReason?.(ctx)) ?? 'not available for this selection'
+  return c?.pending ?? c?.disabledReason?.(ctx) ?? 'not available for this selection'
 }
 
-export function CmdButton({ ctx, id, icon, label, showLabel, args, reason, readOnlySafe, testid, off }: CmdProps): JSX.Element {
+export function CmdButton({ ctx, id, icon, label, showLabel, args, readOnlySafe, testid }: CmdProps): JSX.Element {
   const c = commandById(id)
-  const on = !off && canRun(ctx, id)
+  const on = canRun(ctx, id)
   return (
     <BarButton
       icon={icon ?? c?.icon}
@@ -70,7 +73,7 @@ export function CmdButton({ ctx, id, icon, label, showLabel, args, reason, readO
       showLabel={showLabel}
       shortcut={keyOf(id)}
       disabled={!on}
-      disabledReason={on ? undefined : offReason(id, reason, ctx)}
+      disabledReason={on ? undefined : offReason(id, ctx)}
       readOnlySafe={readOnlySafe}
       testid={testid}
       onClick={() => ctx.run(id, args)}
@@ -79,9 +82,9 @@ export function CmdButton({ ctx, id, icon, label, showLabel, args, reason, readO
 }
 
 /** A command with a check mark in its menu (on/off): pressed while `checked`. */
-export function CmdToggle({ ctx, id, icon, label, showLabel, args, reason, readOnlySafe, testid, pressed, off }: CmdProps & { pressed?: boolean }): JSX.Element {
+export function CmdToggle({ ctx, id, icon, label, showLabel, args, readOnlySafe, testid, pressed }: CmdProps & { pressed?: boolean }): JSX.Element {
   const c = commandById(id)
-  const on = !off && canRun(ctx, id)
+  const on = canRun(ctx, id)
   return (
     <BarToggle
       icon={icon ?? c?.icon}
@@ -90,7 +93,7 @@ export function CmdToggle({ ctx, id, icon, label, showLabel, args, reason, readO
       shortcut={keyOf(id)}
       pressed={pressed ?? !!c?.checked?.(ctx)}
       disabled={!on}
-      disabledReason={on ? undefined : offReason(id, reason, ctx)}
+      disabledReason={on ? undefined : offReason(id, ctx)}
       readOnlySafe={readOnlySafe}
       testid={testid}
       onChange={() => ctx.run(id, args)}

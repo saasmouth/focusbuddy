@@ -19,6 +19,7 @@ vi.mock('../../src/renderer/src/components/Tooltip', () => ({ default: ({ childr
 
 import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { DESIGN_TABS, type DesignCtx } from '../../src/renderer/src/components/documents/design/ribbon'
+import { buildDesignCommands, type DesignCommandDeps } from '../../src/renderer/src/components/documents/design/designCommands'
 import { normalizeDesignBody } from '../../src/shared/design'
 import type { SlideElement } from '../../src/shared/types'
 
@@ -66,7 +67,14 @@ const SELECTIONS: Record<Sel, SlideElement[]> = {
 function ctxFor(sel: Sel): DesignCtx {
   const selected = SELECTIONS[sel]
   const design = normalizeDesignBody({ width: 794, height: 1123, elements: selected, bleed: 3 })
+  // The real command record (design/designCommands), on stub functions.
+  const noop = (): void => undefined
+  const deps = new Proxy(
+    { selected: selected.length, grouped: false, canPaste: false, textMarks: selected[0]?.type === 'text' ? {} : null } as Record<string, unknown>,
+    { get: (t, k) => (k in t ? t[k as string] : noop) }
+  ) as unknown as DesignCommandDeps
   return {
+    cmds: buildDesignCommands(deps),
     design,
     selected,
     first: selected[0] ?? null,

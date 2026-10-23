@@ -31,6 +31,7 @@ import { nodeBox, nodeSize, portId, type Box } from '@shared/diagram/geom'
 import { routeAll } from '@shared/diagram/routing'
 import { snapToGrid, snapToGuides, type GuideLine } from '@shared/diagram/guides'
 import { History } from '@shared/diagram/history'
+import { usePrintSource } from '../editor/printSource'
 import { getTheme } from '@shared/diagram/style'
 import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, pageList } from '@shared/diagram/pages'
@@ -44,6 +45,8 @@ import { useDiagramCommands, type Commands } from './commands'
 import { DiagramChrome } from './DiagramChrome'
 import { QuickShapeMenu } from './QuickShapeMenu'
 import { ContextMenu, type ContextTarget } from './ContextMenu'
+import { buildDiagramCommands } from './diagramCommands'
+import { runCommandKey } from '../../../lib/menus/commandKeys'
 import type { DiagramSnippetBody } from '@shared/snippets'
 import SaveSnippetDialog from '../../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../../snippets/SnippetLibrary'
@@ -84,6 +87,16 @@ const edgeTypes = { diagram: DiagramEdge }
 
 // 'shape:<id>' arms a shape: click places it, drag sizes it (SPEC §3.2).
 export type Tool = 'select' | 'pan' | 'text' | `shape:${string}`
+
+/**
+ * The page a Diagrams PDF holds: the current page's shapes, connectors and
+ * layers on the document's settings, without the page list. The same body
+ * commands.ts exportAs('pdf', 'page') sends to map:export.
+ */
+export function diagramPagePrintBody(body: MapBody, pageIdx: number): MapBody {
+  const g = getPage(body, pageIdx)
+  return { ...body, nodes: g.nodes, edges: g.edges, layers: g.layers, pages: undefined }
+}
 
 export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, singlePage = false, documentOps, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
@@ -131,6 +144,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // so an undo step's boundary is marked when it is FLUSHED: the previous
   // step's pending body is written first, then the Y undo stack stops
   // capturing, and everything written after belongs to the new step.
+  // Print… prints what Download ▸ PDF saves: the page on screen, as exportAs
+  // ('pdf', 'page') builds it in commands.ts (main renders both through
+  // mapPrintRender, the page fitted to the paper).
+  usePrintSource(documentOps, () => ({ app: 'diagram', title: title || 'diagram', map: diagramPagePrintBody(bodyRef.current, pageIdxRef.current) }))
   const liveUndoRef = useRef(liveUndo)
   liveUndoRef.current = liveUndo
   const flushRef = useRef<() => void>(() => undefined)
@@ -613,6 +630,20 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   )
 
   // ── keyboard, clipboard, drag-and-drop ──────────────────────────────────
+  // The shared actions with their keys (the same record the menus render),
+  // current every render, for the key listener below.
+  const selNodes = page.nodes.filter((n) => sel.nodes.has(n.id))
+  const selEdges = page.edges.filter((e) => sel.edges.has(e.id))
+  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined }))
+  keyCmdsRef.current = buildDiagramCommands({
+    cmd,
+    nodes: selNodes.length,
+    edges: selEdges.length,
+    locked: selNodes.some((n) => n.locked) || selEdges.some((e) => e.locked),
+    grouped: selNodes.some((n) => n.groupId),
+    // Find's keys are the menu bar's (keyOwner); the listener never runs it.
+    openFind: () => undefined
+  })
   const isTyping = (t: EventTarget | null): boolean => {
     const el = t as HTMLElement | null
     return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
@@ -623,6 +654,13 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     const inEditor = (): boolean => wrap.contains(document.activeElement) || document.activeElement === document.body
     const onKey = (e: KeyboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
+      // Every key a menu or the ribbon shows runs from its definition
+      // (diagramCommands, lib/menus/commandKeys); a command that is off is not run.
+      if (runCommandKey(Object.values(keyCmdsRef.current), e)) {
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
       if (cmd.handleKey(e, { setTool, tool })) {
         e.preventDefault()
         e.stopPropagation()

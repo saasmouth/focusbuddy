@@ -321,8 +321,8 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
 
     // Trigger exportDocx via the toolbar Office menu.
     await window.getByRole('button', { name: /Open or export Office files/i }).click()
-    await expect(window.locator('text=Export Word (.docx)')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Export Word (.docx)').click()
+    await expect(window.locator('text=Download Word (.docx)…')).toBeVisible({ timeout: 3_000 })
+    await window.locator('text=Download Word (.docx)…').click()
 
     // Wait for the status message to confirm the IPC completed.
     await expect(window.locator('[data-testid="doc-office-status"]')).toContainText('test.docx', {
@@ -343,8 +343,8 @@ test('DPS-4 — export wiring: exportDocx and exportPdf receive the page setup i
 
     // Trigger exportPdf.
     await window.getByRole('button', { name: /Open or export Office files/i }).click()
-    await expect(window.locator('text=Export PDF')).toBeVisible({ timeout: 3_000 })
-    await window.locator('text=Export PDF').click()
+    await expect(window.locator('text=Download PDF…')).toBeVisible({ timeout: 3_000 })
+    await window.locator('text=Download PDF…').click()
 
     await expect(window.locator('[data-testid="doc-office-status"]')).toContainText('test.pdf', {
       timeout: 10_000

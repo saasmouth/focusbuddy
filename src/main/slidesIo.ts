@@ -31,6 +31,7 @@
 // stale sentence sent a later reader to the wrong conclusion three times.
 
 import { dialog, BrowserWindow } from 'electron'
+import { renderToPdf, type PrintRender } from './printRender'
 import { basename } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 // pptxgenjs and fflate are imported lazily inside the functions that use them,
@@ -243,7 +244,12 @@ function slideHtml(slide: Slide, theme: DeckTheme): string {
   return `<div class="page" style="position:relative;width:${SLIDE_W}px;height:${SLIDE_H}px;background:${bg};overflow:hidden;color:${theme.textColor}">${els}</div>`
 }
 
-export async function exportSlidesPdf(body: SlidesBody, outPath: string): Promise<SlidesExportResult> {
+/**
+ * Deck's print-ready render: one slide per page at the slide's own size (CSS
+ * @page), in order. Download ▸ PDF printToPDF()s it; Print… print()s it
+ * (printRender.ts), so the paper holds exactly the PDF's pages.
+ */
+export function slidesPrintRender(body: SlidesBody): PrintRender {
   const deck = migrateSlidesBody(body)
   const theme = resolveTheme(deck.theme)
   const pages = deck.slides.map((s) => slideHtml(s, theme)).join('')
@@ -253,16 +259,20 @@ export async function exportSlidesPdf(body: SlidesBody, outPath: string): Promis
     body { margin: 0; }
     .page { page-break-after: always; }
   </style></head><body>${pages}</body></html>`
-  const offscreen = new BrowserWindow({ show: false, width: SLIDE_W, height: SLIDE_H, webPreferences: { offscreen: true } })
+  return {
+    html,
+    window: { width: SLIDE_W, height: SLIDE_H },
+    pdf: { printBackground: true, preferCSSPageSize: true, landscape: true }
+  }
+}
+
+export async function exportSlidesPdf(body: SlidesBody, outPath: string): Promise<SlidesExportResult> {
   try {
-    await offscreen.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    const pdf = await offscreen.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, landscape: true })
+    const pdf = await renderToPdf(slidesPrintRender(body))
     await writeFile(outPath, pdf)
     return { ok: true, path: outPath }
   } catch (e) {
     return { ok: false, error: `Could not export PDF: ${(e as Error).message}` }
-  } finally {
-    offscreen.destroy()
   }
 }
 
