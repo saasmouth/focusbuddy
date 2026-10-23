@@ -238,7 +238,7 @@ function GradientTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
   useEditor(ctx) // re-render with the editor
   return (
     <BarGroup label="Gradient">
-      <CmdButton ctx={ctx} id="paint.reverseGradient" icon="swap_horiz" reason="select a gradient fill" testid="draw-gradient-reverse" />
+      <CmdButton ctx={ctx} id="paint.reverseGradient" icon="swap_horiz" testid="draw-gradient-reverse" />
     </BarGroup>
   )
 }
@@ -257,7 +257,10 @@ export default gradient
 - Use the shell's bar primitives (`BarButton`, `BarToggle`, `BarNumber`,
   `BarSelect`, `BarColor`, `BarMenu`, `BarDialogButton`, `BarCustom`) or
   `CmdButton` / `CmdToggle`, which take the command's label, its LIVE key for
-  the tooltip, and its `enabled` state with a `reason` to show when it is off.
+  the tooltip, and its `enabled` state with the command's own `disabledReason`
+  as the off tooltip: the bar and the menu say the same sentence, and a
+  button has no reason of its own (`tests/unit/drawBarReasons.test.tsx`).
+  Give the reason to the command (`gate`), not to the button.
 - A contextual tab appears while `when` holds and never switches to itself
   (owner D3); when it vanishes while active, the bar falls back to Home.
 - A read-only drawing greys every control without `readOnlySafe` and says why

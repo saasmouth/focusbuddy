@@ -86,9 +86,9 @@ function ArtboardTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <BarSep />
       <BarGroup label="Artboards">
         <BarToggle icon="open_with" label="Move/copy artwork with artboard" pressed={moveArtWithArtboard(s)} onChange={() => ctx.run('artboard.toggleMoveArt')} testid="draw-artboard-with-art" />
-        <CmdButton ctx={ctx} id="artboard.new" reason={blocked} testid="draw-artboard-new" />
-        <CmdButton ctx={ctx} id="artboard.duplicate" reason={blocked} testid="draw-artboard-duplicate" />
-        <CmdButton ctx={ctx} id="artboard.delete" reason={blocked ?? 'a drawing keeps at least one artboard'} testid="draw-artboard-delete" />
+        <CmdButton ctx={ctx} id="artboard.new" testid="draw-artboard-new" />
+        <CmdButton ctx={ctx} id="artboard.duplicate" testid="draw-artboard-duplicate" />
+        <CmdButton ctx={ctx} id="artboard.delete" testid="draw-artboard-delete" />
         <BarDialogButton icon="tune" label="Options" disabled={!editable} disabledReason={blocked} onOpen={() => ctx.run('artboard.options')} testid="draw-artboard-options" />
         <BarDialogButton icon="dashboard" label="Artboards" shortcut={keyOf('window.artboards')} readOnlySafe onOpen={() => ctx.run('window.artboards', true)} testid="draw-artboard-panel-open" />
       </BarGroup>

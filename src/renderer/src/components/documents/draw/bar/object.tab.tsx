@@ -149,9 +149,9 @@ function ObjectTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
     <>
       <TransformCluster ctx={ctx} />
       <BarGroup label="Flip">
-        <CmdButton ctx={ctx} id="object.flipHorizontal" icon="flip" reason={NOTHING} testid="draw-transform-flip-h" />
+        <CmdButton ctx={ctx} id="object.flipHorizontal" icon="flip" testid="draw-transform-flip-h" />
         <span className="inline-flex [&_.material-symbols-outlined]:rotate-90 [&_svg]:rotate-90">
-          <CmdButton ctx={ctx} id="object.flipVertical" icon="flip" reason={NOTHING} testid="draw-transform-flip-v" />
+          <CmdButton ctx={ctx} id="object.flipVertical" icon="flip" testid="draw-transform-flip-v" />
         </span>
       </BarGroup>
       <BarGroup label="Transform options">
@@ -161,11 +161,11 @@ function ObjectTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <BarSep />
       <BarGroup label="Arrange">
         {ARRANGE.map((a) => (
-          <CmdButton key={a.dir} ctx={ctx} id={`object.arrange.${a.dir}`} icon={a.icon} reason="nothing to move in the stacking order" testid={`draw-arrange-${a.dir}`} />
+          <CmdButton key={a.dir} ctx={ctx} id={`object.arrange.${a.dir}`} icon={a.icon} testid={`draw-arrange-${a.dir}`} />
         ))}
       </BarGroup>
       <BarSep />
-      <CmdButton ctx={ctx} id="object.transformAgain" icon="replay" reason="transform something first" testid="draw-transform-again" />
+      <CmdButton ctx={ctx} id="object.transformAgain" icon="replay" testid="draw-transform-again" />
       <BarMenu
         icon="transform"
         label="Transform"

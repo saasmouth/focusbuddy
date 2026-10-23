@@ -46,7 +46,6 @@ import {
   type NodePlace,
   distributeObjects,
   editableIds,
-  joinPaths,
   mapObjects,
   pathfinderOperands,
   reshape,
@@ -525,19 +524,8 @@ export const commands: Command[] = [
       ctx.history.commit(next, closed ? 'Close path' : 'Open path')
     }
   },
-  {
-    id: 'object.join',
-    label: 'Join into one path',
-    menu: { path: 'object/Path', order: 303 },
-    // The same operands as Pathfinder: paths at a layer's top level.
-    ...gate(firstOf(notReadOnly, unless((ctx) => pathfinderOperands(ctx.doc(), selectedPathIds(ctx)).length >= 2, 'Select two or more paths to join them into one.'))),
-    run: (ctx) => {
-      const { doc, newId } = joinPaths(ctx.doc(), selectedPathIds(ctx))
-      if (doc === ctx.doc()) return
-      ctx.history.commit(doc, 'Join paths')
-      ctx.select(newId ? [newId] : [])
-    }
-  },
+  // "Join into one path" (object.join) is gone: it made a compound path with
+  // the even-odd rule, a weaker copy of Object › Compound Path › Make (⌘8).
   {
     id: 'object.reshape',
     label: 'Shape parameters',

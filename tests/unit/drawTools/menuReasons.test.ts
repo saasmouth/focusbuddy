@@ -150,13 +150,12 @@ describe('commands whose `enabled` was wrong', () => {
     expect(commandById('object.unite')!.enabled!(h.ed.ctx)).toBe(false)
   })
 
-  // Close, Open, Reverse and Join counted every selected path, locked ones
+  // Close, Open and Reverse counted every selected path, locked ones
   // included, and changed them: a path on a locked layer was edited.
   it.each([
     ['object.closePath', 'Select a path to close it.'],
     ['object.openPath', 'Select a path to open it.'],
-    ['object.reverse', 'Select a path to reverse it.'],
-    ['object.join', 'Select two or more paths to join them into one.']
+    ['object.reverse', 'Select a path to reverse it.']
   ])('%s is off for paths on a locked layer, and running it anyway leaves them alone', (id, reason) => {
     const h = harness(blank(TWO()))
     h.ed.ctx.select(['a', 'b'])
@@ -176,17 +175,6 @@ describe('commands whose `enabled` was wrong', () => {
     h.run('object.openPath')
     expect(pathOf(h, 'a').path.subpaths[0].closed).toBe(false)
     expect(pathOf(h, 'b').path.subpaths[0].closed).toBe(true)
-  })
-
-  it('Join into one path is off for two paths inside a group (it joins top-level paths only)', () => {
-    const h = harness(blank(TWO()))
-    h.ed.ctx.select(['a', 'b'])
-    h.run('object.group')
-    const group = h.objects()[0]
-    expect(group.type).toBe('group')
-    // Both members picked, as Group Selection would.
-    h.ed.ctx.select(['a', 'b'])
-    expect(commandById('object.join')!.enabled!(h.ed.ctx)).toBe(false)
   })
 
   // Duplicate and Delete were on for a selection of only locked art, and did nothing.

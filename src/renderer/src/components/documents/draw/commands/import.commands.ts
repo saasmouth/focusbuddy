@@ -284,7 +284,14 @@ export const commands: Command[] = [
     label: 'Replace image…',
     icon: 'swap_horiz',
     menu: { path: 'file', order: 253 },
-    ...gate(firstOf(notReadOnly, unless((ctx) => selectedImage(ctx) !== null, 'Select one image to replace it.'))),
+    ...gate(
+      firstOf(notReadOnly, (ctx) => {
+        if (selectedImage(ctx)) return null
+        const sel = ctx.get().selection
+        // One image selected, but it (or its layer) is locked or hidden.
+        return sel.length === 1 && getObject(ctx.doc(), sel[0])?.type === 'image' ? 'The picture is locked or hidden.' : 'Select one image to replace it.'
+      })
+    ),
     run: (ctx) => replaceImage(ctx)
   },
   { id: 'file.placePdfPage', label: 'Place PDF page', ...writableGate, run: (ctx, args) => placePdfPage(ctx, args) },

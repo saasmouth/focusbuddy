@@ -7,7 +7,6 @@ import { BarGroup, BarSep } from '../../../office/shell'
 import { getObject } from '@shared/draw/ops'
 import type { DrawBarTab, EditorCtx, EditorState } from '../editor/types'
 import { isolationChain } from '../editor/isolation'
-import { v2BlockedReason, v2Writable } from '../editor/v2gate'
 import { CmdButton, useEditor } from './controls'
 
 export function groupContext(s: EditorState): boolean {
@@ -17,26 +16,25 @@ export function groupContext(s: EditorState): boolean {
 }
 
 function GroupTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
-  const s = useEditor(ctx)
-  const v2 = v2Writable(s)
-  const needsV2 = `groups and clipping masks need the newer drawing format: ${v2BlockedReason(s)}`
+  // Re-render with the editor: each button's state and reason are read from it.
+  useEditor(ctx)
   return (
     <>
       <BarGroup label="Group">
-        <CmdButton ctx={ctx} id="object.group" icon="group_work" reason={v2 ? 'select two or more objects' : needsV2} testid="draw-group" />
-        <CmdButton ctx={ctx} id="object.ungroup" icon="workspaces" reason="select a group" testid="draw-ungroup" />
+        <CmdButton ctx={ctx} id="object.group" icon="group_work" testid="draw-group" />
+        <CmdButton ctx={ctx} id="object.ungroup" icon="workspaces" testid="draw-ungroup" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Isolation mode">
-        <CmdButton ctx={ctx} id="object.isolate" icon="center_focus_strong" reason="select one group to isolate" testid="draw-isolate" />
-        <CmdButton ctx={ctx} id="object.exitIsolation" icon="filter_center_focus" reason="no group is isolated" testid="draw-exit-isolation" />
+        <CmdButton ctx={ctx} id="object.isolate" icon="center_focus_strong" testid="draw-isolate" />
+        <CmdButton ctx={ctx} id="object.exitIsolation" icon="filter_center_focus" testid="draw-exit-isolation" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Clipping mask">
-        <CmdButton ctx={ctx} id="object.clip.make" icon="crop" reason={v2 ? 'select the artwork and, on top, the shape to mask it with' : needsV2} testid="draw-clip-make" />
-        <CmdButton ctx={ctx} id="object.clip.release" icon="crop_free" reason="select a clipping group" testid="draw-clip-release" />
-        <CmdButton ctx={ctx} id="object.clip.editMask" icon="select" reason="select a clipping group" testid="draw-clip-edit-mask" />
-        <CmdButton ctx={ctx} id="object.clip.editContents" icon="photo_library" reason="select a clipping group" testid="draw-clip-edit-contents" />
+        <CmdButton ctx={ctx} id="object.clip.make" icon="crop" testid="draw-clip-make" />
+        <CmdButton ctx={ctx} id="object.clip.release" icon="crop_free" testid="draw-clip-release" />
+        <CmdButton ctx={ctx} id="object.clip.editMask" icon="select" testid="draw-clip-edit-mask" />
+        <CmdButton ctx={ctx} id="object.clip.editContents" icon="photo_library" testid="draw-clip-edit-contents" />
       </BarGroup>
     </>
   )

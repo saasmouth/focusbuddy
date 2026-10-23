@@ -252,7 +252,6 @@ describe('the menu bar is built from commands', () => {
         '  Close path|||off|',
         '  Open path|||off|',
         '  Reverse path direction|||off|',
-        '  Join into one path|||off|',
         '---',
         'Group|group_work|⌘G|off|',
         'Ungroup|workspaces|⇧⌘G|off|',
