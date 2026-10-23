@@ -12,6 +12,7 @@ import { test, expect, type Page, type ElectronApplication } from '@playwright/t
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
+import { acquireRealInput, releaseRealInput } from './_realInputLock'
 import { cursorLocation, moveMouse, postMouse, postRightClick, type ScreenPoint } from './_macMouse'
 
 const SHOTS = process.env.MENUS_REAL_SHOTS ?? '/private/tmp/claude-501/menu-contract-real-shots'
@@ -22,6 +23,9 @@ let app: ElectronApplication
 let restore: ScreenPoint
 
 test.beforeAll(async () => {
+  // Real input is one spec at a time across workers (_realInputLock.ts).
+  test.setTimeout(240_000)
+  await acquireRealInput('_realClickMenus')
   mkdirSync(SHOTS, { recursive: true })
   restore = cursorLocation()
   launched = await launchApp()
@@ -41,10 +45,14 @@ test.beforeAll(async () => {
   await window.waitForTimeout(700)
 })
 test.afterAll(async () => {
-  moveMouse(restore)
-  if (launched) {
-    await launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setAlwaysOnTop(false)).catch(() => undefined)
-    await launched.dispose()
+  try {
+    moveMouse(restore)
+    if (launched) {
+      await launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setAlwaysOnTop(false)).catch(() => undefined)
+      await launched.dispose()
+    }
+  } finally {
+    releaseRealInput()
   }
 })
 

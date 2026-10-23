@@ -16,6 +16,7 @@
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { ACTIVE } from '../../src/shared/productDomains'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -31,7 +32,21 @@ test('CSS-1 — a sustained swipe on a busy desk keeps the renderer alive', asyn
   const errors: string[] = []
   window.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
   window.on('console', (m) => {
-    if (m.type() === 'error') errors.push(`console: ${m.text().slice(0, 200)}`)
+    // Chromium's "Failed to load resource" line never says WHICH resource; the
+    // response listener below reports each one by URL instead, so the echo is
+    // not counted twice.
+    if (m.type() === 'error' && !m.text().startsWith('Failed to load resource'))
+      errors.push(`console: ${m.text().slice(0, 200)}`)
+  })
+  // Every 4xx/5xx is a failure, named by its URL, but one: the signed-out boot's
+  // GET /public/server-features, which LaunchSignInModal makes knowing the
+  // deployed server has no such route yet (it answers 404, the app shows an
+  // empty list). The net guard answers that same 404 locally (_netGuard.ts).
+  const serverFeatures = new URL('/public/server-features', ACTIVE.api).href
+  window.on('response', (r) => {
+    if (r.status() < 400) return
+    if (r.status() === 404 && r.url() === serverFeatures) return
+    errors.push(`response ${r.status()}: ${r.url().slice(0, 200)}`)
   })
 
   // Enough widgets, spread wide enough, that virtualisation churns while panning.

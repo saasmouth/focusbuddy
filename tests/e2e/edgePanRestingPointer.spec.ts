@@ -28,6 +28,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { acquireRealInput, releaseRealInput } from './_realInputLock'
 import { cursorLocation, moveMouse, path, pinWindowForRealInput, postMouse, unpinWindow, type ScreenPoint } from './_macMouse'
 
 test.skip(process.platform !== 'darwin', 'posts macOS mouse events')
@@ -86,6 +87,9 @@ async function parkMidCanvas(): Promise<void> {
 }
 
 test.beforeAll(async () => {
+  // Real input is one spec at a time across workers (_realInputLock.ts).
+  test.setTimeout(240_000)
+  await acquireRealInput('edgePanRestingPointer')
   savedCursor = cursorLocation()
   app = await launchApp()
   window = app.window
@@ -114,10 +118,14 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   try {
-    if (app) await unpinWindow(app.app).catch(() => undefined)
+    try {
+      if (app) await unpinWindow(app.app).catch(() => undefined)
+    } finally {
+      if (savedCursor) moveMouse(savedCursor)
+      await app?.dispose()
+    }
   } finally {
-    if (savedCursor) moveMouse(savedCursor)
-    await app?.dispose()
+    releaseRealInput()
   }
 })
 

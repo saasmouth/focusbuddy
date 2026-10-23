@@ -70,7 +70,8 @@ test('portal previews another desk and dives into it', async () => {
 
   // Diving in switches the canvas to Desk One.
   await window.locator('[data-testid="portal-open"]').click()
-  await expect(window.locator('[data-testid="breadcrumb-current"]')).toContainText('Desk One', {
+  // The desk's name is on the desk context trigger since 4148318a (no breadcrumb).
+  await expect(window.locator('[data-testid="desk-context-trigger"]')).toContainText('Desk One', {
     timeout: 5_000
   })
 })

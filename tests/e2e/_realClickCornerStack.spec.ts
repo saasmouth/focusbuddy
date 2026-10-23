@@ -17,6 +17,7 @@ import { test, expect, type Page, type ElectronApplication } from '@playwright/t
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, waitForReady, chooseCloudAiSource, type LaunchedApp } from './_helpers'
+import { acquireRealInput, releaseRealInput } from './_realInputLock'
 import { cursorLocation, moveMouse, postMouse, pinWindowForRealInput, unpinWindow, type ScreenPoint } from './_macMouse'
 
 const SHOTS = process.env.CORNER_STACK_SHOTS ?? '/private/tmp/claude-501/corner-stack-real-shots'
@@ -27,6 +28,9 @@ let app: ElectronApplication
 let restore: ScreenPoint
 
 test.beforeAll(async () => {
+  // Real input is one spec at a time across workers (_realInputLock.ts).
+  test.setTimeout(240_000)
+  await acquireRealInput('_realClickCornerStack')
   mkdirSync(SHOTS, { recursive: true })
   restore = cursorLocation()
   launched = await launchApp()
@@ -38,10 +42,14 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  moveMouse(restore)
-  if (launched) {
-    await unpinWindow(app).catch(() => undefined)
-    await launched.dispose()
+  try {
+    moveMouse(restore)
+    if (launched) {
+      await unpinWindow(app).catch(() => undefined)
+      await launched.dispose()
+    }
+  } finally {
+    releaseRealInput()
   }
 })
 

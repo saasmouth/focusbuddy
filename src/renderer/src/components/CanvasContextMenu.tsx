@@ -5,6 +5,7 @@ import PlexiiIcon from './PlexiiIcon'
 import type { EntityRef } from '../lib/plexiiIconMap'
 import { useMenuOverlay } from '../lib/useMenuOverlay'
 import { collectMenuRects, resolvePosition } from '../lib/floatingChrome'
+import { returnMenuFocus } from '../lib/focusNewWidget'
 
 export interface CtxMenuItem {
   label?: string
@@ -58,7 +59,7 @@ export default function CanvasContextMenu({ x, y, items, onClose, testid }: Prop
   useEffect(() => {
     const opener = openerRef.current
     return () => {
-      if (opener && opener !== document.body && document.contains(opener)) opener.focus({ preventScroll: true })
+      if (opener && opener !== document.body && document.contains(opener)) returnMenuFocus(opener)
     }
   }, [])
   useEffect(() => {

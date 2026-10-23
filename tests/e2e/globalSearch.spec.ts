@@ -149,8 +149,10 @@ test('search.query finds a document by its body text', async () => {
   const docCreated = await window.evaluate(async (t: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     if (api.documents && typeof api.documents.create === 'function') {
-      // Use the documents IPC: body is plain text stored in the body column.
-      const doc = await api.documents.create({ docType: 'doc', title: 'SearchDoc', body: t })
+      // A doc body is TipTap JSON. Search reads the text OUT of it since c920b398
+      // (ranked by meaning); a bare string was only found by the old LIKE on body.
+      const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: t }] }] }
+      const doc = await api.documents.create({ docType: 'doc', title: 'SearchDoc', body })
       return { via: 'documents', id: doc?.id ?? null }
     }
     // Fallback: a doc widget whose content is the body text.
@@ -282,7 +284,8 @@ test('Cmd+K palette still lists nav commands after global-search integration', a
     return ''
   })
 
-  for (const cmd of ['Documents', 'Files', 'Mail', 'PlexiiInbox', 'Messages']) {
+  // Messages is "PlexiiChat" since 2de7b796 (office apps got their own names).
+  for (const cmd of ['Documents', 'Files', 'Mail', 'PlexiiInbox', 'PlexiiChat']) {
     expect(text, `nav command "${cmd}" must still be in the browse list`).toContain(cmd)
   }
 

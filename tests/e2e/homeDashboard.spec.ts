@@ -81,8 +81,9 @@ test('3a. hero-action-all-tasks -> All Tasks view', async () => {
   const homeVisible = await window.locator('[data-testid="plexisuite-home"]').isVisible({ timeout: 3000 }).catch(() => false)
   if (!homeVisible) await goSuite(window)
 
-  await window.locator('[data-testid="hero-action-all-tasks"]').click()
-  // AllTasksView renders an <h1>All Tasks</h1>
+  // The action is labelled "All desks" since 62d9123e, and its testid follows the label.
+  await window.locator('[data-testid="hero-action-all-desks"]').click()
+  // AllTasksView renders an <h1>All desks</h1>
   await expect(window.locator('h1').filter({ hasText: 'All desks' })).toBeVisible({ timeout: 8000 })
 })
 

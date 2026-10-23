@@ -83,7 +83,9 @@ test('Desk Sidebar and OfficeSidebar share the same visual system', async () => 
     // 2e. Nav rows: rounded-lg style with accent/0.12 on active row
     //     Home should be active (we just navigated there). The NavRow component
     //     uses `bg-[rgb(var(--accent)/0.12)]` on active.
-    const deskNavRows = deskSidebar.locator('button.rounded-lg.text-\\[13px\\]')
+    //     The row's shape is the shared .fb-nav-row rule since f0e393ae (one
+    //     centred side-menu item rule), not a per-row rounded-lg.
+    const deskNavRows = deskSidebar.locator('button.fb-nav-row.text-\\[13px\\]')
     const deskNavCount = await deskNavRows.count()
     // At minimum we expect Home/Attention/Rooms/All desks/Shared/Trash = 6 rows
     // (Calendar and Files moved into Office; Vault moved into Settings)

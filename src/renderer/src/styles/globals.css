@@ -232,6 +232,13 @@ body {
     transition: border-color var(--dur-quick) var(--ease-spring-crisp),
       box-shadow var(--dur-quick) var(--ease-spring-crisp);
   }
+  /* A field that is also body copy (FieldEditor's widget variant) stays at the
+     body size. .fb-body lives in tokens.css, which is imported before this
+     layer, so at equal specificity the 14px above won and re-raised the field
+     widget's input (uniformBodyText (d)). */
+  .fb-field.fb-body {
+    font-size: var(--fb-body-size);
+  }
   .fb-field::placeholder {
     color: var(--ink-40);
   }

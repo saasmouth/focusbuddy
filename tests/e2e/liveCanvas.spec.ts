@@ -12,9 +12,9 @@
  *         the IPC contract the function depends on; assert widgets + link (with
  *         remapped endpoints) come back.
  *
- *   LC-3  The sidebar "Collaborate live" context-menu entry is still reachable on a
- *         task row and does not crash when there is no session (it now shares the desk
- *         on the substrate rather than minting a live canvas).
+ *   LC-3  The desk's share entry point (desk context menu › Share…, which replaced the
+ *         sidebar row's "Collaborate live") is reachable and does not crash when there
+ *         is no session (it shares the desk on the substrate, no live canvas).
  *
  * Cross-account convergence for a shared desk (widgets + wires) is proven by the
  * crdt*Live specs; this file stays hermetic (no signal server needed).
@@ -171,9 +171,14 @@ test('LC-1 — applyCanvasBodyToTask contract: rebuild from CanvasBody via windo
 })
 
 // ---------------------------------------------------------------------------
-// LC-3: Sidebar "Collaborate live" context menu item present on a task row
+// LC-3: sharing a desk is reachable from the desk and opens without a session
 // ---------------------------------------------------------------------------
-test('LC-3 — Sidebar: Collaborate live context menu item present on task row', async () => {
+// This was "Sidebar: Collaborate live context menu item present on task row".
+// The sidebar's task rows and their right-click menu were removed in 24a61f93
+// (Rooms/Desks trees left the sidebar), and the desk's live entry point is the
+// desk context menu's Share… row since 4148318a. The intent is unchanged: the
+// entry point is reachable from a desk and does not crash without a session.
+test('LC-3 — Desk context menu: Share… opens the share sheet without a session', async () => {
   launched = await launchApp()
   const { window } = launched
 
@@ -181,34 +186,25 @@ test('LC-3 — Sidebar: Collaborate live context menu item present on task row',
   const uncaught: string[] = []
   window.on('pageerror', (err) => uncaught.push(err.message))
 
-  await waitForReady(window)
-
-  // Create a task so a row appears in the sidebar.
   await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     await api.nodes.create({ parentId: null, kind: 'task', title: 'Collab test task' })
   })
-
-  // Reload so the sidebar re-renders with the new task.
   await window.reload()
   await waitForReady(window)
+  await window.getByRole('button', { name: /Collab test task/ }).first().click()
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
-  // Right-click the task row to open the context menu.
-  const taskRow = window.locator('text=Collab test task').first()
-  await expect(taskRow).toBeVisible({ timeout: 6_000 })
-  await taskRow.click({ button: 'right' })
+  await window.locator('[data-testid="desk-context-trigger"]').click()
+  await window.locator('[data-testid="desk-context-share"]').click()
+  const sheet = window.getByRole('dialog', { name: /^Share this / })
+  await expect(sheet).toBeVisible({ timeout: 4_000 })
+  await expect(sheet).toContainText('Collab test task')
+  await sheet.getByRole('button', { name: 'Close' }).first().click()
+  await expect(sheet).toHaveCount(0)
 
-  // The context menu must have "Collaborate live".
-  const collaborateItem = window.locator('text=/Collaborate live/i').first()
-  await expect(collaborateItem).toBeVisible({ timeout: 3_000 })
-
-  // Click it — without a session token this will fail to create a live canvas,
-  // but must NOT crash the app.
-  await collaborateItem.click()
-  await window.waitForTimeout(500)
-
-  // App is still alive: the sidebar is still rendered.
-  await expect(window.getByRole('heading', { name: /plexidesk/i, level: 2 })).toBeVisible({ timeout: 4_000 })
+  // App is still alive: the desk is still on screen.
+  await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible()
 
   // No page-level JS exceptions.
   expect(

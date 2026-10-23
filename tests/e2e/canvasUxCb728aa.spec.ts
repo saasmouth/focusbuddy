@@ -143,7 +143,8 @@ test('Cmd+K palette lists nav commands: Documents, Files, Mail, PlexiInbox, Mess
 
   const text = await getPaletteText(window)
 
-  const navCommands = ['Documents', 'Files', 'Mail', 'PlexiiInbox', 'Messages']
+  // Messages is "PlexiiChat" since 2de7b796 (office apps got their own names).
+  const navCommands = ['Documents', 'Files', 'Mail', 'PlexiiInbox', 'PlexiiChat']
   for (const cmd of navCommands) {
     expect(text, `palette must contain nav command "${cmd}"`).toContain(cmd)
   }
