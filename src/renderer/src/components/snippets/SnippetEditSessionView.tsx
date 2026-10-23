@@ -16,6 +16,7 @@ const SnippetDocSurface = lazy(() => import('./SnippetDocSurface'))
 const SnippetSheetSession = lazy(() => import('./SnippetSheetSession'))
 const SnippetDiagramSession = lazy(() => import('./SnippetDiagramSession'))
 const SnippetSlideSession = lazy(() => import('./SnippetSlideSession'))
+const SnippetDrawSession = lazy(() => import('./SnippetDrawSession'))
 
 function Loading(): JSX.Element {
   return <div className="p-4 text-[12px] text-[var(--ink-50)]">Opening the editor…</div>
@@ -65,6 +66,20 @@ export interface SnippetKindEditor {
      * prevented. Each string is user-facing copy, in the destination's terms.
      */
     onChange: (next: SnippetBody, lost?: string[]) => void
+    /**
+     * Ask the HOST to save now — for an editor with a Save of its own.
+     *
+     * PlexiiDraw's File › Save and ⌘S call this (DrawStudio's `onSaveRequest`)
+     * instead of writing, because the studio has a Save command that would
+     * otherwise look broken inside a session. It is the same action as the
+     * Save button below, guard included: nothing happens when nothing has
+     * changed or a save is already in flight.
+     *
+     * It does NOT make the editor a persister. The host still owns the write,
+     * the revision it carries and the conflict rule — this only pulls the
+     * trigger the user already has.
+     */
+    requestSave: () => void
   }) => ReactNode
 }
 
@@ -72,7 +87,11 @@ export interface SnippetKindEditor {
  * The editors, by kind. Each app's owner contributes its own entry, because the
  * wrapping is theirs to get right:
  *
- *   draw     direct — a DrawSnippetBody goes straight into DrawStudio's content
+ *   draw     NOT direct, despite how it reads: a DrawSnippetBody is not a
+ *            drawing body. shared/draw/snippetBody.ts builds the artboard from
+ *            the art's bounds (often at negative coordinates, because the art is
+ *            never moved) and re-bases on the way out; it reports what a snippet
+ *            cannot hold through `lost`
  *   diagram  trivial — {nodes, edges} IS MapBody's first page
  *   design   an in-memory wrapper; a DesignSnippetBody has no width/height/pages,
  *            and the snippet's carried swatches go on DesignBody.swatches so every
@@ -117,21 +136,26 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
         <SnippetSlideSession body={body} title={title} onChange={onChange} />
       </Suspense>
     )
+  },
+  // `draw` went through two wrong versions before this one, which is why the
+  // wrapping lives in Draw's own model rather than here. My first entry passed
+  // the snippet body straight into DrawStudio's `content`, on the understanding
+  // that a DrawSnippetBody WAS a drawing body. It is not — it is
+  // {kind, objects, assets, swatches} — so the studio would have opened on
+  // something it does not understand. I removed that entry rather than leave a
+  // broken one, and d1 wrote the real wrapping in src/shared/draw/snippetBody.ts.
+  draw: {
+    render: ({ body, title, onChange, requestSave }) => (
+      <Suspense fallback={<Loading />}>
+        <SnippetDrawSession
+          body={body}
+          title={title}
+          onChange={onChange}
+          requestSave={requestSave}
+        />
+      </Suspense>
+    )
   }
-  // NO `draw` ENTRY, and its absence is deliberate rather than pending.
-  //
-  // I had one, built on d1's first answer that a DrawSnippetBody could go
-  // straight into DrawStudio's `content`. d1 then corrected that: a
-  // DrawSnippetBody is {kind, objects, assets, swatches} and NOT a drawing body,
-  // so it needs wrapping — objects onto a vector layer, the asset store, the
-  // swatches, an artboard sized to the object bounds — and unwrapping again on
-  // the way out. Passing it raw would have opened an editor on something
-  // DrawStudio does not understand.
-  //
-  // Those helpers are Draw's model, so d1 is writing them in src/shared/draw.
-  // Until they land, `draw` falls through to "cannot be opened for editing yet",
-  // which is the honest state: a registry entry that opens a broken editor is
-  // worse than one that is missing.
 }
 
 export interface SnippetEditSessionViewProps {
@@ -237,6 +261,17 @@ export default function SnippetEditSessionView({
     },
     [snippetId]
   )
+
+  const requestSave = useCallback(() => {
+    // The same guard the Save button carries, and it matters more here: a ⌘S
+    // from inside an editor can arrive at any moment. Saving while a save is in
+    // flight would race two writes against one base revision, and saving when
+    // nothing changed would bump the master's revision for nothing — which then
+    // makes every OTHER open session's next save fail its compare-and-set over
+    // a change that never happened.
+    if (!dirty || save.phase === 'saving') return
+    void commit(baseRevision.current)
+  }, [dirty, save.phase, commit])
 
   const close = useCallback(() => {
     // Unsaved work in a session is lost silently otherwise: there is no document
@@ -357,7 +392,8 @@ export default function SnippetEditSessionView({
                 latest.current = next
                 setLost(losing ?? [])
                 if (!dirty) setDirty(true)
-              }
+              },
+              requestSave
             })}
           </div>
         ) : (
