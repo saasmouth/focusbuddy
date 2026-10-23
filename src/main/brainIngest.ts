@@ -3,6 +3,7 @@ import { contentToPlainText } from '@shared/widgetText'
 import { listNodes } from './db/nodes'
 import { listDocuments, getDocument } from './db/documents'
 import { listWidgetsByTask } from './db/widgets'
+import { widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { listEntries, hasFileBytes } from './db/files'
 import { upsertKnowledgeBySource, hasKnowledgeSource, pruneKnowledgeSources } from './db/knowledge'
 import { extractDocText } from './workspaceRank'
@@ -44,6 +45,11 @@ export interface BrainIngestStats {
   removed: number
 }
 
+/** The widget-file document an instance belongs to, or null. */
+export function widgetFileId(w: Pick<Widget, 'syncGroupId'>): string | null {
+  return widgetFileIdFromGroup(w.syncGroupId ?? null)
+}
+
 export async function ingestWorkspaceIntoBrain(): Promise<BrainIngestStats> {
   const stats: BrainIngestStats = { desks: 0, documents: 0, widgets: 0, files: 0, created: 0, updated: 0, removed: 0 }
   const live = new Set<string>()
@@ -68,6 +74,35 @@ export async function ingestWorkspaceIntoBrain(): Promise<BrainIngestStats> {
     stats.desks++
   }
 
+  // Every work widget is a file (0f182f40): a note on a desk is also a
+  // widget-file document carrying the same text, linked by the instance's
+  // sync_group_id ('wf:<document id>'). Ingesting both put every note into the
+  // brain twice (brainIngest e2e: two entries holding one note's text), and
+  // each copy took a retrieval slot. The file's entry is the one kept — as
+  // workspaceSearch.dropInstancesOfFoundFiles already decides — and it carries
+  // the desk tags its instances would have had, so the Brain Map still groups
+  // a desk's notes together.
+  const widgetsByDesk = new Map<string, Widget[]>()
+  const fileDeskTags = new Map<string, Set<string>>()
+  for (const n of nodes) {
+    let widgets: Widget[] = []
+    try {
+      widgets = listWidgetsByTask(n.id)
+    } catch {
+      widgets = []
+    }
+    widgetsByDesk.set(n.id, widgets)
+    const deskTag = slug(n.title ?? '')
+    for (const w of widgets) {
+      const fileId = widgetFileId(w)
+      if (!fileId || !deskTag) continue
+      const set = fileDeskTags.get(fileId) ?? new Set<string>()
+      set.add(deskTag)
+      fileDeskTags.set(fileId, set)
+    }
+  }
+  const recordedFiles = new Set<string>()
+
   // Documents (Word / Sheet / Slides / Map) — real body text via the shared extractor.
   for (const meta of listDocuments()) {
     const doc = getDocument(meta.id)
@@ -83,25 +118,30 @@ export async function ingestWorkspaceIntoBrain(): Promise<BrainIngestStats> {
       body,
       // A widget file is tagged by its kind ("table", "task-list"), so the Brain
       // Map clusters tables with tables rather than every widget under "widget".
-      tags: meta.docType === 'widget' ? ['widget-file', meta.widgetKind ?? 'widget'] : ['document', meta.docType]
+      tags:
+        meta.docType === 'widget'
+          ? ['widget-file', meta.widgetKind ?? 'widget', ...(fileDeskTags.get(meta.id) ?? [])]
+          : ['document', meta.docType]
     })
+    if (meta.docType === 'widget') recordedFiles.add(meta.id)
     stats.documents++
   }
 
   // Text widgets with real content, tagged by the desk they live on so a desk's
   // notes cluster together in the Brain Map.
   for (const n of nodes) {
-    let widgets: Widget[] = []
-    try {
-      widgets = listWidgetsByTask(n.id)
-    } catch {
-      widgets = []
-    }
+    const widgets = widgetsByDesk.get(n.id) ?? []
     const deskTag = slug(n.title ?? '')
     for (const w of widgets) {
       if (!TEXT_WIDGET.has(w.kind) || w.archived) continue
       const text = contentToPlainText(w.content).trim()
       if (!text) continue
+      // Its file already brought this text in (above): count it, do not copy it.
+      const fileId = widgetFileId(w)
+      if (fileId && recordedFiles.has(fileId)) {
+        stats.widgets++
+        continue
+      }
       record('widget', w.id, {
         title: w.title?.trim() || `${w.kind} on ${n.title ?? 'a desk'}`,
         body: text.slice(0, BODY_CAP),

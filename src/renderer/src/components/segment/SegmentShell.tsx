@@ -75,9 +75,14 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
   // The segment menu floats as a rounded card and can be minimised to free the
   // area, exactly like the global Desk sidebar. Its state persists per reload.
   const { minimized, minimize, restore } = useMinimizable('fb.segmentMenu.minimized')
+  // The shell's test id is its KIND (segment-plexibrain), never its wordmark:
+  // it was derived from the display wordmark, so the Plexi -> Plexii rename
+  // (0066db39) silently turned segment-plexibrain into segment-plexiibrain and
+  // left brainIngest, brainSyncPrune and plexiPeople waiting on an id that no
+  // longer existed. Display names change; ids do not (lexicon rule).
 
   return (
-    <div className="h-full flex bg-[var(--surface-base)] text-[var(--ink-100)] relative" data-testid={`segment-${def.wordmark.toLowerCase()}`}>
+    <div className="h-full flex bg-[var(--surface-base)] text-[var(--ink-100)] relative" data-testid={`segment-${def.kind}`}>
       {minimized && (
         <MenuRestorePill onClick={restore} label={def.title} title={`Show the ${def.title} menu`} />
       )}
