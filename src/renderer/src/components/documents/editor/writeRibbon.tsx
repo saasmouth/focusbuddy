@@ -7,14 +7,16 @@ import {
   BarSelect,
   BarSep,
   BarToggle,
+  barTip,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
   railGroup,
   type BarTab,
-  type RailItem
+  type RailItem,
+  useBarSlot
 } from '../../office/shell'
 import FontPicker from './FontPicker'
-import { barProps, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import { barProps, readOnlySafeOf, type OfficeCommand } from '../../../lib/menus/officeCommand'
 import type { WriteCommands } from './writeCommands'
 import { caretFontSize } from './fontSize'
 import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './headingStyles'
@@ -135,6 +137,26 @@ function cmdButton(c: WCtx, id: string, extra: Partial<Parameters<typeof BarButt
   return <BarButton {...barProps(k)} onClick={k.run} {...extra} />
 }
 
+/**
+ * Paper size: a button that cycles Letter <-> A4 and shows the current size
+ * (DPS-2 clicks it and reads its text). In a read-only bar its slot is off,
+ * and its tooltip says so.
+ */
+function PaperSizeButton({ size, onToggle }: { size: PaperSize; onToggle: () => void }): JSX.Element {
+  const slot = useBarSlot()
+  return (
+    <button
+      onClick={onToggle}
+      disabled={slot.disabled}
+      className="h-7 px-2 rounded text-[11px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] disabled:opacity-35 disabled:cursor-not-allowed"
+      title={barTip('Paper size', undefined, slot.disabled ? slot.reason : undefined)}
+      data-testid="doc-paper-btn"
+    >
+      {size === 'a4' ? 'A4' : 'Letter'}
+    </button>
+  )
+}
+
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 const homeTab: BarTab<WCtx> = {
@@ -252,7 +274,8 @@ const layoutTab: BarTab<WCtx> = {
         "Continuous" and "Page"), and doc-pageview-btn is the Page button
         inside it. An icon toggle would satisfy neither.
       */}
-      <BarCustom label="View" testid="doc-layout-toggle-wrap">
+      {/* Read-only safe, from the registry: the two View commands it runs (doc-page-continuous, doc-page-paged) have no gate; they change the view, not the document. */}
+      <BarCustom label="View" testid="doc-layout-toggle-wrap" readOnlySafe={readOnlySafeOf(cmd(c, 'doc-page-continuous')) && readOnlySafeOf(cmd(c, 'doc-page-paged'))}>
         <span className="inline-flex rounded-full bg-[var(--surface-sunken)] overflow-hidden" data-testid="doc-layout-toggle">
           <button
             onClick={() => c.setPageView(false)}
@@ -292,15 +315,9 @@ const layoutTab: BarTab<WCtx> = {
             control itself contains "A4" / "Letter"; a <select> satisfies
             neither the click nor the text.
           */}
+          {/* Not read-only safe, and no command to say so: it writes the document's page setup. Off for a viewer (the slot). */}
           <BarCustom label="Paper size">
-            <button
-              onClick={() => c.setPageSetup({ size: c.paperSize === 'letter' ? 'a4' : 'letter' })}
-              className="h-7 px-2 rounded text-[11px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
-              title="Paper size"
-              data-testid="doc-paper-btn"
-            >
-              {c.paperSize === 'a4' ? 'A4' : 'Letter'}
-            </button>
+            <PaperSizeButton size={c.paperSize} onToggle={() => c.setPageSetup({ size: c.paperSize === 'letter' ? 'a4' : 'letter' })} />
           </BarCustom>
           <BarButton
             icon="margin"
