@@ -22,9 +22,19 @@ import { toDesign } from './snippetConvert/toDesign'
 import { toDiagram } from './snippetConvert/toDiagram'
 import { toDraw } from './snippetConvert/toDraw'
 import { toWidget } from './snippetConvert/toWidget'
-import { DEST_APP, SOURCE_APP } from './snippetConvert/common'
+import { DEST_APP, SOURCE_APP, type ConvertVerb } from './snippetConvert/common'
 
 export type { ConvertDeps, DrawImport, DrawPicture, Form, FormKind, SheetEvaluation } from './snippetForms'
+export type { ConvertVerb } from './snippetConvert/common'
+
+/**
+ * Options that change only how a conversion is WORDED, never what it makes.
+ * `verb`: how the content arrives (insert, paste or drop), so a refusal or a
+ * no-content message says "dropped" for a drop. Absent keeps today's wording.
+ */
+export interface ConvertOptions {
+  verb?: ConvertVerb
+}
 
 export type SnippetConversion =
   | { ok: true; body: SnippetBody; lossy: string[] }
@@ -41,6 +51,8 @@ export interface BuildContext {
   body?: SnippetBody
   forms: Form[]
   deps: ConvertDeps
+  /** How the content arrives; words refusals only. Absent: today's insert and paste wording. */
+  verb?: ConvertVerb
 }
 
 export type SnippetBuilder = (ctx: BuildContext) => SnippetConversion
@@ -71,10 +83,10 @@ const BUILDERS: Record<SnippetKind, SnippetBuilder> = {
  *
  * Never mutates `body`; the result shares no object with it.
  */
-export function convertSnippetBody(body: SnippetBody, to: SnippetKind, deps: ConvertDeps = {}): SnippetConversion {
+export function convertSnippetBody(body: SnippetBody, to: SnippetKind, deps: ConvertDeps = {}, opts: ConvertOptions = {}): SnippetConversion {
   const builder = BUILDERS[to]
   if (!builder) return { ok: false, reason: 'That is not a kind of snippet this app knows.' }
-  return builder({ body, forms: formsOf(body, deps), deps })
+  return builder({ body, forms: formsOf(body, deps), deps, verb: opts.verb })
 }
 
 /**
@@ -88,13 +100,14 @@ export function convertSnippetBody(body: SnippetBody, to: SnippetKind, deps: Con
  *
  * The same builders, so the same determinism rule as convertSnippetBody: no
  * ids minted, no clock, no randomness. Never mutates `forms` or `source`.
+ * `opts.verb` ('drop' for a file from the Files panel) words a refusal only.
  */
-export function convertForms(forms: Form[], to: SnippetKind, deps: ConvertDeps = {}, source?: SnippetBody): SnippetConversion {
+export function convertForms(forms: Form[], to: SnippetKind, deps: ConvertDeps = {}, source?: SnippetBody, opts: ConvertOptions = {}): SnippetConversion {
   const builder = BUILDERS[to]
   if (!builder) return { ok: false, reason: 'That is not a kind of snippet this app knows.' }
   const native = forms.find((f) => f.kind === 'native')
   const body = source ?? (native?.kind === 'native' ? native.value : undefined)
-  return builder({ body, forms, deps })
+  return builder({ body, forms, deps, verb: opts.verb })
 }
 
 /** One plain line saying a snippet or paste was converted, from its lossy list. Null when it landed as itself. */

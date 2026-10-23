@@ -18,7 +18,7 @@ export function toSheet(ctx: BuildContext): SnippetConversion {
   // A paste of a picture alone (no source body to name): the same reason a
   // picture snippet gets, rather than a generic one.
   if (!f && !body && forms.some((x) => x.kind === 'svg' || x.kind === 'image')) return { ok: false, reason: REASON.cellsNoPictures }
-  if (!f) return linkRefusal(forms, 'sheet') ?? refusal(body, 'sheet')
-  if (f.kind !== 'rows' || !f.value.rows.length) return refusal(body, 'sheet')
+  if (!f) return linkRefusal(forms, 'sheet') ?? refusal(body, 'sheet', ctx.verb)
+  if (f.kind !== 'rows' || !f.value.rows.length) return refusal(body, 'sheet', ctx.verb)
   return ok({ kind: 'sheet', rows: structuredClone(f.value.rows) }, f.lossy)
 }

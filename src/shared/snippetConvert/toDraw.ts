@@ -4,7 +4,7 @@ import { putAsset } from '../draw/assets'
 import { isDrawImageSrc } from '../draw'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { REASON, fitWithin, linkRefusal, ok, pick, refusal } from './common'
+import { REASON, drawNoTablesReason, fitWithin, linkRefusal, ok, pick, refusal } from './common'
 import { formsOfSlide } from '../snippetForms/fromSlide'
 import { formsOfDesign } from '../snippetForms/fromDesign'
 
@@ -27,14 +27,14 @@ function textObject(text: string): DrawTextNode {
 export function toDraw(ctx: BuildContext): SnippetConversion {
   const { body, deps } = ctx
   if (body?.kind === 'draw') return ok(structuredClone(body), [])
-  if (body?.kind === 'sheet') return { ok: false, reason: REASON.drawNoTables }
+  if (body?.kind === 'sheet') return { ok: false, reason: drawNoTablesReason(ctx.verb) }
   // A drawing holds only embedded image bytes (isDrawImageSrc), so a remote
   // picture can never taint Draw's canvas: slide and design bodies are read
   // with Draw's own rule, and an image it refuses is left out and said so.
   const forms = body?.kind === 'slide' ? formsOfSlide(body, isDrawImageSrc) : body?.kind === 'design' ? formsOfDesign(body, isDrawImageSrc) : ctx.forms
   const f = pick(forms, ['svg', 'image', 'text'], body)
-  if (!f && !body && forms.some((x) => x.kind === 'rows')) return { ok: false, reason: REASON.drawNoTables }
-  if (!f) return linkRefusal(forms, 'draw') ?? refusal(body, 'draw')
+  if (!f && !body && forms.some((x) => x.kind === 'rows')) return { ok: false, reason: drawNoTablesReason(ctx.verb) }
+  if (!f) return linkRefusal(forms, 'draw') ?? refusal(body, 'draw', ctx.verb)
   switch (f.kind) {
     case 'svg': {
       const v = f.value
@@ -57,9 +57,9 @@ export function toDraw(ctx: BuildContext): SnippetConversion {
       return ok({ kind: 'draw', objects: [pic.node], assets: pic.assets, swatches: [] }, f.lossy)
     }
     case 'text':
-      if (!f.value.trim()) return refusal(body, 'draw')
+      if (!f.value.trim()) return refusal(body, 'draw', ctx.verb)
       return ok({ kind: 'draw', objects: [textObject(f.value.trim())], assets: {}, swatches: [] }, f.lossy)
     default:
-      return refusal(body, 'draw')
+      return refusal(body, 'draw', ctx.verb)
   }
 }

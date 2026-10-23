@@ -40,7 +40,7 @@ export function toWidget(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
   if (body?.kind === 'widget') return ok(structuredClone(body), [])
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text', 'link'], body)
-  if (!f) return refusal(body, 'widget')
+  if (!f) return refusal(body, 'widget', ctx.verb)
   switch (f.kind) {
     case 'rows':
       return ok(widget('markdown', rowsToGfm(f.value.rows), 460, 360), f.lossy)
@@ -59,13 +59,13 @@ export function toWidget(ctx: BuildContext): SnippetConversion {
       return ok(widget('image', svgDataUrl(f.value.svg), Math.max(160, size.w), Math.max(120, size.h)), [pictureLossy(f.value.app), ...f.lossy])
     }
     case 'text':
-      if (!f.value.trim()) return refusal(body, 'widget')
+      if (!f.value.trim()) return refusal(body, 'widget', ctx.verb)
       return ok(widget('sticky', f.value.trim(), 240, 200), f.lossy)
     case 'link':
       // A desk places a dropped file as a file widget itself (the Files drop
       // handler); a link that reaches the converter is written down as text.
       return ok(widget('sticky', linkAsText(f.value), 240, 200), f.lossy)
     default:
-      return refusal(body, 'widget')
+      return refusal(body, 'widget', ctx.verb)
   }
 }

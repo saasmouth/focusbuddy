@@ -23,7 +23,7 @@ export function toDiagram(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
   if (body?.kind === 'diagram') return ok(structuredClone(body), [])
   const f = pick(forms, ['rows', 'image', 'svg', 'text'], body)
-  if (!f) return linkRefusal(forms, 'diagram') ?? refusal(body, 'diagram')
+  if (!f) return linkRefusal(forms, 'diagram') ?? refusal(body, 'diagram', ctx.verb)
   switch (f.kind) {
     case 'rows': {
       const rows = f.value.rows
@@ -45,7 +45,7 @@ export function toDiagram(ctx: BuildContext): SnippetConversion {
     }
     case 'text': {
       const paras = f.value.split('\n').map((l) => l.trim()).filter(Boolean)
-      if (!paras.length) return refusal(body, 'diagram')
+      if (!paras.length) return refusal(body, 'diagram', ctx.verb)
       const kept = paras.slice(0, DIAGRAM_MAX_NOTES)
       const def = getShape('note')
       const nodes = kept.map((label, i) => node('note', 0, i * Math.max(64, def.h + 16), { label }, `note-${i}`))
@@ -54,6 +54,6 @@ export function toDiagram(ctx: BuildContext): SnippetConversion {
       return ok({ kind: 'diagram', nodes, edges: [] }, lossy)
     }
     default:
-      return refusal(body, 'diagram')
+      return refusal(body, 'diagram', ctx.verb)
   }
 }

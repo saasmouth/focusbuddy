@@ -21,7 +21,8 @@ export type PasteOutcome = 'pasted' | 'refused' | 'nothing'
 export function convertClipboard(read: ClipboardForms, to: SnippetKind): { ok: true; body: SnippetBody; notice: string | null } | { ok: false; reason: string } | null {
   if (read.refused) return { ok: false, reason: read.refused }
   if (!read.forms.length) return null
-  const out = convertForms(read.forms, to, snippetConvertDeps())
+  // A drop from Files carries verb 'drop' on its read, so a refusal says "dropped"; the clipboard has none.
+  const out = convertForms(read.forms, to, snippetConvertDeps(), undefined, read.verb ? { verb: read.verb } : {})
   if (!out.ok) return out
   return { ok: true, body: out.body, notice: conversionNotice(read.kind ?? null, to, out.lossy) }
 }

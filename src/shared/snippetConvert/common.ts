@@ -80,8 +80,31 @@ export const REASON = {
   imageNeedsPicture: 'An image work widget holds a picture, and this has none.',
   imageFolder: folderCannotGo('an image work widget'),
   /** A link whose address is not one of ours or the web's (never followed, never shown as a link). */
-  linkUnsafe: 'This link cannot be added, because its address is not one PlexiiDesk opens.'
+  linkUnsafe: 'This link cannot be added, because its address is not one PlexiiDesk opens.',
+
+  // The same refusals worded for a drop (ConvertVerb 'drop'); insert and paste keep the lines above.
+  emptyDrop: 'There is nothing in what was dropped to add.',
+  drawNoTablesDrop: 'PlexiiDraw has no tables; drop it into PlexiiWrite or a page instead.',
+  widgetEmptyDrop: 'This work widget is empty, so there is nothing to add.'
 } as const
+
+/**
+ * How the content is arriving: inserted from the library, pasted, or dropped
+ * (a file from the Files panel). It changes only the WORDING of a refusal or
+ * a no-content message; it never changes what lands. Absent means today's
+ * wording, which is the same for insert and paste.
+ */
+export type ConvertVerb = 'insert' | 'paste' | 'drop'
+
+/** "There is nothing in this snippet to insert.", or its drop wording. */
+export function emptyReason(verb?: ConvertVerb): string {
+  return verb === 'drop' ? REASON.emptyDrop : REASON.empty
+}
+
+/** PlexiiDraw's no-tables refusal, worded by verb. */
+export function drawNoTablesReason(verb?: ConvertVerb): string {
+  return verb === 'drop' ? REASON.drawNoTablesDrop : REASON.drawNoTables
+}
 
 /** What a dropped file is, as a refusal names it. */
 export type LinkFileKind = 'video' | 'audio' | 'file'
@@ -157,9 +180,9 @@ export function linkRefusal(forms: Form[], to: LinkRefuser): { ok: false; reason
   return link ? { ok: false, reason: linkReason(link, to) } : null
 }
 
-/** Why a paste with no source body cannot land: nothing in it is something `to` holds. */
-export function nothingUsable(to: SnippetKind): string {
-  return `Nothing that was copied is something ${DEST_APP[to]} can hold.`
+/** Why a paste (or a drop) with no source body cannot land: nothing in it is something `to` holds. */
+export function nothingUsable(to: SnippetKind, verb?: ConvertVerb): string {
+  return `Nothing that was ${verb === 'drop' ? 'dropped' : 'copied'} is something ${DEST_APP[to]} can hold.`
 }
 
 const WIDGET_NAME: Record<string, string> = {
@@ -174,33 +197,34 @@ const WIDGET_NAME: Record<string, string> = {
 }
 
 /** Why a work widget of this kind cannot go into `to`. */
-export function widgetReason(widgetKind: string, to: SnippetKind): string {
+export function widgetReason(widgetKind: string, to: SnippetKind, verb?: ConvertVerb): string {
   if (widgetKind === 'table') {
     return to === 'doc'
       ? 'A table work widget is linked to its table and cannot be copied into a document yet.'
       : `A table work widget is linked to its table and cannot be copied into ${DEST_APP[to]} yet.`
   }
   const name = WIDGET_NAME[widgetKind] ?? widgetKind.replace(/-/g, ' ')
-  return `A ${name} work widget cannot be placed in ${DEST_APP[to]} yet. Insert it on a desk instead.`
+  return `A ${name} work widget cannot be placed in ${DEST_APP[to]} yet. ${verb === 'drop' ? 'Drop' : 'Insert'} it on a desk instead.`
 }
 
 /**
  * The refusal for a body none of whose forms the destination can take. With no
  * body (a paste of something that is not one of our apps' content: a web
  * page's HTML, a picture, text) the refusal names the destination instead.
+ * `verb` words it for how the content arrived (a drop says "dropped").
  */
-export function refusal(body: SnippetBody | undefined, to: SnippetKind): SnippetConversion {
-  if (!body) return { ok: false, reason: nothingUsable(to) }
+export function refusal(body: SnippetBody | undefined, to: SnippetKind, verb?: ConvertVerb): SnippetConversion {
+  if (!body) return { ok: false, reason: nothingUsable(to, verb) }
   if (body.kind === 'widget') {
     const k = body.widgetKind
     if ((TEXT_WIDGET_KINDS.has(k) || PAGE_WIDGET_KINDS.has(k)) && !String(body.content ?? '').trim()) {
-      return { ok: false, reason: 'This work widget is empty, so there is nothing to insert.' }
+      return { ok: false, reason: verb === 'drop' ? REASON.widgetEmptyDrop : 'This work widget is empty, so there is nothing to insert.' }
     }
     if (k === 'image' && !String(body.content ?? '').trim()) return { ok: false, reason: 'This image work widget has no picture in it yet.' }
-    return { ok: false, reason: widgetReason(k, to) }
+    return { ok: false, reason: widgetReason(k, to, verb) }
   }
   if (body.kind === 'draw' && Array.isArray(body.objects) && body.objects.length) return { ok: false, reason: REASON.drawingNeedsApp }
-  return { ok: false, reason: REASON.empty }
+  return { ok: false, reason: emptyReason(verb) }
 }
 
 const PICTURE_KINDS = new Set<SnippetKind>(['slide', 'design', 'diagram', 'draw'])
