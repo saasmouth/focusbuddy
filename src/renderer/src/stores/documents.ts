@@ -48,7 +48,10 @@ interface DocumentsStore {
   /** Import a Visio .vsdx into a new map document (opens a file picker). */
   importMap: () => Promise<{ ok: boolean; id?: string; error?: string; canceled?: boolean }>
   saveBody: (body: unknown) => void
+  /** Rename THE OPEN document (Documents view). Anything else renames by id. */
   rename: (title: string) => Promise<void>
+  /** Rename a document by id: the way to rename a document that is not the open one (a desk widget's). */
+  renameById: (id: string, title: string) => Promise<void>
   /** Move to the Documents Trash (restorable; surfaces an Undo toast). */
   remove: (id: string) => Promise<void>
   /** Bring a trashed document back into the live list. */
@@ -198,13 +201,20 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   rename: async (title) => {
     const a = get().active
     if (!a) return
-    const next = { ...a, title }
-    set({ active: next })
-    await window.api.documents.update(a.id, { title })
-    void pushCloudDoc(next).catch(() => {})
+    await get().renameById(a.id, title)
+  },
+
+  // By id, so a desk widget (which holds its document in local state, not here)
+  // renames ITS document and never whatever Documents last had open. The open
+  // document's cached copy follows only if it is the same one.
+  renameById: async (id, title) => {
+    const a = get().active
+    if (a?.id === id) set({ active: { ...a, title } })
+    const updated = await window.api.documents.update(id, { title })
+    if (updated) void pushCloudDoc(updated).catch(() => {})
     await get().refresh()
     nudgeSync()
-    crdtEmitDocumentAttrs(a.id, { title }) // WS01 (flagged): title as LWW attr
+    crdtEmitDocumentAttrs(id, { title }) // WS01 (flagged): title as LWW attr
   },
 
   refreshTrashed: async () => {
