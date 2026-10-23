@@ -10,7 +10,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
-import { launchApp, waitForReady, renderedMenuGroups, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, renderedMenuGroups, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -45,6 +45,8 @@ async function openSeededDesk(window: Page, theme: 'light' | 'dark'): Promise<Se
     return { taskId: d.id, sticky: sticky.id, gallery: gallery.id, section: section.id }
   })
   await window.evaluate((t) => localStorage.setItem('fb.theme.mode', t), theme)
+  // The bottom-right feature spotlight covers the minimap (the jump list's door).
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.evaluate((id) => {

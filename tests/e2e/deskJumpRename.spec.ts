@@ -5,7 +5,7 @@
 // user to the widget, also add a subtle hover effect to show its clickable".
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -27,6 +27,8 @@ async function openDeskWithWidgets(window: LaunchedApp['window']) {
     })
     return { taskId: d.id, a: a.id, b: b.id }
   })
+  // The bottom-right feature spotlight can cover the minimap, the list's door.
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.evaluate((id) => {
