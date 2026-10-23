@@ -209,7 +209,7 @@ test('TRASH-4 — editor File > Move to trash soft-deletes the open document and
     await window.locator('[data-testid="doc-menu-file"]').click()
     const dropdown = window.locator('[data-testid="doc-menu-file-list"]')
     await expect(dropdown).toBeVisible({ timeout: 3_000 })
-    await dropdown.locator('span.truncate', { hasText: 'Move to trash' }).click()
+    await dropdown.locator('span.truncate', { hasText: 'Move to Trash' }).click()
 
     const confirmDialog = window.locator('[data-testid="prompt-dialog"]')
     await expect(confirmDialog).toBeVisible({ timeout: 3_000 })

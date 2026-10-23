@@ -167,13 +167,15 @@ describe('the menu bar is built from commands', () => {
         'Import SVG…|polyline|||',
         'Replace image…|swap_horiz||off|',
         '---',
-        'Export PNG…|image|||',
-        'Export SVG…|polyline|||',
-        'Export PDF…|picture_as_pdf|||',
+        'Download|download|>',
+        '  PNG image (.png)…|image|||',
+        '  SVG vector (.svg)…|polyline|||',
+        '  PDF document (.pdf)…|picture_as_pdf|||',
         '---',
         'Rename|edit|||',
         'Version history|history|||',
-        'Move to trash|delete|||',
+        '---',
+        'Move to Trash|delete|||',
         '',
         'edit',
         'Undo|undo|⌘Z|off|',
@@ -197,8 +199,6 @@ describe('the menu bar is built from commands', () => {
         '---',
         'Save selection as snippet…|bookmark_add||off|',
         'Insert snippet…|bookmarks|||',
-        '---',
-        'Keyboard shortcuts…|keyboard|⌥⇧⌘K||',
         '',
         'object',
         'Transform|transform|>',
@@ -327,6 +327,8 @@ describe('the menu bar is built from commands', () => {
         'Next tool in group|switch_access_shortcut||off|',
         '',
         'help',
+        'Keyboard shortcuts|keyboard|⌥⇧⌘K||',
+        '---',
         'How PlexiiDraw works|help|F1||'
       ].join('\n')
     )
@@ -348,7 +350,7 @@ describe('the menu bar is built from commands', () => {
     expect(object).toContain('  Reset Bounding Box|||off|')
     const ro = harness({ ...blank([rect('a', 0, 0, 10, 10)]), schemaVersion: 3 })
     const text = ['file', 'edit', 'object', 'layer', 'document'].flatMap((m) => describeMenu(buildMenu(ro.ed.ctx, m))).join('\n')
-    for (const off of ['Place…', 'Import SVG…', 'Place as template…', 'Replace image…', 'Export PNG…', 'Export SVG…', 'Export PDF…', 'Undo', 'Redo', 'Cut', 'Paste', 'Paste in Front', 'Paste in Back', 'Paste in Place', 'Paste on All Artboards', 'Duplicate', 'Delete', 'Transform Again', 'Move…', 'Rotate…', 'Flip Horizontal', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
+    for (const off of ['Place…', 'Import SVG…', 'Place as template…', 'Replace image…', 'PNG image (.png)…', 'SVG vector (.svg)…', 'PDF document (.pdf)…', 'Undo', 'Redo', 'Cut', 'Paste', 'Paste in Front', 'Paste in Back', 'Paste in Place', 'Paste on All Artboards', 'Duplicate', 'Delete', 'Transform Again', 'Move…', 'Rotate…', 'Flip Horizontal', 'Unite', 'Bring to front', 'Left', 'New vector layer', 'New paint layer', 'Artboard size…', 'Transparent']) {
       expect(text, off).toMatch(new RegExp(`(^|\\n)\\s*${off.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\|[^|]*\\|[^|]*\\|off\\|`))
     }
   })

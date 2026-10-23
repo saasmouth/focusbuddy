@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { DocumentOps } from './documentOps'
+import { menuAction } from '../../../lib/menus/menuAction'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
 
 // A Google-Slides-style menu bar for the deck editor. Menus reflect what a
@@ -44,6 +45,12 @@ export interface SlidesMenuActions {
   canPaste: boolean
   hasSelection: boolean
   deleteSelection: () => void
+  /** Select every element on the current slide (SPEC §9.2: every app that selects has Select all). */
+  selectAll: () => void
+  /** Open Find and replace over the whole deck. */
+  /** Open Find… over the whole deck. */
+  find: () => void
+  findAndReplace: () => void
   /** Save the selected elements as a reusable snippet. */
   saveSelectionAsSnippet: () => void
   /** Open the saved-snippets library to insert one onto the current slide. */
@@ -95,7 +102,7 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
               ...importItem,
               download,
               { kind: 'sep' },
-              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
             ]
           : [...importItem, download]
     },
@@ -103,18 +110,23 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo, disabled: !a.canUndo },
-        { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: a.redo, disabled: !a.canRedo },
+        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: a.undo, disabled: !a.canUndo },
+        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: a.redo, disabled: !a.canRedo },
         { kind: 'sep' },
-        { kind: 'item', label: 'Cut', shortcut: '⌘X', icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection },
-        { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection },
-        { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
-        { kind: 'item', label: 'Duplicate selection', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection },
-        { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelection },
+        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste, hint: a.canPaste ? undefined : 'Nothing to paste' },
+        { kind: 'item', ...menuAction('duplicate'), icon: 'control_point_duplicate', run: a.duplicateSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'item', ...menuAction('delete'), icon: 'delete', run: a.deleteSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: a.selectAll },
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('find'), icon: 'search', run: a.find },
+        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: a.findAndReplace },
         { kind: 'sep' },
         {
           kind: 'item',
-          label: 'Save selection as snippet…',
+          ...menuAction('saveAsSnippet'),
           icon: 'bookmark_add',
           hint: 'Keep it for reuse in any deck',
           run: a.saveSelectionAsSnippet,
@@ -150,9 +162,10 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.insertLine },
         { kind: 'item', label: 'Chart', icon: 'bar_chart', run: a.insertChart },
         { kind: 'item', label: 'Table', icon: 'table_chart', run: a.insertTable },
-        { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.insertWidget },
-        { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
-        ...(ops ? [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'Meeting', icon: 'videocam', run: ops.startMeeting }] : [])
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: a.insertSnippet },
+        { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: a.insertWidget },
+        ...(ops ? [{ kind: 'sep' as const }, { kind: 'item' as const, ...menuAction('meeting'), icon: 'videocam', run: ops.startMeeting }] : [])
       ]
     },
     {
@@ -185,14 +198,14 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
           ]
         },
         { kind: 'sep' },
-        { kind: 'item', label: 'Group', shortcut: '⌘G', icon: 'group_work', run: a.group },
-        { kind: 'item', label: 'Ungroup', shortcut: '⌘⇧G', icon: 'category', run: a.ungroup }
+        { kind: 'item', ...menuAction('group'), icon: 'group_work', run: a.group },
+        { kind: 'item', ...menuAction('ungroup'), icon: 'category', run: a.ungroup }
       ]
     },
     {
       id: 'help',
       label: 'Help',
-      build: () => [{ kind: 'item', label: 'Keyboard shortcuts', shortcut: '⌘/', icon: 'keyboard', run: () => setShortcutsOpen(true) }]
+      build: () => [{ kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setShortcutsOpen(true) }]
     }
   ]
 
@@ -203,11 +216,13 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
         <MenuModal title="Keyboard shortcuts" onClose={() => setShortcutsOpen(false)}>
           <div className="space-y-1.5">
             {([
-              ['Undo', '⌘Z'],
-              ['Redo', '⌘⇧Z'],
-              ['Duplicate', '⌘D'],
-              ['Group', '⌘G'],
-              ['Ungroup', '⌘⇧G'],
+              [menuAction('undo').label, menuAction('undo').shortcut!],
+              [menuAction('redo').label, menuAction('redo').shortcut!],
+              [menuAction('duplicate').label, menuAction('duplicate').shortcut!],
+              [menuAction('find').label, menuAction('find').shortcut!],
+              [menuAction('findAndReplace').label, menuAction('findAndReplace').shortcut!],
+              [menuAction('group').label, menuAction('group').shortcut!],
+              [menuAction('ungroup').label, menuAction('ungroup').shortcut!],
               ['Present', '▶']
             ] as [string, string][]).map(([label, keys]) => (
               <div key={label} className="flex items-center justify-between text-[13px]">

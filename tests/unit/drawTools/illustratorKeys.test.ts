@@ -446,8 +446,7 @@ describe('the keys, in the editor', () => {
       'Deselect=Shift+Ctrl+A',
       'Select all on active artboard=Alt+Ctrl+A',
       'Save selection as snippet…=',
-      'Insert snippet…=',
-      'Keyboard shortcuts…=Alt+Shift+Ctrl+K'
+      'Insert snippet…='
     ])
     expect(toolShortcutLabel('eraser')).toBe('Shift+E')
   })
@@ -689,8 +688,9 @@ describe('the Keyboard shortcuts dialog’s rows', () => {
         menu.some((r) => r.id === id),
         id
       ).toBe(true)
+    // In Help since 4.3.41 (SPEC §9.2, E-16); still Illustrator's key.
     expect(menu.find((r) => r.id === 'edit.keyboardShortcuts')).toMatchObject({
-      section: 'Edit',
+      section: 'Help',
       keys: ['mod+alt+shift+k'],
       remappable: true
     })

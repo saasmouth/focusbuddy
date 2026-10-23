@@ -32,6 +32,7 @@ import type { DocSnippetBody } from '@shared/snippets'
 import { setPaginationConfig } from './editor/pagination'
 import DocBubbleMenu from './editor/DocBubbleMenu'
 import FindReplace from './editor/FindReplace'
+import { registerTextMenuHandler } from '../../lib/textMenuHandlers'
 import { docSidePanes, type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
 import { useDocAi } from './editor/useDocAi'
 import { useRegisterEditorCommands, type EditorCommand } from '../../stores/editorCommands'
@@ -316,6 +317,8 @@ export default function DocEditor({
   documentOps
 }: Props): JSX.Element {
   const [findOpen, setFindOpen] = useState(false)
+  // Opened as Find and replace… (⇧⌘H, E-14) rather than Find… (⌘F).
+  const [findReplace, setFindReplace] = useState(false)
   // `@` in the document body. The query the extension reports, and a handler
   // the picker registers so Enter picks a mention instead of breaking the line.
   const [mentionQuery, setMentionQuery] = useState<DocMentionQuery | null>(null)
@@ -470,6 +473,14 @@ export default function DocEditor({
           setFindOpen(true)
           return true
         }
+        // ⇧⌘H Find and replace… (E-14). Taken here, ahead of TipTap Highlight's
+        // unadvertised default for the same key; Highlight stays on the toolbar.
+        if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'h') {
+          event.preventDefault()
+          setFindReplace(true)
+          setFindOpen(true)
+          return true
+        }
         return false
       },
       handleClick(view, pos) {
@@ -487,6 +498,17 @@ export default function DocEditor({
       }
     }
   })
+
+  // The native text menu's "Save selection as snippet…" (SPEC §9.3 text shape;
+  // wp3's textMenuHandlers): on Write's page it saves the rich selection, the
+  // same body as Edit › Save selection as snippet…. Ask PlexiiAssist keeps the
+  // generic route (the passage quoted in the composer).
+  useEffect(() => {
+    if (!editor) return
+    return registerTextMenuHandler(editor.view.dom, {
+      saveSnippet: () => setSnippetDraftBody(docBodyFromSelection(editor) ?? { kind: 'doc', content: [], text: '' })
+    })
+  }, [editor])
   editorRef.current = editor
 
   const ai = useDocAi(editor)
@@ -905,7 +927,16 @@ export default function DocEditor({
 
       <DocBubbleMenu editor={editor} onAiRewrite={ai.openRewrite} />
 
-      {findOpen && <FindReplace editor={editor} onClose={() => setFindOpen(false)} />}
+      {findOpen && (
+        <FindReplace
+          editor={editor}
+          replace={findReplace}
+          onClose={() => {
+            setFindOpen(false)
+            setFindReplace(false)
+          }}
+        />
+      )}
 
       <div className="max-w-3xl mx-auto px-8">
       {(busyOffice || officeMsg) && (
@@ -1093,6 +1124,10 @@ export default function DocEditor({
               onExportDocx={() => void exportDocx()}
               onExportPdf={() => void exportPdf()}
               onFind={() => setFindOpen(true)}
+              onFindReplace={() => {
+                setFindReplace(true)
+                setFindOpen(true)
+              }}
               onFocusMode={() => setFocusMode(true)}
               pageView={pageView}
               onSetPageView={setPageView}

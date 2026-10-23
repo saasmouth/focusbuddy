@@ -12,6 +12,10 @@ import type { DocumentOps } from './editor/documentOps'
 import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import SlidesMenuBar from './editor/SlidesMenuBar'
+import RecordFindReplace from './editor/RecordFindReplace'
+import CanvasContextMenu from '../CanvasContextMenu'
+import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
+import { replaceInRuns, type FindRecord, type RecordHit } from '../../lib/recordFind'
 import SlideTemplateGallery from './slides/SlideTemplateGallery'
 import PresentOverlay from './slides/PresentOverlay'
 import AiSlidePanel from './slides/AiSlidePanel'
@@ -224,6 +228,100 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   function selectMany(ids: string[]): void {
     setSelectedIds(ids.length ? withGroupMembers(slide, ids) : [])
   }
+  // Find and replace (SPEC §9.2) over the whole deck: every text box's
+  // paragraphs, every table cell and the speaker notes, as Google Slides does.
+  // A key addresses one piece of text: t|slide|element|paragraph,
+  // c|slide|element|row|col, n|slide.
+  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false)
+  // Right-click on the slide (SPEC §9.3): an element gets the object menu, the
+  // empty slide the canvas menu. A text box being typed in is text, and gets
+  // the native text menu. `at` is the slide point, for "Add … here".
+  const [deckMenu, setDeckMenu] = useState<{ x: number; y: number; onElement: boolean; at: { x: number; y: number } } | null>(null)
+  function openDeckMenu(e: React.MouseEvent): void {
+    if (readOnly) return
+    const t = e.target as HTMLElement
+    if (t.closest('textarea, input, [contenteditable="true"]')) return
+    const page = t.closest('[data-testid="slide-canvas"]')
+    if (!page) return
+    // The element's frame (react-draggable) holds the element's content node,
+    // which carries the id (the content itself takes no pointer events).
+    const elId = t.closest('.react-draggable')?.querySelector('[data-element-id]')?.getAttribute('data-element-id') ?? null
+    e.preventDefault()
+    if (elId && !selectedIds.includes(elId)) selectElement(elId, false)
+    if (!elId) setSelectedIds([])
+    const box = page.getBoundingClientRect()
+    const pageW = body.size?.w ?? 1280
+    const pageH = body.size?.h ?? 720
+    setDeckMenu({
+      x: e.clientX,
+      y: e.clientY,
+      onElement: !!elId,
+      at: { x: ((e.clientX - box.left) / box.width) * pageW, y: ((e.clientY - box.top) / box.height) * pageH }
+    })
+  }
+  function placeHere(kind: 'text' | 'rect', at: { x: number; y: number }): void {
+    const d = TOOL_DEFAULT[kind]
+    placeTool(kind, { x: at.x - d.w / 2, y: at.y - d.h / 2, w: d.w, h: d.h })
+  }
+  const findRecords = useMemo(
+    () =>
+      slides.flatMap((s, si) => [
+        ...(s.elements ?? []).flatMap((e) =>
+          e.type === 'text'
+            ? e.paragraphs.map((p, pi) => ({ key: `t|${si}|${e.id}|${pi}`, text: p.runs.map((r) => r.text).join('') }))
+            : e.type === 'table'
+              ? e.cells.flatMap((row, r) => row.map((text, c) => ({ key: `c|${si}|${e.id}|${r}|${c}`, text })))
+              : []
+        ),
+        ...(s.notes ? [{ key: `n|${si}`, text: s.notes }] : [])
+      ]),
+    [slides]
+  )
+  function goToHit(key: string): void {
+    const [kind, si, elId] = key.split('|') as [string, string, string]
+    const target = slides[Number(si)]
+    if (!target) return
+    setSel(Number(si))
+    setSelectedIds(kind === 'n' ? [] : withGroupMembers(target, [elId]))
+  }
+  function replaceText(changes: FindRecord[], hits: RecordHit[], replacement: string): void {
+    if (!changes.length) return
+    const ranges = new Map<string, RecordHit[]>()
+    for (const h of hits) ranges.set(h.key, [...(ranges.get(h.key) ?? []), h])
+    const next = slides.map((s, si) => {
+      const mine = changes.filter((ch) => ch.key.split('|')[1] === String(si))
+      if (!mine.length) return s
+      let out: Slide = s
+      for (const ch of mine) {
+        const [kind, , elId, a, b] = ch.key.split('|') as [string, string, string, string, string]
+        if (kind === 'n') {
+          out = { ...out, notes: ch.text }
+          continue
+        }
+        out = {
+          ...out,
+          elements: (out.elements ?? []).map((e) => {
+            if (e.id !== elId) return e
+            if (e.type === 'text' && kind === 't') {
+              const pi = Number(a)
+              // Keep each run's formatting: the replacement takes the style of
+              // the run its match starts in (recordFind.replaceInRuns).
+              return { ...e, paragraphs: e.paragraphs.map((p, i) => (i === pi ? { ...p, runs: replaceInRuns(p.runs, ranges.get(ch.key) ?? [], replacement) } : p)) }
+            }
+            if (e.type === 'table' && kind === 'c') {
+              const r = Number(a)
+              const c = Number(b)
+              return { ...e, cells: e.cells.map((row, ri) => (ri === r ? row.map((v, ci) => (ci === c ? ch.text : v)) : row)) }
+            }
+            return e
+          })
+        }
+      }
+      return out
+    })
+    setSlides(next)
+  }
+
   function setTool(next: DeckTool, lock = false): void {
     setToolState(next)
     setToolLocked(lock && next !== 'select')
@@ -284,11 +382,14 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // child has focus.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      // ⇧⌘Z is the Redo the menu shows; ⌘Y stays bound too (E-13).
+      const k = e.key.toLowerCase()
+      if (!(e.metaKey || e.ctrlKey) || (k !== 'z' && k !== 'y')) return
       const tag = (document.activeElement?.tagName ?? '').toLowerCase()
       if (tag === 'input' || tag === 'textarea') return
       e.preventDefault()
-      e.shiftKey ? redoLast() : undoLast()
+      if (k === 'y' || e.shiftKey) redoLast()
+      else undoLast()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -761,6 +862,12 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
           return
         }
       }
+      // ⌘A Select all on this slide: the key Edit › Select all shows (SPEC §9.2).
+      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        selectMany((slide?.elements ?? []).map((el) => el.id))
+        return
+      }
       if (!selectedIds.length) return
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -776,6 +883,13 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
       if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault()
         duplicateSelection()
+        return
+      }
+      // ⇧⌘] / ⇧⌘[ Bring to front / Send to back (SPEC §9.3). By code: Shift
+      // turns the key into } and { on most layouts.
+      if (mod && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
+        e.preventDefault()
+        reorderSelection(e.code === 'BracketRight' ? 'front' : 'backmost')
         return
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -1000,6 +1114,9 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             moveSlideDown: () => moveSlide(slideIdx, 1),
             duplicateSelection,
             deleteSelection,
+            selectAll: () => selectMany((slide?.elements ?? []).map((e) => e.id)),
+            find: () => setFindOpen('find'),
+    findAndReplace: () => setFindOpen('replace'),
             saveSelectionAsSnippet,
             insertSnippet: () => setSnippetLibraryOpen(true),
             insertText,
@@ -1154,6 +1271,55 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
           />
         }
       >
+        {deckMenu && (
+          <CanvasContextMenu
+            testid="slides-context-menu"
+            x={deckMenu.x}
+            y={deckMenu.y}
+            onClose={() => setDeckMenu(null)}
+            items={
+              deckMenu.onElement
+                ? objectMenu({
+                    cut: clipboard.cut,
+                    copy: clipboard.copy,
+                    paste: clipboard.paste,
+                    canPaste: clipboard.hasClip,
+                    duplicate: duplicateSelection,
+                    bringToFront: () => reorderSelection('front'),
+                    sendToBack: () => reorderSelection('backmost'),
+                    group: selectedIds.length >= 2 ? doGroup : undefined,
+                    ungroup: anyGrouped ? doUngroup : undefined,
+                    saveAsSnippet: saveSelectionAsSnippet,
+                    more: [
+                      { label: 'Bring forward', icon: 'arrow_upward', onClick: () => reorderSelection('forward') },
+                      { label: 'Send backward', icon: 'arrow_downward', onClick: () => reorderSelection('back') }
+                    ],
+                    del: deleteSelection
+                  })
+                : canvasMenu({
+                    paste: clipboard.paste,
+                    canPaste: clipboard.hasClip,
+                    insertSnippet: () => setSnippetLibraryOpen(true),
+                    create: [
+                      { label: 'Add text here', icon: 'title', onClick: () => placeHere('text', deckMenu.at) },
+                      { label: 'Add a box here', icon: 'crop_square', onClick: () => placeHere('rect', deckMenu.at) }
+                    ],
+                    selectAll: () => selectMany((slide?.elements ?? []).map((e) => e.id))
+                  })
+            }
+          />
+        )}
+        {findOpen && (
+          <RecordFindReplace
+            testid="slides-find"
+            scope="Find in this deck"
+            replace={findOpen === 'replace'}
+            records={findRecords}
+            onGo={(h) => goToHit(h.key)}
+            onReplace={replaceText}
+            onClose={() => setFindOpen(false)}
+          />
+        )}
         {/* Canvas column */}
         <div
           ref={canvasWrap}
@@ -1211,7 +1377,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               <button onClick={() => setStatus(null)} className="text-[var(--ink-40)] hover:text-[var(--ink-70)]"><Icon name="close" size={12} /></button>
             </div>
           )}
-          <div className="flex justify-center" data-tool={tool}>
+          <div className="flex justify-center" data-tool={tool} onContextMenu={openDeckMenu}>
             {readOnly ? (
               <div data-testid="slides-readonly-stage">
                 <SlideFace slide={slide} theme={theme} width={canvasW} />

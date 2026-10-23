@@ -69,8 +69,8 @@ const openMenu = async (testid: string): Promise<string> => {
   return list?.textContent ?? ''
 }
 
-const DOC_ITEMS = ['New document', 'Make a copy', 'Rename', 'Version history', 'Move to trash']
-const SHEET_ITEMS = ['New spreadsheet', 'Make a copy', 'Rename', 'Version history', 'Move to trash']
+const DOC_ITEMS = ['New document', 'Make a copy', 'Rename', 'Version history', 'Move to Trash']
+const SHEET_ITEMS = ['New spreadsheet', 'Make a copy', 'Rename', 'Version history', 'Move to Trash']
 
 describe('PlexiiWrite', () => {
   const mount = async (documentOps?: DocumentOps): Promise<void> => {
@@ -134,7 +134,7 @@ describe('PlexiiWrite', () => {
     await mount(o)
     await openMenu('doc-menu-file')
     const item = Array.from(host.querySelectorAll('[data-testid="doc-menu-file-list"] button')).find(
-      (b) => b.textContent?.includes('Move to trash')
+      (b) => b.textContent?.includes('Move to Trash')
     ) as HTMLElement
     await act(async () => item.click())
     expect(o.moveToTrash).toHaveBeenCalledTimes(1)

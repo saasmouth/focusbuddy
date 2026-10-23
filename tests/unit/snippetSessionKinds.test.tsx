@@ -134,10 +134,15 @@ describe('a diagram snippet opens PlexiiDiagrams on one page', () => {
     await open(DIAGRAM)
     act(() => (host.querySelector('[data-testid="draw-menubar-file"]') as HTMLElement).click())
     const labels = Array.from(host.querySelectorAll('[data-testid="draw-menubar-file-list"] button')).map((b) => b.textContent ?? '')
-    for (const label of ['New diagram', 'Make a copy', 'Rename', 'Version history', 'Start a meeting', 'Move to trash']) {
+    for (const label of ['New diagram', 'Make a copy', 'Rename', 'Version history', 'Move to Trash']) {
       expect(labels.some((l) => l.includes(label)), `${label} is absent in a session`).toBe(false)
     }
     expect(labels.some((l) => l.includes('Mermaid')) || host.textContent!.includes('Import'), 'the editor’s own Import stays').toBe(true)
+    // Meeting lives at the end of Insert (SPEC §9.2); a session has no document to meet about.
+    act(() => (host.querySelector('[data-testid="draw-menubar-insert"]') as HTMLElement).click())
+    const insert = Array.from(host.querySelectorAll('[data-testid="draw-menubar-insert-list"] button')).map((b) => b.textContent ?? '')
+    expect(insert.length, 'the Insert menu opened').toBeGreaterThan(0)
+    expect(insert.some((l) => l.includes('Meeting')), 'Meeting is absent in a session').toBe(false)
   })
 
   it('creates and writes no document', async () => {
@@ -167,7 +172,7 @@ describe('a slide snippet opens PlexiiDeck on one in-memory slide', () => {
     expect(file, 'the Slides menu bar renders').not.toBeNull()
     act(() => file!.click())
     const labels = Array.from(host.querySelectorAll('[data-testid="slides-menubar-file-list"] button')).map((b) => b.textContent ?? '')
-    for (const label of ['New presentation', 'Make a copy', 'Rename', 'Version history', 'Import (.pptx)', 'Move to trash']) {
+    for (const label of ['New presentation', 'Make a copy', 'Rename', 'Version history', 'Import (.pptx)', 'Move to Trash']) {
       expect(labels.some((l) => l.includes(label)), `${label} is absent in a session`).toBe(false)
     }
     expect(labels.some((l) => l.includes('Download')), 'Download (a file, no document row) stays').toBe(true)

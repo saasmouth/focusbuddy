@@ -283,7 +283,9 @@ test('DGM-7 — a hidden shape is recoverable: Hide shape, then Layers › Show 
     const node = window.locator('.react-flow__node').first()
     const nid = (await node.getAttribute('data-id'))!
     await node.click({ button: 'right', timeout: 5_000 })
-    await window.locator('[data-testid="diagram-context-menu"]').getByText('Hide shape', { exact: true }).click({ timeout: 5_000 })
+    // Hide shape sits in More actions ▸ (the shared right-click shape, SPEC §9.3).
+    await window.locator('[data-testid="diagram-context-menu"] [data-testid="ctx-moreActions"]').hover({ timeout: 5_000 })
+    await window.locator('[data-testid="diagram-ctx-hide"]').click({ timeout: 5_000 })
     await expect(window.locator(`.react-flow__node[data-id="${nid}"]`)).toHaveCount(0)
     await waitForSaved(window, id, (b) => !!(b.nodes ?? []).find((n) => n.id === nid && (n as { hidden?: boolean }).hidden))
     // The Layers panel says so and brings it back.

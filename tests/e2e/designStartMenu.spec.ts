@@ -178,7 +178,7 @@ test('SM-6 — both menus close on an outside click, so neither is left over the
     await window.locator('[data-testid="design-menubar-edit"]').click()
     const edit = window.locator('[data-testid="design-menubar-edit-list"]')
     await expect(edit).toBeVisible()
-    await expect(edit).toContainText('Delete selection')
+    await expect(edit).toContainText('Delete')
     await clickAway()
     await expect(edit).toHaveCount(0)
 

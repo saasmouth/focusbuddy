@@ -42,7 +42,10 @@ function exportFormat(ctx: EditorCtx, format: 'png' | 'svg' | 'pdf', args: unkno
 
 export const menus: MenuSpec[] = [
   { path: 'file', label: 'File', order: 10 },
-  { path: 'file/New from preset', label: 'New from preset', icon: 'aspect_ratio', order: 200 }
+  { path: 'file/New from preset', label: 'New from preset', icon: 'aspect_ratio', order: 200 },
+  // Download ▸, as in every office app (SPEC §9.2, G8). The commands keep their
+  // full names for the palette and the shortcuts dialog; the submenu shows the format.
+  { path: 'file/Download', label: 'Download', icon: 'download', order: 300 }
 ]
 
 // documentCommand: acts through the DocumentOps the host bound to the drawing
@@ -99,9 +102,9 @@ export const commands: Command[] = [
   ),
   // Off when read-only: the file would leave out what a newer app added.
   // With several artboards, the export asks what it covers (dialogs/exportArtboards.dialog.tsx).
-  { id: 'file.exportPng', label: 'Export PNG…', icon: 'image', menu: { path: 'file', order: 300 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'png', args) },
-  { id: 'file.exportSvg', label: 'Export SVG…', icon: 'polyline', menu: { path: 'file', order: 310 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'svg', args) },
-  { id: 'file.exportPdf', label: 'Export PDF…', icon: 'picture_as_pdf', menu: { path: 'file', order: 320 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'pdf', args) },
+  { id: 'file.exportPng', label: 'Download PNG…', menuLabel: () => 'PNG image (.png)…', icon: 'image', menu: { path: 'file/Download', order: 0 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'png', args) },
+  { id: 'file.exportSvg', label: 'Download SVG…', menuLabel: () => 'SVG vector (.svg)…', icon: 'polyline', menu: { path: 'file/Download', order: 1 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'svg', args) },
+  { id: 'file.exportPdf', label: 'Download PDF…', menuLabel: () => 'PDF document (.pdf)…', icon: 'picture_as_pdf', menu: { path: 'file/Download', order: 2 }, enabled: writable, run: (ctx, args) => exportFormat(ctx, 'pdf', args) },
   documentCommand({
     id: 'file.rename',
     label: 'Rename',
@@ -120,9 +123,10 @@ export const commands: Command[] = [
   }),
   documentCommand({
     id: 'file.trash',
-    label: 'Move to trash',
+    label: 'Move to Trash',
     icon: 'delete',
-    menu: { path: 'file', order: 420 },
+    // Last in File, behind its own separator (SPEC §9.2).
+    menu: { path: 'file', order: 900 },
     // Confirms, naming the bound drawing; trashes it by id (with Undo); then
     // the host decides what is left on screen (DocumentOps.onTrashed).
     run: (_ctx, ops) => ops.moveToTrash()

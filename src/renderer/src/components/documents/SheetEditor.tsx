@@ -44,6 +44,9 @@ import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
+import RecordFindReplace from './editor/RecordFindReplace'
+import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { joinGroups, objectMenu } from '../../lib/menus/officeContextMenu'
 import type { DocumentOps } from './editor/documentOps'
 import SheetTabStrip from './sheet/SheetTabStrip'
 import SheetChart from './sheet/SheetChart'
@@ -260,6 +263,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   const [liveHeight, setLiveHeight] = useState<{ r: number; h: number } | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [colMenu, setColMenu] = useState<{ c: number; x: number; y: number } | null>(null)
+  // Right-click on a cell that is not being typed in (a cell being typed in is
+  // text, and gets the native text menu, SPEC §9.3).
+  const [cellMenu, setCellMenu] = useState<{ x: number; y: number } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ r: number; x: number; y: number } | null>(null)
   // The live drop-target indicator while dragging a header to reorder it.
   const [reorderOver, setReorderOver] = useState<{ kind: 'col' | 'row'; over: number } | null>(null)
@@ -758,6 +764,42 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     setFocus({ r, c })
   }
 
+  // Empty every cell in the selection (⌫, Cut, and Edit › Delete).
+  function clearSelection(): void {
+    mutateTab((t) => {
+      let next = t
+      for (let rr = selection.r0; rr <= selection.r1; rr++)
+        for (let cc = selection.c0; cc <= selection.c1; cc++) next = setCell(next, rr, cc, '')
+      return next
+    })
+  }
+
+  // Find and replace (SPEC §9.2) over this sheet's cells, as typed: a formula is
+  // searched and replaced as its text, as Excel's "Look in: Formulas" does.
+  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false)
+  const findRecords = useMemo(
+    () => tab.rows.flatMap((row, r) => row.flatMap((text, c) => (text ? [{ key: `${r},${c}`, text }] : []))),
+    [tab.rows]
+  )
+  function goToHit(key: string): void {
+    const [r, c] = key.split(',').map(Number) as [number, number]
+    setEditing(null)
+    setAnchor({ r, c })
+    setFocus({ r, c })
+    requestAnimationFrame(() =>
+      gridWrapRef.current?.querySelector(`[data-testid="cell-${r}-${c}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    )
+  }
+  function replaceCells(changes: Array<{ key: string; text: string }>): void {
+    if (!changes.length) return
+    mutateTab((t) =>
+      changes.reduce((acc, ch) => {
+        const [r, c] = ch.key.split(',').map(Number) as [number, number]
+        return setCell(acc, r, c, ch.text)
+      }, t)
+    )
+  }
+
   // ── Header selection (Excel-style) ─────────────────────────────────────────
   function selectAllCells(): void {
     setEditing(null)
@@ -870,14 +912,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   function rememberCopy(text: string, kind: 'copy' | 'cut'): void {
     clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
     markCellsCopy(text, { r: selection.r0, c: selection.c0 })
-    if (kind === 'cut') {
-      mutateTab((t) => {
-        let next = t
-        for (let rr = selection.r0; rr <= selection.r1; rr++)
-          for (let cc = selection.c0; cc <= selection.c1; cc++) next = setCell(next, rr, cc, '')
-        return next
-      })
-    }
+    if (kind === 'cut') clearSelection()
   }
 
   /** The selection into a copy/cut event's DataTransfer (one write: TSV and the flavour). */
@@ -1029,6 +1064,12 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
       e.shiftKey ? redo() : undo()
       return
     }
+    // ⇧⌘Z is the Redo the menu shows; ⌘Y stays bound too (E-13).
+    if (mod && e.key.toLowerCase() === 'y') {
+      e.preventDefault()
+      redo()
+      return
+    }
     if (mod && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x')) {
       e.preventDefault()
       copyOrCut(e.key.toLowerCase() === 'x' ? 'cut' : 'copy')
@@ -1095,12 +1136,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); startEdit(focus); return }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
-      mutateTab((t) => {
-        let next = t
-        for (let rr = selection.r0; rr <= selection.r1; rr++)
-          for (let cc = selection.c0; cc <= selection.c1; cc++) next = setCell(next, rr, cc, '')
-        return next
-      })
+      clearSelection()
       return
     }
     // A printable character starts editing with that character. preventDefault
@@ -1594,6 +1630,10 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     exportFile: (f) => void exportFile(f),
     aiFill: () => setAiOpen((v) => !v),
     saveSnippet: saveSelectionAsSnippet,
+    selectAll: selectAllCells,
+    deleteSelection: clearSelection,
+    find: () => setFindOpen('find'),
+    findAndReplace: () => setFindOpen('replace'),
     insertSnippet: () => setSnippetLibraryOpen(true),
     documentOps
   }
@@ -1624,6 +1664,24 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
           canvas slot carries no overflow of its own, so the scroller here
           is the one the grid already had. */}
       <div className="flex h-full min-h-0 min-w-0 flex-col px-3 py-2">
+        {/* A zero-height anchor, so the panel sits over the grid's top right
+            without making this column a positioning context for the dialogs. */}
+        {findOpen && (
+          <div className="relative h-0 shrink-0 z-40">
+            <RecordFindReplace
+              testid="sheet-find"
+              scope="Find in this sheet"
+              replace={findOpen === 'replace'}
+            records={findRecords}
+              onGo={(h) => goToHit(h.key)}
+              onReplace={replaceCells}
+              onClose={() => {
+                setFindOpen(false)
+                focusGrid()
+              }}
+            />
+          </div>
+        )}
         {/* Formula bar */}
         <div className="flex items-center gap-2 mb-2 shrink-0">
           <span className="text-[11px] font-mono text-[var(--ink-40)] w-12 text-center shrink-0">
@@ -1812,6 +1870,20 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
           // scroll with the sheet.
           className="flex-1 min-h-0 relative"
           data-testid="sheet-grid-wrap"
+          onContextMenu={(e) => {
+            const t = e.target as HTMLElement
+            if (t.closest('input, textarea, [contenteditable="true"]')) return
+            const td = t.closest('[data-testid^="cell-"]')
+            const m = td?.getAttribute('data-testid')?.match(/^cell-(\d+)-(\d+)$/)
+            if (!m) return
+            const r = Number(m[1])
+            const c = Number(m[2])
+            // A right-click outside the selection selects that cell first, as
+            // every spreadsheet does; inside it, the selection is kept.
+            if (r < selection.r0 || r > selection.r1 || c < selection.c0 || c > selection.c1) selectCell(r, c)
+            e.preventDefault()
+            setCellMenu({ x: e.clientX, y: e.clientY })
+          }}
           onDragOver={(e) => {
             if (dragCarriesFiles(e.dataTransfer)) {
               e.preventDefault()
@@ -2009,12 +2081,13 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
         </div>
 
         {colMenu && (
-          <ColumnHeaderMenu
+          <HeaderMenu
+            kind="col"
             x={colMenu.x}
             y={colMenu.y}
             canDelete={tab.columns.length > 1}
-            onInsertLeft={() => { mutateTab((t) => insertColFixed(t, colMenu.c)); setColMenu(null) }}
-            onInsertRight={() => { mutateTab((t) => insertColFixed(t, colMenu.c + 1)); setColMenu(null) }}
+            onInsertBefore={() => { mutateTab((t) => insertColFixed(t, colMenu.c)); setColMenu(null) }}
+            onInsertAfter={() => { mutateTab((t) => insertColFixed(t, colMenu.c + 1)); setColMenu(null) }}
             onDelete={() => { mutateTab((t) => deleteColFixed(t, colMenu.c)); setColMenu(null) }}
             freezeActive={(tab.freeze?.cols ?? 0) > 0}
             onFreeze={() => { mutateTab((t) => ({ ...t, freeze: { rows: t.freeze?.rows ?? 0, cols: colMenu.c + 1 } })); setColMenu(null) }}
@@ -2027,13 +2100,41 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
           />
         )}
 
+        {cellMenu && (
+          <CanvasContextMenu
+            testid="sheet-cell-menu"
+            x={cellMenu.x}
+            y={cellMenu.y}
+            onClose={() => setCellMenu(null)}
+            items={objectMenu({
+              cut: readOnly ? undefined : sheetActions.cut,
+              copy: sheetActions.copy,
+              paste: readOnly ? undefined : sheetActions.paste,
+              saveAsSnippet: sheetActions.saveSnippet,
+              more: readOnly
+                ? undefined
+                : [
+                    { label: 'Insert row above', icon: 'add', onClick: sheetActions.insertRowAbove },
+                    { label: 'Insert row below', icon: 'add', onClick: sheetActions.insertRowBelow },
+                    { label: 'Insert column left', icon: 'add', onClick: sheetActions.insertColLeft },
+                    { label: 'Insert column right', icon: 'add', onClick: sheetActions.insertColRight },
+                    { separator: true },
+                    { label: 'Sort sheet A → Z', icon: 'sort', onClick: () => sheetActions.sort('asc') },
+                    { label: 'Sort sheet Z → A', onClick: () => sheetActions.sort('desc') }
+                  ],
+              del: readOnly ? undefined : clearSelection
+            })}
+          />
+        )}
+
         {rowMenu && (
-          <RowHeaderMenu
+          <HeaderMenu
+            kind="row"
             x={rowMenu.x}
             y={rowMenu.y}
             canDelete={tab.rows.length > 1}
-            onInsertAbove={() => { mutateTab((t) => insertRowFixed(t, rowMenu.r)); setRowMenu(null) }}
-            onInsertBelow={() => { mutateTab((t) => insertRowFixed(t, rowMenu.r + 1)); setRowMenu(null) }}
+            onInsertBefore={() => { mutateTab((t) => insertRowFixed(t, rowMenu.r)); setRowMenu(null) }}
+            onInsertAfter={() => { mutateTab((t) => insertRowFixed(t, rowMenu.r + 1)); setRowMenu(null) }}
             onDelete={() => { mutateTab((t) => deleteRowFixed(t, rowMenu.r)); setRowMenu(null) }}
             freezeActive={(tab.freeze?.rows ?? 0) > 0}
             onFreeze={() => { mutateTab((t) => ({ ...t, freeze: { cols: t.freeze?.cols ?? 0, rows: rowMenu.r + 1 } })); setRowMenu(null) }}
@@ -2152,14 +2253,16 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   )
 }
 
-// Right-click column-header menu: insert a column on either side of the clicked
-// header, or delete it.
-function ColumnHeaderMenu({
+// Right-click on a column or row header: the kit's menu in the shared object
+// shape (SPEC §9.3): insert on either side, freeze, group, then Delete last in
+// the danger colour. Insert/delete reindex formula references (*Fixed helpers).
+function HeaderMenu({
+  kind,
   x,
   y,
   canDelete,
-  onInsertLeft,
-  onInsertRight,
+  onInsertBefore,
+  onInsertAfter,
   onDelete,
   freezeActive,
   onFreeze,
@@ -2170,11 +2273,12 @@ function ColumnHeaderMenu({
   onUngroup,
   onClose
 }: {
+  kind: 'col' | 'row'
   x: number
   y: number
   canDelete: boolean
-  onInsertLeft: () => void
-  onInsertRight: () => void
+  onInsertBefore: () => void
+  onInsertAfter: () => void
   onDelete: () => void
   freezeActive: boolean
   onFreeze: () => void
@@ -2185,163 +2289,40 @@ function ColumnHeaderMenu({
   onUngroup: () => void
   onClose: () => void
 }): JSX.Element {
-  const ref = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    function onDown(e: MouseEvent): void {
-      if (!ref.current?.contains(e.target as Node)) onClose()
-    }
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose])
-  const left = Math.min(x, window.innerWidth - 210)
-  const top = Math.min(y, window.innerHeight - 220)
-  const item =
-    'w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-sunken)] text-left'
-  return (
-    <div
-      ref={ref}
-      data-testid="sheet-col-menu"
-      className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in fixed z-[100] w-52 py-1 text-[var(--ink-70)]"
-      style={{ left, top }}
-    >
-      <button className={item} onClick={onInsertLeft}>
-        <Icon name="add" size={13} className="text-[var(--ink-40)]" /> Insert column left
-      </button>
-      <button className={item} onClick={onInsertRight}>
-        <Icon name="add" size={13} className="text-[var(--ink-40)]" /> Insert column right
-      </button>
-      <div className="my-1 border-t border-[var(--edge-soft)]" />
-      <button className={item} onClick={onFreeze}>
-        <Icon name="ac_unit" size={13} className="text-[var(--ink-40)]" /> Freeze up to this column
-      </button>
-      {freezeActive && (
-        <button className={item} onClick={onUnfreeze}>
-          <Icon name="close" size={13} className="text-[var(--ink-40)]" /> Unfreeze columns
-        </button>
-      )}
-      <div className="my-1 border-t border-[var(--edge-soft)]" />
-      {grouped ? (
-        <button className={item} onClick={onUngroup}>
-          <Icon name="unfold_more" size={13} className="text-[var(--ink-40)]" /> Ungroup columns
-        </button>
-      ) : (
-        <button className={item + ' disabled:opacity-40'} onClick={onGroup} disabled={!canGroup}>
-          <Icon name="unfold_less" size={13} className="text-[var(--ink-40)]" /> Group selected columns
-        </button>
-      )}
-      <div className="my-1 border-t border-[var(--edge-soft)]" />
-      <button
-        className={item + ' text-red-600 disabled:opacity-40'}
-        onClick={onDelete}
-        disabled={!canDelete}
-      >
-        <Icon name="delete" size={13} /> Delete column
-      </button>
-    </div>
-  )
-}
-
-// Right-click row-header menu: insert a row above or below the clicked row, or
-// delete it. Insert/delete reindex formula references (via *Fixed helpers).
-function RowHeaderMenu({
-  x,
-  y,
-  canDelete,
-  onInsertAbove,
-  onInsertBelow,
-  onDelete,
-  freezeActive,
-  onFreeze,
-  onUnfreeze,
-  canGroup,
-  grouped,
-  onGroup,
-  onUngroup,
-  onClose
-}: {
-  x: number
-  y: number
-  canDelete: boolean
-  onInsertAbove: () => void
-  onInsertBelow: () => void
-  onDelete: () => void
-  freezeActive: boolean
-  onFreeze: () => void
-  onUnfreeze: () => void
-  canGroup: boolean
-  grouped: boolean
-  onGroup: () => void
-  onUngroup: () => void
-  onClose: () => void
-}): JSX.Element {
-  const ref = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    function onDown(e: MouseEvent): void {
-      if (!ref.current?.contains(e.target as Node)) onClose()
-    }
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose])
-  const left = Math.min(x, window.innerWidth - 210)
-  const top = Math.min(y, window.innerHeight - 220)
-  const item =
-    'w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-sunken)] text-left'
-  return (
-    <div
-      ref={ref}
-      data-testid="sheet-row-menu"
-      className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in fixed z-[100] w-52 py-1 text-[var(--ink-70)]"
-      style={{ left, top }}
-    >
-      <button className={item} onClick={onInsertAbove}>
-        <Icon name="add" size={13} className="text-[var(--ink-40)]" /> Insert row above
-      </button>
-      <button className={item} onClick={onInsertBelow}>
-        <Icon name="add" size={13} className="text-[var(--ink-40)]" /> Insert row below
-      </button>
-      <div className="my-1 border-t border-[var(--edge-soft)]" />
-      <button className={item} onClick={onFreeze}>
-        <Icon name="ac_unit" size={13} className="text-[var(--ink-40)]" /> Freeze up to this row
-      </button>
-      {freezeActive && (
-        <button className={item} onClick={onUnfreeze}>
-          <Icon name="close" size={13} className="text-[var(--ink-40)]" /> Unfreeze rows
-        </button>
-      )}
-      <div className="my-1 border-t border-[var(--edge-soft)]" />
-      {grouped ? (
-        <button className={item} onClick={onUngroup}>
-          <Icon name="unfold_more" size={13} className="text-[var(--ink-40)]" /> Ungroup rows
-        </button>
-      ) : (
-        <button className={item + ' disabled:opacity-40'} onClick={onGroup} disabled={!canGroup}>
-          <Icon name="unfold_less" size={13} className="text-[var(--ink-40)]" /> Group selected rows
-        </button>
-      )}
-      <div className="my-1 border-t border-[var(--edge-soft)]" />
-      <button
-        className={item + ' text-red-600 disabled:opacity-40'}
-        onClick={onDelete}
-        disabled={!canDelete}
-      >
-        <Icon name="delete" size={13} /> Delete row
-      </button>
-    </div>
-  )
+  const col = kind === 'col'
+  const noun = col ? 'column' : 'row'
+  const items: CtxMenuItem[] = joinGroups([
+    [
+      { label: col ? 'Insert column left' : 'Insert row above', icon: 'add', onClick: onInsertBefore },
+      { label: col ? 'Insert column right' : 'Insert row below', icon: 'add', onClick: onInsertAfter }
+    ],
+    [
+      { label: `Freeze up to this ${noun}`, icon: 'ac_unit', onClick: onFreeze },
+      ...(freezeActive ? [{ label: `Unfreeze ${noun}s`, icon: 'close', onClick: onUnfreeze }] : [])
+    ],
+    [
+      grouped
+        ? { label: `Ungroup ${noun}s`, icon: 'unfold_more', onClick: onUngroup }
+        : {
+            label: `Group selected ${noun}s`,
+            icon: 'unfold_less',
+            onClick: onGroup,
+            disabled: !canGroup,
+            hint: canGroup ? undefined : `Select two or more ${noun}s first`
+          }
+    ],
+    [
+      {
+        label: `Delete ${noun}`,
+        icon: 'delete',
+        danger: true,
+        onClick: onDelete,
+        disabled: !canDelete,
+        hint: canDelete ? undefined : `A sheet keeps at least one ${noun}`
+      }
+    ]
+  ])
+  return <CanvasContextMenu testid={col ? 'sheet-col-menu' : 'sheet-row-menu'} x={x} y={y} items={items} onClose={onClose} />
 }
 
 // Shown when a drag-reorder would change formula results. Offers to auto-fix the

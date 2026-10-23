@@ -415,7 +415,7 @@ describe('a Draw desk widget (OfficeDocWidget + DrawStudio), with B active in th
 
   it('File › Move to trash trashes the widget’s drawing and the widget says so; B is untouched', async () => {
     await mountWidget()
-    await menuItem('file', 'Move to trash')
+    await menuItem('file', 'Move to Trash')
     expect(h.confirms.map((c) => c.title), 'the confirm names the widget’s drawing').toEqual([`Move "${A.title}" to trash?`])
     expect(callsTo('documents.delete').map((c) => c.args)).toEqual([[A.id]])
     expect(host.querySelector('[data-testid="office-doc-trashed"]')).not.toBeNull()

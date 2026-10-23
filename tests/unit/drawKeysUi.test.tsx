@@ -180,7 +180,7 @@ describe('the Keyboard shortcuts dialog', () => {
     const heads = [...host.querySelectorAll('[data-testid="draw-shortcuts-list"] h4')].map(
       (h) => h.textContent
     )
-    expect(heads.slice(0, 5)).toEqual(['File', 'File › New from preset', 'Edit', 'Edit › Copy As', 'Object'])
+    expect(heads.slice(0, 6)).toEqual(['File', 'File › New from preset', 'File › Download', 'Edit', 'Edit › Copy As', 'Object'])
     expect(heads).toContain('Canvas keys')
     expect(heads[heads.length - 1]).toBe('From Illustrator, still to come')
     expect(rowText('command:object.transformAgain')).toBe('Transform Again⌘D')

@@ -1,4 +1,5 @@
 import type { DocumentOps } from './documentOps'
+import { menuAction } from '../../../lib/menus/menuAction'
 import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
 
 // The PlexiDiagrams menu bar. Document-level File actions come from the
@@ -46,14 +47,14 @@ export default function DrawMenuBar({ actions }: { actions: DrawMenuActions }): 
               { kind: 'sep' },
               ...a.file(),
               { kind: 'sep' },
-              { kind: 'item', label: 'Start a meeting', icon: 'videocam', run: ops.startMeeting },
-              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
             ]
           : a.file()
     },
     { id: 'edit', label: 'Edit', build: a.edit },
     { id: 'view', label: 'View', build: a.view },
-    { id: 'insert', label: 'Insert', build: a.insert },
+    // The meeting item ends Insert, as in every office app (SPEC §9.2), not File.
+    { id: 'insert', label: 'Insert', build: () => [...a.insert(), ...(ops ? [{ kind: 'sep' as const }, { kind: 'item' as const, ...menuAction('meeting'), icon: 'videocam', run: ops.startMeeting }] : [])] },
     { id: 'arrange', label: 'Arrange', build: a.arrange },
     { id: 'help', label: 'Help', build: a.help }
   ]

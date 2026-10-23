@@ -63,7 +63,7 @@ async function seed(kind: string, name: string, body: unknown): Promise<string> 
 
 async function insertLive(name: string): Promise<void> {
   await window.locator('[data-testid="doc-menu-insert"]').click()
-  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Saved snippet').click()
+  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Insert snippet…').click()
   await expect(window.locator('[data-testid="snippet-library"]')).toBeVisible({ timeout: 5_000 })
   const row = window.locator('[data-testid="snippet-row"]').filter({ hasText: name })
   await expect(row).toBeVisible({ timeout: 5_000 })

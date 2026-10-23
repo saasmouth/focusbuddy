@@ -2,11 +2,12 @@ import { useState } from 'react'
 import type { SheetCellFormat, SheetNumberFormat } from '@shared/types'
 import type { DocumentOps } from './documentOps'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
+import { menuAction } from '../../../lib/menus/menuAction'
 
 // A Google-Sheets-style menu bar for the spreadsheet editor. Every item maps to a
 // real SheetEditor operation (passed in as `actions`) or to the document ops the
-// HOST binds. Capabilities the editor does not have (merge, freeze, cell
-// find/replace) are simply not listed rather than shown as dead items.
+// HOST binds. A capability the editor does not have is simply not listed rather
+// than shown as a dead item.
 //
 // This file does not read the documents store, and must not: it used to act on
 // the store's `active` document, which in a desk widget is not the spreadsheet
@@ -34,6 +35,14 @@ export interface SheetMenuActions {
   cut: () => void
   copy: () => void
   paste: () => void
+  /** Select every used cell (SPEC §9.2: every app that selects has Select all; ⌘A). */
+  selectAll: () => void
+  /** Empty the selected cells (⌫). */
+  deleteSelection: () => void
+  /** Open Find and replace over this sheet. */
+  /** Open Find… over this sheet. */
+  find: () => void
+  findAndReplace: () => void
   format: (patch: Partial<SheetCellFormat>) => void
   numberFormat: (f: SheetNumberFormat) => void
   insertRowAbove: () => void
@@ -92,7 +101,7 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
         const trashGroup: MenuItem[] = ops
           ? [
               { kind: 'sep' },
-              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
             ]
           : []
         return [
@@ -120,14 +129,20 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo, disabled: !a.canUndo },
-        { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: a.redo, disabled: !a.canRedo },
+        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: a.undo, disabled: !a.canUndo },
+        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: a.redo, disabled: !a.canRedo },
         { kind: 'sep' },
-        { kind: 'item', label: 'Cut', shortcut: '⌘X', icon: 'content_cut', run: a.cut },
-        { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copy },
-        { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.paste },
+        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: a.cut },
+        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: a.copy },
+        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: a.paste },
+        { kind: 'item', ...menuAction('delete'), icon: 'backspace', run: a.deleteSelection },
         { kind: 'sep' },
-        { kind: 'item', label: 'Save selection as snippet…', icon: 'bookmark_add', run: a.saveSnippet }
+        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: a.selectAll },
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('find'), icon: 'search', run: a.find },
+        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: a.findAndReplace },
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('saveAsSnippet'), icon: 'bookmark_add', run: a.saveSnippet }
       ]
     },
     {
@@ -155,12 +170,12 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
         { kind: 'item', label: 'Sheet', icon: 'tab', run: a.addSheet },
         { kind: 'item', label: 'Named range', icon: 'data_object', run: a.namedRanges },
         { kind: 'sep' },
-        { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
+        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: a.insertSnippet },
         { kind: 'sep' },
         // A meeting reaches other people, so a wrong id invites them to someone
         // else's spreadsheet. It went out with `id: active?.id ?? ''`.
         ...(ops
-          ? ([{ kind: 'item', label: 'Meeting', icon: 'videocam', run: () => ops.startMeeting() }] as MenuItem[])
+          ? ([{ kind: 'item', ...menuAction('meeting'), icon: 'videocam', run: () => ops.startMeeting() }] as MenuItem[])
           : [])
       ]
     },
@@ -225,7 +240,7 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
     {
       id: 'help',
       label: 'Help',
-      build: () => [{ kind: 'item', label: 'Keyboard shortcuts', shortcut: '⌘/', icon: 'keyboard', run: () => setShortcutsOpen(true) }]
+      build: () => [{ kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setShortcutsOpen(true) }]
     }
   ]
 
@@ -240,7 +255,9 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
               ['Italic', '⌘I'],
               ['Underline', '⌘U'],
               ['Undo', '⌘Z'],
-              ['Redo', '⌘Y'],
+              [menuAction('redo').label, menuAction('redo').shortcut!],
+              [menuAction('find').label, menuAction('find').shortcut!],
+              [menuAction('findAndReplace').label, menuAction('findAndReplace').shortcut!],
               ['Clear formatting', '⌘\\']
             ] as [string, string][]).map(([label, keys]) => (
               <div key={label} className="flex items-center justify-between text-[13px]">

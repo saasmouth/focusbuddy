@@ -67,7 +67,8 @@ describe('4a: hidden draw.io content is recoverable', () => {
 
   it('the hide/show controls are wired into the editor', () => {
     const d = (f: string) => readFileSync(join(__dirname, '../../src/renderer/src/components/documents/diagram', f), 'utf-8')
-    expect(d('ContextMenu.tsx')).toContain('run: cmd.hideSelection')
+    // The kit's row (SPEC §9.3), under More actions ▸.
+    expect(d('ContextMenu.tsx')).toContain('onClick: cmd.hideSelection')
     expect(d('LayersPanel.tsx')).toContain('data-testid="diagram-show-hidden"')
     expect(d('DiagramChrome.tsx')).toContain('run: cmd.showAllHidden')
   })

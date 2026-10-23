@@ -150,7 +150,7 @@ for (const app of APPS) {
       const s = await seed(window, app)
       await openDeskWithBActive(window, s)
 
-      await fileItem(window, s, app, 'Move to trash')
+      await fileItem(window, s, app, 'Move to Trash')
       const dialog = window.locator('[data-testid="prompt-dialog"]')
       await expect(dialog).toBeVisible({ timeout: 5_000 })
       await dialog.getByRole('button', { name: 'Move to trash' }).click()

@@ -323,13 +323,12 @@ describe('without a session, the commands act on the host-bound drawing', () => 
         "Import SVG…",
         "Replace image… (off)",
         "—",
-        "Export PNG…",
-        "Export SVG…",
-        "Export PDF…",
+        "Download ›",
         "—",
         "Rename",
         "Version history",
-        "Move to trash",
+        "—",
+        "Move to Trash",
       ]
     `)
   })
@@ -420,13 +419,12 @@ describe('the mounted studio in a session', () => {
         "Import SVG…",
         "Replace image… (off)",
         "—",
-        "Export PNG…",
-        "Export SVG…",
-        "Export PDF…",
+        "Download ›",
         "—",
         "Rename (off: Not available while editing a snippet: this edits the snippet, not a document.)",
         "Version history (off: Not available while editing a snippet: this edits the snippet, not a document.)",
-        "Move to trash (off: Not available while editing a snippet: this edits the snippet, not a document.)",
+        "—",
+        "Move to Trash (off: Not available while editing a snippet: this edits the snippet, not a document.)",
       ]
     `)
   })

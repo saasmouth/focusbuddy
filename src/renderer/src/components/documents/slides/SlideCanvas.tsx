@@ -420,7 +420,7 @@ export default function SlideCanvas({
                   }}
                 />
               ) : (
-                <div data-testid="slide-element" data-eltype={el.type} style={{ width: '100%', height: '100%', pointerEvents: 'none' }}>
+                <div data-testid="slide-element" data-eltype={el.type} data-element-id={el.id} style={{ width: '100%', height: '100%', pointerEvents: 'none' }}>
                   <SlideElementView el={{ ...el, x: 0, y: 0 }} />
                 </div>
               )}

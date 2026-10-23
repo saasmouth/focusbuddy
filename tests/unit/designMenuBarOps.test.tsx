@@ -112,7 +112,7 @@ describe('with a document bound, every item acts on THAT document', () => {
     // Reopened each time: clicking an item CLOSES the menu, so a run of
     // clicks after one open finds nothing — which is how the first version of
     // this test failed, on "no Make a copy item".
-    for (const label of ['New design', 'Make a copy', 'Rename', 'Version history', 'Move to trash']) {
+    for (const label of ['New design', 'Make a copy', 'Rename', 'Version history', 'Move to Trash']) {
       openMenu('File')
       clickItem(label)
     }
@@ -137,7 +137,7 @@ describe('with NO document bound, the document items are absent', () => {
     const items = openMenu('File')
     // Absent, not disabled: there is nothing for them to act on, and a greyed
     // Move to trash invites a second look for a reason that does not exist.
-    for (const gone of ['New design', 'Make a copy', 'Rename', 'Version history', 'Move to trash']) {
+    for (const gone of ['New design', 'Make a copy', 'Rename', 'Version history', 'Move to Trash']) {
       expect(has(items, gone), `${gone} must not be offered`).toBe(false)
     }
     expect(has(items, 'Download'), 'Download stays: exporting needs no document row').toBe(true)

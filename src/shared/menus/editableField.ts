@@ -1,4 +1,4 @@
-import { MENU } from './lexicon'
+import { MENU, actionKeys, type MenuAction } from './lexicon'
 import { shortcutLabel } from './shortcuts'
 
 // The right-click menu on TEXT, everywhere (SPEC §9.3, the third shape): a text
@@ -39,8 +39,8 @@ export interface EditableFieldItem {
 
 export function editableFieldItems(ctx: EditableFieldContext, platform: string): EditableFieldItem[] {
   const hint = (id: keyof typeof MENU): string => {
-    const k = (MENU[id] as { keys?: readonly string[] }).keys
-    return k ? shortcutLabel(k as never, platform) : ''
+    const k = actionKeys(MENU[id] as MenuAction, platform)
+    return k ? shortcutLabel(k, platform) : ''
   }
   const out: EditableFieldItem[] = []
   const push = (id: EditableFieldItemId, enabled: boolean, why: string | undefined, separatorBefore = false): void => {

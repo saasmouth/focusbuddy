@@ -31,6 +31,8 @@ interface Props {
   y: number
   items: CtxMenuItem[]
   onClose: () => void
+  /** A data-testid for the menu itself (an app's established handle, e.g. diagram-context-menu). */
+  testid?: string
 }
 
 // The menu is fully keyboard navigable. Open it and the panel takes focus;
@@ -38,7 +40,7 @@ interface Props {
 // right arrow opens a submenu and moves focus into it, the left arrow or Escape
 // steps back out, and Escape on the root closes everything. Mouse and hover
 // behave exactly as before.
-export default function CanvasContextMenu({ x, y, items, onClose }: Props): JSX.Element {
+export default function CanvasContextMenu({ x, y, items, onClose, testid }: Props): JSX.Element {
   // Keep the latest onClose in a ref so the dismiss listener can be attached
   // ONCE and never re-armed. Depending on `onClose` (a fresh arrow on every
   // parent render) used to reset the 50ms arm on each re-render, so the
@@ -76,7 +78,7 @@ export default function CanvasContextMenu({ x, y, items, onClose }: Props): JSX.
     }
   }, [])
 
-  return <MenuPanel items={items} x={x} y={y} onClose={onClose} isRoot autoFocus />
+  return <MenuPanel items={items} x={x} y={y} onClose={onClose} isRoot autoFocus testid={testid} />
 }
 
 interface PanelProps {
@@ -91,6 +93,7 @@ interface PanelProps {
   // Hover bridging between a parent row and this submenu.
   onPointerEnter?: () => void
   onPointerLeave?: () => void
+  testid?: string
 }
 
 function MenuPanel({
@@ -102,7 +105,8 @@ function MenuPanel({
   autoFocus,
   onStepOut,
   onPointerEnter,
-  onPointerLeave
+  onPointerLeave,
+  testid
 }: PanelProps): JSX.Element {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const rowRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -277,9 +281,13 @@ function MenuPanel({
       ref={panelRef}
       data-canvas-ctx-menu
       data-floating-menu
+      data-testid={testid}
       role="menu"
       tabIndex={-1}
-      className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in fb-context-menu fixed z-[260] py-1 min-w-[210px] max-h-[85vh] overflow-y-auto text-sm"
+      // fb-menu-solid: an opaque fill, no blur. Glass let the desk read through
+      // every right-click menu in dark and atelier (92% / 80% fill), the rows
+      // losing contrast over busy content (2e wp1b; same fix as 8268aa07).
+      className="fb-glass-panel fb-menu-solid rounded-[var(--radius-row)] fb-pop-in fb-context-menu fixed z-[260] py-1 min-w-[210px] max-h-[85vh] overflow-y-auto text-sm"
       style={{ left: pos.left, top: pos.top }}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}

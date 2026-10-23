@@ -85,7 +85,7 @@ test('AW-1 a sheet snippet into Write: a table of the displayed values, the conv
   await seedSnippet('sheet', 'Pen totals', { kind: 'sheet', rows: [['Item', 'Qty', 'Total'], ['Pens', '2', '=B2*3']], origin: { r: 0, c: 0 } })
   await startBlankDoc()
   await window.locator('[data-testid="doc-menu-insert"]').click()
-  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Saved snippet').click()
+  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Insert snippet…').click()
   await expect(window.locator('[data-testid="snippet-library"]')).toBeVisible({ timeout: 5_000 })
   const row = window.locator('[data-testid="snippet-row"]').filter({ hasText: 'Pen totals' })
   await expect(row).toBeVisible({ timeout: 5_000 })

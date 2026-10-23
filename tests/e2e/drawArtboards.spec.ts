@@ -115,11 +115,12 @@ test('AB-1 three artboards: drawn with ⇧O on the pasteboard, added from the me
   const nodes = ((await readStored(window, id)).raw as Stored).layers[0].objects![0].path!.subpaths[0].nodes
   expect(nodes[0]).toEqual({ x: 100, y: 100 })
 
-  // File › Export PDF… asks what to cover; every artboard, one page each.
+  // File › Download ▸ PDF document asks what to cover; every artboard, one page each.
   const pdfPath = join(dir, 'three.pdf')
   await saveTo(pdfPath)
   await window.locator('[data-testid="draw-studio-menubar-file"]').click()
-  await window.locator('[data-testid="draw-studio-menubar-file-list"] button').filter({ hasText: 'Export PDF…' }).click()
+  await window.locator('[data-testid="draw-studio-menubar-file-list"] button').filter({ hasText: 'Download' }).hover()
+  await window.locator('[data-testid="draw-studio-menubar-file-list"] button').filter({ hasText: 'PDF document (.pdf)…' }).click()
   await expect(window.locator('[data-testid="draw-export-scope-pages"]')).toBeChecked()
   await window.locator('[data-testid="draw-export-go"]').click()
   await expect.poll(() => existsSync(pdfPath), { timeout: 20_000 }).toBe(true)
@@ -161,7 +162,9 @@ test('AB-2 PNG of each artboard writes one file per artboard at its pixel size; 
   const base = join(dir, 'pair.png')
   await saveTo(base)
   await window.locator('[data-testid="draw-studio-menubar-file"]').click()
-  await window.locator('[data-testid="draw-studio-menubar-file-list"] button').filter({ hasText: 'Export PNG…' }).click()
+  // File › Download ▸ PNG image (SPEC §9.2, G8).
+  await window.locator('[data-testid="draw-studio-menubar-file-list"] button').filter({ hasText: 'Download' }).hover()
+  await window.locator('[data-testid="draw-studio-menubar-file-list"] button').filter({ hasText: 'PNG image (.png)…' }).click()
   await window.locator('[data-testid="draw-export-scope-each"]').check()
   await window.locator('[data-testid="draw-export-go"]').click()
   const cover = join(dir, 'pair - Cover.png')

@@ -88,6 +88,8 @@ import { designBodyFromSelection, designSnippetTargetId, insertDesignSnippet, su
 import { officeAccepts } from '../../lib/officeSnippets'
 import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
+import CanvasContextMenu from '../CanvasContextMenu'
+import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -264,6 +266,9 @@ export default function DesignEditor({
   // dialog gets an EMPTY body when nothing is selected, so it can say so
   // rather than the menu item appearing to do nothing.
   const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
+  // Right-click on the page (SPEC §9.3): a frame gets the object menu, the empty
+  // page the canvas menu; text being typed in keeps the native text menu.
+  const [designMenu, setDesignMenu] = useState<{ x: number; y: number; onElement: boolean } | null>(null)
   const [snippetDraft, setSnippetDraft] = useState<DesignSnippetBody | null>(null)
   // This mounted editor, as a snippet destination: the same design open in the
   // editor and in a desk widget is two destinations, so the id is the mount.
@@ -587,6 +592,16 @@ export default function DesignEditor({
     mutate((s) => selectedIds.reduce((acc, id) => deleteElement(acc, id), s))
     setSelectedIds([])
   }
+  // Everything the canvas is editing (the master's furniture in master-edit
+  // mode) that a person could click: hidden and locked layers stay out, as they
+  // do for a click or a marquee. Read through the ref, so the key handler's
+  // closure never selects a stale page.
+  function selectAll(): void {
+    const d = designRef.current
+    const master = d.editingMasterId ? (d.masters ?? []).find((m) => m.id === d.editingMasterId) : null
+    const els = master ? master.elements : d.elements
+    setSelectedIds(els.filter((el) => elementVisible(d, el) && !elementLocked(d, el)).map((el) => el.id))
+  }
   function duplicateSelected(): void {
     if (!selectedIds.length) return
     const newIds: string[] = []
@@ -684,6 +699,21 @@ export default function DesignEditor({
     if (!selectedIds.length) return
     mutate((s) => ungroupElements(s, selectedIds))
   }
+  function reorderSelected(dir: 'front' | 'backmost' | 'forward' | 'back'): void {
+    if (!selectedIds.length) return
+    mutate((s) => selectedIds.reduce((acc, id) => reorderZ(acc, id, dir), s))
+  }
+  function openDesignMenu(e: React.MouseEvent): void {
+    if (readOnly) return
+    const t = e.target as HTMLElement
+    if (t.closest('textarea, input, [contenteditable="true"]')) return
+    if (!t.closest('[data-testid="slide-canvas"]')) return
+    const elId = t.closest('.react-draggable')?.querySelector('[data-element-id]')?.getAttribute('data-element-id') ?? null
+    e.preventDefault()
+    if (elId && !selectedIds.includes(elId)) setSelectedIds([elId])
+    if (!elId) setSelectedIds([])
+    setDesignMenu({ x: e.clientX, y: e.clientY, onElement: !!elId })
+  }
 
   // Keyboard: undo/redo, duplicate, delete. Inert while typing in a field or
   // editing text on the canvas, so it never eats a keystroke meant for content.
@@ -735,6 +765,23 @@ export default function DesignEditor({
       if (mod && key === 'd') {
         e.preventDefault()
         duplicateSelected()
+        return
+      }
+      if (mod && key === 'g') {
+        e.preventDefault()
+        if (e.shiftKey) ungroup()
+        else group()
+        return
+      }
+      // ⇧⌘] / ⇧⌘[ by code: Shift turns the key into } and { on most layouts.
+      if (mod && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
+        e.preventDefault()
+        reorderSelected(e.code === 'BracketRight' ? 'front' : 'backmost')
+        return
+      }
+      if (mod && key === 'a' && !e.shiftKey) {
+        e.preventDefault()
+        selectAll()
         return
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length) {
@@ -1554,6 +1601,7 @@ export default function DesignEditor({
             pasteClipboard: clipboard.paste,
             canPaste: clipboard.hasClip,
             duplicateSelection: duplicateSelected,
+            selectAll,
             saveSelectionAsSnippet,
             insertSnippet: () => setSnippetLibraryOpen(true),
             duplicatePage,
@@ -1921,6 +1969,7 @@ export default function DesignEditor({
     <div
       className="flex flex-col h-full"
       data-testid="design-editor"
+      onContextMenu={openDesignMenu}
       onDragOver={(e) => {
         if (dragCarriesFiles(e.dataTransfer)) {
           e.preventDefault()
@@ -2186,6 +2235,40 @@ export default function DesignEditor({
 
       {brandOpen && <BrandKitModal onClose={() => setBrandOpen(false)} />}
 
+      {designMenu && (
+        <CanvasContextMenu
+          testid="design-context-menu"
+          x={designMenu.x}
+          y={designMenu.y}
+          onClose={() => setDesignMenu(null)}
+          items={
+            designMenu.onElement
+              ? objectMenu({
+                  cut: clipboard.cut,
+                  copy: clipboard.copy,
+                  paste: clipboard.paste,
+                  canPaste: clipboard.hasClip,
+                  duplicate: duplicateSelected,
+                  bringToFront: () => reorderSelected('front'),
+                  sendToBack: () => reorderSelected('backmost'),
+                  group: selectedIds.length >= 2 ? group : undefined,
+                  ungroup: canvasElements.some((el) => selectedIds.includes(el.id) && el.groupId) ? ungroup : undefined,
+                  saveAsSnippet: saveSelectionAsSnippet,
+                  more: [
+                    { label: 'Bring forward', icon: 'arrow_upward', onClick: () => reorderSelected('forward') },
+                    { label: 'Send backward', icon: 'arrow_downward', onClick: () => reorderSelected('back') }
+                  ],
+                  del: deleteSelected
+                })
+              : canvasMenu({
+                  paste: clipboard.paste,
+                  canPaste: clipboard.hasClip,
+                  insertSnippet: () => setSnippetLibraryOpen(true),
+                  selectAll
+                })
+          }
+        />
+      )}
       {snippetLibraryOpen && (
         <SnippetLibrary kinds={DESIGN_KINDS} targetId={designSnippetTargetId(snippetScope)} onClose={() => setSnippetLibraryOpen(false)} />
       )}

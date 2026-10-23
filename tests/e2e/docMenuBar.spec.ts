@@ -75,7 +75,7 @@ test('MB-2 — File dropdown opens and shows expected items; screenshot saved', 
     await expect(dropdown.locator('span.truncate', { hasText: 'Make a copy' })).toBeVisible()
     await expect(dropdown.locator('span.truncate', { hasText: 'Rename' })).toBeVisible()
     await expect(dropdown.locator('span.truncate', { hasText: 'Download' })).toBeVisible()
-    await expect(dropdown.locator('span.truncate', { hasText: 'Move to trash' })).toBeVisible()
+    await expect(dropdown.locator('span.truncate', { hasText: 'Move to Trash' })).toBeVisible()
 
     // Screenshot
     const shot = path.join(SHOTS_DIR, 'menubar-file-dropdown.png')

@@ -217,6 +217,8 @@ export function FindPanel({ cmd, onClose }: { cmd: Commands; onClose: () => void
             if (e.key === 'Enter') go(e.shiftKey ? i - 1 : i + (results.length && q ? 1 : 0))
             if (e.key === 'Escape') onClose()
           }}
+          // Focused on open, as Find is in every office app: ⌘F then type, Esc closes.
+          autoFocus
           placeholder="Find text in shapes and lines"
           className="fb-field flex-1 h-7 px-2 text-[12px]"
           data-testid="diagram-find-input"

@@ -11,15 +11,20 @@ import { isValidRegex } from '../../../lib/docFind'
 interface Props {
   editor: Editor
   onClose: () => void
+  /** Opened as Find and replace… (⇧⌘H, E-14): the Replace row shows. */
+  replace?: boolean
 }
 
-export default function FindReplace({ editor, onClose }: Props): JSX.Element {
+export default function FindReplace({ editor, onClose, replace = false }: Props): JSX.Element {
   const [query, setQuery] = useState('')
   const [replacement, setReplacement] = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [wholeWord, setWholeWord] = useState(false)
   const [regex, setRegex] = useState(false)
-  const [showReplace, setShowReplace] = useState(false)
+  const [showReplace, setShowReplace] = useState(replace)
+  useEffect(() => {
+    if (replace) setShowReplace(true)
+  }, [replace])
   const [status, setStatus] = useState({ count: 0, index: 0 })
 
   // A regex query that doesn't compile: we keep the panel usable and just flag it

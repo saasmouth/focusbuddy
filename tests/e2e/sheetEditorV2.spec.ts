@@ -290,6 +290,9 @@ test('SE-V2-3 — Ctrl+A selects all cells; Bold applies across all cells and pe
 // ── SE-V2-4: Column-header right-click context menu ──────────────────────────
 
 test('SE-V2-4 — right-click col-header-1 opens sheet-col-menu; Insert left + Delete work', async () => {
+  // Two right-clicks, two persisted checks and a launch: 29.1 s at the final41
+  // baseline against the 30 s default, so it timed out whenever the machine was busy.
+  test.setTimeout(60_000)
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)

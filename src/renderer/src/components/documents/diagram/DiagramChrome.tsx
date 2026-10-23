@@ -15,6 +15,7 @@ import { LayersPanel } from './LayersPanel'
 import { AiPane, DataDialog, FindPanel, MermaidDialog, ShortcutsDialog, TemplatesDialog } from './dialogs'
 import { Binding, CustomData, IconInput } from './parts'
 import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DiagramDialog, type DiagramPanel, type DiagramSidePane } from './ribbon'
+import { hint, menuAction } from '../../../lib/menus/menuAction'
 
 // The PlexiiDiagrams frame on the shared office shell (SPEC §6.1): the menu bar
 // and ribbon tabs on one row, the active tab's controls under them, the tool
@@ -110,16 +111,12 @@ export function DiagramChrome({
     if (msg) statusTimer.current = window.setTimeout(() => setStatusText(null), 6000)
   }, [])
 
-  // ⌘F opens find; ? opens shortcuts (the app's own keys, not the shell's).
+  // ? opens the shortcuts. ⌘F (Find and replace) and ⌘/ are bound by the menu
+  // bar, as in every office app (menuBarKit, SPEC §9.2).
   useEffect(() => {
     const k = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
-      // Not with Option/Alt: ⌥⌘F is Files beside (Ctrl+Alt+F on Windows).
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'f') {
-        e.preventDefault()
-        setDialog('find')
-      }
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) setDialog('shortcuts')
     }
     window.addEventListener('keydown', k)
@@ -227,7 +224,7 @@ export function DiagramChrome({
       },
       {
         kind: 'submenu',
-        label: 'Export',
+        label: menuAction('download').label,
         icon: 'download',
         items: [
           { kind: 'item', label: 'PNG image', run: () => void exportFmt('png') },
@@ -246,21 +243,23 @@ export function DiagramChrome({
       }
     ],
     edit: (): MenuItem[] => [
-      { kind: 'item', label: 'Undo', icon: 'undo', shortcut: '⌘Z', run: cmd.undo, disabled: !canUndo },
-      { kind: 'item', label: 'Redo', icon: 'redo', shortcut: '⇧⌘Z', run: cmd.redo, disabled: !canRedo },
+      { kind: 'item', ...menuAction('undo'), icon: 'undo', run: cmd.undo, disabled: !canUndo },
+      { kind: 'item', ...menuAction('redo'), icon: 'redo', run: cmd.redo, disabled: !canRedo },
       { kind: 'sep' },
-      { kind: 'item', label: 'Cut', icon: 'content_cut', shortcut: '⌘X', run: () => document.execCommand('cut'), disabled: !hasSel },
-      { kind: 'item', label: 'Copy', icon: 'content_copy', shortcut: '⌘C', run: () => document.execCommand('copy'), disabled: !hasSel },
-      { kind: 'item', label: 'Paste', icon: 'content_paste', shortcut: '⌘V', run: () => void cmd.paste(null) },
-      { kind: 'item', label: 'Duplicate', icon: 'control_point_duplicate', shortcut: '⌘D', run: cmd.duplicate, disabled: !hasSel },
-      ...(onSaveSnippet ? [{ kind: 'item' as const, label: 'Save selection as snippet…', icon: 'bookmark_add', run: onSaveSnippet }] : []),
-      { kind: 'item', label: 'Delete', icon: 'delete', shortcut: '⌫', run: cmd.deleteSelection, disabled: !hasAny },
+      { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: () => document.execCommand('cut'), disabled: !hasSel, hint: hasSel ? undefined : 'Select something first' },
+      { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: () => document.execCommand('copy'), disabled: !hasSel, hint: hasSel ? undefined : 'Select something first' },
+      { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: () => void cmd.paste(null) },
+      { kind: 'item', ...menuAction('duplicate'), icon: 'control_point_duplicate', run: cmd.duplicate, disabled: !hasSel, hint: hasSel ? undefined : 'Select something first' },
+      { kind: 'item', ...menuAction('delete'), icon: 'delete', run: cmd.deleteSelection, disabled: !hasAny, hint: hasAny ? undefined : 'Select something first' },
       { kind: 'sep' },
-      { kind: 'item', label: 'Select all', icon: 'select_all', shortcut: '⌘A', run: cmd.selectAll },
-      { kind: 'item', label: 'Find and replace', icon: 'search', shortcut: '⌘F', run: () => setDialog('find') },
+      { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: cmd.selectAll },
+      // One panel holds both (its Replace row always shows); the two rows are the E-14 keys.
+      { kind: 'item', ...menuAction('find'), icon: 'search', run: () => setDialog('find') },
+      { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: () => setDialog('find') },
+      ...(onSaveSnippet ? [{ kind: 'sep' as const }, { kind: 'item' as const, ...menuAction('saveAsSnippet'), icon: 'bookmark_add', run: onSaveSnippet }] : []),
       { kind: 'sep' },
-      { kind: 'item', label: 'Copy style', icon: 'format_paint', shortcut: '⌥⌘C', run: cmd.copyStyle, disabled: !hasSel },
-      { kind: 'item', label: 'Paste style', icon: 'format_color_fill', shortcut: '⌥⌘V', run: cmd.pasteStyle, disabled: !hasSel }
+      { kind: 'item', label: 'Copy style', icon: 'format_paint', shortcut: hint(['alt', 'mod', 'c']), run: cmd.copyStyle, disabled: !hasSel },
+      { kind: 'item', label: 'Paste style', icon: 'format_color_fill', shortcut: hint(['alt', 'mod', 'v']), run: cmd.pasteStyle, disabled: !hasSel }
     ],
     view: (): MenuItem[] => [
       { kind: 'item', label: 'Fit to view', icon: 'fit_screen', shortcut: '⇧1', run: cmd.fit },
@@ -299,13 +298,14 @@ export function DiagramChrome({
       { kind: 'item', label: 'Image…', icon: 'image', run: () => ctx.pickImage() },
       { kind: 'sep' },
       { kind: 'item', label: 'From a Plexii table…', icon: 'table_chart', run: () => setDialog('data') },
-      { kind: 'item', label: 'Work widget from a desk…', icon: 'widgets', run: () => setDialog('data-widgets') },
       { kind: 'item', label: 'Template…', icon: 'dashboard', run: () => setDialog('templates') },
       { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
-      ...(onInsertSnippet ? [{ kind: 'item' as const, label: 'Insert snippet…', icon: 'bookmarks', run: onInsertSnippet, disabled: readOnly }] : []),
       { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setSidePane('ai') },
+      ...(singlePage ? [] : [{ kind: 'sep' as const }, { kind: 'item' as const, label: 'New page', icon: 'note_add', run: cmd.addPage }]),
+      // The shared tail (SPEC §9.2): Insert snippet… · Work widget from a desk…, then Meeting (DrawMenuBar).
       { kind: 'sep' },
-      ...(singlePage ? [] : [{ kind: 'item' as const, label: 'New page', icon: 'note_add', run: cmd.addPage }])
+      ...(onInsertSnippet ? [{ kind: 'item' as const, ...menuAction('insertSnippet'), icon: 'bookmarks', run: onInsertSnippet, disabled: readOnly }] : []),
+      { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: () => setDialog('data-widgets') }
     ],
     arrange: (): MenuItem[] => [
       { kind: 'item', label: 'Bring to front', icon: 'flip_to_front', shortcut: '⇧⌘]', run: () => cmd.order('front'), disabled: !hasSel },
@@ -372,7 +372,7 @@ export function DiagramChrome({
       }
     ],
     help: (): MenuItem[] => [
-      { kind: 'item', label: 'Keyboard shortcuts', icon: 'keyboard', shortcut: '?', run: () => setDialog('shortcuts') },
+      { kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setDialog('shortcuts') },
       { kind: 'item', label: 'How to diagram', icon: 'help', run: () => setDialog('shortcuts') }
     ]
   }

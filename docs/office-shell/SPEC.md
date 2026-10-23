@@ -461,14 +461,14 @@ The kit gains, before anyone migrates: `danger` (destructive styling; the field 
 **Order:** File · Edit · View · Insert · Format · ‹app menus› (Slide, Data, Arrange, Layout, Object, Layer, Document) · Tools · Window · Help. A menu an app genuinely has no items for is absent (Cells and Design have no View today: see §9.6).
 
 **File** (same names, order and separators in every app; items an app cannot do are absent):
-`New ‹document type›` · `Make a copy` | `Rename` · `Version history` | `Import…` (if the app imports) · `Download ▸` · `Print…` (if the app prints) | `Move to Trash`
+`New ‹document type›` · `Make a copy` | `Rename` · `Version history` | `Import…` (if the app imports; `Import ▸` when it imports more than one format) · `Download ▸` · `Print…` (if the app prints) | `Move to Trash`
 - `Download ▸` is the export submenu everywhere (4 of 6 call it Download; Diagrams' `Export ▸` and Draw's three `Export … …` rows are renamed/grouped).
 - The meeting item lives in **Insert** as `Meeting` (4 of 6), not File (Diagrams' "Start a meeting").
 - Document items come from the host's `DocumentOps` and are ABSENT without one (§9.5).
 - Draw keeps Illustrator's file conventions as app items between `Make a copy` and `Rename` (Open SVG…, Save, Place…, New from preset ▸); its `Export …` rows become `Download ▸`.
 
 **Edit:**
-`Undo` ⌘Z · `Redo` ⇧⌘Z | `Cut` ⌘X · `Copy` ⌘C · `Paste` ⌘V · `Paste in place` (where position means something) · `Duplicate` ⌘D · `Delete` ⌫ | `Select all` ⌘A | `Find and replace…` | `Save selection as snippet…`
+`Undo` ⌘Z · `Redo` ⇧⌘Z | `Cut` ⌘X · `Copy` ⌘C · `Paste` ⌘V · `Paste in place` (where position means something) · `Duplicate` ⌘D · `Delete` ⌫ | `Select all` ⌘A | `Find…` ⌘F · `Find and replace…` ⇧⌘H (E-14) | `Save selection as snippet…`
 - `Duplicate` (3 of 4) not "Duplicate selection"; `Delete` (right-click majority, and shorter) not "Delete selection".
 - `Save selection as snippet…` belongs to Edit (5 of 6), with the ellipsis (it opens a dialog).
 - Every app that can select has `Select all` (Cells, Deck, Design lack it today).
@@ -485,12 +485,12 @@ The kit gains, before anyone migrates: `danger` (destructive styling; the field 
 
 Groups in this order, one separator between non-empty groups, the destructive group always last behind its own separator (last on 12 of 12 surfaces in 2e's audit):
 
-1. **Object actions** for what was clicked (Edit text, Open, Configure…, kind rows). `Add to Focus…` is first on objects that have it (operator ruling CR-09 D-A) unless 9d rules otherwise (E-1).
+1. **Object actions** for what was clicked (Edit text, Open, Configure…, kind rows). **`Open` first, `Add to Focus…` second** on objects that have them (owner ruling E-1, 4.3.41; supersedes operator ruling CR-09 D-A, which put Add to Focus first).
 2. **Clipboard:** `Cut` · `Copy` · `Paste` · `Paste as plain text` (text only) · `Duplicate`
 3. **Arrange** (layered objects only): `Bring to front` ⇧⌘] · `Send to back` ⇧⌘[ (plus Group / Ungroup where the app groups)
 4. **Plexii:** `Save selection as snippet…` · `Ask PlexiiAssist` (`… about this` on a selection) · `Add to Focus…` (when not already in group 1)
 5. **More actions ▸** for anything beyond the first four groups (this is how the eight-item ceiling is kept, E-6)
-6. **Destructive** (danger): `Delete` ⌫ in an editor's content; `Move to Trash` for a file or document; `Remove from ‹container›` for a placement
+6. **Destructive** (danger): `Delete` ⌫ in an editor's content; for a placed item, three explicit rows in this order: `Remove from ‹container›` · `Archive` · `Move to Trash` (owner ruling E-2; no chooser)
 
 Three standard shapes:
 - **On an object** (a shape, an element, a node, a cell, a widget): all six groups as they apply.
@@ -554,20 +554,61 @@ Menus as they render (`·` = separator). Generated from `tests/e2e/_menuInventor
 | G12 | "Move to trash" (6 menu bars) vs "Move to Trash" (5 right-click surfaces) | all | `Move to Trash` (E-15 if 9d prefers otherwise) |
 | G13 | No View menu | Cells, Design | add View with the shared zoom items where the app zooms; otherwise absent with reason |
 
-**Genuine exceptions (absent, with the reason):** Write's text has no `Duplicate`/`Delete` menu items (text editing uses keys; the right-click text shape still has Cut/Copy/Paste); Cells has no Arrange (cells do not layer); Draw keeps Illustrator's extra Edit/Object items and ⌘F/⌘B for Paste in Front/Back (its users' muscle memory; Find is not offered in Draw).
+**Genuine exceptions (absent, with the reason):** these are the `EXCEPTIONS` in `tests/unit/officeMenuBarContract.test.tsx`, and the guard fails on any other missing row.
+
+| App | Absent | Why |
+|---|---|---|
+| Write | Edit › `Delete`, `Duplicate` | running text: Backspace deletes characters, and there is no selected object to duplicate (the native text menu still has Cut/Copy/Paste) |
+| Cells | Edit › `Duplicate` | a range has nothing "beside itself" to duplicate into; it is copied and pasted to a chosen cell |
+| Cells | Insert › `Work widget from a desk…` | a cell holds a value; Cells has no surface a live widget can sit on |
+| Cells | Arrange | cells do not layer |
+| Design | Edit › `Find…`, `Find and replace…` | Design text lives in threaded rich-text stories; searching them needs the story editor (owner f0) |
+| Draw | the shared File/Edit/Help layout, and the kit for right-click | Illustrator's layout and keys (⌘F/⌘B Paste in Front/Back, ⌥⇧⌘K shortcuts) for its users' muscle memory; the menu bar and right-click menu are built from Draw's command registry (owner d1). E-16 |
+
+**Delivered (4.3.41-local.2, branch `menu-contract-41`):**
+
+| # | Now |
+|---|---|
+| G1 | Cells cells (`sheet-cell-menu`), Deck elements and empty slide (`slides-context-menu`), Design frames and empty page (`design-context-menu`) open the kit's menu in the §9.3 shapes. Write's text, and any cell or text box being typed in, get the native text menu (2e's wp3) |
+| G2 | Diagrams' menu and Cells' header menus are on the kit (roles, keyboard, focus return); every row they had is kept, the rows past the first four groups under `More actions ▸`; testids kept. Draw: E-16 |
+| G3 | Redo shows `⇧⌘Z` everywhere and `⌘Y` stays bound (E-13); ⌘Y added to Cells and Deck, which lacked it |
+| G10 | `Find…` ⌘F and `Find and replace…` ⇧⌘H in Write, Cells, Deck, Diagrams (E-14); ⇧⌘H opens the panel with its Replace row. In Write ⇧⌘H was TipTap Highlight's unadvertised default; Highlight stays on the toolbar and palette |
+| — | Draw (E-16): `Download ▸` (PNG, SVG, PDF), `Move to Trash` last behind a separator, `Keyboard shortcuts` in Help. Its key stays Illustrator's ⌥⇧⌘K, because ⌘/ is Add new fill in Draw; so the bar claims a key only when its item shows that key |
+| G4, G5, G7, G12 | every shared row takes its label and hint from the lexicon (`menuAction`) |
+| G6 | `Select all` added to Deck, Design (with ⌘A), Cells; `Delete` to Cells (the ⌫ it already bound); `Find and replace…` built for Cells (the sheet's cells) and Deck (text boxes, table cells, notes) on one shared panel (`RecordFindReplace`, `recordFind`); Deck keeps each run's formatting |
+| G8 | `Download ▸` in Diagrams |
+| G9 | `Meeting` at the end of Insert in Diagrams |
+| G11 | `⌘/` is bound by the menu bar itself (`MenuBarShell`), so it opens the app's sheet in every app; it used to open App's global sheet in five of them. `⌘F` likewise, where the editor has not taken it. Diagrams keeps `?` too |
+| — | Hints that named unbound keys are bound now: ⇧⌘] / ⇧⌘[ in Deck and Design, ⌘G / ⇧⌘G in Design |
+| G13 | open: a View menu for Cells and Design needs the zoom those apps do not have yet |
 
 ### 9.7 Calls for 9d (true ties, each with a recommendation)
 
-- **E-13 Redo:** ⌘Y (3) vs ⇧⌘Z (3). Recommend **⇧⌘Z shown**, ⌘Y also bound everywhere (macOS standard shown; the Windows/Google key still works).
-- **E-14 Find and replace:** ⌘F (Diagrams) vs ⇧⌘H (Write). Recommend **⌘F = Find** and **⇧⌘H = Find and replace** wherever both exist; Draw excepted (⌘F is Paste in Front).
+**Decided 2026-10-23** (owner: E-1, E-2; 9d: the rest; relayed by 9d):
+
+- **E-1 (owner): `Open` first, `Add to Focus…` second.** Overrides my recommendation and supersedes CR-09 D-A (§9.3 group 1).
+- **E-2 (owner): three explicit rows**, `Remove from ‹container›` · `Archive` · `Move to Trash`, all danger, last (§9.3 group 6).
+- **E-13:** Redo shows ⇧⌘Z; ⌘Y stays bound.
+- **E-14:** ⌘F is Find, ⇧⌘H is Find and replace, wherever both exist; Draw excepted (⌘F is Paste in Front).
+- **E-15:** `Move to Trash`.
+- **E-6:** the eight-item ceiling via `More actions ▸`.
+- Every other E-n: the recommendation below stands.
+
+The calls as they were put:
+
+- **E-13 Redo:** ⌘Y (3) vs ⇧⌘Z (3). Recommended ⇧⌘Z shown, ⌘Y also bound everywhere.
+- **E-14 Find and replace:** ⌘F (Diagrams) vs ⇧⌘H (Write). Recommended ⌘F = Find and ⇧⌘H = Find and replace wherever both exist; Draw excepted.
+- **E-16 PlexiiDraw (owner d1):** its menu bar and right-click menu come from its command registry, Illustrator's layout. Recommend d1 takes the lexicon labels (`Move to Trash`, `Download ▸` for the three exports, `Keyboard shortcuts` ⌘/ in Help) and renders its right-click entries through the kit, keeping its Illustrator-only rows and keys.
 - **E-15 "Move to Trash" capital T** (recommended: Trash is a named place, like Focus) vs sentence-case "Move to trash".
-- From 2e's audit (E-1 … E-12), with my recommendation: E-1 Add to Focus first (the ruling stands); E-2 three explicit rows (Archive · Remove from this desk · Move to Trash) over the chooser; E-3 bare verbs (Open, Rename, Archive); E-4 `Share…` plus `Copy link` as rows, the rest under `Share ▸`; E-5 clipboard as group 2 everywhere, the Shift-bypass dropped once text fields have the §9.3 text menu; E-6 keep the eight-item ceiling via `More actions ▸`; E-7 drop the duplicate "Duplicate into another Room / Desk…"; E-8 web stays native; E-9 browser wording ("Close other tabs", "Close all tabs", "Pin tab"); E-10 `Copy link`; E-11 a standard menu with Rename first; E-12 one AI set of 8 everywhere.
+- From 2e's audit (E-1 … E-12), with my recommendation: E-1 Add to Focus first (the ruling stands; **overruled**, see above); E-2 three explicit rows over the chooser (**decided** in the owner's order: Remove from ‹container› · Archive · Move to Trash); E-3 bare verbs (Open, Rename, Archive); E-4 `Share…` plus `Copy link` as rows, the rest under `Share ▸`; E-5 clipboard as group 2 everywhere, the Shift-bypass dropped once text fields have the §9.3 text menu; E-6 keep the eight-item ceiling via `More actions ▸`; E-7 drop the duplicate "Duplicate into another Room / Desk…"; E-8 web stays native; E-9 browser wording ("Close other tabs", "Close all tabs", "Pin tab"); E-10 `Copy link`; E-11 a standard menu with Rename first; E-12 one AI set of 8 everywhere.
 
 ### 9.8 Guards
 
-- `tests/unit/menuContract.test.ts`: every office menu bar's shared items exist with the contract's label, order, separators and shortcut (from the built menu definitions); no menu bar or right-click label outside `lexicon.ts` for a shared action; no `...`; every shortcut hint formatted by `shortcuts.ts`.
-- `tests/e2e/officeMenus.spec.ts`: real-click sample per app: the menu bar's File/Edit and the right-click on an object and on text, asserting the §9.3 group order and labels as rendered.
-- A source guard: no renderer file renders `role="menu"` or a context-menu container outside the kit.
+- `tests/unit/officeMenuBarContract.test.tsx`: renders Write, Cells, Deck and Design's real menu bars and reads the menus they hand `MenuBarShell`: every shared row has the lexicon's label and hint wherever it appears; File, Edit first and Help last; Edit offers every shared action the app supports, in contract order (absences only via `EXCEPTIONS`, with reasons, as in §9.6); File ends with Move to Trash; Insert ends with the shared tail; Help has Keyboard shortcuts ⌘/; no stray or doubled separators. Mutation-checked.
+- `tests/unit/officeContextMenus.test.ts`: the kit's object and empty-canvas shapes (`officeContextMenu.ts`) against `expectMenuContract` (2e's shared helper), plus a source guard: an office file that handles `contextmenu` and keeps menu state must use the kit (allowlist: Draw, E-16). Mutation-checked.
+- `tests/unit/menuBarKeys.test.tsx`: the bar's ⌘/ beats App's global sheet, ⌘F yields to an editor that took it and to form fields, and a hidden bar answers neither.
+- `tests/unit/recordFind.test.ts`: the shared find core, including run-preserving replace.
+- `tests/e2e/officeMenus.spec.ts`: by real clicks in the built app, per app: Edit and Help as rendered (order, labels, hints), ⌘/ opens the app's sheet and not the global one, ⌘F opens Find and replace, and a right-click on an object opens the kit menu (role=menu) in the shared order with Delete last in the danger colour and the menu bar's hints.
 
 ## 10. Delivery and estimate (re-estimated for D1 and D4)
 

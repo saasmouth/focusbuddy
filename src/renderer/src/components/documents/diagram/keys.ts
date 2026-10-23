@@ -5,7 +5,13 @@
 // the COMPOSED character, so ⌥⌘C arrives as 'ç' and ⌥⌘V as '√', and a check for
 // 'c' never matches. With Alt held, the physical key code is the only reliable
 // signal, so letters fall back to it there and only there.
+//
+// The bracket keys likewise: Shift turns ] and [ into } and { on most layouts,
+// so ⇧⌘] (Bring to front) and ⇧⌘[ (Send to back) never matched. They are read
+// by their physical code.
 export function shortcutKey(e: Pick<KeyboardEvent, 'key' | 'code' | 'altKey'>): string {
   if (e.altKey && /^Key[A-Z]$/.test(e.code)) return e.code.slice(3).toLowerCase()
+  if (e.code === 'BracketRight') return ']'
+  if (e.code === 'BracketLeft') return '['
   return e.key.toLowerCase()
 }

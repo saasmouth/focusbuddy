@@ -724,8 +724,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
 
   const openContext = (e: React.MouseEvent | MouseEvent, target: ContextTarget): void => {
     e.preventDefault()
-    const rect = wrapRef.current?.getBoundingClientRect()
-    setCtxMenu({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), target })
+    // Viewport coordinates: the kit's menu is fixed-position, portalled to body.
+    setCtxMenu({ x: e.clientX, y: e.clientY, target })
   }
 
   // Selection bounding box for multi-select (drawn in flow coordinates).

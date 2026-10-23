@@ -9,6 +9,12 @@ import { shortcutKey } from '../../src/renderer/src/components/documents/diagram
 const ev = (key: string, code: string, altKey = false) => ({ key, code, altKey })
 
 describe('shortcutKey', () => {
+  it('reads the bracket keys by their code, so ⇧⌘] / ⇧⌘[ (front / back) match with Shift held', () => {
+    expect(shortcutKey(ev('}', 'BracketRight'))).toBe(']')
+    expect(shortcutKey(ev('{', 'BracketLeft'))).toBe('[')
+    expect(shortcutKey(ev(']', 'BracketRight'))).toBe(']')
+  })
+
   it('reads Option-composed letters on macOS by their physical key', () => {
     expect(shortcutKey(ev('ç', 'KeyC', true))).toBe('c') // ⌥⌘C → copy style
     expect(shortcutKey(ev('√', 'KeyV', true))).toBe('v') // ⌥⌘V → paste style

@@ -5,6 +5,7 @@ import { useState } from 'react'
 // this list of imports honest).
 import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
 import type { DocumentOps } from './documentOps'
+import { menuAction } from '../../../lib/menus/menuAction'
 
 // A menu bar for PlexiDesign — the free-form page designer. Its menus fit what a
 // layout program does: place text frames, shapes, lines and images anywhere on
@@ -56,6 +57,8 @@ export interface DesignMenuActions {
   /** Whether a menu-driven paste has anything to paste. */
   canPaste: boolean
   duplicateSelection: () => void
+  /** Select everything a person could click on the page being edited. */
+  selectAll: () => void
   /** Save the selected elements as a reusable snippet. */
   saveSelectionAsSnippet: () => void
   /** Open the saved-snippets library to insert one onto the page being edited. */
@@ -124,7 +127,7 @@ export default function DesignMenuBar({
         ...(documentOps
           ? ([
               { kind: 'sep' },
-              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void documentOps.moveToTrash() }
+              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void documentOps.moveToTrash() }
             ] as MenuDef['build'] extends () => infer R ? R : never)
           : [])
       ]
@@ -133,19 +136,20 @@ export default function DesignMenuBar({
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: a.undo },
-        { kind: 'item', label: 'Redo', shortcut: '⌘⇧Z', icon: 'redo', run: a.redo },
+        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: a.undo },
+        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: a.redo },
         { kind: 'sep' },
-        { kind: 'item', label: 'Cut', shortcut: '⌘X', icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection },
-        { kind: 'item', label: 'Copy', shortcut: '⌘C', icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection },
-        { kind: 'item', label: 'Paste', shortcut: '⌘V', icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
-        { kind: 'item', label: 'Duplicate', shortcut: '⌘D', icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection },
+        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: a.cutSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: a.copySelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: a.pasteClipboard, disabled: !a.canPaste },
+        { kind: 'item', ...menuAction('duplicate'), icon: 'file_copy', run: a.duplicateSelection, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
+        { kind: 'item', ...menuAction('delete'), icon: 'delete', run: a.deleteSelected, disabled: !a.hasSelection, hint: a.hasSelection ? undefined : 'Select something first' },
         { kind: 'sep' },
-        { kind: 'item', label: 'Delete selection', shortcut: '⌫', icon: 'delete', run: a.deleteSelected },
+        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: a.selectAll },
         { kind: 'sep' },
         {
           kind: 'item',
-          label: 'Save selection as snippet…',
+          ...menuAction('saveAsSnippet'),
           icon: 'bookmark_add',
           hint: 'Keep it for reuse in any design',
           run: a.saveSelectionAsSnippet,
@@ -171,17 +175,17 @@ export default function DesignMenuBar({
           ]
         },
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
-        { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: a.addWidget },
-        { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
         { kind: 'sep' },
         { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
         { kind: 'sep' },
+        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: a.insertSnippet },
+        { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: a.addWidget },
         // A meeting invites other people to a document by id. With no document
         // bound there is nothing to meet about, so the item is absent rather
         // than starting a meeting about id ''.
         ...(documentOps
-          ? ([{ kind: 'item', label: 'Meeting', icon: 'videocam', run: () => documentOps.startMeeting() }] as MenuDef['build'] extends () => infer R ? R : never)
+          ? ([{ kind: 'sep' }, { kind: 'item', ...menuAction('meeting'), icon: 'videocam', run: () => documentOps.startMeeting() }] as MenuDef['build'] extends () => infer R ? R : never)
           : [])
       ]
     },
@@ -212,7 +216,6 @@ export default function DesignMenuBar({
           ]
         },
         { kind: 'sep' },
-        { kind: 'sep' },
         { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
         { kind: 'item', label: 'Duplicate this page', icon: 'file_copy', run: () => a.duplicatePage(a.activePage) },
         { kind: 'sep' },
@@ -234,7 +237,7 @@ export default function DesignMenuBar({
     {
       id: 'help',
       label: 'Help',
-      build: () => [{ kind: 'item', label: 'Keyboard shortcuts', shortcut: '⌘/', icon: 'keyboard', run: () => setShortcutsOpen(true) }]
+      build: () => [{ kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setShortcutsOpen(true) }]
     }
   ]
 
@@ -246,9 +249,10 @@ export default function DesignMenuBar({
           <div className="space-y-1.5">
             {([
               ['Undo', '⌘Z'],
-              ['Redo', '⌘⇧Z'],
-              ['Duplicate selection', '⌘D'],
-              ['Delete selection', '⌫'],
+              [menuAction('redo').label, menuAction('redo').shortcut!],
+              [menuAction('duplicate').label, menuAction('duplicate').shortcut!],
+              [menuAction('delete').label, menuAction('delete').shortcut!],
+              [menuAction('selectAll').label, menuAction('selectAll').shortcut!],
               ['Drag from a ruler', 'adds a guide'],
               ['Click a guide', 'removes it'],
               ['Page number in a master', '{#}'],

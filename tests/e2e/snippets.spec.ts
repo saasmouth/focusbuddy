@@ -39,10 +39,10 @@ async function typeAndSelectAll(window: Page, text: string): Promise<void> {
   await window.waitForTimeout(100)
 }
 
-/** Tools › Save selection as snippet, then name and confirm. */
+/** Edit › Save selection as snippet… (SPEC §9.2), then name and confirm. */
 async function saveSelectionAsSnippet(window: Page, name: string): Promise<void> {
-  await window.locator('[data-testid="doc-menu-tools"]').click()
-  await window.locator('[data-testid="doc-menu-tools-list"]').getByText('Save selection as snippet').click()
+  await window.locator('[data-testid="doc-menu-edit"]').click()
+  await window.locator('[data-testid="doc-menu-edit-list"]').getByText('Save selection as snippet…').click()
   const dialog = window.locator('[data-testid="save-snippet-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 5_000 })
   // The dialog must have something to save: an empty selection is refused here
@@ -56,7 +56,7 @@ async function saveSelectionAsSnippet(window: Page, name: string): Promise<void>
 /** Insert › Saved snippet, which opens the library. */
 async function openSnippetLibrary(window: Page): Promise<void> {
   await window.locator('[data-testid="doc-menu-insert"]').click()
-  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Saved snippet').click()
+  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Insert snippet…').click()
   await expect(window.locator('[data-testid="snippet-library"]')).toBeVisible({ timeout: 5_000 })
 }
 

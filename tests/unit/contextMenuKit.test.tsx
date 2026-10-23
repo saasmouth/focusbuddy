@@ -32,6 +32,9 @@ describe('CanvasContextMenu additions', () => {
     expect(document.body.textContent).toContain('Nothing to paste')
     expect((document.querySelector('[data-testid="trash"]') as HTMLElement).className).toMatch(/text-red-/)
     expect(document.activeElement).not.toBe(opener) // the menu took focus
+    // Opaque, not glass (fb-menu-solid): the computed alpha is checked in the
+    // built app by officeMenus.spec in light, dark and atelier.
+    expect((document.querySelector('[data-canvas-ctx-menu]') as HTMLElement).classList.contains('fb-menu-solid')).toBe(true)
     act(() => root.unmount())
     expect(document.activeElement, 'focus returned to the opener').toBe(opener)
     host.remove()

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../../Icon'
+import type { MenuActionId } from '@shared/menus/lexicon'
+import { menuAction } from '../../../lib/menus/menuAction'
 
 // Shared presentation for the Google-Docs-style menu bars used across the office
 // editors (documents, sheets, slides). It owns only the dropdown chrome and
@@ -15,6 +17,25 @@ export interface MenuDef {
   id: string
   label: string
   build: () => MenuItem[]
+}
+
+/** The bar's item with this label, wherever the app put it, if it has one and it is live. */
+export function findBarItem(menus: MenuDef[], label: string): (MenuItem & { kind: 'item' }) | null {
+  const walk = (items: MenuItem[]): (MenuItem & { kind: 'item' }) | null => {
+    for (const it of items) {
+      if (it.kind === 'item' && it.label === label && !it.disabled) return it
+      if (it.kind === 'submenu') {
+        const hit = walk(it.items)
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+  for (const m of menus) {
+    const hit = walk(m.build())
+    if (hit) return hit
+  }
+  return null
 }
 
 export function MenuBarShell({
@@ -34,6 +55,53 @@ export function MenuBarShell({
   const itemId = itemTestid ?? testid
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
+  const menusRef = useRef(menus)
+  menusRef.current = menus
+
+  // The keys the shared items advertise (SPEC §9.2), bound here once for every
+  // bar so an item's hint is always true, and only while the bar is on screen
+  // (a hidden editor's bar must not answer for the visible one).
+  //  - ⌘/ opens this app's shortcut sheet. App's global ⌘/ reference listens on
+  //    the same window, so the bar claims the press in the capture phase.
+  //  - ⌘F opens this app's Find… and ⇧⌘H its Find and replace… (E-14), unless
+  //    the editor already handled the press (Write's text editor does) or the
+  //    caret is in a form field.
+  useEffect(() => {
+    const onScreen = (): boolean => {
+      const bar = barRef.current
+      return !!bar && bar.isConnected && bar.getClientRects().length > 0
+    }
+    // Only a key the item itself shows: PlexiiDraw's shortcuts item keeps
+    // Illustrator's ⌥⇧⌘K because ⌘/ is Add new fill there, so ⌘/ stays Draw's.
+    function run(e: KeyboardEvent, id: MenuActionId): boolean {
+      if (!onScreen()) return false
+      const a = menuAction(id)
+      const item = findBarItem(menusRef.current, a.label)
+      if (!item || item.shortcut !== a.shortcut) return false
+      e.preventDefault()
+      setOpenMenu(null)
+      item.run()
+      return true
+    }
+    function onCapture(e: KeyboardEvent): void {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === '/' && run(e, 'keyboardShortcuts')) e.stopPropagation()
+    }
+    function onBubble(e: KeyboardEvent): void {
+      if (e.defaultPrevented || !(e.metaKey || e.ctrlKey) || e.altKey) return
+      const k = e.key.toLowerCase()
+      const id: MenuActionId | null = k === 'f' && !e.shiftKey ? 'find' : k === 'h' && e.shiftKey ? 'findAndReplace' : null
+      if (!id) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return
+      run(e, id)
+    }
+    window.addEventListener('keydown', onCapture, true)
+    window.addEventListener('keydown', onBubble)
+    return () => {
+      window.removeEventListener('keydown', onCapture, true)
+      window.removeEventListener('keydown', onBubble)
+    }
+  }, [])
 
   useEffect(() => {
     if (!openMenu) return
@@ -189,6 +257,9 @@ export function MenuModal({
   return (
     <div className="fb-scrim fixed inset-0 z-[60] flex items-center justify-center" onMouseDown={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={`fb-card p-4 ${width ? 'max-w-[calc(100vw-32px)]' : 'w-[340px]'}`}
         style={width ? { width } : undefined}
         onMouseDown={(e) => e.stopPropagation()}

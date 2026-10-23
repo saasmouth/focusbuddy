@@ -6,6 +6,7 @@ import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
 import { menuPasteIntoDoc } from './docSnippets'
+import { menuAction } from '../../../lib/menus/menuAction'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
 // Insert / Format / Tools / Help, each a dropdown of real actions. Every item is
@@ -36,6 +37,7 @@ interface Props {
   onExportDocx: () => void
   onExportPdf: () => void
   onFind: () => void
+  onFindReplace: () => void
   onFocusMode: () => void
   pageView: boolean
   onSetPageView: (v: boolean) => void
@@ -60,6 +62,7 @@ export default function DocMenuBar({
   onExportDocx,
   onExportPdf,
   onFind,
+  onFindReplace,
   onFocusMode,
   pageView,
   onSetPageView,
@@ -125,7 +128,7 @@ export default function DocMenuBar({
         const trashGroup: MenuItem[] = ops
           ? [
               { kind: 'sep' },
-              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
             ]
           : []
         return [
@@ -140,7 +143,7 @@ export default function DocMenuBar({
               { kind: 'item', label: 'Web page (.html)', run: () => void exportHtml() }
             ]
           },
-          { kind: 'item', label: 'Print (PDF)', shortcut: '⌘P', icon: 'print', run: onExportPdf },
+          { kind: 'item', label: 'Print (PDF)', icon: 'print', run: onExportPdf },
           ...trashGroup
         ]
       }
@@ -149,15 +152,19 @@ export default function DocMenuBar({
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', label: 'Undo', shortcut: '⌘Z', icon: 'undo', run: () => chain().undo().run(), disabled: !editor.can().undo() },
-        { kind: 'item', label: 'Redo', shortcut: '⌘Y', icon: 'redo', run: () => chain().redo().run(), disabled: !editor.can().redo() },
+        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: () => chain().undo().run(), disabled: !editor.can().undo() },
+        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: () => chain().redo().run(), disabled: !editor.can().redo() },
         { kind: 'sep' },
-        { kind: 'item', label: 'Cut', shortcut: '⌘X', run: () => document.execCommand('cut') },
-        { kind: 'item', label: 'Copy', shortcut: '⌘C', run: () => document.execCommand('copy') },
-        { kind: 'item', label: 'Paste', shortcut: '⌘V', run: () => void paste() },
+        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: () => document.execCommand('cut') },
+        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: () => document.execCommand('copy') },
+        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: () => void paste() },
         { kind: 'sep' },
-        { kind: 'item', label: 'Select all', shortcut: '⌘A', run: () => chain().selectAll().run() },
-        { kind: 'item', label: 'Find and replace', shortcut: '⌘⇧H', icon: 'search', run: onFind }
+        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: () => chain().selectAll().run() },
+        { kind: 'item', ...menuAction('find'), icon: 'search', run: onFind },
+        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: onFindReplace },
+        // Save selection as snippet… belongs to Edit in every office app (SPEC §9.2; it was under Tools).
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('saveAsSnippet'), icon: 'bookmark_add', hint: 'Keep it for reuse in any document', run: onSaveSnippet }
       ]
     },
     {
@@ -181,17 +188,19 @@ export default function DocMenuBar({
         { kind: 'item', label: 'Table', icon: 'grid_on', run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
         { kind: 'item', label: 'Table of contents', icon: 'toc', run: () => chain().insertTableOfContents().run() },
         { kind: 'item', label: 'Footnote', icon: 'superscript', run: () => chain().insertFootnote().run() },
-        { kind: 'item', label: 'Work widget from a desk', icon: 'widgets', run: onInsertWidget },
-        { kind: 'item', label: 'Saved snippet', icon: 'bookmarks', run: onInsertSnippet },
         { kind: 'item', label: 'Link', shortcut: '⌘K', icon: 'link', run: insertLink },
         { kind: 'item', label: 'Horizontal line', icon: 'horizontal_rule', run: () => chain().setHorizontalRule().run() },
+        // The shared tail (SPEC §9.2): Insert snippet… · Work widget from a desk…, then Meeting.
+        { kind: 'sep' },
+        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: onInsertSnippet },
+        { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: onInsertWidget },
         // A meeting is the one item here that reaches other people, so a wrong
         // id invites them to someone else's document. It went out with
         // `id: active?.id ?? ''` — the wrong document, or none at all.
         ...(documentOps
           ? ([
               { kind: 'sep' },
-              { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => documentOps.startMeeting() }
+              { kind: 'item', ...menuAction('meeting'), icon: 'videocam', run: () => documentOps.startMeeting() }
             ] as MenuItem[])
           : [])
       ]
@@ -251,23 +260,15 @@ export default function DocMenuBar({
       id: 'tools',
       label: 'Tools',
       build: () => [
-        { kind: 'item', label: 'Word count', shortcut: '⌘⇧C', icon: 'tag', run: () => setWordCountOpen(true) },
-        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => setA11yOpen(true) },
-        { kind: 'sep' },
-        {
-          kind: 'item',
-          label: 'Save selection as snippet',
-          icon: 'bookmark_add',
-          hint: 'Keep it for reuse in any document',
-          run: onSaveSnippet
-        }
+        { kind: 'item', label: 'Word count', icon: 'tag', run: () => setWordCountOpen(true) },
+        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => setA11yOpen(true) }
       ]
     },
     {
       id: 'help',
       label: 'Help',
       build: () => [
-        { kind: 'item', label: 'Keyboard shortcuts', shortcut: '⌘/', icon: 'keyboard', run: () => setShortcutsOpen(true) }
+        { kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setShortcutsOpen(true) }
       ]
     }
   ]
@@ -340,8 +341,9 @@ function ShortcutsModal({ onClose }: { onClose: () => void }): JSX.Element {
     ['Underline', '⌘U'],
     ['Insert link', '⌘K'],
     ['Undo', '⌘Z'],
-    ['Redo', '⌘Y'],
-    ['Find and replace', '⌘⇧H'],
+    [menuAction('redo').label, menuAction('redo').shortcut!],
+    [menuAction('find').label, menuAction('find').shortcut!],
+    [menuAction('findAndReplace').label, menuAction('findAndReplace').shortcut!],
     ['Clear formatting', '⌘\\']
   ]
   return (
