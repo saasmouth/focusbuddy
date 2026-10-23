@@ -186,4 +186,29 @@ describe('opening comments did not open editing', () => {
     expect(a.viewerOnly).toBe(false)
     expect(a.canComment).toBe(true)
   })
+
+  // f0's answer to the above, and the one behaviour it DID change.
+  //
+  // The permissive default for an ABSENT role stays: it is the client's half of
+  // the server's effectiveRole, where every member could write before roles
+  // existed, so treating absent as 'viewer' would lock that population out of
+  // their own documents. Guessing permissively costs a refused action; guessing
+  // restrictively hides editing from people the server would allow, silently.
+  //
+  // An UNKNOWN role is the opposite case and used to be wrong. `role !==
+  // 'viewer'` let a role nobody has thought about EDIT, while the server's
+  // yjsCanWrite is an allowlist and refuses it — so the two disagreed, and the
+  // client was the permissive one. canEditLiveDoc is now an allowlist too.
+  it('an ABSENT role may edit, but an UNKNOWN role may not — matching the server', () => {
+    expect(canEditLiveDoc(undefined), 'the pre-roles population keeps working').toBe(true)
+    expect(canEditLiveDoc('owner')).toBe(true)
+    expect(canEditLiveDoc('editor')).toBe(true)
+    expect(canEditLiveDoc('viewer')).toBe(false)
+    // Not in the union, so only data from a server can produce it — which is
+    // exactly where an unrecognised role would come from.
+    expect(canEditLiveDoc('commenter' as never), 'fails closed, as yjsCanWrite does').toBe(false)
+    expect(canEditLiveDoc('' as never)).toBe(false)
+    // And it reaches the surface that matters: an unknown role is read-only.
+    expect(liveDocAccess({ docType: 'doc', myRole: 'commenter' as never }).viewerOnly).toBe(true)
+  })
 })

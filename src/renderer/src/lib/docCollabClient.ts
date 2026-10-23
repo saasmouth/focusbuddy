@@ -41,9 +41,32 @@ export interface LiveDocFull extends LiveDocMeta {
   myRole?: 'owner' | 'editor' | 'viewer'
 }
 
-/** Is this account allowed to change the document? Absent role means yes. */
+/**
+ * Is this account allowed to change the document?
+ *
+ * AN ABSENT ROLE MEANS YES, and that is deliberate rather than lax. It is the
+ * client's half of the server's `effectiveRole` (yjsDocAuth.ts): every member
+ * could write before roles existed, and a member row with no role IS that
+ * population, so treating absent as 'viewer' would lock existing collaborators
+ * out of their own documents the day a client ships. A server older than v123
+ * returns no `myRole` at all, which is the same case.
+ *
+ * It is therefore a PERMISSIVE default on a function whose name reads like a
+ * permission check, which ec rightly flagged. It stays permissive because the
+ * client is not the gate: the server refuses a viewer's writes regardless
+ * (yjsCanWrite, and the viewer checks on the body and snapshot routes), so a
+ * wrong guess here costs a refused action, never an unauthorised one. Guessing
+ * the other way costs the opposite — hiding editing from people the server
+ * would allow, with no error to explain it.
+ *
+ * Written as an explicit list rather than `role !== 'viewer'` so the default is
+ * something a reader decides about instead of something they infer, and so a
+ * role added later has to be considered. If you tighten this, tighten
+ * effectiveRole on the server in the same change or the two will disagree.
+ */
 export function canEditLiveDoc(role: LiveDocFull['myRole']): boolean {
-  return role !== 'viewer'
+  if (role === undefined) return true
+  return role === 'owner' || role === 'editor'
 }
 
 /**
