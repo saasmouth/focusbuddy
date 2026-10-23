@@ -13,7 +13,8 @@ import {
   type SidePane
 } from '../office/shell'
 import type { SheetMenuActions } from './editor/SheetMenuBar'
-import { CELLS_TABS, cellsRailItems, type CCtx, type CellsPanel, type CellsSidePane } from './sheet/cellsRibbon'
+import { CELLS_TABS, cellsRailItems, cmdButton, type CCtx, type CellsPanel, type CellsSidePane } from './sheet/cellsRibbon'
+import type { CellsCommands } from './sheet/cellsCommands'
 
 // The PlexiiCells frame on the shared office shell (SPEC §6.3): the menu bar
 // and ribbon tabs on one row, the active tab's controls under them, the tool
@@ -49,6 +50,8 @@ function writePref(k: string, v: unknown): void {
 export interface CellsChromeProps {
   actions: SheetMenuActions
   readOnly: boolean
+  /** PlexiiCells' command registry, built by SheetEditor. The bar renders its shared controls from it. */
+  commands: CellsCommands
   /** <SheetMenuBar> — it shares row 1 with the tabs (owner ruling D2). */
   menuBar: ReactNode
   /** Format of the active cell: what the mark toggles and alignment read. */
@@ -81,7 +84,7 @@ const PANEL_META: Record<CellsPanel, { title: string; icon: string; width?: numb
 }
 
 export default function CellsChrome(props: CellsChromeProps): JSX.Element {
-  const { actions, readOnly, menuBar, aiOpen, onAiOpen, panelBodies, bottom, children } = props
+  const { actions, readOnly, commands, menuBar, aiOpen, onAiOpen, panelBodies, bottom, children } = props
 
   const [tab, setTabState] = useState<string>(() => readPref<string>(TAB_KEY, 'home'))
   const [collapsed, setCollapsedState] = useState<boolean>(() => readPref<boolean>(COLLAPSE_KEY, false))
@@ -118,6 +121,7 @@ export default function CellsChrome(props: CellsChromeProps): JSX.Element {
     () => ({
       a: actions,
       readOnly,
+      commands,
       fmt: props.activeFormat,
       activeFont: props.activeFont,
       isMerged: props.isMerged,
@@ -130,7 +134,7 @@ export default function CellsChrome(props: CellsChromeProps): JSX.Element {
       sidePane,
       toggleSidePane
     }),
-    [actions, readOnly, props, togglePanel, isPanelOpen, sidePane, toggleSidePane]
+    [actions, readOnly, commands, props, togglePanel, isPanelOpen, sidePane, toggleSidePane]
   )
 
   const railItems = useMemo(() => cellsRailItems(), [])
@@ -183,8 +187,8 @@ export default function CellsChrome(props: CellsChromeProps): JSX.Element {
           menuBar={menuBar}
           pinnedStart={
             <>
-              <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={!actions.canUndo} onClick={actions.undo} testid="sheet-undo" />
-              <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={!actions.canRedo} onClick={actions.redo} testid="sheet-redo" />
+              {cmdButton(ctx, 'sheet-undo', { testid: 'sheet-undo' })}
+              {cmdButton(ctx, 'sheet-redo', { testid: 'sheet-redo' })}
             </>
           }
           rightSlot={

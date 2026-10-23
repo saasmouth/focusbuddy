@@ -22,6 +22,26 @@ export interface OfficeCommand {
   /** Non-macOS key, where the platform binds a different one. */
   otherKeys?: ShortcutKeys
   icon?: string
+  /**
+   * The row's form under a menu whose own title already supplies the verb:
+   * "Microsoft Word (.docx)" under File ▸ Download ▸, "Left" under Format ▸
+   * Align ▸, "Image" under Insert. `label` stays the standalone form the flat
+   * command palette needs ("Download Word (.docx)…", "Align left", "Insert
+   * image"), so the two forms live in ONE definition and cannot drift apart.
+   * Render it with `menuRow`; `menuItemOf` and every other adapter keep
+   * `label`.
+   */
+  shortLabel?: string
+  /**
+   * The form an icon-first ribbon control shows. Two reasons it differs: the
+   * office ribbons settled on a shorter wording for a few rows before the
+   * lexicon existed and four apps' specs hold them to it ("Saved snippet…",
+   * "Save as snippet…"), and an icon-only button's tooltip can afford the
+   * sentence a menu row cannot ("Insert a sparkline of the selection into the
+   * next cell"). Only `barProps` reads it, so the menus and the palette keep
+   * `label` — and the forms live in ONE definition, so they cannot drift.
+   */
+  barLabel?: string
   /** Palette row hint ("Format", "Insert") and extra words its fuzzy match should know. */
   group?: string
   keywords?: string
@@ -65,6 +85,14 @@ export function menuItemOf(c: OfficeCommand, extra: Partial<MenuItem & { kind: '
     ...(c.checked ? { active: c.checked() } : {}),
     ...extra
   }
+}
+
+/**
+ * Menu-bar row under a menu whose title supplies the verb: identical to
+ * `menuItemOf` but showing `shortLabel` where the command has one.
+ */
+export function menuRow(c: OfficeCommand, extra: Partial<MenuItem & { kind: 'item' }> = {}): MenuItem {
+  return menuItemOf(c, { ...(c.shortLabel ? { label: c.shortLabel } : {}), ...extra })
 }
 
 const strict = (): boolean => {
@@ -116,7 +144,7 @@ export function paletteEntries(cs: OfficeCommand[]): EditorCommand[] {
 export function barProps(c: OfficeCommand): { label: string; icon?: string; shortcut?: string; disabled?: boolean; disabledReason?: string } {
   const { off, reason } = offState(c)
   return {
-    label: c.label,
+    label: c.barLabel ?? c.label,
     ...(c.icon ? { icon: c.icon } : {}),
     ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
     ...(c.enabled ? { disabled: off } : {}),

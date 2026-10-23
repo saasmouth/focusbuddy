@@ -46,6 +46,7 @@ import { displayCell, rewriteFormulaRefs } from '../../src/renderer/src/lib/shee
 import { writeMatrix } from '../../src/renderer/src/components/documents/sheet/sheetOps'
 import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { CELLS_TABS, type CCtx } from '../../src/renderer/src/components/documents/sheet/cellsRibbon'
+import { buildCellsCommands } from '../../src/renderer/src/components/documents/sheet/cellsCommands'
 import type { SheetMenuActions } from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 import type { SheetTab } from '../../src/shared/types'
 import SaveSnippetDialog from '../../src/renderer/src/components/snippets/SaveSnippetDialog'
@@ -451,11 +452,23 @@ describe('the spreadsheet as a snippet target', () => {
 })
 
 describe('where the commands live on the shell', () => {
-  function ctx(cmds: Partial<SheetMenuActions>): CCtx {
+  function ctx(cmds: Partial<SheetMenuActions>, readOnly = false): CCtx {
     const a = new Proxy(cmds, { get: (t, k) => (t as Record<string | symbol, unknown>)[k] ?? (() => undefined) }) as SheetMenuActions
     return {
       a,
-      readOnly: false,
+      // The ribbon's shared controls render from the registry now, so these
+      // tests go through the real commands to reach the spies in `a`.
+      commands: buildCellsCommands({
+        a,
+        readOnly,
+        isMerged: false,
+        mergeCells: () => {},
+        insertLookup: () => {},
+        macros: () => {},
+        query: () => {},
+        shortcuts: () => {}
+      }),
+      readOnly,
       fmt: undefined,
       isMerged: false,
       mergeCells: () => {},
@@ -480,7 +493,7 @@ describe('where the commands live on the shell', () => {
 
   it('Data › Save as snippet… sits with the range actions, and works on a read-only sheet', () => {
     const saveSnippet = vi.fn()
-    act(() => root.render(<ContextBar<CCtx> testid="sheet-toolbar" tabs={CELLS_TABS} ctx={{ ...ctx({ saveSnippet }), readOnly: true }} activeTab="data" onTabChange={() => {}} readOnly menuBar={null} />))
+    act(() => root.render(<ContextBar<CCtx> testid="sheet-toolbar" tabs={CELLS_TABS} ctx={ctx({ saveSnippet }, true)} activeTab="data" onTabChange={() => {}} readOnly menuBar={null} />))
     expect(btn('sheet-save-snippet').textContent).toContain('Save as snippet…')
     expect(btn('sheet-save-snippet').disabled).toBe(false)
     act(() => btn('sheet-save-snippet').click())

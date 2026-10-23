@@ -1,17 +1,18 @@
-import { useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { DocumentOps } from './documentOps'
 import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
 import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
-import { menuAction } from '../../../lib/menus/menuAction'
-import { insertLink, pasteFromMenu, type DocDialog } from './docActions'
+import { documentCommands, menuItemOf, menuRow, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import type { WriteCommands } from './writeCommands'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
-// Insert / Format / Tools / Help, each a dropdown of real actions. Every item is
-// wired to a genuine capability — Tiptap editor commands, the document ops the
-// HOST binds, or the office export IPC. Nothing here is a decorative no-op; an
-// action that the editor cannot do is simply not listed.
+// Insert / Format / Tools / Help. It declares the SHAPE of the menus — which
+// rows, in what order, under which separators — and nothing else: every row's
+// label, key hint, icon, enabled state, reason and behaviour comes from the
+// command registry (writeCommands.ts), which the ribbon and the Cmd+K palette
+// render from too. So a row cannot say one thing here and another there, and
+// this file holds no state and no editor calls at all.
 //
 // This file does not read the documents store, and must not: it used to act on
 // the store's `active` document, which in a desk widget is not the document on
@@ -23,27 +24,11 @@ import { insertLink, pasteFromMenu, type DocDialog } from './docActions'
 // `itemTestid` — the two prefixes predate the shared kit and specs rely on both.
 
 interface Props {
-  editor: Editor
-  title: string
-  // DocEditor owns these because they touch its local state (page setup, panels,
-  // the office export busy indicator). The menu just triggers them.
-  onInsertImage: () => void
-  onInsertWidget: () => void
-  // Saved snippets: open the library to insert one, or capture the selection
-  // as a new one. Both are host flows because both open a React dialog.
-  onInsertSnippet: () => void
-  onSaveSnippet: () => void
-  onExportDocx: () => void
-  onExportPdf: () => void
-  onFind: () => void
-  onFindReplace: () => void
-  /** Open Word count or the accessibility check: DocEditor owns them, so the ribbon opens the same ones. */
-  onDialog: (d: DocDialog) => void
-  onFocusMode: () => void
-  pageView: boolean
-  onSetPageView: (v: boolean) => void
-  onOutline: () => void
-  onComments: () => void
+  /**
+   * PlexiiWrite's commands, built by DocEditor from the live editor. One
+   * definition per action, shared with the ribbon and the palette.
+   */
+  commands: WriteCommands
   /**
    * The document on screen, bound to its id by whichever host mounted this
    * editor. Absent where there is no document — a snippet session — and then
@@ -52,37 +37,19 @@ interface Props {
   documentOps?: DocumentOps
 }
 
-export default function DocMenuBar({
-  editor,
-  title,
-  documentOps,
-  onInsertImage,
-  onInsertWidget,
-  onInsertSnippet,
-  onSaveSnippet,
-  onExportDocx,
-  onExportPdf,
-  onFind,
-  onFindReplace,
-  onDialog,
-  onFocusMode,
-  pageView,
-  onSetPageView,
-  onOutline,
-  onComments
-}: Props): JSX.Element {
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
-
-  const chain = (): ReturnType<Editor['chain']> => editor.chain().focus()
-
-  async function exportHtml(): Promise<void> {
-    await window.api.exportDoc.html({
-      html: editor.getHTML(),
-      suggestedName: `${title || 'document'}.html`
-    })
+export default function DocMenuBar({ commands, documentOps }: Props): JSX.Element {
+  // A missing id is a programming error, not an empty menu: fail loudly at
+  // render rather than quietly dropping the row.
+  const c = (id: string): OfficeCommand => {
+    const found = commands[id]
+    if (!found) throw new Error(`DocMenuBar: no command "${id}" in the registry`)
+    return found
   }
+  const item = (id: string, extra?: Partial<MenuItem & { kind: 'item' }>): MenuItem => menuItemOf(c(id), extra)
+  /** A row under a menu whose title supplies the verb (Insert ▸ Image, Download ▸ …). */
+  const row = (id: string): MenuItem => menuRow(c(id))
 
-
+  const doc = documentCommands(documentOps, 'doc')
 
   const MENUS: MenuDef[] = [
     {
@@ -90,39 +57,32 @@ export default function DocMenuBar({
       label: 'File',
       build: () => {
         // Each of these acts on a document, so the whole group is ABSENT without
-        // ops rather than disabled. Download and Print are not here: they act on
-        // the editor's own content and work with no document at all.
-        const ops = documentOps
-        const docGroup: MenuItem[] = ops
+        // ops rather than disabled. Download acts on the editor's own content
+        // and works with no document at all, so it is never in this group.
+        const docGroup: MenuItem[] = doc
           ? [
-              { kind: 'item', label: 'New document', icon: 'note_add', run: () => void ops.newDocument() },
-              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              menuItemOf(doc.newDocument),
+              menuItemOf(doc.makeCopy),
               { kind: 'sep' },
-              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
-              { kind: 'item', label: 'Version history', icon: 'history', run: () => ops.openHistory() }
+              menuItemOf(doc.rename),
+              menuItemOf(doc.versionHistory)
             ]
           : []
         // The separator belongs to Move to trash, so it leaves with it; left
         // behind, the menu would end on a divider with nothing under it.
-        const trashGroup: MenuItem[] = ops
-          ? [
-              { kind: 'sep' },
-              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void ops.moveToTrash() }
-            ]
-          : []
+        const trashGroup: MenuItem[] = doc ? [{ kind: 'sep' }, menuItemOf(doc.moveToTrash)] : []
         return [
           ...docGroup,
+          // Real printing, only where the host can really print. The row this
+          // replaced was labelled "Print (PDF)" and ran the PDF export: a menu
+          // row that said Print and did not print. Download ▸ PDF covers that.
+          ...(doc?.print ? [menuItemOf(doc.print)] : []),
           {
             kind: 'submenu',
             label: 'Download',
             icon: 'download',
-            items: [
-              { kind: 'item', label: 'Microsoft Word (.docx)', run: onExportDocx },
-              { kind: 'item', label: 'PDF document (.pdf)', run: onExportPdf },
-              { kind: 'item', label: 'Web page (.html)', run: () => void exportHtml() }
-            ]
+            items: [row('doc-export-docx'), row('doc-export-pdf'), row('doc-export-html')]
           },
-          { kind: 'item', label: 'Print (PDF)', icon: 'print', run: onExportPdf },
           ...trashGroup
         ]
       }
@@ -131,58 +91,52 @@ export default function DocMenuBar({
       id: 'edit',
       label: 'Edit',
       build: () => [
-        { kind: 'item', ...menuAction('undo'), icon: 'undo', run: () => chain().undo().run(), disabled: !editor.can().undo() },
-        { kind: 'item', ...menuAction('redo'), icon: 'redo', run: () => chain().redo().run(), disabled: !editor.can().redo() },
+        item('doc-undo'),
+        item('doc-redo'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: () => document.execCommand('cut') },
-        { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: () => document.execCommand('copy') },
-        { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: () => void pasteFromMenu(editor) },
+        item('doc-cut'),
+        item('doc-copy'),
+        item('doc-paste'),
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: () => chain().selectAll().run() },
-        { kind: 'item', ...menuAction('find'), icon: 'search', run: onFind },
-        { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: onFindReplace },
+        item('doc-select-all'),
+        item('doc-find'),
+        item('doc-find-replace'),
         // Save selection as snippet… belongs to Edit in every office app (SPEC §9.2; it was under Tools).
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('saveAsSnippet'), icon: 'bookmark_add', hint: 'Keep it for reuse in any document', run: onSaveSnippet }
+        item('doc-save-snippet', { hint: 'Keep it for reuse in any document' })
       ]
     },
     {
       id: 'view',
       label: 'View',
       build: () => [
-        { kind: 'item', label: 'Page view', icon: 'description', run: () => onSetPageView(true), active: pageView },
-        { kind: 'item', label: 'Continuous view', icon: 'notes', run: () => onSetPageView(false), active: !pageView },
+        item('doc-page-paged'),
+        item('doc-page-continuous'),
         { kind: 'sep' },
-        { kind: 'item', label: 'Show outline', icon: 'format_list_bulleted', run: onOutline },
-        { kind: 'item', label: 'Show comments', icon: 'comment', run: onComments },
+        item('doc-outline'),
+        item('doc-comments'),
         { kind: 'sep' },
-        { kind: 'item', label: 'Focus mode', icon: 'fullscreen', run: onFocusMode }
+        item('doc-focus')
       ]
     },
     {
       id: 'insert',
       label: 'Insert',
       build: () => [
-        { kind: 'item', label: 'Image', icon: 'image', run: onInsertImage },
-        { kind: 'item', label: 'Table', icon: 'grid_on', run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
-        { kind: 'item', label: 'Table of contents', icon: 'toc', run: () => chain().insertTableOfContents().run() },
-        { kind: 'item', label: 'Footnote', icon: 'superscript', run: () => chain().insertFootnote().run() },
-        // No key: ⌘K is the Command Center's, everywhere in the app.
-        { kind: 'item', label: 'Link', icon: 'link', run: () => void insertLink(editor) },
-        { kind: 'item', label: 'Horizontal line', icon: 'horizontal_rule', run: () => chain().setHorizontalRule().run() },
+        row('doc-insert-image'),
+        row('doc-insert-table'),
+        row('doc-insert-toc'),
+        row('doc-insert-footnote'),
+        row('doc-insert-link'),
+        row('doc-divider'),
         // The shared tail (SPEC §9.2): Insert snippet… · Work widget from a desk…, then Meeting.
         { kind: 'sep' },
-        { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: onInsertSnippet },
-        { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: onInsertWidget },
+        item('doc-insert-snippet'),
+        item('doc-insert-widget'),
         // A meeting is the one item here that reaches other people, so a wrong
         // id invites them to someone else's document. It went out with
         // `id: active?.id ?? ''` — the wrong document, or none at all.
-        ...(documentOps
-          ? ([
-              { kind: 'sep' },
-              { kind: 'item', ...menuAction('meeting'), icon: 'videocam', run: () => documentOps.startMeeting() }
-            ] as MenuItem[])
-          : [])
+        ...(doc ? ([{ kind: 'sep' }, menuItemOf(doc.meeting)] as MenuItem[]) : [])
       ]
     },
     {
@@ -193,72 +147,43 @@ export default function DocMenuBar({
           kind: 'submenu',
           label: 'Text',
           icon: 'format_bold',
-          items: [
-            { kind: 'item', label: 'Bold', shortcut: '⌘B', run: () => chain().toggleBold().run(), active: editor.isActive('bold') },
-            { kind: 'item', label: 'Italic', shortcut: '⌘I', run: () => chain().toggleItalic().run(), active: editor.isActive('italic') },
-            { kind: 'item', label: 'Underline', shortcut: '⌘U', run: () => chain().toggleUnderline().run(), active: editor.isActive('underline') },
-            { kind: 'item', label: 'Strikethrough', run: () => chain().toggleStrike().run(), active: editor.isActive('strike') }
-          ]
+          items: [row('doc-bold'), row('doc-italic'), row('doc-underline'), row('doc-strike')]
         },
         {
           kind: 'submenu',
           label: 'Paragraph styles',
           icon: 'title',
-          items: [
-            { kind: 'item', label: 'Normal text', run: () => chain().setParagraph().run(), active: editor.isActive('paragraph') },
-            { kind: 'item', label: 'Heading 1', run: () => chain().setHeading({ level: 1 }).run(), active: editor.isActive('heading', { level: 1 }) },
-            { kind: 'item', label: 'Heading 2', run: () => chain().setHeading({ level: 2 }).run(), active: editor.isActive('heading', { level: 2 }) },
-            { kind: 'item', label: 'Heading 3', run: () => chain().setHeading({ level: 3 }).run(), active: editor.isActive('heading', { level: 3 }) }
-          ]
+          items: [row('doc-paragraph'), row('doc-h1'), row('doc-h2'), row('doc-h3')]
         },
         {
           kind: 'submenu',
           label: 'Align',
           icon: 'format_align_left',
-          items: [
-            { kind: 'item', label: 'Left', run: () => chain().setTextAlign('left').run(), active: editor.isActive({ textAlign: 'left' }) },
-            { kind: 'item', label: 'Center', run: () => chain().setTextAlign('center').run(), active: editor.isActive({ textAlign: 'center' }) },
-            { kind: 'item', label: 'Right', run: () => chain().setTextAlign('right').run(), active: editor.isActive({ textAlign: 'right' }) },
-            { kind: 'item', label: 'Justify', run: () => chain().setTextAlign('justify').run(), active: editor.isActive({ textAlign: 'justify' }) }
-          ]
+          items: [row('doc-align-left'), row('doc-align-center'), row('doc-align-right'), row('doc-align-justify')]
         },
         {
           kind: 'submenu',
           label: 'Bullets & numbering',
           icon: 'format_list_bulleted',
-          items: [
-            { kind: 'item', label: 'Bulleted list', run: () => chain().toggleBulletList().run(), active: editor.isActive('bulletList') },
-            { kind: 'item', label: 'Numbered list', run: () => chain().toggleOrderedList().run(), active: editor.isActive('orderedList') },
-            { kind: 'item', label: 'Checklist', run: () => chain().toggleTaskList().run(), active: editor.isActive('taskList') }
-          ]
+          items: [row('doc-bullets'), row('doc-numbers'), row('doc-checklist')]
         },
         { kind: 'sep' },
-        { kind: 'item', label: 'Clear formatting', shortcut: '⌘\\', icon: 'format_clear', run: () => chain().unsetAllMarks().clearNodes().run() }
+        item('doc-clear-format')
       ]
     },
     {
       id: 'tools',
       label: 'Tools',
-      build: () => [
-        { kind: 'item', label: 'Word count', icon: 'tag', run: () => onDialog('wordcount') },
-        { kind: 'item', label: 'Check accessibility', icon: 'accessibility_new', run: () => onDialog('a11y') }
-      ]
+      build: () => [item('doc-wordcount'), item('doc-a11y')]
     },
     {
       id: 'help',
       label: 'Help',
-      build: () => [
-        { kind: 'item', ...menuAction('keyboardShortcuts'), icon: 'keyboard', run: () => setShortcutsOpen(true) }
-      ]
+      build: () => [item('doc-shortcuts')]
     }
   ]
 
-  return (
-    <>
-      <MenuBarShell menus={MENUS} testid="doc-menubar" itemTestid="doc-menu" />
-      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
-    </>
-  )
+  return <MenuBarShell menus={MENUS} testid="doc-menubar" itemTestid="doc-menu" />
 }
 
 export function WordCountModal({ editor, onClose }: { editor: Editor; onClose: () => void }): JSX.Element {
@@ -308,31 +233,6 @@ export function A11yModal({ editor, onClose }: { editor: Editor; onClose: () => 
           ))}
         </div>
       )}
-    </MenuModal>
-  )
-}
-
-function ShortcutsModal({ onClose }: { onClose: () => void }): JSX.Element {
-  const rows: [string, string][] = [
-    ['Bold', '⌘B'],
-    ['Italic', '⌘I'],
-    ['Underline', '⌘U'],
-    ['Undo', '⌘Z'],
-    [menuAction('redo').label, menuAction('redo').shortcut!],
-    [menuAction('find').label, menuAction('find').shortcut!],
-    [menuAction('findAndReplace').label, menuAction('findAndReplace').shortcut!],
-    ['Clear formatting', '⌘\\']
-  ]
-  return (
-    <MenuModal width={320} title="Keyboard shortcuts" onClose={onClose}>
-      <div className="space-y-1.5">
-        {rows.map(([label, keys]) => (
-          <div key={label} className="flex items-center justify-between text-[13px]">
-            <span className="text-[var(--ink-70)]">{label}</span>
-            <span className="text-[var(--ink-40)] fb-tabular">{keys}</span>
-          </div>
-        ))}
-      </div>
     </MenuModal>
   )
 }

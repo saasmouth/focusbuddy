@@ -14,7 +14,8 @@ import {
 } from '../office/shell'
 import StylesPanel from './editor/StylesPanel'
 import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './editor/headingStyles'
-import { officeMenuItems, WRITE_TABS, writeRailItems, type WCtx, type WriteDialog, type WritePanel, type WriteSidePane } from './editor/writeRibbon'
+import { officeMenuItems, WRITE_TABS, writeRailItems, type WCtx, type WritePanel, type WriteSidePane } from './editor/writeRibbon'
+import type { WriteCommands } from './editor/writeCommands'
 
 // The PlexiiWrite frame on the shared office shell (SPEC §6.2): the menu bar
 // and ribbon tabs on one row, the active tab's controls under them, the tool
@@ -51,6 +52,8 @@ function writePref(k: string, v: unknown): void {
 export interface WriteChromeProps {
   editor: Editor
   readOnly: boolean
+  /** PlexiiWrite's command registry, built by DocEditor. The ribbon renders its shared controls from it. */
+  commands: WriteCommands
   /** <DocMenuBar> — it shares row 1 with the tabs (owner ruling D2). */
   menuBar: ReactNode
   // ── formatting state the tabs read
@@ -79,21 +82,11 @@ export interface WriteChromeProps {
   /** Write's content panes — build them with docSidePanes() from DocSidePanel. */
   panes: SidePane[]
   // ── host-owned flows
-  onInsertImage: () => void
-  onInsertWidget: () => void
-  onInsertSnippet: () => void
-  onSaveSnippet: () => void
   onOpenLink: () => void
-  onImportDocx: () => void
-  onExportDocx: () => void
-  onExportPdf: () => void
   onAskAi: () => void
   /** PlexiiAssist: the one assistant. See WCtx.openAssistant. */
   onOpenAssistant: () => void
-  onFocusMode: () => void
   onFind: () => void
-  onWordCount: () => void
-  onA11y: () => void
   /** Panel bodies DocEditor owns: the margins form and the header/footer form. */
   marginsPanel?: ReactNode
   headerFooterPanel?: ReactNode
@@ -169,19 +162,11 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
     [sidePane, onSidePane]
   )
 
-  const openDialog = useCallback(
-    (d: WriteDialog) => {
-      if (d === 'find') props.onFind()
-      else if (d === 'wordcount') props.onWordCount()
-      else props.onA11y()
-    },
-    [props]
-  )
-
   const ctx: WCtx = useMemo(
     () => ({
       editor,
       readOnly,
+      commands: props.commands,
       styleLabel: props.styleLabel,
       headingStyles: props.headingStyles,
       setHeadingStyle: props.onSetHeadingStyle,
@@ -202,20 +187,11 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
       isPanelOpen,
       sidePane,
       toggleSidePane,
-      openDialog,
-      insertImage: props.onInsertImage,
-      insertWidget: props.onInsertWidget,
-      insertSnippet: props.onInsertSnippet,
-      saveSnippet: props.onSaveSnippet,
       openLink: props.onOpenLink,
-      importDocx: props.onImportDocx,
-      exportDocx: props.onExportDocx,
-      exportPdf: props.onExportPdf,
       askAi: props.onAskAi,
-      openAssistant: props.onOpenAssistant,
-      focusMode: props.onFocusMode
+      openAssistant: props.onOpenAssistant
     }),
-    [editor, readOnly, props, togglePanel, isPanelOpen, sidePane, toggleSidePane, openDialog]
+    [editor, readOnly, props, togglePanel, isPanelOpen, sidePane, toggleSidePane]
   )
 
   const railItems = useMemo(() => writeRailItems(), [])

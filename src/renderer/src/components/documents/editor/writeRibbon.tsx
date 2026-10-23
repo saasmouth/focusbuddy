@@ -12,6 +12,8 @@ import {
   type RailItem
 } from '../../office/shell'
 import FontPicker from './FontPicker'
+import { barProps, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import type { WriteCommands } from './writeCommands'
 import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './headingStyles'
 
 // PlexiiWrite on the office shell (SPEC §6.2): the ToolRail items and every
@@ -28,11 +30,20 @@ import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './
 
 export type WritePanel = 'styles' | 'margins' | 'headerfooter' | 'office'
 export type WriteSidePane = 'outline' | 'comments' | 'ai'
-export type WriteDialog = 'find' | 'wordcount' | 'a11y'
 
 /** The live editor state every tab reads. Built once per render by DocEditor. */
 export interface WCtx {
   editor: Editor
+  /**
+   * PlexiiWrite's command registry (writeCommands.ts). Every control here that
+   * also exists in the menu bar or the Cmd+K palette renders from it through
+   * `cmdToggle` / `cmdButton`, so the three surfaces cannot drift — they had,
+   * in six places: "Align center" vs "Align centre", "Bullet list" vs
+   * "Bulleted list", "Divider" vs "Horizontal line", "Accessibility check" vs
+   * "Check accessibility", two snippet rows missing their ellipsis, and a Link
+   * button advertising ⌘K, which belongs to the Command Center.
+   */
+  commands: WriteCommands
   readOnly: boolean
   /** Friendly name of the block the cursor is in — "Normal", "Title", "Heading 2"… */
   styleLabel: string
@@ -58,18 +69,13 @@ export interface WCtx {
   isPanelOpen: (p: WritePanel) => boolean
   sidePane: WriteSidePane | null
   toggleSidePane: (p: WriteSidePane) => void
-  openDialog: (d: WriteDialog) => void
-  // Host-owned flows
-  insertImage: () => void
-  insertWidget: () => void
-  /** Open the saved-snippet library, to insert one at the cursor. */
-  insertSnippet: () => void
-  /** Keep the current selection as a reusable snippet. */
-  saveSnippet: () => void
+  // Host-owned flows. Insert image, Insert work widget, the two snippet flows,
+  // Word count, the accessibility check, Import, the three Downloads and Focus
+  // mode are NOT here: the registry carries them, with their labels and their
+  // view-only state, so the ribbon no longer takes nine callbacks it only
+  // forwarded. The save-snippet body in particular existed three times in
+  // DocEditor because this prop was one of the three.
   openLink: () => void
-  importDocx: () => void
-  exportDocx: () => void
-  exportPdf: () => void
   askAi: () => void
   /**
    * PlexiiAssist — the ONE assistant. With a global assistant present this
@@ -78,7 +84,6 @@ export interface WCtx {
    * and rewrite panel.
    */
   openAssistant: () => void
-  focusMode: () => void
 }
 
 const FONT_SIZES = ['12', '14', '16', '18', '20', '24', '30', '36']
@@ -101,6 +106,33 @@ const TEXT_PALETTE = ['#111827', '#374151', '#6b7280', '#b91c1c', '#c2410c', '#a
 const HIGHLIGHT_PALETTE = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa', '#e9d5ff', '#e5e7eb']
 
 const chain = (c: WCtx): ReturnType<Editor['chain']> => c.editor.chain().focus()
+
+/** A registry command by id. A missing id is a programming error, not a blank button. */
+function cmd(c: WCtx, id: string): OfficeCommand {
+  const found = c.commands[id]
+  if (!found) throw new Error(`writeRibbon: no command "${id}" in the registry`)
+  return found
+}
+
+/**
+ * `readOnlySafe` is derived, not declared: a command that carries no `enabled`
+ * gate is one that changes nothing in the document, which is exactly what the
+ * shell means by read-only safe. So the registry decides a viewer's ribbon too,
+ * and a control cannot be live in the ribbon while its menu row is greyed out.
+ */
+const safe = (k: OfficeCommand): { readOnlySafe?: true } => (k.enabled ? {} : { readOnlySafe: true })
+
+/** A ribbon toggle rendered from the registry: label, hint, icon, state and run all from the one definition. */
+function cmdToggle(c: WCtx, id: string, extra: Partial<Parameters<typeof BarToggle>[0]> = {}): JSX.Element {
+  const k = cmd(c, id)
+  return <BarToggle {...barProps(k)} {...safe(k)} pressed={!!k.checked?.()} onChange={k.run} {...extra} />
+}
+
+/** A ribbon button rendered from the registry. */
+function cmdButton(c: WCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element {
+  const k = cmd(c, id)
+  return <BarButton {...barProps(k)} {...safe(k)} onClick={k.run} {...extra} />
+}
 
 // ── Home ─────────────────────────────────────────────────────────────────────
 
@@ -135,17 +167,17 @@ const homeTab: BarTab<WCtx> = {
           onChange={(v) => (v ? chain(c).setFontSize(`${v}px`).run() : chain(c).unsetFontSize().run())}
         />
         <BarSep />
-        <BarToggle icon="format_bold" label="Bold" shortcut="⌘B" pressed={editor.isActive('bold')} onChange={() => chain(c).toggleBold().run()} />
-        <BarToggle icon="format_italic" label="Italic" shortcut="⌘I" pressed={editor.isActive('italic')} onChange={() => chain(c).toggleItalic().run()} />
-        <BarToggle icon="format_underlined" label="Underline" shortcut="⌘U" pressed={editor.isActive('underline')} onChange={() => chain(c).toggleUnderline().run()} />
-        <BarToggle icon="strikethrough_s" label="Strikethrough" pressed={editor.isActive('strike')} onChange={() => chain(c).toggleStrike().run()} />
-        <BarToggle icon="code" label="Inline code" pressed={editor.isActive('code')} onChange={() => chain(c).toggleCode().run()} />
+        {cmdToggle(c, 'doc-bold')}
+        {cmdToggle(c, 'doc-italic')}
+        {cmdToggle(c, 'doc-underline')}
+        {cmdToggle(c, 'doc-strike')}
+        {cmdToggle(c, 'doc-code')}
         <BarToggle icon="subscript" label="Subscript" pressed={editor.isActive('subscript')} onChange={() => chain(c).toggleSubscript().run()} />
         <BarToggle icon="superscript" label="Superscript" pressed={editor.isActive('superscript')} onChange={() => chain(c).toggleSuperscript().run()} />
         <BarSep />
         <BarColor
           icon="format_color_text"
-          label="Text color"
+          label="Text colour"
           value={(editor.getAttributes('textStyle').color as string) ?? undefined}
           palette={TEXT_PALETTE}
           onChange={(v) => (v ? chain(c).setColor(v).run() : chain(c).unsetColor().run())}
@@ -159,17 +191,17 @@ const homeTab: BarTab<WCtx> = {
           onChange={(v) => (v ? chain(c).toggleHighlight({ color: v }).run() : chain(c).unsetHighlight().run())}
         />
         <BarSep />
-        <BarToggle icon="format_align_left" label="Align left" pressed={editor.isActive({ textAlign: 'left' })} onChange={() => chain(c).setTextAlign('left').run()} />
-        <BarToggle icon="format_align_center" label="Align center" pressed={editor.isActive({ textAlign: 'center' })} onChange={() => chain(c).setTextAlign('center').run()} />
-        <BarToggle icon="format_align_right" label="Align right" pressed={editor.isActive({ textAlign: 'right' })} onChange={() => chain(c).setTextAlign('right').run()} />
-        <BarToggle icon="format_align_justify" label="Justify" pressed={editor.isActive({ textAlign: 'justify' })} onChange={() => chain(c).setTextAlign('justify').run()} />
+        {cmdToggle(c, 'doc-align-left')}
+        {cmdToggle(c, 'doc-align-center')}
+        {cmdToggle(c, 'doc-align-right')}
+        {cmdToggle(c, 'doc-align-justify')}
         <BarSelect label="Line spacing" width={78} value={lineHeight} options={LINE_HEIGHTS} onChange={(v) => chain(c).setLineHeight(v).run()} />
         <BarSep />
-        <BarToggle icon="format_list_bulleted" label="Bullet list" pressed={editor.isActive('bulletList')} onChange={() => chain(c).toggleBulletList().run()} />
-        <BarToggle icon="format_list_numbered" label="Numbered list" pressed={editor.isActive('orderedList')} onChange={() => chain(c).toggleOrderedList().run()} />
-        <BarToggle icon="checklist" label="Checklist" pressed={editor.isActive('taskList')} onChange={() => chain(c).toggleTaskList().run()} />
+        {cmdToggle(c, 'doc-bullets')}
+        {cmdToggle(c, 'doc-numbers')}
+        {cmdToggle(c, 'doc-checklist')}
         <BarSep />
-        <BarButton icon="format_clear" label="Clear formatting" onClick={() => chain(c).unsetAllMarks().clearNodes().run()} />
+        {cmdButton(c, 'doc-clear-format')}
       </>
     )
   }
@@ -182,18 +214,19 @@ const insertTab: BarTab<WCtx> = {
   label: 'Insert',
   render: (c) => (
     <>
-      <BarToggle icon="link" label="Link" shortcut="⌘K" pressed={c.editor.isActive('link')} onChange={c.openLink} />
-      <BarButton icon="image" label="Insert image" onClick={c.insertImage} />
-      <BarButton icon="grid_on" label="Insert table" onClick={() => chain(c).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
-      <BarButton icon="horizontal_rule" label="Divider" onClick={() => chain(c).setHorizontalRule().run()} />
+      {/* No ⌘K hint: that key is the Command Center's, everywhere in the app. */}
+      {cmdToggle(c, 'doc-insert-link', { pressed: c.editor.isActive('link'), onChange: c.openLink })}
+      {cmdButton(c, 'doc-insert-image')}
+      {cmdButton(c, 'doc-insert-table')}
+      {cmdButton(c, 'doc-divider')}
       <BarSep />
-      <BarButton icon="widgets" label="Insert work widget" onClick={c.insertWidget} />
+      {cmdButton(c, 'doc-insert-widget')}
       <BarSep />
       {/* Saved snippets: insert one from the library, or keep the selection as
           a new one. Both open a React dialog the host owns, so they are ctx
           callbacks rather than editor commands. */}
-      <BarButton icon="bookmarks" label="Insert saved snippet" onClick={c.insertSnippet} testid="doc-insert-snippet" />
-      <BarButton icon="bookmark_add" label="Save selection as snippet" onClick={c.saveSnippet} testid="doc-save-snippet" />
+      {cmdButton(c, 'doc-insert-snippet', { testid: 'doc-insert-snippet' })}
+      {cmdButton(c, 'doc-save-snippet', { testid: 'doc-save-snippet' })}
       <BarSep />
       <BarButton icon="web_asset" label="Header & footer" onClick={() => c.togglePanel('headerfooter')} controls={shellPanelDomId('headerfooter')} testid="doc-headerfooter-btn" />
     </>
@@ -317,8 +350,8 @@ const reviewTab: BarTab<WCtx> = {
         testid="doc-outline-toggle"
       />
       <BarSep />
-      <BarButton icon="functions" label="Word count" showLabel onClick={() => c.openDialog('wordcount')} readOnlySafe />
-      <BarButton icon="accessibility_new" label="Accessibility check" onClick={() => c.openDialog('a11y')} readOnlySafe />
+      {cmdButton(c, 'doc-wordcount', { showLabel: true })}
+      {cmdButton(c, 'doc-a11y')}
     </>
   )
 }
@@ -406,7 +439,7 @@ export function writeRailItems(): RailItem<WCtx>[] {
       group: 1,
       order: 2,
       readOnlySafe: true,
-      onSelect: (c) => c.focusMode(),
+      onSelect: (c) => cmd(c, 'doc-focus').run(),
       testid: 'doc-focus-toggle'
     },
     {
@@ -435,10 +468,15 @@ export function writeRailItems(): RailItem<WCtx>[] {
 }
 
 /** The Office import/export menu, shown from the rail's Office action. */
+/**
+ * The Office panel's rows, from the registry. They were a fourth copy of these
+ * labels, and had drifted: "Export Word (.docx)" and "Export PDF" here against
+ * the palette's "Download Word (.docx)…" and the menu's Download ▸ rows. Web
+ * page (.html) joins them, because Download ▸ has always offered it.
+ */
 export function officeMenuItems(c: WCtx): { label: string; icon: string; run: () => void }[] {
-  return [
-    { label: 'Import Word (.docx)', icon: 'upload_file', run: c.importDocx },
-    { label: 'Export Word (.docx)', icon: 'description', run: c.exportDocx },
-    { label: 'Export PDF', icon: 'picture_as_pdf', run: c.exportPdf }
-  ]
+  return ['doc-import-docx', 'doc-export-docx', 'doc-export-pdf', 'doc-export-html'].map((id) => {
+    const k = cmd(c, id)
+    return { label: k.label, icon: k.icon ?? '', run: k.run }
+  })
 }

@@ -14,6 +14,8 @@ import {
   type RailItem
 } from '../../office/shell'
 import FontPicker from '../editor/FontPicker'
+import { barProps, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import type { CellsCommands } from './cellsCommands'
 import type { SheetMenuActions } from '../editor/SheetMenuBar'
 
 // PlexiiCells on the office shell (SPEC §6.3): the ToolRail items and every
@@ -51,6 +53,13 @@ export type CellsSidePane = 'ai'
 export interface CCtx {
   a: SheetMenuActions
   readOnly: boolean
+  /**
+   * PlexiiCells' command registry (cellsCommands.ts). Every control here that
+   * also exists in the menu bar or the Cmd+K palette renders from it, so the
+   * surfaces cannot drift — they had, in five labels, and the ribbon's Import
+   * button was marked read-only safe while `importFile` refuses a viewer.
+   */
+  commands: CellsCommands
   /** Format of the active cell, for the mark toggles and alignment state. */
   fmt: SheetCellFormat | undefined
   activeFont?: string
@@ -86,6 +95,37 @@ const CHART_TYPES = ['bar', 'line', 'area', 'pie', 'scatter'] as const
 
 // ── Home ─────────────────────────────────────────────────────────────────────
 
+/** A registry command by id. A missing id is a programming error, not a blank button. */
+function cmd(c: CCtx, id: string): OfficeCommand {
+  const found = c.commands[id]
+  if (!found) throw new Error(`cellsRibbon: no command "${id}" in the registry`)
+  return found
+}
+
+/**
+ * `readOnlySafe` is derived, not declared: a command with no `enabled` gate
+ * changes nothing in the sheet, which is exactly what the shell means by
+ * read-only safe. So the registry decides a viewer's ribbon too, and a control
+ * cannot be live here while its menu row is greyed out.
+ */
+const safe = (k: OfficeCommand): { readOnlySafe?: true } => (k.enabled ? {} : { readOnlySafe: true })
+
+export function cmdToggle(c: CCtx, id: string, extra: Partial<Parameters<typeof BarToggle>[0]> = {}): JSX.Element {
+  const k = cmd(c, id)
+  return <BarToggle {...barProps(k)} {...safe(k)} pressed={!!k.checked?.()} onChange={k.run} {...extra} />
+}
+
+export function cmdButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element {
+  const k = cmd(c, id)
+  return <BarButton {...barProps(k)} {...safe(k)} onClick={k.run} {...extra} />
+}
+
+/** A control that opens a dialog; BarDialogButton gives it its ellipsis. */
+export function cmdDialogButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarDialogButton>[0]> = {}): JSX.Element {
+  const k = cmd(c, id)
+  return <BarDialogButton {...barProps(k)} {...safe(k)} onOpen={k.run} {...extra} />
+}
+
 const homeTab: BarTab<CCtx> = {
   id: 'home',
   label: 'Home',
@@ -93,9 +133,9 @@ const homeTab: BarTab<CCtx> = {
     const { a, fmt } = c
     return (
       <>
-        <BarToggle icon="format_bold" label="Bold" shortcut="⌘B" pressed={!!fmt?.bold} onChange={(v) => a.format({ bold: v })} />
-        <BarToggle icon="format_italic" label="Italic" shortcut="⌘I" pressed={!!fmt?.italic} onChange={(v) => a.format({ italic: v })} />
-        <BarToggle icon="format_underlined" label="Underline" shortcut="⌘U" pressed={!!fmt?.underline} onChange={(v) => a.format({ underline: v })} />
+        {cmdToggle(c, 'sheet-bold')}
+        {cmdToggle(c, 'sheet-italic')}
+        {cmdToggle(c, 'sheet-underline')}
         <BarCustom label="Font">
           <FontPicker value={c.activeFont} onChange={(v) => a.format({ fontFamily: v })} compact />
         </BarCustom>
@@ -103,16 +143,10 @@ const homeTab: BarTab<CCtx> = {
         <BarColor icon="format_color_text" label="Text colour" value={fmt?.color} palette={TEXT_PALETTE} onChange={(v) => a.format({ color: v })} />
         <BarColor icon="format_color_fill" label="Fill colour" allowNone value={fmt?.bg} palette={FILL_PALETTE} onChange={(v) => a.format({ bg: v })} />
         <BarSep />
-        <BarToggle icon="format_align_left" label="Align left" pressed={fmt?.align === 'left'} onChange={() => a.format({ align: 'left' })} />
-        <BarToggle icon="format_align_center" label="Align center" pressed={fmt?.align === 'center'} onChange={() => a.format({ align: 'center' })} />
-        <BarToggle icon="format_align_right" label="Align right" pressed={fmt?.align === 'right'} onChange={() => a.format({ align: 'right' })} />
-        <BarToggle
-          icon={c.isMerged ? 'call_split' : 'call_merge'}
-          label={c.isMerged ? 'Unmerge cells' : 'Merge the selected cells'}
-          pressed={c.isMerged}
-          onChange={c.mergeCells}
-          testid="sheet-merge-btn"
-        />
+        {cmdToggle(c, 'sheet-align-left')}
+        {cmdToggle(c, 'sheet-align-center')}
+        {cmdToggle(c, 'sheet-align-right')}
+        {cmdToggle(c, 'sheet-merge', { testid: 'sheet-merge-btn' })}
         <BarSep />
         <BarSelect
           label="Number format"
@@ -126,12 +160,7 @@ const homeTab: BarTab<CCtx> = {
           testid="sheet-number-format"
         />
         <BarSep />
-        <BarButton
-          icon="format_clear"
-          label="Clear formatting"
-          shortcut="⌘\"
-          onClick={() => a.format({ bold: false, italic: false, underline: false, numFmt: { kind: 'general' } })}
-        />
+        {cmdButton(c, 'sheet-clear-format')}
       </>
     )
   }
@@ -144,29 +173,29 @@ const insertTab: BarTab<CCtx> = {
   label: 'Insert',
   render: (c) => (
     <>
-      <BarButton icon="add_row_above" label="Insert row above" onClick={c.a.insertRowAbove} />
-      <BarButton icon="add_row_below" label="Insert row below" onClick={c.a.insertRowBelow} />
-      <BarButton icon="add_column_left" label="Insert column left" onClick={c.a.insertColLeft} />
-      <BarButton icon="add_column_right" label="Insert column right" onClick={c.a.insertColRight} />
+      {cmdButton(c, 'sheet-row-above')}
+      {cmdButton(c, 'sheet-row-below')}
+      {cmdButton(c, 'sheet-col-left')}
+      {cmdButton(c, 'sheet-col-right')}
       <BarSep />
-      <BarButton icon="delete" label="Delete row" onClick={c.a.deleteRow} />
-      <BarButton icon="delete_sweep" label="Delete column" onClick={c.a.deleteCol} />
+      {cmdButton(c, 'sheet-delete-row')}
+      {cmdButton(c, 'sheet-delete-col')}
       <BarSep />
       <BarMenu
         icon="bar_chart"
         label="Insert chart"
         showLabel={false}
-        items={CHART_TYPES.map((t) => ({
-          label: `${t[0].toUpperCase()}${t.slice(1)} chart`,
-          run: () => c.a.insertChart(t)
-        }))}
+        items={CHART_TYPES.map((t) => {
+          const k = cmd(c, `sheet-chart-${t}`)
+          return { label: k.shortLabel ?? k.label, run: k.run }
+        })}
       />
-      <BarButton icon="show_chart" label="Insert a sparkline of the selection into the next cell" onClick={c.a.insertSparkline} testid="sheet-insert-sparkline" />
-      <BarButton icon="search" label="Insert a lookup (XLOOKUP) into the active cell" onClick={c.insertLookup} testid="sheet-lookup-btn" />
+      {cmdButton(c, 'sheet-sparkline', { testid: 'sheet-insert-sparkline' })}
+      {cmdButton(c, 'sheet-lookup', { testid: 'sheet-lookup-btn' })}
       <BarSep />
-      <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.a.insertSnippet} testid="sheet-insert-snippet" />
+      {cmdDialogButton(c, 'sheet-insert-snippet', { testid: 'sheet-insert-snippet' })}
       <BarSep />
-      <BarButton icon="add" label="Add a sheet" onClick={c.a.addSheet} />
+      {cmdButton(c, 'sheet-add-sheet')}
     </>
   )
 }
@@ -178,17 +207,17 @@ const dataTab: BarTab<CCtx> = {
   label: 'Data',
   render: (c) => (
     <>
-      <BarButton icon="arrow_upward" label="Sort ascending" onClick={() => c.a.sort('asc')} />
-      <BarButton icon="arrow_downward" label="Sort descending" onClick={() => c.a.sort('desc')} />
-      <BarToggle icon="filter_alt" label="Create a filter (funnels on the headers)" pressed={c.a.filterActive} onChange={c.a.toggleFilter} testid="sheet-filter-btn" />
+      {cmdButton(c, 'sheet-sort-asc')}
+      {cmdButton(c, 'sheet-sort-desc')}
+      {cmdToggle(c, 'sheet-filter', { testid: 'sheet-filter-btn' })}
       <BarSep />
-      <BarButton icon="palette" label="Conditional formatting for the selection" onClick={c.a.conditionalFormat} testid="sheet-condformat-btn" />
-      <BarButton icon="rule" label="Data validation for the selection" onClick={c.a.dataValidation} testid="sheet-validation-btn" />
+      {cmdButton(c, 'sheet-cond-format', { testid: 'sheet-condformat-btn' })}
+      {cmdButton(c, 'sheet-validation', { testid: 'sheet-validation-btn' })}
       <BarSep />
-      <BarButton icon="pivot_table_chart" label="Pivot table from the selection" onClick={c.a.insertPivot} testid="sheet-pivot-btn" />
-      <BarButton icon="account_tree" label="Query — shape data with refreshable transform steps" onClick={c.query} testid="sheet-query-btn" />
-      <BarButton icon="label" label="Named ranges" onClick={c.a.namedRanges} />
-      <BarDialogButton icon="bookmark_add" label="Save as snippet" onOpen={c.a.saveSnippet} readOnlySafe testid="sheet-save-snippet" />
+      {cmdButton(c, 'sheet-pivot', { testid: 'sheet-pivot-btn' })}
+      {cmdButton(c, 'sheet-query', { testid: 'sheet-query-btn' })}
+      {cmdButton(c, 'sheet-named-ranges')}
+      {cmdDialogButton(c, 'sheet-save-snippet', { testid: 'sheet-save-snippet' })}
     </>
   )
 }
@@ -200,11 +229,11 @@ const toolsTab: BarTab<CCtx> = {
   label: 'Tools',
   render: (c) => (
     <>
-      <BarButton icon="code" label="Macros — automate the sheet with a script" showLabel onClick={c.macros} testid="sheet-macros-btn" />
+      {cmdButton(c, 'sheet-macros', { showLabel: true, testid: 'sheet-macros-btn' })}
       <BarSep />
-      <BarButton icon="upload_file" label="Import .xlsx / .csv" showLabel onClick={c.a.importFile} readOnlySafe />
-      <BarButton icon="table_chart" label="Export .xlsx" showLabel onClick={() => c.a.exportFile('xlsx')} readOnlySafe />
-      <BarButton icon="description" label="Export .csv" showLabel onClick={() => c.a.exportFile('csv')} readOnlySafe />
+      {cmdButton(c, 'sheet-import', { showLabel: true })}
+      {cmdButton(c, 'sheet-export-xlsx', { showLabel: true })}
+      {cmdButton(c, 'sheet-export-csv', { showLabel: true })}
     </>
   )
 }
