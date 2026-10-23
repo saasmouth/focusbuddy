@@ -161,9 +161,8 @@ export async function pasteOntoDesk(taskId: string, snap: ReturnType<typeof snap
  * is on the clipboard, beside the last-touched widget or at the viewport centre
  * (spawnPositionFor). The desk had no paste at all before this.
  *
- * Edit › Paste fires a DOM paste at whatever has focus (main/index.ts
- * editAction). With nothing focused that is the body; a field, a widget, a
- * dialog or an open document keeps its own paste. `surface` is the canvas
+ * Edit › Paste fires a DOM paste (main/index.ts editAction). A field, a
+ * widget or a dialog with focus keeps its own paste. `surface` is the canvas
  * element: a desk hidden behind a full-pane document is not pasted into.
  */
 export function useDeskPaste(taskId: string | null, surface: () => HTMLElement | null): void {
@@ -174,10 +173,19 @@ export function useDeskPaste(taskId: string | null, surface: () => HTMLElement |
       if (e.defaultPrevented) return
       const el = getSurface()
       if (!el || !el.isConnected || el.getClientRects().length === 0) return
-      const target = e.target instanceof Element ? e.target : null
-      if (pasteBelongsElsewhere(target) || pasteBelongsElsewhere(document.activeElement)) return
-      // Something other than the desk surface itself (a panel, a document) has the paste.
-      if (target && target !== document.body && !el.contains(target)) return
+      // Whose paste it is follows FOCUS. With nothing focused Chromium aims the
+      // event at whatever element last held the selection, which can be
+      // anywhere in the app, so the target says nothing; the focused element
+      // does. A field, a widget or a dialog with focus keeps its own paste.
+      const focused = document.activeElement
+      if (focused && focused !== document.body && focused !== document.documentElement) {
+        if (pasteBelongsElsewhere(focused) || !el.contains(focused)) return
+      }
+      // And the desk must be what is showing: a document or panel opened over
+      // it keeps its own paste.
+      const r = el.getBoundingClientRect()
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      if (!top || !(el.contains(top) || top.closest('[data-widget-id]'))) return
       e.preventDefault()
       void pasteOntoDesk(taskId, snapshotPaste(e.clipboardData))
     }
