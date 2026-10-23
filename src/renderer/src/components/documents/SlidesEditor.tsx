@@ -13,7 +13,7 @@ import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import SlidesMenuBar from './editor/SlidesMenuBar'
 import { buildDeckCommands } from './slides/deckCommands'
-import { ctxRow, paletteEntries } from '../../lib/menus/officeCommand'
+import { barProps, ctxRow, paletteEntries } from '../../lib/menus/officeCommand'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
@@ -1111,8 +1111,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             }
             pinnedStart={
               <>
-                <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={undo.current.length === 0} onClick={undoLast} testid="slides-undo" />
-                <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={redo.current.length === 0} onClick={redoLast} testid="slides-redo" />
+                <BarButton {...barProps(cmds.undo)} onClick={cmds.undo.run} testid="slides-undo" />
+                <BarButton {...barProps(cmds.redo)} onClick={cmds.redo.run} testid="slides-redo" />
               </>
             }
             rightSlot={

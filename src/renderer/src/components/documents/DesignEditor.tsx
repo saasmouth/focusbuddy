@@ -90,7 +90,7 @@ import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
-import { ctxRow } from '../../lib/menus/officeCommand'
+import { barProps, ctxRow } from '../../lib/menus/officeCommand'
 import { buildDesignCommands, type DesignCommands } from './design/designCommands'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
@@ -2070,8 +2070,8 @@ export default function DesignEditor({
                   28x28 everywhere else, carried a `title` and no accessible
                   name, and showed no shortcut. Found by d8's cross-app style
                   report, where it was the only divergence across six apps. */}
-              <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={past.length === 0} onClick={undo} testid="design-undo" />
-              <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={future.length === 0} onClick={redo} testid="design-redo" />
+              <BarButton {...barProps(dcmds.undo)} disabled={past.length === 0} onClick={undo} testid="design-undo" />
+              <BarButton {...barProps(dcmds.redo)} disabled={future.length === 0} onClick={redo} testid="design-redo" />
             </>
           }
           rightSlot={

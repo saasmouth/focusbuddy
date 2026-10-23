@@ -477,8 +477,8 @@ export function DiagramChrome({
             menuBar={<DrawMenuBar actions={{ ...menus, documentOps }} />}
             pinnedStart={
               <>
-                <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={!canUndo} onClick={cmd.undo} testid="diagram-undo" />
-                <BarButton icon="redo" label="Redo" shortcut="⇧⌘Z" disabled={!canRedo} onClick={cmd.redo} testid="diagram-redo" />
+                <BarButton icon="undo" {...menuAction('undo')} disabled={!canUndo} onClick={cmd.undo} testid="diagram-undo" />
+                <BarButton icon="redo" {...menuAction('redo')} disabled={!canRedo} onClick={cmd.redo} testid="diagram-redo" />
               </>
             }
             rightSlot={

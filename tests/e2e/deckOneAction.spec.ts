@@ -26,7 +26,9 @@ async function openDeck(elements: unknown[]): Promise<{ w: Page; id: string }> {
       ((await (window as unknown as { api: typeof window.api }).api.documents.create({
         docType: 'slides',
         title: 'One action',
-        body: { slides: [{ id: 's1', notes: '', elements: els }, { id: 's2', notes: '', elements: [] }] }
+        // Version 2 slides: an older slide is migrated, and migration replaces
+        // its elements with a generated title (slidesMigrate).
+        body: { schemaVersion: 2, slides: [{ id: 's1', notes: '', elements: els, schemaVersion: 2 }, { id: 's2', notes: '', elements: [], schemaVersion: 2 }] }
       } as never)) as { id: string }).id,
     elements
   )

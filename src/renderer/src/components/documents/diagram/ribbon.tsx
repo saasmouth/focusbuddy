@@ -473,8 +473,8 @@ const shapeTab: BarTab<DCtx> = {
         <BarNumber label="Opacity" value={Math.round((common(res, (r) => r.opacity) ?? 1) * 100)} min={10} max={100} step={5} suffix="%" onChange={(v) => cmd.setStyle({ opacity: v / 100 }, 'opacity')} width={40} />
         <BarToggle icon="shadow" label="Drop shadow" pressed={!!common(res, (r) => r.shadow)} onChange={(v) => cmd.setStyle({ shadow: v || undefined })} testid="diagram-shadow" />
         <BarSep />
-        <BarButton icon="format_paint" label="Copy style" shortcut="⌥⌘C" onClick={cmd.copyStyle} />
-        <BarButton icon="format_color_fill" label="Paste style" shortcut="⌥⌘V" disabled={!cmd.hasStyleClipboard()} disabledReason="copy a style first" onClick={cmd.pasteStyle} />
+        <BarButton {...barProps(c.cmds.copyStyle)} onClick={c.cmds.copyStyle.run} />
+        <BarButton {...barProps(c.cmds.pasteStyle)} onClick={c.cmds.pasteStyle.run} />
         <BarButton icon="format_clear" label="Reset style" onClick={() => cmd.setNodes({ style: undefined })} />
         <BarSep />
         <BarDialogButton icon="emoji_symbols" label="Icon" onOpen={() => c.openPanel('icon')} testid="diagram-shape-icon" />
