@@ -83,6 +83,7 @@ export function useDocSnippetTarget(editor: Editor | null, instanceId: string, t
       id: docSnippetTargetId(instanceId),
       label: title?.trim() ? `“${title.trim()}”` : 'This document',
       accepts: ['doc'],
+      host: 'doc',
       // A document can resolve a reference at render time, so it honours both.
       supports: ['duplicate', 'live'],
       insert: (snippet, link) => insertSnippetIntoDoc(editor, snippet, link)
