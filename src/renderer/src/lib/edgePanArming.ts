@@ -75,6 +75,13 @@ export function createEdgePanArming(): EdgePanArming {
   }
 }
 
+/**
+ * How far in from each canvas edge the pointer starts the desk panning
+ * (useEdgePan's default margin). Anything the desk frames for the user to work
+ * on has to sit clear of it, or reaching for it pans it away.
+ */
+export const EDGE_PAN_MARGIN = 80
+
 /** Whether a canvas-relative point is inside the edge zone of a `width` x `height` viewport. */
 export function isInEdgeZone(
   pos: { x: number; y: number },

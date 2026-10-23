@@ -19,8 +19,11 @@ import {
   nextInDirection,
   viewportCentreInCanvas,
   widgetBox,
+  homeCamera,
+  type Box,
   type Viewport
 } from '../../src/renderer/src/lib/deskCameraNav'
+import { EDGE_PAN_MARGIN, isInEdgeZone } from '../../src/renderer/src/lib/edgePanArming'
 import type { Widget } from '../../src/shared/types'
 
 let seq = 0
@@ -252,5 +255,85 @@ describe('nearestToPoint', () => {
   it('returns null on an empty desk', () => {
     expect(nearestToPoint([], { x: 0, y: 0 })).toBeNull()
     expect(nearestToPoint([w({ id: 'p', x: 0, y: 0, pinned: true })], { x: 0, y: 0 })).toBeNull()
+  })
+})
+
+// Home — "fit all to view". What it frames is what the user is about to reach
+// for, so none of it may sit in the edge-pan zone: a pointer moving there pans
+// the desk, and the thing under it slides away (widgetResize's grow-ceiling
+// spec found it: after Home, a desk-filling widget's header sat 60px from the
+// top of an 80px zone, and its Grow button could not be clicked).
+describe('homeCamera', () => {
+  // The canvas measured in the widgetResize run (1694 x 934), and a laptop one.
+  const VIEWPORTS: Viewport[] = [
+    { width: 1694, height: 934, dockInset: 0 },
+    { width: 1160, height: 780, dockInset: 56 }
+  ]
+  // Screen-space corners of a canvas box under a camera, relative to the canvas.
+  function onScreen(b: Box, cam: { zoom: number; panX: number; panY: number }) {
+    return {
+      left: cam.panX + b.x * cam.zoom,
+      top: cam.panY + b.y * cam.zoom,
+      right: cam.panX + (b.x + b.w) * cam.zoom,
+      bottom: cam.panY + (b.y + b.h) * cam.zoom
+    }
+  }
+  const inZone = (p: { x: number; y: number }, v: Viewport): boolean =>
+    isInEdgeZone(p, { width: v.width, height: v.height }, EDGE_PAN_MARGIN)
+
+  it('frames a desk that fits with every corner clear of the edge-pan zone', () => {
+    // The grow-ceiling sequence (a 320x240 widget at 200,200, +50% a press)
+    // and a few ordinary desks.
+    const boxes: Box[] = [
+      { x: 200, y: 200, w: 320, h: 240 },
+      { x: 200, y: 200, w: 1080, h: 810 },
+      { x: 200, y: 200, w: 1620, h: 1215 },
+      { x: -400, y: 50, w: 2400, h: 600 },
+      { x: 0, y: 0, w: 900, h: 1800 }
+    ]
+    for (const v of VIEWPORTS) {
+      for (const b of boxes) {
+        const cam = homeCamera(b, v)
+        const s = onScreen(b, cam)
+        if (s.bottom - s.top > v.height - 2 * EDGE_PAN_MARGIN) continue // too tall: the next test
+        for (const corner of [
+          { x: s.left, y: s.top },
+          { x: s.right, y: s.top },
+          { x: s.left, y: s.bottom },
+          { x: s.right, y: s.bottom }
+        ]) {
+          expect(inZone(corner, v), `${JSON.stringify(b)} on ${v.width}x${v.height}: ${JSON.stringify(corner)}`).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('shows the TOP of a desk too tall for the minimum zoom, clear of the zone', () => {
+    // 2430x1823 and 3645x2734: the presses before the ceiling. At 25% they
+    // are still taller than the view, so centring put the header row — and
+    // its tools — at or above the top edge.
+    for (const v of VIEWPORTS) {
+      for (const b of [
+        { x: 200, y: 200, w: 2430, h: 3600 },
+        { x: 200, y: 200, w: 3645, h: 4000 }
+      ]) {
+        const cam = homeCamera(b, v)
+        expect(cam.zoom).toBe(ZOOM_MIN)
+        const s = onScreen(b, cam)
+        expect(s.top, 'the top row is on screen').toBeGreaterThanOrEqual(EDGE_PAN_MARGIN)
+        expect(inZone({ x: (s.left + s.right) / 2, y: s.top }, v)).toBe(false)
+      }
+    }
+  })
+
+  it('centres a small desk at 100%, never magnifying it', () => {
+    const v = VIEWPORTS[1]
+    const b = { x: 100, y: 100, w: 200, h: 100 }
+    const cam = homeCamera(b, v)
+    expect(cam.zoom).toBe(1)
+    const s = onScreen(b, cam)
+    const visibleW = v.width - v.dockInset
+    expect((s.left + s.right) / 2).toBeCloseTo(v.dockInset + visibleW / 2)
+    expect((s.top + s.bottom) / 2).toBeCloseTo(v.height / 2)
   })
 })
