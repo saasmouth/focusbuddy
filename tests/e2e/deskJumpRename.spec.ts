@@ -95,7 +95,8 @@ test('JR-2 — right-clicking a name opens the standard menu, Rename first, and 
   await expect(first).toHaveText('Rename')
   // The list stays open while its row's menu is (the menu is outside the minimap).
   await expect(window.locator('[data-testid="desk-jump-list"]')).toBeVisible()
-  await window.keyboard.press('ArrowDown')
+  // Home: the menu may have opened under the pointer, which highlights a row.
+  await window.keyboard.press('Home')
   await window.keyboard.press('Enter')
   await expect(window.locator('[data-canvas-ctx-menu]')).toHaveCount(0)
 

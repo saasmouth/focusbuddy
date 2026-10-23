@@ -166,8 +166,8 @@ describe('work widget header: every registered kind', () => {
     expectMenuContract(items, {
       groups: [
         // E-1 (owner ruling): Open first, Add to Focus… second.
-        ['Open file', 'Add to Focus…'],
-        ['Copy all text', 'Paste', 'Duplicate'],
+        ['Open file', 'Add to Focus…', 'Build with AI'],
+        ['Copy all text', 'Paste'],
         ['Ask PlexiiAssist', 'AI Assist'],
         ['More actions'],
         ['Remove from this desk', 'Archive', 'Move to Trash']
@@ -176,7 +176,7 @@ describe('work widget header: every registered kind', () => {
     const more = items.find((i) => i.label === 'More actions')!
     const inMore = (more.children ?? []).map((c) => c.label)
     // Nothing the old menu offered is lost: it moved into More actions.
-    for (const l of ['Build with AI', 'Make a checklist', 'Rename', 'Share…', 'Insert snippet…', 'Duplicate, keep synced', 'Bring to front', 'Save selection as snippet…', 'Create & link', 'Make this a desk…', 'Pin to corner', 'Recolor', 'Flag as a decision']) {
+    for (const l of ['Duplicate', 'Make a checklist', 'Rename', 'Share…', 'Insert snippet…', 'Duplicate, keep synced', 'Bring to front', 'Save selection as snippet…', 'Create & link', 'Make this a desk…', 'Pin to corner', 'Recolor', 'Flag as a decision']) {
       expect(inMore, l).toContain(l)
     }
     expect(items.find((i) => i.label === 'Paste')?.shortcut).toBe('⌘V')

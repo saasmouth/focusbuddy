@@ -50,10 +50,11 @@ const NEVER = -Infinity
 
 // How readily each universal row leaves the top level when the menu is over
 // its ceiling: the highest folds first. The rows §9.3 names for every object
-// (Add to Focus…, Copy, Paste, Ask PlexiiAssist) never fold. AI assist ▸ is
-// kept ahead of the kind rows because folding it would push its tone and
-// language leaves to a fourth level. Kind rows: the first one a kind offers
-// ranks 3 (it is usually why the menu was opened), the rest 7. On a crowded
+// (Add to Focus…, Copy, Paste, Ask PlexiiAssist) never fold, nor does an Open
+// row. AI Assist ▸ is kept ahead of Duplicate because folding it would push its
+// tone and language leaves to a fourth level. Kind rows: the first one a kind offers
+// ranks 0.5, kept even over Duplicate (it is usually why the menu was opened:
+// Add row on a table cell, Build with AI on a sticky), the rest 7. On a crowded
 // text widget Save selection as snippet… is the first of §9.3's named rows to
 // move into More actions.
 const FOLD: Record<string, number> = {
@@ -62,7 +63,7 @@ const FOLD: Record<string, number> = {
   'core/paste': NEVER,
   'core/ask-assist': NEVER,
   'core/duplicate': 1,
-  'core/ai-assist': 2,
+  'core/ai-assist': 0.75,
   'core/save-snippet': 3.5,
   'core/open-file': 4,
   'core/insert-snippet': 5,
@@ -71,7 +72,7 @@ const FOLD: Record<string, number> = {
   'core/share': 6,
   'core/duplicate-synced': 8
 }
-const FIRST_KIND_ROW_FOLD = 3
+const FIRST_KIND_ROW_FOLD = 0.5
 const KIND_ROW_FOLD = 7
 
 // One row on its way to the menu: a contribution, or a raw kit item a host
