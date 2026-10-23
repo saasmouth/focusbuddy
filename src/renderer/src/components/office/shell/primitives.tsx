@@ -54,9 +54,30 @@ export interface BarCommon {
  */
 export function useBarState(p: BarCommon): { disabled: boolean; reason?: string } {
   const { readOnly } = useContext(BarContext)
+  const slot = useContext(BarSlotContext)
   const own = p.disabled ? p.disabledReason : undefined
   if (readOnly && !p.readOnlySafe) return { disabled: true, reason: own || READ_ONLY_REASON }
+  // Inside a BarCustom that is off, every control is off with it (the slot's
+  // fieldset disables it natively; this makes the primitive SAY so).
+  if (slot.disabled) return { disabled: true, reason: own || slot.reason || READ_ONLY_REASON }
   return { disabled: !!p.disabled, reason: own }
+}
+
+/**
+ * What a BarCustom tells the app widget inside it: whether the slot is off
+ * (a read-only bar, and the slot is not `readOnlySafe`), why, and the slot's
+ * label. A widget with a tooltip of its own (FontPicker, Start from) reads it
+ * with `useBarSlot()` to say "Label — This document is read-only." and to keep
+ * its popover shut; outside a BarCustom it is always on.
+ */
+export interface BarSlotState {
+  disabled: boolean
+  reason?: string
+  label?: string
+}
+export const BarSlotContext = createContext<BarSlotState>({ disabled: false })
+export function useBarSlot(): BarSlotState {
+  return useContext(BarSlotContext)
 }
 
 export function barTip(label: string, shortcut?: string, reason?: string): string {
@@ -450,12 +471,35 @@ export function BarSep(): JSX.Element {
   return <span aria-hidden className="shrink-0 w-px h-5 mx-1.5 bg-[var(--edge-soft)]" />
 }
 
-/** App widgets (FontPicker, arrow pickers, the nine-point reference) at bar height. */
-export function BarCustom({ children, label, testid, semantic }: { children: ReactNode; label?: string; testid?: string; semantic?: BarSemantic }): JSX.Element {
+/**
+ * App widgets (FontPicker, arrow pickers, the nine-point reference) at bar height.
+ *
+ * Read-only, like every other primitive: in a read-only bar the whole slot is
+ * off unless it is `readOnlySafe` (it only looks: a zoom menu, a view switch,
+ * a read-out). Off, it is a disabled <fieldset>, so every button, field and
+ * select inside is inert natively, whether or not the widget knows about the
+ * bar; its title says "Label — This document is read-only." for a control
+ * with no tooltip of its own; the shell primitives inside say it in theirs
+ * (useBarState); and a widget with its own tooltip or popover reads
+ * useBarSlot(). The fieldset is always rendered, so turning read-only on or
+ * off never remounts the widget.
+ */
+export function BarCustom({ children, label, testid, semantic, readOnlySafe }: { children: ReactNode; label?: string; testid?: string; semantic?: BarSemantic; readOnlySafe?: boolean }): JSX.Element {
+  const { disabled, reason } = useBarState({ readOnlySafe })
   return (
-    <span role={label ? 'group' : undefined} aria-label={label} data-testid={testid} data-bar-kind="custom" data-bar-semantic={semantic} className="inline-flex items-center gap-1 shrink-0 h-7">
-      {children}
-    </span>
+    <fieldset
+      disabled={disabled}
+      role={label ? 'group' : 'presentation'}
+      aria-label={label}
+      title={disabled && label ? barTip(label, undefined, reason) : undefined}
+      data-testid={testid}
+      data-bar-kind="custom"
+      data-bar-semantic={semantic}
+      data-read-only-safe={readOnlySafe ? 'true' : undefined}
+      className="inline-flex items-center gap-1 shrink-0 h-7 min-w-0 m-0 p-0 border-0"
+    >
+      <BarSlotContext.Provider value={disabled ? { disabled, reason, label } : { disabled: false, label }}>{children}</BarSlotContext.Provider>
+    </fieldset>
   )
 }
 

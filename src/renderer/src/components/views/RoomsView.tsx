@@ -8,6 +8,8 @@ import { formatRelativeTime } from '../../lib/changelog'
 import RoomThumb from '../RoomThumb'
 import Icon from '../Icon'
 import SharedBadge from '../SharedBadge'
+import { useSharesStore } from '../../stores/shares'
+import { activeSharedOutIds } from '../../lib/sharedOut'
 import ShareDialog from '../ShareDialog'
 import RoomsDesksIndex, { type IndexConfig } from './RoomsDesksIndex'
 import { chatAboutRoom, deskMenuItems, renameNode, shareNodeToTeam, togglePlan } from '../../lib/deskLifecycleMenu'
@@ -107,6 +109,14 @@ export default function RoomsView(): JSX.Element {
     return desks.map((d) => widgetsByDesk[d.id] ?? [])
   }
 
+  // Which of these are shared OUT: an entity with a live outgoing link. The
+  // sidebar derived this before 24a61f93d; the store still has it.
+  const outgoing = useSharesStore((s) => s.outgoing)
+  // LIVE links only — not revoked, not expired. `outgoing` keeps both, because
+  // a revoke is a soft delete and an expiry is just a timestamp going by. See
+  // lib/sharedOut, which holds the rule and its boundary cases.
+  const sharedOutIds = useMemo(() => activeSharedOutIds(outgoing, Date.now()), [outgoing])
+
   const config: IndexConfig<FbNode> = {
     storageKey: 'rooms-index',
     title: showArchived ? 'Archived rooms' : 'All rooms',
@@ -114,13 +124,28 @@ export default function RoomsView(): JSX.Element {
     items: rooms,
     idOf: (r) => r.id,
     titleOf: (r) => r.title || 'Untitled room',
-    // Mark a room shared with you by name (live per-desk share), with who shared it.
+    // THREE THINGS A ROOM CAN BE, and it used to show only the first.
+    //
+    // 24a61f93d took the sidebar's inline trees out and moved these cards in,
+    // but only the recipient case came with them: the owner's "shared out"
+    // marker was lost, and so was the origin of a room someone COPIED in —
+    // acceptShare.ts has gone on writing sharedFromHandle for a sidebar that
+    // no longer reads it. Restored on the owner's ruling (2026-10-24).
+    //
+    // In order, because a room can be more than one at once and there is room
+    // for one badge: a LIVE share you are a guest in says who shares it; your
+    // own room that you have shared OUT says so; a copy you took from someone
+    // keeps their name on it.
     badge: (r) =>
       r.sharedRootId ? (
         <SharedBadge
           handle={r.sharedFromHandle ?? '?'}
           label={r.sharedFromHandle ? `Shared by ${r.sharedFromHandle}` : 'Shared with you'}
         />
+      ) : sharedOutIds.has(r.id) ? (
+        <SharedBadge handle={r.title || 'Shared'} label="Shared with others" testid="shared-out-badge" />
+      ) : r.sharedFromHandle ? (
+        <SharedBadge handle={r.sharedFromHandle} label={`Copied from ${r.sharedFromHandle}`} testid="shared-copied-badge" />
       ) : null,
     searchText: (r) => `${r.title} ${r.description}`,
     thumb: (r) => <RoomThumb deskWidgetSets={roomDeskSets(r)} width={320} height={144} />,

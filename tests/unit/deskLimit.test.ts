@@ -1,70 +1,101 @@
-// @vitest-environment node
+// What the free plan's "3 desks" actually counts.
 //
-// The free tier's desk allowance.
+// multiple_desks is { free: 3 }, and it was enforced against the wrong object.
+// isDesk read `kind === 'folder'`, which was a desk when the comment
+// above it was written — but the Rooms/Desks rename made a top-level FOLDER a
+// ROOM and a DESK a top-level task (stores/nodes.ts: `kind === 'folder' ?
+// 'room' : 'desk'`), while Sidebar.requestCreateDesk creates kind: 'task'.
+// So the cap never fired on the path people actually use, and a fourth ROOM
+// was refused with a message about desks.
 //
-// This was configured as 'Unlimited' on every tier while the creation path
-// carried a working limit check and a comment saying it "prevents a 4th free
-// desk" — so the intent was three, the code could enforce three, and the
-// configuration said unlimited. Nothing failed; the limit simply never fired.
-// A number in a config file that contradicts the comment next to the code
-// enforcing it is invisible until someone counts desks.
+// The owner's ruling (2026-10-24): 3 desks on Free, rooms unlimited, anyone
+// already above 3 keeps what they have and simply cannot create more, and the
+// message stays "3-desk limit". These are those rules, in that order.
 
 import { describe, expect, it } from 'vitest'
-import { canCreateMore, limitFor, limitLabel } from '../../src/renderer/src/lib/gating'
-import { CAPABILITY_DEFAULTS } from '../../src/renderer/src/lib/capabilityDefaults'
+import { countDesks, isDesk } from '@renderer/stores/nodes'
+import { canCreateMore, limitFor } from '@renderer/lib/gating'
 
-type Tier = 'free' | 'pro' | 'team'
-const capsFor = (tier: Tier): never => {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(CAPABILITY_DEFAULTS as Record<string, Record<string, unknown>>)) {
-    out[k] = v[tier]
-  }
-  return out as never
-}
+const FREE = { multiple_desks: 3 }
+const desk = (parentId: string | null = null, archived = false) => ({ parentId, kind: 'task' as const, archived })
+const room = (parentId: string | null = null, archived = false) => ({ parentId, kind: 'folder' as const, archived })
+const workItem = () => ({ parentId: 'desk-1', kind: 'work_item' as const, archived: false })
 
-describe('desk allowance', () => {
-  it('gives the free tier exactly three desks', () => {
-    expect(limitFor(capsFor('free'), 'multiple_desks')).toBe(3)
-    expect(limitLabel(capsFor('free'), 'multiple_desks')).toBe('3')
+describe('what counts as a desk', () => {
+  // The three kinds, with the code that says so:
+  //   task      = a DESK (SPEC-044 vocabulary quarantine: "create-task" has
+  //               always meant a desk; types.ts says "Task nodes (Desks)")
+  //   folder    = a ROOM, uncapped
+  //   work_item = "NOT a desk ... a LEAF node, excluded from every desk/room
+  //               surface" (types.ts)
+  it('a TASK is a desk', () => {
+    expect(isDesk(desk())).toBe(true)
   })
 
-  it('allows the first three and refuses the fourth', () => {
-    const caps = capsFor('free')
-    // Counted as "can I create one more, having N already".
-    expect(canCreateMore(caps, 'multiple_desks', 0)).toBe(true)
-    expect(canCreateMore(caps, 'multiple_desks', 1)).toBe(true)
-    expect(canCreateMore(caps, 'multiple_desks', 2)).toBe(true)
-    expect(canCreateMore(caps, 'multiple_desks', 3)).toBe(false)
-    expect(canCreateMore(caps, 'multiple_desks', 9)).toBe(false)
+  it('a FOLDER is a room, and is not capped', () => {
+    expect(isDesk(room())).toBe(false)
   })
 
-  it('leaves paid tiers unlimited', () => {
-    for (const tier of ['pro', 'team'] as const) {
-      expect(limitFor(capsFor(tier), 'multiple_desks'), tier).toBeNull()
-      expect(canCreateMore(capsFor(tier), 'multiple_desks', 500), tier).toBe(true)
-    }
+  it('a work_item is never a desk', () => {
+    // Counting these would cap people on their to-dos.
+    expect(isDesk(workItem())).toBe(false)
   })
 
-  it('still refuses when a server sends a smaller limit', () => {
-    // The shipped defaults are a fallback; the entitlement server can override.
-    expect(canCreateMore({ multiple_desks: 1 } as never, 'multiple_desks', 1)).toBe(false)
+  it('A DESK INSIDE A ROOM IS STILL A DESK', () => {
+    // The correction (owner, 2026-10-24): "3 desks" is every desk, not every
+    // top-level one. Counting only top-level desks let someone keep making
+    // them inside rooms forever.
+    expect(isDesk(desk('room-1'))).toBe(true)
   })
-})
 
-describe('the refusal the user actually sees', () => {
-  it('names the limit and offers the upgrade', () => {
-    // The copy interpolates limitFor(), so a wrong limit would have produced
-    // "your Unlimited-desk limit" — which is how you discover the config was
-    // never enforcing anything.
-    const src = readFileSync(
-      join(__dirname, '..', '..', 'src/renderer/src/stores/nodes.ts'),
-      'utf8'
-    )
-    expect(src).toContain('promptUpgrade')
-    expect(src).toMatch(/limit on the Free plan\. Upgrade for unlimited desks\./)
-    expect(src).toContain('DESK_LIMIT_ERROR')
+  it('counts desks at EVERY depth, ignoring rooms and work items', () => {
+    const nodes = [desk(), desk('room-1'), desk('room-2'), room(), room('room-1'), workItem()]
+    expect(countDesks(nodes)).toBe(3)
+  })
+
+  it('does not count an archived desk', () => {
+    // A judgement, stated in nodes.ts: archived is "put away" and the Home
+    // dashboard's own tally excludes it, so archiving frees the slot.
+    expect(countDesks([desk(), desk(null, true), desk('room-1', true)])).toBe(1)
   })
 })
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+describe("the owner's three rules", () => {
+  it('refuses a FOURTH desk on Free', () => {
+    const nodes = [desk(), desk(), desk()]
+    expect(countDesks(nodes)).toBe(3)
+    expect(canCreateMore(FREE, 'multiple_desks', countDesks(nodes))).toBe(false)
+  })
+
+  it('refuses the fourth even when the first three are spread across rooms', () => {
+    const nodes = [desk(), desk('room-1'), desk('room-2')]
+    expect(countDesks(nodes)).toBe(3)
+    expect(canCreateMore(FREE, 'multiple_desks', countDesks(nodes))).toBe(false)
+  })
+
+  it('allows a fourth ROOM on Free — rooms are unlimited', () => {
+    const nodes = [room(), room(), room()]
+    // No desks at all, so the cap has nothing to count and a new room is not
+    // even a candidate for it.
+    expect(countDesks(nodes)).toBe(0)
+    expect(isDesk(room())).toBe(false)
+    expect(canCreateMore(FREE, 'multiple_desks', countDesks(nodes))).toBe(true)
+  })
+
+  it('lets someone already above the limit KEEP what they have, and only blocks new ones', () => {
+    // "Users already above 3 keep them but can't create more; nothing is
+    // deleted or hidden." The gate is asked only on create, so the five stay
+    // five and the sixth is refused.
+    const five = [desk(), desk(), desk(), desk(), desk()]
+    expect(countDesks(five), 'all five still counted, none dropped').toBe(5)
+    expect(canCreateMore(FREE, 'multiple_desks', 5)).toBe(false)
+  })
+
+  it('still reports the limit as 3, so the message stays true', () => {
+    expect(limitFor(FREE, 'multiple_desks')).toBe(3)
+  })
+
+  it('caps nothing on a paid tier', () => {
+    expect(canCreateMore({ multiple_desks: 'Unlimited' }, 'multiple_desks', 99)).toBe(true)
+  })
+})

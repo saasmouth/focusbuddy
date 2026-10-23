@@ -129,7 +129,8 @@ export default function RightSlot({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <CmdToggle ctx={ctx} id="view.grid" icon="grid_4x4" label="Show grid" pressed={showGrid} readOnlySafe testid="draw-grid-toggle" />
       <CmdToggle ctx={ctx} id="view.snap" icon="straighten" label="Snap to edges and centres" pressed={snapOn} readOnlySafe testid="draw-snap-toggle" />
       <CmdButton ctx={ctx} id="view.zoomOut" icon="zoom_out" label="Zoom out" readOnlySafe testid="draw-zoom-out" />
-      <BarCustom label="Zoom">
+      {/* Read-only safe, like the zoom buttons beside it: the View zoom commands set the zoom, not the drawing (Draw's commands carry no read-only answer to derive it from). */}
+      <BarCustom label="Zoom" readOnlySafe>
         <ZoomMenu ctx={ctx} zoom={zoom} />
       </BarCustom>
       <CmdButton ctx={ctx} id="view.zoomIn" icon="zoom_in" label="Zoom in" readOnlySafe testid="draw-zoom-in" />

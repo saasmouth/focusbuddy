@@ -1643,7 +1643,6 @@ export type AIPurpose =
   | 'living_page'
   | 'wire_transform'
   | 'desk_agent'
-  | 'command_route'
   // Naming untitled desks, rooms, documents and widgets from their content —
   // the retrospective pass at start-up plus anything created without a name.
   // Cheapest tier on purpose: it is a batched, bounded repair job over content

@@ -202,15 +202,6 @@ test('accept copy-scope folder share reconstructs nodes + widgets + navigates', 
 
   expect(widgetContent).toBe('hello from share')
 
-  // Step 6: the shared badge, on the Rooms index rather than in the sidebar.
-  // 24a61f93d took the inline trees out of the sidebar; SharedBadge is mounted
-  // in RoomsView and DesksView now, for any item whose sharedRootId is set.
-  await window.evaluate(() => {
-    const w = window as unknown as { __fbView?: { getState: () => { goRooms?: () => void } } }
-    w.__fbView?.getState().goRooms?.()
-  })
-  await expect(window.locator('[data-testid="shared-badge"]').first()).toBeVisible({ timeout: 8_000 })
-
   // Step 7: Assert navigation. acceptIntoWorkspace calls goProject(rootNodeId)
   // for a folder share, which sets the view store to
   // { kind: 'project-dashboard', projectId: <sharedRoadmapId> }.
@@ -231,6 +222,26 @@ test('accept copy-scope folder share reconstructs nodes + widgets + navigates', 
 
   // No page errors during the flow.
   expect(pageErrors).toHaveLength(0)
+
+  // Step 6: the reconstructed room keeps the name it was copied from.
+  //
+  // This asked for [data-testid="shared-badge"], the RECIPIENT badge, which
+  // belongs to a LIVE share (sharedRootId). A copy-scope accept makes the room
+  // yours — acceptShare.ts sets sharedFromHandle and no sharedRootId — so the
+  // right marker is the copied-from one the owner ruled on (2026-10-24):
+  // "Copied from <handle>", restored in RoomsView/DesksView alongside the
+  // owner's shared-out badge. Before that ruling there was no badge at all and
+  // sharedFromHandle was written for a reader that no longer existed.
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { goRooms?: () => void } } }
+    w.__fbView?.getState().goRooms?.()
+  })
+  const copied = window.locator('[data-testid="shared-copied-badge"]').first()
+  await expect(copied).toBeVisible({ timeout: 8_000 })
+  await expect(copied).toHaveAttribute('title', 'Copied from swift-otter')
+  // And NOT the live-share badge: this is a copy, not a shared room.
+  await expect(window.locator('[data-testid="shared-badge"]')).toHaveCount(0)
+
 })
 
 // ---------------------------------------------------------------------------

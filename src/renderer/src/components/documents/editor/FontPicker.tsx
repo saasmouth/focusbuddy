@@ -11,6 +11,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from '../../Icon'
+import { barTip, useBarSlot } from '../../office/shell/primitives'
 import { GENERIC_FONTS, GOOGLE_FONTS, loadGoogleFont, fontFamilyValue, familyLabel } from '../../../lib/googleFonts'
 
 interface Props {
@@ -40,6 +41,13 @@ export default function FontPicker({ value, onChange, compact, testid = 'font-pi
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const current = mixed ? 'Mixed' : extra?.find((e) => e.value === value)?.label ?? familyLabel(value)
+  // In a BarCustom that is off (a read-only bar), the picker still SHOWS the
+  // font -- seeing it is fine -- but does not open, and says why.
+  const slot = useBarSlot()
+  const off = slot.disabled
+  useEffect(() => {
+    if (off) setOpen(false)
+  }, [off])
 
   useEffect(() => {
     if (!open) return
@@ -96,15 +104,16 @@ export default function FontPicker({ value, onChange, compact, testid = 'font-pi
         data-bar-kind="font"
         aria-label={`${label}: ${current}`}
         aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        title={label}
-        className={`fb-tile h-7 inline-flex items-center gap-1 px-1.5 text-[11px] text-[var(--ink-70)] ${compact ? 'w-20' : 'w-28'}`}
+        aria-expanded={open && !off}
+        disabled={off}
+        onClick={() => !off && setOpen((v) => !v)}
+        title={off ? barTip(label, undefined, slot.reason) : label}
+        className={`fb-tile h-7 inline-flex items-center gap-1 px-1.5 text-[11px] text-[var(--ink-70)] disabled:opacity-60 disabled:cursor-not-allowed ${compact ? 'w-20' : 'w-28'}`}
       >
         <span className="truncate flex-1 min-w-0 text-left" style={{ fontFamily: value || undefined }}>{current}</span>
         <Icon name="expand_more" size={12} />
       </button>
-      {open && pos && createPortal(
+      {open && !off && pos && createPortal(
         <div
           ref={panelRef}
           data-testid="font-picker-panel"

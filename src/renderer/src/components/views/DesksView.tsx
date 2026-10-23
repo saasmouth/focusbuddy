@@ -12,6 +12,8 @@ import { formatRelativeTime } from '../../lib/changelog'
 import DeskMiniature from '../DeskMiniature'
 import Icon from '../Icon'
 import SharedBadge from '../SharedBadge'
+import { useSharesStore } from '../../stores/shares'
+import { activeSharedOutIds } from '../../lib/sharedOut'
 import ShareDialog from '../ShareDialog'
 import RoomsDesksIndex, { type IndexConfig } from './RoomsDesksIndex'
 import { deskMenuItems, renameNode, shareNodeToTeam } from '../../lib/deskLifecycleMenu'
@@ -144,6 +146,13 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
 
   const scopeTitle = roomId ? roomTitleById.get(roomId) : null
 
+  // Shared OUT: an entity with a live outgoing link (see RoomsView).
+  const outgoing = useSharesStore((s) => s.outgoing)
+  // LIVE links only — not revoked, not expired. `outgoing` keeps both, because
+  // a revoke is a soft delete and an expiry is just a timestamp going by. See
+  // lib/sharedOut, which holds the rule and its boundary cases.
+  const sharedOutIds = useMemo(() => activeSharedOutIds(outgoing, Date.now()), [outgoing])
+
   const config: IndexConfig<FbNode> = {
     storageKey: 'desks-index',
     title: showArchived
@@ -159,14 +168,22 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
     items: desks,
     idOf: (d) => d.id,
     titleOf: (d) => d.title || 'Untitled desk',
-    // Mark a desk shared with you by name, so it's obviously not one of your own and
-    // you can see who shared it. Only live-shared desks (sharedRootId set) get this.
+    // Three things a desk can be — see the same block in RoomsView for why all
+    // three are here and only the first used to be (24a61f93d moved the cards
+    // in without the owner's marker or a copy's origin; owner's ruling
+    // 2026-10-24 put them back). One badge, in order of what matters most to
+    // the person looking: a live share you are a guest in, then your own desk
+    // shared out, then a copy that keeps the name it came from.
     badge: (d) =>
       d.sharedRootId ? (
         <SharedBadge
           handle={d.sharedFromHandle ?? '?'}
           label={d.sharedFromHandle ? `Shared by ${d.sharedFromHandle}` : 'Shared with you'}
         />
+      ) : sharedOutIds.has(d.id) ? (
+        <SharedBadge handle={d.title || 'Shared'} label="Shared with others" testid="shared-out-badge" />
+      ) : d.sharedFromHandle ? (
+        <SharedBadge handle={d.sharedFromHandle} label={`Copied from ${d.sharedFromHandle}`} testid="shared-copied-badge" />
       ) : null,
     searchText: (d) => `${d.title} ${d.description}`,
     thumb: (d) => (

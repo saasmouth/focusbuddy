@@ -653,15 +653,6 @@ const api = {
       needsApiKey?: boolean
       error?: string
     }> => ipcRenderer.invoke('ai:groupByTopic', items),
-    // Raw single-turn completion for the command bar's intent router. The caller
-    // supplies the system prompt and receives the model's text verbatim (no
-    // workspace-build envelope parsing), so the router's small intent JSON
-    // arrives intact.
-    routeCommand: (input: {
-      system: string
-      text: string
-    }): Promise<{ ok: boolean; text?: string; needsApiKey?: boolean; error?: string }> =>
-      ipcRenderer.invoke('ai:routeCommand', input),
     suggestPageContent: (
       prompt: string
     ): Promise<{

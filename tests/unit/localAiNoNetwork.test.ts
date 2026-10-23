@@ -282,7 +282,6 @@ describe('Local on this device: no AI request leaves the machine', () => {
     await settle('brief', ai.generateDailyBrief())
     await settle('standup', ai.generateStandupNarrative({ promptContext: 'Did X, Y', fallbackNarrative: 'fallback' }))
     await settle('wire', ai.runTransformWire({ sourceContent: 'Notes about the launch', verb: 'summarize', targetCurrentContent: '' }))
-    await settle('command', ai.routeCommandBar({ system: 'Classify. Reply with JSON only: {"intent":"..."}', prompt: 'add a todo' } as never))
     const { proposeCleanup } = await import('../../src/main/ai/cleanupRewrite')
     await settle('cleanup', proposeCleanup('um so like call bob about the thing tmrw maybe'))
     const { classifyCapture } = await import('../../src/main/ai/intentClassify')

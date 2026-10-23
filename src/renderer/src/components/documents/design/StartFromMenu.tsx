@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../../Icon'
-import { BarPopover } from '../../office/shell'
+import { BarPopover, barTip, useBarSlot } from '../../office/shell'
 import {
   customDesignSize,
   describeSize,
@@ -54,6 +54,14 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen, onAu
   const trigger = useRef<HTMLButtonElement | null>(null)
   const firstEntry = useRef<HTMLButtonElement | null>(null)
   const opened = useRef(false)
+  // In a read-only bar its slot (Layout › Start from) is off: it applies a
+  // template or a size, which writes the design. It shows the size; it does
+  // not open, and says why.
+  const slot = useBarSlot()
+  const off = slot.disabled
+  useEffect(() => {
+    if (off) setOpen(false)
+  }, [off])
 
   // Put focus in the menu when it opens. Keyboard users land on the list
   // rather than nowhere, and Escape closes it — BarPopover handles Escape on
@@ -65,12 +73,12 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen, onAu
   }, [open])
 
   useEffect(() => {
-    if (autoOpen && !opened.current) {
+    if (autoOpen && !off && !opened.current) {
       opened.current = true
       setOpen(true)
       onAutoOpened?.()
     }
-  }, [autoOpen, onAutoOpened])
+  }, [autoOpen, off, onAutoOpened])
 
   // No outside-click or Escape handling here: BarPopover owns both, and it
   // must, because the panel is PORTALLED to the body. The handler this
@@ -88,9 +96,10 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen, onAu
     <div className="relative">
       <button
         ref={trigger}
-        onClick={() => setOpen((v) => !v)}
-        className="fb-btn-surface inline-flex h-7 items-center gap-1 rounded px-2 text-[12px] text-[var(--ink-80)] hover:border-accent"
-        title="Start from a template, or set the page size"
+        onClick={() => !off && setOpen((v) => !v)}
+        disabled={off}
+        className="fb-btn-surface inline-flex h-7 items-center gap-1 rounded px-2 text-[12px] text-[var(--ink-80)] hover:border-accent disabled:opacity-60 disabled:cursor-not-allowed"
+        title={barTip('Start from a template, or set the page size', undefined, off ? slot.reason : undefined)}
         data-testid="design-start-btn"
       >
         <Icon name="dashboard_customize" size={14} />
@@ -98,7 +107,7 @@ export default function StartFromMenu({ size, onTemplate, onSize, autoOpen, onAu
         <Icon name="expand_more" size={14} className="text-[var(--ink-40)]" />
       </button>
 
-      {open && (
+      {open && !off && (
         <BarPopover
           anchor={trigger.current}
           onClose={() => {

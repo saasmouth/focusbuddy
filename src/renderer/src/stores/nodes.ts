@@ -18,15 +18,44 @@ import { promptUpgrade } from './upgradePrompt'
 import { useMessagingStore } from './messaging'
 import { useContextHealthStore } from './contextHealth'
 
-// A "desk" (marketing) / "project" (sidebar) is a top-level folder. The
-// multiple_desks capability caps how many a tier may have. Thrown by
+// The multiple_desks capability caps how many DESKS a tier may have. Thrown by
 // create() when a free user would exceed it — callers that don't catch it
 // simply have the creation prevented (the throw happens before the IPC
 // create call, so nothing is persisted).
 export const DESK_LIMIT_ERROR = 'DESK_LIMIT_REACHED'
 
-function isTopLevelDesk(draft: NodeDraft): boolean {
-  return draft.parentId === null && draft.kind === 'folder'
+// A DESK IS A TASK, WHEREVER IT LIVES. multiple_desks caps all of them
+// (owner, 2026-10-24: "3 desks" means every desk, including desks inside
+// rooms).
+//
+// The three kinds, from the code rather than from the words:
+//   - 'task'      a DESK. SPEC-044's vocabulary quarantine is explicit —
+//                 "task"/"create-task" has ALWAYS meant a desk, a whole
+//                 workspace (src/main/ai/vocabulary.ts), and types.ts calls
+//                 them "Task nodes (Desks)" where it describes the plan flag.
+//   - 'folder'    a ROOM, a place desks live (nodes.ts sends
+//                 `kind === 'folder' ? 'room' : 'desk'` to the channel
+//                 archiver). Rooms are uncapped.
+//   - 'work_item' NOT a desk, said so in types.ts: "a LEAF node, excluded
+//                 from listNodes and every desk/room surface". Never counted.
+//
+// This counted top-level FOLDERS, which was right when a desk was the
+// top-level folder the sidebar called a project, and survived the Rooms/Desks
+// rename pointing at the wrong object entirely. Then it counted top-level
+// tasks, which was right about the kind and wrong about the depth: a desk
+// inside a room is a desk and takes one of the three.
+//
+// ARCHIVED DESKS DO NOT COUNT. That is a judgement, not a ruling: archived is
+// "soft-delete / put away ... hidden from day-to-day surfaces" (types.ts), the
+// Home dashboard's own desk tally already excludes them, and of the two ways
+// to be wrong this is the one that never refuses somebody a desk they cannot
+// see. Say the word and it is one clause.
+export function isDesk(draft: Pick<NodeDraft, 'kind'>): boolean {
+  return draft.kind === 'task'
+}
+
+export function countDesks(nodes: ReadonlyArray<Pick<FbNode, 'kind' | 'archived'>>): number {
+  return nodes.filter((n) => n.kind === 'task' && !n.archived).length
 }
 
 interface NodeStore {
@@ -91,14 +120,17 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     }
   },
   create: async (draft) => {
-    // Hard backstop for the desk limit — catches EVERY create path (sidebar,
-    // dashboard, AI command bar). The sidebar additionally gates the trigger
-    // for nicer UX, but this is what actually prevents a 4th free desk.
-    if (isTopLevelDesk(draft)) {
+    // THE desk limit — this is the only place it is enforced. The comment here
+    // used to say the sidebar additionally gated its own trigger "for nicer
+    // UX"; it does not (no multiple_desks check anywhere in Sidebar.tsx), so
+    // every create path reaches this and nothing pre-empts it.
+    //
+    // Only CREATION is gated. Someone who is already over the limit keeps
+    // every desk they have and can still open them; they simply cannot make
+    // another (owner's ruling, 2026-10-24).
+    if (isDesk(draft)) {
       const caps = useCapabilityStore.getState().capabilities
-      const deskCount = get().nodes.filter(
-        (n) => n.parentId === null && n.kind === 'folder'
-      ).length
+      const deskCount = countDesks(get().nodes)
       if (!canCreateMore(caps, 'multiple_desks', deskCount)) {
         const limit = limitFor(caps, 'multiple_desks')
         promptUpgrade(
