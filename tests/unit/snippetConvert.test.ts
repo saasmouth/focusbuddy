@@ -551,9 +551,12 @@ describe('→ widget (a desk)', () => {
     expect(JSON.parse(w.content)).toEqual({ type: 'doc', content: src.content })
   })
 
-  it('doc with a picture or centred text: a page widget, saying what a page cannot hold', () => {
+  it('doc with a picture or centred text: a page widget keeps the picture and says what it cannot hold', () => {
     const r = conv(F.docFrom(`<p style="text-align: center">Hi</p><img src="${F.PNG}">`), 'widget')
-    expect(r.lossy).toEqual(['Pictures are not kept.', 'Text alignment is not kept.'])
+    // Page and markdown work widgets draw images, so the picture travels.
+    expect(r.lossy).toEqual(['Text alignment is not kept.'])
+    const content = JSON.parse((r.body as WidgetSnippetBody).content) as { content: Array<{ type: string; attrs?: { src?: string } }> }
+    expect(content.content.find((n) => n.type === 'image')?.attrs?.src).toBe(F.PNG)
   })
 
   it('sheet: a markdown widget with a GFM table of the values', () => {
