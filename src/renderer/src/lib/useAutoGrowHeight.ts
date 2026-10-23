@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from 'react'
 import { useWidgetStore } from '../stores/widgets'
 import type { Widget, WidgetKind } from '@shared/types'
 import { GROW_MAX_HEIGHT } from './useGrowToFit'
+import { GROW_CEILING } from '@shared/widgetSizing'
 
 // Auto-grow: a free widget's height follows its content. The widget gives a ref
 // to the element whose natural (unconstrained) height is the content height; the
@@ -49,6 +50,24 @@ export function autoGrowMax(kind: WidgetKind): number {
 // don't ping-pong.
 const THRESHOLD = 6
 
+/**
+ * What height the frame should give a widget, or null to leave it alone.
+ *
+ * Content drives the height up to the kind's cap (`max`). A height ABOVE the cap
+ * was set by the person (auto-grow never puts a widget there): it is theirs, so
+ * it is kept, whatever the content measures, up to GROW_CEILING (the owner's
+ * "resize everything to any size" ruling). Without this, typing in a sticky the
+ * person had grown to 1200 snapped it back to 640.
+ */
+export function autoGrowTarget(cur: number, natural: number, client: number, min: number, max: number): number | null {
+  if (natural <= 0 || client <= 0) return null
+  if (cur > max) return cur > GROW_CEILING.h ? GROW_CEILING.h : null
+  // Everything in the widget that ISN'T the measured box: header, borders.
+  const overhead = Math.max(0, cur - client)
+  const target = Math.max(min, Math.min(max, Math.round(natural + overhead)))
+  return Math.abs(target - cur) >= THRESHOLD ? target : null
+}
+
 export function useAutoGrowHeight(
   widget: Widget,
   // The element whose content height drives the widget. Usually the body; the
@@ -76,15 +95,9 @@ export function useAutoGrowHeight(
     const apply = (): void => {
       const cur = useWidgetStore.getState().widgets.find((w) => w.id === widgetId)?.height
       if (cur == null) return
-      const natural = el.scrollHeight // content height incl. any overflow
-      const client = el.clientHeight // current rendered height of the measured box
-      if (natural <= 0 || client <= 0) return
-      // Everything in the widget that ISN'T this measured box: header, borders.
-      const overhead = Math.max(0, cur - client)
-      const target = Math.max(min, Math.min(max, Math.round(natural + overhead)))
-      if (Math.abs(target - cur) >= THRESHOLD) {
-        void update(widgetId, { height: target })
-      }
+      // scrollHeight: content height incl. any overflow; clientHeight: the box as rendered.
+      const target = autoGrowTarget(cur, el.scrollHeight, el.clientHeight, min, max)
+      if (target != null) void update(widgetId, { height: target })
     }
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf)

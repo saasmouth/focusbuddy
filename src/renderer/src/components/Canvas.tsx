@@ -3001,7 +3001,10 @@ export default function Canvas(): JSX.Element {
               what changed since last visit and related desks needing attention.
               Renders nothing when the desk is calm. */}
           {activeTask && (
-            <div className="absolute top-16 left-4 z-[45]">
+            // Clear of the floating side menu, like the breadcrumb above it: the
+            // canvas runs under the menu, so a plain left-4 put the strip's
+            // related-desk chips beneath the menu, where no click could reach them.
+            <div className="absolute top-16 left-[calc(var(--fb-dock-inset,0px)+1rem)] z-[45]">
               <ContextHealthStrip deskId={activeTask.id} variant="chrome" />
             </div>
           )}

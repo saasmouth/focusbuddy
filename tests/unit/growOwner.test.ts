@@ -51,3 +51,33 @@ describe('the frame grows each kind to its own ceiling', () => {
     expect(autoGrowMax('task-link' as never)).toBe(900)
   })
 })
+
+describe('a height the person set is theirs (autoGrowTarget)', () => {
+  // sticky: min 120, cap 640. cur = stored height; natural/client = the body's
+  // scrollHeight / clientHeight; overhead (header) = cur - client.
+  it('content grows the widget, but only up to the cap', async () => {
+    const { autoGrowTarget } = await import('../../src/renderer/src/lib/useAutoGrowHeight')
+    expect(autoGrowTarget(160, 400, 130, 120, 640)).toBe(430) // 400 content + 30 header
+    expect(autoGrowTarget(160, 2000, 130, 120, 640)).toBe(640) // a runaway paste stops at the cap
+  })
+
+  it('a widget the person grew past the cap keeps its height, whatever the content', async () => {
+    const { autoGrowTarget } = await import('../../src/renderer/src/lib/useAutoGrowHeight')
+    // grown to 1200 by hand; little content (no overflow) → left alone, not pulled back to 640
+    expect(autoGrowTarget(1200, 1170, 1170, 120, 640)).toBeNull()
+    // and typing more (still within the box) does not move it either
+    expect(autoGrowTarget(1200, 1170, 1170, 120, 640)).toBeNull()
+  })
+
+  it('a hand-set height is kept only up to GROW_CEILING', async () => {
+    const { autoGrowTarget } = await import('../../src/renderer/src/lib/useAutoGrowHeight')
+    const { GROW_CEILING } = await import('../../src/shared/widgetSizing')
+    expect(autoGrowTarget(GROW_CEILING.h + 500, 100, 100, 120, 640)).toBe(GROW_CEILING.h)
+    expect(autoGrowTarget(GROW_CEILING.h, 100, 100, 120, 640)).toBeNull()
+  })
+
+  it('below the cap nothing changes: no overflow, no move (a hand-set height under the cap sticks too)', async () => {
+    const { autoGrowTarget } = await import('../../src/renderer/src/lib/useAutoGrowHeight')
+    expect(autoGrowTarget(500, 470, 470, 120, 640)).toBeNull()
+  })
+})
