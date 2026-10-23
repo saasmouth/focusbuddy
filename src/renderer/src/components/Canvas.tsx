@@ -2244,6 +2244,13 @@ export default function Canvas(): JSX.Element {
   }
 
   async function handleDrop(e: React.DragEvent<HTMLDivElement>): Promise<void> {
+    // Something inside the desk already took this drop: an embedded editor
+    // (PlexiiWrite's native drop listener inserts the embed and calls
+    // preventDefault), a Drive or gallery work widget, or a Workcentre tile.
+    // The desk must not handle the same drop a second time: before this guard
+    // one drag into a Write document on a desk ALSO placed a linked work widget
+    // on the desk. Proven by tests/e2e/embeddedDropOnce.spec.ts.
+    if (e.defaultPrevented) return
     // OS file drop (drag from Finder) — spawn one file widget per dropped file.
     // We use ingestBuffer because Electron 32+ stripped File.path; reading via
     // arrayBuffer is the supported path and works for any file size up to the

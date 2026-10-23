@@ -2085,6 +2085,16 @@ body {
   -webkit-app-region: none;
 }
 
+/* Files drag shield (lib/filesDrag). While something is being dragged out of
+   Files, a <webview> (a desk browser, a Connected app) or an iframe would take
+   the drag into its own guest process: the desk never sees the drop, and the
+   guest may navigate to the dropped item. Pointer-transparent for the drag
+   only; cleared on dragend, on drop, and on the first pointer move after. */
+html[data-fb-files-drag] webview,
+html[data-fb-files-drag] iframe {
+  pointer-events: none !important;
+}
+
 .react-resizable-handle {
   z-index: 10;
 }

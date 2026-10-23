@@ -24,6 +24,7 @@ import { VIEW_CAPABILITY, useViewKindEnabled } from '../../lib/viewCapability'
 import CapabilityGate from '../CapabilityGate'
 import WidgetFileView from '../views/WidgetFileView'
 import DocumentEditorView from '../views/DocumentEditorView'
+import { FilesDockSlot } from '../files/FilesDock'
 import MailView from '../views/MailView'
 import InboxView from '../views/InboxView'
 import CalendarView from '../views/CalendarView'
@@ -472,6 +473,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
         ) : (
           <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
+        <FilesDockSlot belowPill={menuMinimized} />
         <div className="flex-1 min-w-0">
           {/* A widget file can surface in the office lists (it is a document
               row), and it opens as its widget, never in a text editor. */}
@@ -508,6 +510,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
         ) : (
           <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
         )}
+        <FilesDockSlot belowPill={menuMinimized} />
         <PageEnter id={`office-comms-${comms.key}`} className="flex-1 min-w-0 overflow-auto" testid={`office-comms-${comms.key}`}>{content}</PageEnter>
       </div>
     )
@@ -520,6 +523,7 @@ export default function PlexiOfficeShell({ initialApp }: { initialApp?: string }
       ) : (
         <OfficeSidebar onExit={goHome} onMinimize={minimizeMenu} />
       )}
+      <FilesDockSlot belowPill={menuMinimized} />
 
       <PageEnter id={`office-page-${page}`} className="flex-1 min-w-0 overflow-auto">
         <div className="w-full px-8 py-6">

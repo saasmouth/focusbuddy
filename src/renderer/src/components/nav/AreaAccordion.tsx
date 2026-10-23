@@ -41,8 +41,9 @@ import { DRAG_MIME, catalogFor } from '../../lib/widgetCatalog'
 import { tileWidgetKind } from '../../lib/widgetMenu'
 import { addKindToOpenDesk } from '../../lib/addWidget'
 import { useFileManagerStore } from '../../stores/fileManager'
+import { useFilesPanelStore } from '../../stores/filesPanel'
 import { useNodeStore } from '../../stores/nodes'
-import CanvasContextMenu from '../CanvasContextMenu'
+import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import WidgetsSection from './WidgetsSection'
 import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
 
@@ -290,28 +291,36 @@ function AppTileMenu({ app, children }: { app: SegmentAppMeta; children: React.R
   const activeDesk = useNodeStore((s) => s.activeTaskId)
   const kind = tileWidgetKind(app)
   const deskOpen = view.kind === 'task' && !!(activeDesk ?? view.taskId)
+  // Files always has a menu: where to open it (beside the menu, floating, or
+  // full screen), plus "Add Drive to this desk" when a desk is open.
+  const isFiles = app.key === 'files'
+  const items: CtxMenuItem[] = []
+  if (isFiles) {
+    items.push(
+      { label: 'Open beside', icon: 'dock_to_right', testid: 'files-open-beside', onClick: () => useFilesPanelStore.getState().openBeside() },
+      { label: 'Open floating', icon: 'picture_in_picture_alt', testid: 'files-open-floating', onClick: () => useFilesPanelStore.getState().openFloating() },
+      { label: 'Open full screen', icon: 'open_in_full', testid: 'files-open-fullscreen', onClick: () => useViewStore.getState().goOffice('files') }
+    )
+  }
+  if (kind && deskOpen) {
+    if (items.length) items.push({ separator: true })
+    items.push({
+      label: `Add ${catalogFor(kind)?.label ?? app.label} to this desk`,
+      icon: 'add_to_queue',
+      onClick: () => void addKindToOpenDesk(kind)
+    })
+  }
   return (
     <div
       onContextMenu={(e) => {
-        if (!kind || !deskOpen) return
+        if (!items.length) return
         e.preventDefault()
         setMenu({ x: e.clientX, y: e.clientY })
       }}
     >
       {children}
-      {menu && kind && (
-        <CanvasContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            {
-              label: `Add ${catalogFor(kind)?.label ?? app.label} to this desk`,
-              icon: 'add_to_queue',
-              onClick: () => void addKindToOpenDesk(kind)
-            }
-          ]}
-        />
+      {menu && items.length > 0 && (
+        <CanvasContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={items} />
       )}
     </div>
   )
@@ -393,6 +402,7 @@ export default function AreaAccordion({
   const goPlexiPeople = useViewStore((s) => s.goPlexiPeople)
   const goPlexiBrain = useViewStore((s) => s.goPlexiBrain)
   const goConnectedApp = useViewStore((s) => s.goConnectedApp)
+  const filesPanelOpen = useFilesPanelStore((s) => s.open && s.mode === 'beside')
 
   const enabled = useViewKindEnabled()
   // Subscribe to the capability MAPS so the menu reacts when entitlements
@@ -571,8 +581,11 @@ export default function AreaAccordion({
             <AppTileMenu key={a.key} app={a}>
             <Tile
               label={a.label}
-              active={isActive('office', a.key)}
-              onClick={() => goOffice(a.key)}
+              active={a.key === 'files' ? isActive('office', a.key) || filesPanelOpen : isActive('office', a.key)}
+              // Files flies out beside this menu (owner, Q1), so you can drag
+              // from it onto the desk, a document or a work widget. Full screen
+              // is on its right-click menu and in the panel's own header.
+              onClick={() => (a.key === 'files' ? useFilesPanelStore.getState().toggleBeside() : goOffice(a.key))}
               testid={`office-comms-app-${a.key}`}
               onDragStart={tileDrag(a.key)}
             >

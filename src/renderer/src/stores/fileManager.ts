@@ -49,23 +49,53 @@ interface UndoItem {
   redo: () => Promise<void>
 }
 
-interface FileManagerStore {
+/**
+ * Which Files surface a piece of browsing state belongs to. The full-screen
+ * Files view is 'main'; the panel beside your work (the flyout, its pinned dock
+ * and the floating panel) is 'panel'. Each has its OWN folder, listing,
+ * selection, search and type filter, so opening Files full screen, clicking a
+ * Drive work widget or the Work widgets heading never yanks the panel to
+ * another folder. File OPERATIONS (move, rename, create, delete) are shared,
+ * with one undo stack.
+ */
+export type FileBrowserKey = 'main' | 'panel'
+
+/** Per-instance browsing state and its actions (see FileBrowserKey). */
+export interface FileBrowseState {
   cwd: string | null
   crumbs: Array<{ id: string; name: string }>
   entries: FileEntry[]
   loading: boolean
+  /** The focused (last clicked) entry; the anchor for ⇧-click ranges. */
   selectedId: string | null
+  /** Every selected entry (⌘-click and ⇧-click build it). Always contains selectedId when set. */
+  selectedIds: string[]
   viewMode: FileViewMode
   sortKey: FileSortKey
   sortDir: SortDir
   typeFilter: FileTypeFilter
-  past: UndoItem[]
-  future: UndoItem[]
   // Drive-wide search: when `search` is non-empty the view shows searchResults
   // (matches across every folder) instead of the current folder's entries.
   search: string
   searchResults: FileEntry[]
   searching: boolean
+  /** True once this instance has listed a folder (the panel starts idle until it is opened). */
+  started: boolean
+  refresh: () => Promise<void>
+  runSearch: (q: string) => Promise<void>
+  clearSearch: () => void
+  openFolder: (id: string | null) => Promise<void>
+  select: (id: string | null) => void
+  /** Replace the selection; `focus` becomes selectedId (defaults to the last id). */
+  setSelection: (ids: string[], focus?: string | null) => void
+  setViewMode: (m: FileViewMode) => void
+  setSort: (key: FileSortKey) => void
+  setTypeFilter: (f: FileTypeFilter) => void
+}
+
+interface FileManagerStore extends FileBrowseState {
+  past: UndoItem[]
+  future: UndoItem[]
   // Trash: the roots of trashed subtrees, loaded on demand for the Trash view.
   trashed: FileEntry[]
   // Facets: the tag vocabulary, and the active tag view (every file carrying it,
@@ -82,9 +112,6 @@ interface FileManagerStore {
   // auto-file these proactively.
   untagged: FileEntry[]
 
-  refresh: () => Promise<void>
-  runSearch: (q: string) => Promise<void>
-  clearSearch: () => void
   loadTrash: () => Promise<void>
   restoreFromTrash: (id: string) => Promise<void>
   purge: (id: string) => Promise<void>
@@ -99,24 +126,28 @@ interface FileManagerStore {
   deleteSmart: (id: string) => Promise<void>
   openSmart: (sf: { id: string; name: string; tags: string[]; search: string }) => Promise<void>
   clearSmart: () => void
-  openFolder: (id: string | null) => Promise<void>
-  select: (id: string | null) => void
-  setViewMode: (m: FileViewMode) => void
-  setSort: (key: FileSortKey) => void
-  setTypeFilter: (f: FileTypeFilter) => void
-
-  createFolder: (name: string) => Promise<void>
+  /** Create a folder in `parentId` (default: the full view's current folder). Resolves to the new folder. */
+  createFolder: (name: string, parentId?: string | null) => Promise<FileEntry | void>
   rename: (id: string, name: string) => Promise<void>
   move: (id: string, newParentId: string | null) => Promise<void>
+  /**
+   * Move several entries into one folder as ONE undo step. Entries already in
+   * the target, the target itself, and folders that would land inside
+   * themselves are skipped. Resolves to how many moved.
+   */
+  moveMany: (ids: string[], newParentId: string | null) => Promise<number>
   // Share a file/folder (and its contents) with an org, optionally scoped to a
   // single team/group — re-scopes the subtree so it syncs (bytes and all) to the
   // org, or just that group's members.
   moveToOrg: (id: string, orgId: string, teamId?: string | null) => Promise<void>
   remove: (id: string) => Promise<void>
-  importFiles: () => Promise<void>
+  importFiles: (parentId?: string | null) => Promise<void>
   // Import a whole local folder (recursively) into the Drive + brain.
-  importFolder: () => Promise<{ files: number; folders: number; skipped: number } | null>
-  ingestBuffers: (files: Array<{ buffer: ArrayBuffer; originalName: string; mimeType: string }>) => Promise<void>
+  importFolder: (parentId?: string | null) => Promise<{ files: number; folders: number; skipped: number } | null>
+  ingestBuffers: (
+    files: Array<{ buffer: ArrayBuffer; originalName: string; mimeType: string }>,
+    parentId?: string | null
+  ) => Promise<void>
   fileExistingDocument: (docId: string) => Promise<void>
   undo: () => Promise<void>
   redo: () => Promise<void>
@@ -124,21 +155,125 @@ interface FileManagerStore {
 
 const prefs = readPrefs()
 
-export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
-  cwd: null,
-  crumbs: [],
-  entries: [],
-  loading: false,
-  selectedId: null,
-  viewMode: prefs.viewMode,
-  sortKey: prefs.sortKey,
-  sortDir: prefs.sortDir,
-  typeFilter: 'all',
+/**
+ * The browsing half of a Files surface. Built twice: once inside the main
+ * store (the full view, which also persists its view mode and sort) and once
+ * as the panel's own store.
+ */
+function browseSlice(
+  set: (partial: Partial<FileBrowseState>) => void,
+  get: () => FileBrowseState,
+  opts: { persist: boolean; initial: { viewMode: FileViewMode; sortKey: FileSortKey; sortDir: SortDir } }
+): FileBrowseState {
+  const save = (): void => {
+    if (!opts.persist) return
+    const st = get()
+    persistPrefs({ viewMode: st.viewMode, sortKey: st.sortKey, sortDir: st.sortDir })
+  }
+  return {
+    cwd: null,
+    crumbs: [],
+    entries: [],
+    loading: false,
+    selectedId: null,
+    selectedIds: [],
+    viewMode: opts.initial.viewMode,
+    sortKey: opts.initial.sortKey,
+    sortDir: opts.initial.sortDir,
+    typeFilter: 'all',
+    search: '',
+    searchResults: [],
+    searching: false,
+    started: false,
+
+    refresh: async () => {
+      const cwd = get().cwd
+      set({ loading: true })
+      const [entries, crumbs] = await Promise.all([
+        window.api.fileManager.list(cwd),
+        window.api.fileManager.path(cwd)
+      ])
+      // A folder opened while this listing was in flight wins.
+      if (get().cwd !== cwd) return
+      // Keep only selections that still exist here (a moved row leaves the listing).
+      const present = new Set(entries.map((e) => e.id))
+      const keep = get().search ? get().selectedIds : get().selectedIds.filter((id) => present.has(id))
+      const focus = get().selectedId && keep.includes(get().selectedId as string) ? get().selectedId : (keep[keep.length - 1] ?? null)
+      set({ entries, crumbs, loading: false, started: true, selectedIds: keep, selectedId: focus })
+    },
+
+    runSearch: async (q) => {
+      set({ search: q })
+      const query = q.trim()
+      if (!query) {
+        set({ searchResults: [], searching: false })
+        return
+      }
+      set({ searching: true })
+      const results = await window.api.fileManager.search(query)
+      // Ignore a stale response if the query moved on while this one was in flight.
+      if (get().search.trim() === query) set({ searchResults: results, searching: false })
+    },
+    clearSearch: () => set({ search: '', searchResults: [], searching: false }),
+
+    openFolder: async (id) => {
+      set({ cwd: id, selectedId: null, selectedIds: [] })
+      await get().refresh()
+    },
+
+    select: (id) => set({ selectedId: id, selectedIds: id ? [id] : [] }),
+    setSelection: (ids, focus) => {
+      const uniq = Array.from(new Set(ids))
+      const f = focus === undefined ? (uniq[uniq.length - 1] ?? null) : focus
+      set({ selectedIds: uniq, selectedId: f })
+    },
+
+    setViewMode: (m) => {
+      set({ viewMode: m })
+      save()
+    },
+    setTypeFilter: (f) => set({ typeFilter: f }),
+    setSort: (key) => {
+      const { sortKey, sortDir } = get()
+      const nextDir: SortDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc'
+      set({ sortKey: key, sortDir: nextDir })
+      save()
+    }
+  }
+}
+
+/**
+ * The panel's browsing state (the flyout, its pinned dock and the floating
+ * panel share it, so switching between them keeps the folder and selection).
+ */
+export const useFilesPanelBrowser = create<FileBrowseState>((set, get) =>
+  browseSlice(set, get, {
+    persist: false,
+    initial: { viewMode: 'list', sortKey: 'name', sortDir: 'asc' }
+  })
+)
+
+/** Where an entry sits now, from whatever listing has it, else from the DB. */
+async function parentOf(id: string, fallback: string | null): Promise<string | null> {
+  for (const st of [useFileManagerStore.getState(), useFilesPanelBrowser.getState()]) {
+    const hit = st.entries.find((e) => e.id === id) ?? st.searchResults.find((e) => e.id === id)
+    if (hit) return hit.parentId ?? null
+  }
+  try {
+    const meta = await window.api.fileManager.get(id)
+    if (meta) return meta.parentId ?? null
+  } catch {
+    /* unknown: fall back */
+  }
+  return fallback
+}
+
+export const useFileManagerStore = create<FileManagerStore>((set, get) => {
+  const mainSlice = browseSlice(set, get, { persist: true, initial: prefs })
+  return {
+  ...mainSlice,
   past: [],
   future: [],
-  search: '',
-  searchResults: [],
-  searching: false,
   trashed: [],
   tags: [],
   activeTag: null,
@@ -148,29 +283,13 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
   smartEntries: [],
   untagged: [],
 
+  // Callers outside Files (sync, org switch, workspace import) call refresh()
+  // after something changed underneath: every surface that is showing a
+  // listing re-reads it, the panel included.
   refresh: async () => {
-    const cwd = get().cwd
-    set({ loading: true })
-    const [entries, crumbs] = await Promise.all([
-      window.api.fileManager.list(cwd),
-      window.api.fileManager.path(cwd)
-    ])
-    set({ entries, crumbs, loading: false })
+    const panel = useFilesPanelBrowser.getState()
+    await Promise.all([mainSlice.refresh(), panel.started ? panel.refresh() : Promise.resolve()])
   },
-
-  runSearch: async (q) => {
-    set({ search: q })
-    const query = q.trim()
-    if (!query) {
-      set({ searchResults: [], searching: false })
-      return
-    }
-    set({ searching: true })
-    const results = await window.api.fileManager.search(query)
-    // Ignore a stale response if the query moved on while this one was in flight.
-    if (get().search.trim() === query) set({ searchResults: results, searching: false })
-  },
-  clearSearch: () => set({ search: '', searchResults: [], searching: false }),
 
   loadTrash: async () => {
     const trashed = await window.api.fileManager.listTrashed()
@@ -233,28 +352,8 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
   },
   clearSmart: () => set({ activeSmart: null, smartEntries: [] }),
 
-  openFolder: async (id) => {
-    set({ cwd: id, selectedId: null })
-    await get().refresh()
-  },
-
-  select: (id) => set({ selectedId: id }),
-
-  setViewMode: (m) => {
-    set({ viewMode: m })
-    persistPrefs({ viewMode: m, sortKey: get().sortKey, sortDir: get().sortDir })
-  },
-
-  setTypeFilter: (f) => set({ typeFilter: f }),
-  setSort: (key) => {
-    const { sortKey, sortDir } = get()
-    const nextDir: SortDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc'
-    set({ sortKey: key, sortDir: nextDir })
-    persistPrefs({ viewMode: get().viewMode, sortKey: key, sortDir: nextDir })
-  },
-
-  createFolder: async (name) => {
-    const folder = await window.api.fileManager.createFolder(get().cwd, name)
+  createFolder: async (name, parentId) => {
+    const folder = await window.api.fileManager.createFolder(parentId === undefined ? get().cwd : parentId, name)
     // WS01 sync substrate (flagged): materialise the folder on other devices.
     crdtEmitFileCreate(folder)
     record(set, get, {
@@ -269,9 +368,14 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
       }
     })
     await get().refresh()
+    return folder
   },
   rename: async (id, name) => {
-    const before = get().entries.find((e) => e.id === id)?.name ?? ''
+    const before =
+      get().entries.find((e) => e.id === id)?.name ??
+      useFilesPanelBrowser.getState().entries.find((e) => e.id === id)?.name ??
+      (await window.api.fileManager.get(id).catch(() => null))?.name ??
+      ''
     await window.api.fileManager.rename(id, name)
     // WS01 sync substrate (flagged): a rename is a 'name' LWW register. No-op off.
     crdtEmitFileName(id, name)
@@ -287,7 +391,7 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
     await get().refresh()
   },
   move: async (id, newParentId) => {
-    const before = get().entries.find((e) => e.id === id)?.parentId ?? get().cwd
+    const before = await parentOf(id, get().cwd)
     const ok = await window.api.fileManager.move(id, newParentId)
     if (!ok) return
     // WS01 sync substrate (flagged): a move is a 'parent' LWW register. No-op off.
@@ -302,6 +406,32 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
       }
     })
     await get().refresh()
+  },
+  moveMany: async (ids, newParentId) => {
+    const moved: Array<{ id: string; before: string | null }> = []
+    for (const id of Array.from(new Set(ids))) {
+      if (id === newParentId) continue
+      const before = await parentOf(id, get().cwd)
+      if (before === newParentId) continue
+      // The DB refuses a folder into its own descendant; that one is skipped.
+      const ok = await window.api.fileManager.move(id, newParentId)
+      if (!ok) continue
+      crdtEmitFileParent(id, newParentId)
+      moved.push({ id, before })
+    }
+    if (moved.length) {
+      record(set, get, {
+        label: moved.length === 1 ? 'Move' : `Move ${moved.length} items`,
+        undo: async () => {
+          for (const m of [...moved].reverse()) await window.api.fileManager.move(m.id, m.before)
+        },
+        redo: async () => {
+          for (const m of moved) await window.api.fileManager.move(m.id, newParentId)
+        }
+      })
+    }
+    await get().refresh()
+    return moved.length
   },
   moveToOrg: async (id, orgId, teamId) => {
     const moved = await window.api.fileManager.moveToOrg(id, orgId, teamId)
@@ -331,8 +461,8 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
     }
     await get().refresh()
   },
-  importFiles: async () => {
-    const added = await window.api.fileManager.pickFiles(get().cwd)
+  importFiles: async (parentId) => {
+    const added = await window.api.fileManager.pickFiles(parentId === undefined ? get().cwd : parentId)
     const ids = added.map((f) => f.id)
     if (ids.length) {
       record(set, get, {
@@ -347,8 +477,8 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
     }
     await get().refresh()
   },
-  importFolder: async () => {
-    const res = await window.api.fileManager.importFolder(get().cwd)
+  importFolder: async (parentId) => {
+    const res = await window.api.fileManager.importFolder(parentId === undefined ? get().cwd : parentId)
     if (!res?.ok) return null
     await get().refresh()
     // Fold the freshly-imported files into the brain so they're searchable/graphed
@@ -356,8 +486,8 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
     void window.api.brain.ingestWorkspace().catch(() => {})
     return { files: res.files ?? 0, folders: res.folders ?? 0, skipped: res.skipped ?? 0 }
   },
-  ingestBuffers: async (files) => {
-    const cwd = get().cwd
+  ingestBuffers: async (files, parentId) => {
+    const cwd = parentId === undefined ? get().cwd : parentId
     const ids: string[] = []
     for (const f of files) {
       const created = await window.api.files.ingestBuffer({ ...f, parentId: cwd })
@@ -396,7 +526,8 @@ export const useFileManagerStore = create<FileManagerStore>((set, get) => ({
     await item.redo()
     await get().refresh()
   }
-}))
+  }
+})
 
 // Push a reversible action onto the undo stack, clearing the redo branch.
 function record(

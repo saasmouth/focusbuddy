@@ -1,3 +1,4 @@
+import { FilesDockSlot } from '../files/FilesDock'
 import { useCallback } from 'react'
 import { useViewStore } from '../../stores/view'
 import type { SegmentKind } from '../../lib/segmentApps'
@@ -122,6 +123,8 @@ export default function SegmentShell({ def, initialApp }: { def: SegmentDef; ini
       </aside>
       </div>
       )}
+      {/* Files beside your work docks here (components/files/FilesDock). */}
+      <FilesDockSlot belowPill={minimized} />
 
       {/* Content: an app view inline, or the segment home of app tiles.
           Inner app switches unravel in like every page (PageEnter), except

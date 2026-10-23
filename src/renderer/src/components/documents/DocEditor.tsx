@@ -385,7 +385,9 @@ export default function DocEditor({
         return true
       },
       handleKeyDown(_view, event) {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+        // Not with Option/Alt: ⌥⌘F (Ctrl+Alt+F) opens Files beside, and on Windows
+        // Ctrl+Alt+F must not also open Find.
+        if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'f') {
           event.preventDefault()
           setFindOpen(true)
           return true

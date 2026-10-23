@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useNodeStore } from '../stores/nodes'
 import { useRelatedDesksStore } from '../stores/relatedDesks'
 import { useViewStore } from '../stores/view'
+import { useFilesPanelStore } from '../stores/filesPanel'
 import { useWidgetStore } from '../stores/widgets'
 import type { WidgetKind, SearchHit } from '@shared/types'
 import { WIDGET_CATALOG, isAdvancedKind } from '../lib/widgetCatalog'
@@ -502,6 +503,28 @@ export default function CommandCenter({
         run: () => {
           setActive(null)
           t.go()
+          closePalette()
+        }
+      })
+    }
+    // Files beside your work: the palette door to the same panel as the side
+    // menu's Files, the header toggle and ⌥⌘F. Never leaves the current view.
+    const fp = useFilesPanelStore.getState()
+    const filesCmds: Array<{ id: string; label: string; hint: string; icon: string; words: string; run: () => void }> = [
+      { id: 'files-panel-open-beside', label: 'Files: Open beside', hint: 'Beside the menu, to drag from', icon: 'dock_to_right', words: 'files open beside panel side flyout drag', run: () => fp.openBeside() },
+      { id: 'files-panel-open-floating', label: 'Files: Open floating', hint: 'A floating Files panel', icon: 'picture_in_picture_alt', words: 'files open floating float panel window', run: () => fp.openFloating() }
+    ]
+    if (fp.open) filesCmds.push({ id: 'files-panel-close', label: 'Files: Close panel', hint: 'Close Files beside your work', icon: 'close', words: 'files close panel hide', run: () => fp.close() })
+    for (const c of filesCmds) {
+      items.push({
+        id: c.id,
+        label: c.label,
+        hint: c.hint,
+        icon: c.icon,
+        kind: 'action',
+        score: q === '' ? 20 : matchScore(`${c.label.toLowerCase()} ${c.words}`, q),
+        run: () => {
+          c.run()
           closePalette()
         }
       })

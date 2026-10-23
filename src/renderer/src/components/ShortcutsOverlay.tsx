@@ -23,6 +23,7 @@ const GLOBAL_ROWS: Row[] = [
   { keys: '⌘⇧K', label: 'Ask AI: describe what to build or change, approve its proposals' },
   { keys: '⌘Z / ⌘⇧Z', label: 'Undo / redo structural actions (create, delete, move, rename). Text fields and the doc, sheet and slides editors keep their own per-character undo.' },
   { keys: '⌘← / ⌘→', label: 'Back / forward through your navigation history (also the titlebar arrows and mouse back/forward buttons)' },
+  { keys: '⌥⌘F', label: 'Files beside your work: open or close it next to the side menu (Ctrl+Alt+F on Windows). Drag from it onto a desk, the Workcentre or a folder; ⌘⏎ adds the selection to the open desk.' },
   { keys: '⌘/', label: 'This panel' },
   { keys: 'Esc', label: 'Close dialogs and menus; on the canvas, deselect' }
 ]

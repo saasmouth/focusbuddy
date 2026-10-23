@@ -57,11 +57,19 @@ export default function GalleryWidget({ widget }: { widget: Widget }): JSX.Eleme
 
   const body = (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDropping(true) }}
+      // Finder pictures only. Anything else (a Files drag, a palette kind)
+      // falls through to the desk; the desk no longer handles a drop twice, so
+      // a gallery that claimed every drop would swallow them.
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
+        e.preventDefault()
+        setDropping(true)
+      }}
       onDragLeave={() => setDropping(false)}
       onDrop={(e) => {
-        e.preventDefault()
         setDropping(false)
+        if (!e.dataTransfer.files?.length) return
+        e.preventDefault()
         void add(Array.from(e.dataTransfer.files ?? []))
       }}
       className={`h-full w-full overflow-auto ${dropping ? 'ring-2 ring-accent ring-inset bg-accent/5' : 'bg-[var(--surface-sunken)]'}`}

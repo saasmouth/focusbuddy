@@ -16,6 +16,8 @@ export interface CtxMenuItem {
   disabled?: boolean
   onClick?: () => void
   children?: CtxMenuItem[]
+  /** A data-testid for the item's button. */
+  testid?: string
 }
 
 interface Props {
@@ -284,6 +286,7 @@ function MenuPanel({
           >
             <button
               role="menuitem"
+              data-testid={item.testid}
               aria-haspopup={hasChildren || undefined}
               aria-expanded={hasChildren ? openIndex === i : undefined}
               aria-disabled={item.disabled || undefined}
