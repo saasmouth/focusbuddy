@@ -48,6 +48,9 @@ import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { joinGroups, objectMenu } from '../../lib/menus/officeContextMenu'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
+import { sheetPrintModel } from '../../lib/sheetPrintModel'
+import { paperForLocale } from '@shared/sheetPrint'
 import SheetTabStrip from './sheet/SheetTabStrip'
 import SheetChart from './sheet/SheetChart'
 import SheetPivot from './sheet/SheetPivot'
@@ -1588,6 +1591,15 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     return true
   }
   useCellsSnippetTarget(snippetScope, title, insertSnippetHere)
+  // Print… and Download ▸ PDF (DocumentOps.print / exportPdf) both print the
+  // active tab as the grid shows it, paged over-then-down on the locale's paper
+  // (lib/sheetPrintModel.ts, shared/sheetPrint.ts).
+  usePrintSource(documentOps, () => ({
+    app: 'cells',
+    title: title || 'spreadsheet',
+    sheet: sheetPrintModel(body),
+    paper: paperForLocale(navigator.language)
+  }))
 
   // The sheet's operations, built once. SheetMenuBar takes them as its
   // `actions`, and the ribbon reads the same object through CellsChrome —

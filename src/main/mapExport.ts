@@ -11,6 +11,7 @@ import { mapToSvg } from '@shared/mapExport'
 import { getShape } from '@shared/diagram/shapes'
 import type { MapBody } from '@shared/types'
 import { pdfPageSize } from './pdfPageSize'
+import { renderToPdf, withRenderWindow, type PrintRender } from './printRender'
 
 export interface MapExportResult {
   ok: boolean
@@ -75,15 +76,13 @@ export async function exportMap(input: {
   })
   if (res.canceled || !res.filePath) return { ok: false }
 
-  const usesIcons = (map.nodes ?? []).some((n) => n.icon || getShape(n.shape).special === 'icon')
-  const font = usesIcons ? iconFontDataUrl() : null
-  const warning = usesIcons && !font ? 'Icons may not render in this export: the icon font was not found.' : undefined
-  const { svg, width, height } = mapToSvg(map, font ? { iconFontUrl: font } : {})
+  const render = mapPrintRender(map)
+  const warning = render.warning
 
   // Vector export is a direct write — no rasterisation, perfect fidelity.
   if (format === 'svg') {
     try {
-      await writeFile(res.filePath, svg, 'utf-8')
+      await writeFile(res.filePath, render.svg, 'utf-8')
       return { ok: true, path: res.filePath, ...(warning ? { warning } : {}) }
     } catch (e) {
       return { ok: false, error: `Could not export: ${(e as Error).message}` }
@@ -91,38 +90,48 @@ export async function exportMap(input: {
   }
 
   // Raster / PDF: paint the SVG in an offscreen window at its exact pixel size.
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:transparent}</style></head><body>${svg}</body></html>`
-  const win = new BrowserWindow({
-    show: false,
-    width: Math.min(Math.max(width, 16), 8000),
-    height: Math.min(Math.max(height, 16), 8000),
-    useContentSize: true,
-    webPreferences: { offscreen: true }
-  })
   try {
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    // Wait for embedded fonts (icons) before capturing, then a beat for paint.
-    await win.webContents.executeJavaScript('document.fonts.ready.then(() => true)', true).catch(() => true)
-    await new Promise((r) => setTimeout(r, 250))
-    if (format === 'png') {
-      const img = await win.webContents.capturePage()
-      await writeFile(res.filePath, img.toPNG())
-    } else if (format === 'jpg') {
-      const img = await win.webContents.capturePage()
-      await writeFile(res.filePath, img.toJPEG(92))
+    if (format === 'pdf') {
+      await writeFile(res.filePath, await renderToPdf(render))
     } else {
-      const pdf = await win.webContents.printToPDF({
-        printBackground: true,
-        pageSize: pdfPageSize(width, height),
-        // Electron 44 dropped `marginType`; explicit numbers are the custom case.
-        margins: { top: 0, right: 0, bottom: 0, left: 0 }
+      await withRenderWindow(render, async (win) => {
+        const img = await win.webContents.capturePage()
+        await writeFile(res.filePath!, format === 'png' ? img.toPNG() : img.toJPEG(92))
       })
-      await writeFile(res.filePath, pdf)
     }
     return { ok: true, path: res.filePath, ...(warning ? { warning } : {}) }
   } catch (e) {
     return { ok: false, error: `Could not export: ${(e as Error).message}` }
-  } finally {
-    win.destroy()
+  }
+}
+
+/**
+ * Diagrams' print-ready render: the page's SVG at its exact pixel size, the
+ * paper sized to it (fit to page). Download ▸ PDF printToPDF()s it; Print…
+ * print()s it (printRender.ts). `svg` is the vector form the SVG export writes.
+ */
+export function mapPrintRender(map: MapBody): PrintRender & { svg: string } {
+  const usesIcons = (map.nodes ?? []).some((n) => n.icon || getShape(n.shape).special === 'icon')
+  const font = usesIcons ? iconFontDataUrl() : null
+  const warning = usesIcons && !font ? 'Icons may not render in this export: the icon font was not found.' : undefined
+  const { svg, width, height } = mapToSvg(map, font ? { iconFontUrl: font } : {})
+  // The page size as CSS too: print() takes the page from @page (printRender.ts).
+  // svg{display:block}: an inline <svg> sits on the text baseline, so the body
+  // was a few px taller than the page and every Diagrams PDF (and print) ran
+  // onto a blank second page. A block svg is exactly the page.
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:transparent}svg{display:block}@page{size:${Math.max(width, 1)}px ${Math.max(height, 1)}px;margin:0}</style></head><body>${svg}</body></html>`
+  return {
+    svg,
+    html,
+    window: { width, height },
+    // Wait for embedded fonts (icons) before capturing, then a beat for paint.
+    settle: { fonts: true, ms: 250 },
+    pdf: {
+      printBackground: true,
+      pageSize: pdfPageSize(width, height),
+      // Electron 44 dropped `marginType`; explicit numbers are the custom case.
+      margins: { top: 0, right: 0, bottom: 0, left: 0 }
+    },
+    ...(warning ? { warning } : {})
   }
 }

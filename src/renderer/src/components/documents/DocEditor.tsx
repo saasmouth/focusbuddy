@@ -21,6 +21,7 @@ import {
 } from './editor/headingStyles'
 import DocMenuBar from './editor/DocMenuBar'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
 import { commentIdAt } from './editor/CommentDecorations'
 import WriteChrome from './WriteChrome'
 import SnippetLibrary from '../snippets/SnippetLibrary'
@@ -684,6 +685,10 @@ export default function DocEditor({
       setBusyOffice(null)
     }
   }
+
+  // Print… prints what Download ▸ PDF saves: the same HTML and page setup
+  // (main renders both through writePrintRender), so the page breaks match.
+  usePrintSource(documentOps, () => (editor ? { app: 'write', title, html: editor.getHTML(), page } : null))
 
   async function exportPdf(): Promise<void> {
     if (!editor) return

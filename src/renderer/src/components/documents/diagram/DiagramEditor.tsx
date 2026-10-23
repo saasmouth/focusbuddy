@@ -31,6 +31,7 @@ import { nodeBox, nodeSize, portId, type Box } from '@shared/diagram/geom'
 import { routeAll } from '@shared/diagram/routing'
 import { snapToGrid, snapToGuides, type GuideLine } from '@shared/diagram/guides'
 import { History } from '@shared/diagram/history'
+import { usePrintSource } from '../editor/printSource'
 import { getTheme } from '@shared/diagram/style'
 import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, pageList } from '@shared/diagram/pages'
@@ -84,6 +85,16 @@ const edgeTypes = { diagram: DiagramEdge }
 // 'shape:<id>' arms a shape: click places it, drag sizes it (SPEC §3.2).
 export type Tool = 'select' | 'pan' | 'text' | `shape:${string}`
 
+/**
+ * The page a Diagrams PDF holds: the current page's shapes, connectors and
+ * layers on the document's settings, without the page list. The same body
+ * commands.ts exportAs('pdf', 'page') sends to map:export.
+ */
+export function diagramPagePrintBody(body: MapBody, pageIdx: number): MapBody {
+  const g = getPage(body, pageIdx)
+  return { ...body, nodes: g.nodes, edges: g.edges, layers: g.layers, pages: undefined }
+}
+
 export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, singlePage = false, documentOps, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
   const { zoom } = useViewport()
@@ -130,6 +141,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // so an undo step's boundary is marked when it is FLUSHED: the previous
   // step's pending body is written first, then the Y undo stack stops
   // capturing, and everything written after belongs to the new step.
+  // Print… prints what Download ▸ PDF saves: the page on screen, as exportAs
+  // ('pdf', 'page') builds it in commands.ts (main renders both through
+  // mapPrintRender, the page fitted to the paper).
+  usePrintSource(documentOps, () => ({ app: 'diagram', title: title || 'diagram', map: diagramPagePrintBody(bodyRef.current, pageIdxRef.current) }))
   const liveUndoRef = useRef(liveUndo)
   liveUndoRef.current = liveUndo
   const flushRef = useRef<() => void>(() => undefined)

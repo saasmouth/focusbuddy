@@ -3,6 +3,8 @@ import { useDocumentsStore } from '../../../stores/documents'
 import { launchMeeting, type MeetingOrigin } from '../../../lib/startMeeting'
 import { openDocHistory } from '../DocHistoryPanel'
 import { confirmDialog, promptText } from '../../plexi/PromptDialog'
+import { printSourceOf } from './printSource'
+import { useNoticeStore } from '../../../stores/notice'
 
 // The document an office editor's File menu acts on, handed to it by the HOST.
 //
@@ -50,6 +52,29 @@ export interface DocumentOps {
   startMeeting(): void
   /** Confirm, then move THIS document to the Trash (restorable, with Undo). */
   moveToTrash(): Promise<void>
+  /**
+   * Print… THIS document through the system print dialog, from the same render
+   * its Download ▸ PDF makes (main: printDocument.ts). The editor supplies what
+   * is on screen (editor/printSource.ts). Present only for the five printable
+   * apps on the desktop; absent in the browser runtime, which has no printer,
+   * and for Draw, which keeps ⌘P for itself (SPEC §9.5: absent, not disabled).
+   */
+  print?: () => Promise<void>
+  /**
+   * Download ▸ PDF for an app whose editor has no export of its own (Cells),
+   * from the same render as print(). Present on the desktop for those apps only.
+   */
+  exportPdf?: () => Promise<void>
+}
+
+/** The apps with Print… (Draw is out: it reserves ⌘P). */
+export const PRINTABLE_DOC_TYPES: ReadonlySet<DocType> = new Set<DocType>(['doc', 'sheet', 'slides', 'design', 'map'])
+
+/** True where printing exists: the desktop app (its preload serves print:document), never the browser runtime. */
+export function canPrintHere(): boolean {
+  if ((globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true) return false
+  const api = (globalThis as { window?: { api?: { print?: { document?: unknown } } } }).window?.api
+  return typeof api?.print?.document === 'function'
 }
 
 export interface DocumentOpsInput {
@@ -95,7 +120,7 @@ export function createDocumentOps(input: DocumentOpsInput): DocumentOps {
   const { id, docType } = input
   const noun = NOUN[docType] ?? 'document'
   const name = (): string => input.title().trim() || `Untitled ${noun}`
-  return {
+  const ops: DocumentOps = {
     id,
     title: () => input.title(),
     async newDocument(init) {
@@ -144,4 +169,26 @@ export function createDocumentOps(input: DocumentOpsInput): DocumentOps {
       input.onTrashed()
     }
   }
+  const notify = (text: string): void => useNoticeStore.getState().show({ text, icon: 'print' })
+  if (PRINTABLE_DOC_TYPES.has(docType) && canPrintHere()) {
+    ops.print = async () => {
+      const request = printSourceOf(ops)?.()
+      if (!request) {
+        notify(`This ${noun} is still opening. Try Print again in a moment.`)
+        return
+      }
+      const res = await window.api.print.document(request)
+      if (!res.ok && !res.cancelled && res.error) notify(res.error)
+    }
+    if (docType === 'sheet') {
+      ops.exportPdf = async () => {
+        const request = printSourceOf(ops)?.()
+        if (!request || request.app !== 'cells') return
+        const res = await window.api.print.sheetPdf({ title: request.title, sheet: request.sheet, paper: request.paper })
+        if (res.ok && res.path) notify(`Saved ${res.path}`)
+        else if (res.error) notify(res.error)
+      }
+    }
+  }
+  return ops
 }
