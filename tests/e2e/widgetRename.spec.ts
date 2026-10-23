@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { clickWidgetTool, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // Every widget can be named. Until the user types a name the header inherits one
 // from the widget's own content (the first line of a note). Double-clicking the
@@ -43,8 +43,9 @@ test('a widget inherits its name from the first line and can be manually renamed
   // Inherited from the first line of content, with no manual title set.
   await expect(label).toHaveText('Buy milk')
 
-  // Rename button → edit → commit on Enter.
-  await window.getByRole('button', { name: 'Rename work widget' }).first().click()
+  // Rename tool → edit → commit on Enter. At 220px it is folded into the
+  // header's "…" menu (lib/widgetHeaderActions); clickWidgetTool finds it.
+  await clickWidgetTool(window, ids.widgetId, 'Rename work widget')
   const input = window.locator('input[aria-label="Work widget name"]')
   await expect(input).toBeVisible()
   await input.fill('Groceries')
@@ -59,7 +60,7 @@ test('a widget inherits its name from the first line and can be manually renamed
   await expect(window.locator(`[data-testid="widget-title-${ids.widgetId}"]`)).toHaveText('Groceries')
 
   // Clearing the name falls back to the inherited first line again.
-  await window.getByRole('button', { name: 'Rename work widget' }).first().click()
+  await clickWidgetTool(window, ids.widgetId, 'Rename work widget')
   const input2 = window.locator('input[aria-label="Work widget name"]')
   await input2.fill('')
   await input2.press('Enter')

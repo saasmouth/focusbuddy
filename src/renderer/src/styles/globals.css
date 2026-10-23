@@ -3043,7 +3043,11 @@ html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
 }
 [data-widget-id]:hover .fb-widget-actions,
 [data-widget-id]:focus-within .fb-widget-actions,
-.fb-widget-actions:focus-within {
+.fb-widget-actions:focus-within,
+/* One of the row's menus ("…", pin, expand) is open. The menus are portalled,
+   so the pointer on them is no longer :hover on the widget; without this the
+   button that opened the menu would fade out from under it. */
+.fb-widget-actions[data-menu-open='true'] {
   opacity: 1;
 }
 
@@ -3052,6 +3056,21 @@ html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
   .fb-widget-actions {
     opacity: 1;
   }
+}
+
+/* The header's menus — "…" and the pin / expand pickers — are SOLID, not
+   glass. They open over the work widget's own content (a sticky's text and
+   colour dots sit right under them), where the 94% glass fill (80% in
+   atelier) lets that content read through and competes with the items.
+   --surface-raised is opaque in every theme (light, dark, atelier), so this
+   takes the theme's panel colour without restating it. Unlayered and after
+   `.atelier .fb-glass-panel`, so it wins that rule's !important at equal
+   specificity. */
+.fb-menu-solid,
+.atelier .fb-menu-solid {
+  background-color: var(--surface-raised) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 /* ── The Plexii pill ─────────────────────────────────────────────────────────

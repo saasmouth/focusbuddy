@@ -1,6 +1,6 @@
 // DEC-144: Attention is Focus, the widget's "Focus mode" is "Full view", the Desks app is "All desks".
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { clickWidgetTool, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 // PLX-UX-010 — a full-screen focused widget (WidgetFocusMode, z-50) must not
 // obscure the active desk's identity. A data-testid="focus-desk-identity"
@@ -56,9 +56,9 @@ async function openFocusModeOn(window: LaunchedApp['window'], widgetId: string):
   const widgetEl = window.locator(`[data-widget-id="${widgetId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
-  const expandBtn = widgetEl.locator('button[aria-label="Expand options"]')
-  await expect(expandBtn).toBeVisible({ timeout: 5_000 })
-  await expandBtn.click({ force: true })
+  // Expand folds into the header's "…" menu on a narrow widget
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, widgetId, 'Expand options')
   const focusModeOption = window.getByText('Full view', { exact: true })
   await expect(focusModeOption).toBeVisible({ timeout: 3_000 })
   await focusModeOption.click({ force: true })

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createHash } from 'crypto'
-import { launchApp, waitForReady, openNewDesk, gotoView, sideMenuWidget, addWidgetToDesk, type LaunchedApp } from './_helpers'
+import { clickWidgetTool, launchApp, waitForReady, openNewDesk, gotoView, sideMenuWidget, addWidgetToDesk, type LaunchedApp } from './_helpers'
 
 // Every work widget is a file; the × asks "remove from this desk, or delete the
 // work widget?" (4.3.32, docs/widget-files.md).
@@ -62,14 +62,14 @@ async function fileOnTwoDesks(window: Page): Promise<{ fileId: string; a: string
   return { ...ids, deskA, deskB }
 }
 
-/** Click a widget's header × — hover first: frame chrome is hover-revealed. */
+/**
+ * Press a widget's header × (Remove work widget). At narrow widths it is folded
+ * into the header's "…" menu (lib/widgetHeaderActions); clickWidgetTool presses
+ * it wherever it is, hovering first since the tool row is hover-revealed.
+ */
 async function clickX(window: Page, widgetId: string): Promise<void> {
-  const frame = window.locator(`[data-widget-id="${widgetId}"]`).first()
-  await expect(frame).toBeVisible({ timeout: 8_000 })
-  await frame.hover({ position: { x: 40, y: 12 } })
-  const x = frame.locator('[data-testid="widget-remove"]').first()
-  await expect(x).toBeVisible({ timeout: 5_000 })
-  await x.click()
+  await expect(window.locator(`[data-widget-id="${widgetId}"]`).first()).toBeVisible({ timeout: 8_000 })
+  await clickWidgetTool(window, widgetId, 'Remove work widget')
 }
 
 test('WRD-1 right-click Add object makes a work widget file with an instance, and it is in Files', async () => {
@@ -539,6 +539,6 @@ test('WRD-14 the link mark shows only when the file is also on another desk', as
   await expect(mark).toHaveAttribute('title', /^Also on 1 other desk/)
   // The header of the single-desk one is mounted (hovered), and carries no mark.
   await only.hover({ position: { x: 40, y: 12 } })
-  await expect(only.locator('[data-testid="widget-remove"]').first()).toBeVisible({ timeout: 5_000 })
+  await expect(only.locator('[data-widget-header]').first()).toBeVisible({ timeout: 5_000 })
   await expect(only.locator('[data-testid="widget-link-mark"]')).toHaveCount(0)
 })

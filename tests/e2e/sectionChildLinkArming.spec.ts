@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { clickWidgetTool, expectWidgetTool, launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
 // Verifies plexi-4.0 polish change 1 (section-child link-arming):
 //   WidgetFrame's hub button (aria-label "Link to another work widget") used to be
@@ -106,8 +106,7 @@ test('(a) a section child in FREE layout renders a WidgetFrame with the hub butt
   const childFrame = window.locator(`[data-widget-id="${seeded.childId}"]`)
   await expect(childFrame).toBeVisible({ timeout: 5_000 })
 
-  const hub = childFrame.getByRole('button', { name: 'Link to another work widget' })
-  await expect(hub, 'free-layout section child shows the hub button').toBeVisible({ timeout: 4_000 })
+  await expectWidgetTool(window, seeded.childId, 'Link to another work widget', 'free-layout section child offers the hub')
 })
 
 // ── (b) arm from the child, drop onto a top-level widget ───────────────────
@@ -118,10 +117,9 @@ test('(b) arming the hub on a free-layout section child and dropping on a top-le
   await waitForReady(window)
   const seeded = await seedSectionWithChild(window, 'Free layout child arm and drop', 'free')
 
-  const childFrame = window.locator(`[data-widget-id="${seeded.childId}"]`)
-  const hub = childFrame.getByRole('button', { name: 'Link to another work widget' })
-  await expect(hub).toBeVisible({ timeout: 4_000 })
-  await hub.click()
+  // At narrow widths the hub folds into the header's "…" menu
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, seeded.childId, 'Link to another work widget')
 
   const drop = await bodyPoint(window, seeded.topLevelId)
   await window.mouse.click(drop.x, drop.y)
@@ -156,13 +154,14 @@ for (const layout of ['icons', 'list'] as const) {
     const childNode = window.locator(`[data-widget-id="${seeded.childId}"]`)
     await expect(childNode, 'CompactChildView still stamps data-widget-id').toBeVisible({ timeout: 5_000 })
 
-    const topLevelFrame = window.locator(`[data-widget-id="${seeded.topLevelId}"]`)
-    const topLevelHub = topLevelFrame.getByRole('button', { name: 'Link to another work widget' })
-    await expect(topLevelHub).toBeVisible({ timeout: 4_000 })
-    await topLevelHub.click() // arms linkDrag — the exact truthy state the hub gate checks
+    // Arms linkDrag — the exact truthy state the hub gate checks. The hub may be
+    // folded into "…" on this narrow widget; clickWidgetTool finds it.
+    await clickWidgetTool(window, seeded.topLevelId, 'Link to another work widget')
 
     const childHub = childNode.getByRole('button', { name: 'Link to another work widget' })
     await expect(childHub, 'the compact child has no hub button even while linkDrag is armed').toHaveCount(0)
+    // …nor a "…" menu that could carry one.
+    await expect(childNode.locator('[data-testid^="widget-overflow-"]')).toHaveCount(0)
 
     // Clean up the arm so it doesn't leak into other assertions on this page.
     await window.keyboard.press('Escape')
@@ -174,10 +173,8 @@ for (const layout of ['icons', 'list'] as const) {
     await waitForReady(window)
     const seeded = await seedSectionWithChild(window, `${layout} layout drop regression`, layout)
 
-    const topLevelFrame = window.locator(`[data-widget-id="${seeded.topLevelId}"]`)
-    const hub = topLevelFrame.getByRole('button', { name: 'Link to another work widget' })
-    await expect(hub).toBeVisible({ timeout: 4_000 })
-    await hub.click()
+    // The hub may be folded into "…" on this narrow widget; clickWidgetTool finds it.
+    await clickWidgetTool(window, seeded.topLevelId, 'Link to another work widget')
 
     // CompactChildView stamps data-widget-id={child.id} on its own root div
     // (list row / icon tile), so the normal bodyPoint helper resolves fine.

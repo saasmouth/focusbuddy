@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { clickWidgetTool, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // WidgetFrame header +/− buttons:
 //   - "Grow widget" multiplies w/h by 1.5 (capped 1400 × 900)
@@ -81,15 +81,10 @@ async function clickResizeButton(
   widgetId: string
 ): Promise<void> {
   const { window } = launched
-  await waitForReady(window)
-  await window.evaluate(
-    ({ testid }: { testid: string }) => {
-      const btn = document.querySelector<HTMLButtonElement>(`[data-testid="${testid}"]`)
-      if (!btn) throw new Error(`No button: ${testid}`)
-      btn.click()
-    },
-    { testid: `widget-${direction}-${widgetId}` }
-  )
+  // A 320px sticky folds Grow and Shrink into the header's "…" menu
+  // (lib/widgetHeaderActions); after a grow they are back on the header.
+  // Press the tool wherever it currently is.
+  await clickWidgetTool(window, widgetId, direction === 'grow' ? 'Grow work widget' : 'Shrink work widget')
 }
 
 async function readWidget(
@@ -112,11 +107,8 @@ test('+ button grows widget by 50%, − button shrinks by inverse (1/1.5) — sy
   launched = await launchApp()
   const { widgetId, taskId, initialW, initialH } = await seedAndOpenStickyWidget(launched)
 
-  // Sanity: the test-id'd buttons are mounted in the DOM.
-  await launched.window.waitForSelector(
-    `[data-testid="widget-grow-${widgetId}"]`,
-    { timeout: 5_000 }
-  )
+  // Sanity: the work widget's header is mounted.
+  await launched.window.waitForSelector(`[data-widget-id="${widgetId}"] [data-widget-header]`, { timeout: 5_000 })
 
   // Grow once.
   await clickResizeButton(launched, 'grow', widgetId)
@@ -139,10 +131,7 @@ test('+ button grows widget by 50%, − button shrinks by inverse (1/1.5) — sy
 test('Shrink button respects minWidth/minHeight floor (180 × 120)', async () => {
   launched = await launchApp()
   const { widgetId, taskId } = await seedAndOpenStickyWidget(launched)
-  await launched.window.waitForSelector(
-    `[data-testid="widget-shrink-${widgetId}"]`,
-    { timeout: 5_000 }
-  )
+  await launched.window.waitForSelector(`[data-widget-id="${widgetId}"] [data-widget-header]`, { timeout: 5_000 })
 
   // Click shrink many times — should clamp at min.
   for (let i = 0; i < 8; i++) {
@@ -158,10 +147,7 @@ test('Shrink button respects minWidth/minHeight floor (180 × 120)', async () =>
 test('Grow button respects MAX_W/MAX_H cap (1400 × 900)', async () => {
   launched = await launchApp()
   const { widgetId, taskId } = await seedAndOpenStickyWidget(launched)
-  await launched.window.waitForSelector(
-    `[data-testid="widget-grow-${widgetId}"]`,
-    { timeout: 5_000 }
-  )
+  await launched.window.waitForSelector(`[data-widget-id="${widgetId}"] [data-widget-header]`, { timeout: 5_000 })
 
   for (let i = 0; i < 8; i++) {
     await clickResizeButton(launched, 'grow', widgetId)

@@ -3,7 +3,7 @@
 // inline variant (Tasks, Focus, Calendar, …) rendered nothing in the card.
 // Full view is opened through the real widget menu.
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, openNewDesk, type LaunchedApp } from './_helpers'
+import { clickWidgetTool, launchApp, waitForReady, openNewDesk, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -34,7 +34,9 @@ test('Full view shows the work widget itself, for kinds with and without an inli
   const el = window.locator(`[data-widget-id="${ids.tasks}"]`).first()
   await expect(el).toBeVisible({ timeout: 10_000 })
   await el.hover()
-  await el.locator('button[aria-label="Expand options"]').click({ force: true })
+  // Expand folds into the header's "…" menu on a narrow widget
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, ids.tasks, 'Expand options')
   await window.getByText('Full view', { exact: true }).click({ force: true })
 
   const card = window.locator('[data-focus-card]').first()

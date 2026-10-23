@@ -19,7 +19,7 @@
  */
 
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp, typeInComposer, waitForReady } from './_helpers'
+import { clickWidgetTool, launchApp, type LaunchedApp, typeInComposer, waitForReady } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -76,7 +76,9 @@ async function suppressFeatureSpotlights(window: Page): Promise<void> {
 async function enterFocusMode(window: Page, widgetId: string): Promise<void> {
   const widgetEl = window.locator(`[data-widget-id="${widgetId}"]`).first()
   await widgetEl.hover()
-  await widgetEl.locator('button[aria-label="Expand options"]').click({ force: true })
+  // Expand folds into the header's "…" menu on a narrow widget
+  // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
+  await clickWidgetTool(window, widgetId, 'Expand options')
   await window.getByText('Full view', { exact: true }).click({ force: true })
   await expect(window.locator('[data-testid="widget-focus-mode"]')).toBeVisible({ timeout: 5000 })
 }
