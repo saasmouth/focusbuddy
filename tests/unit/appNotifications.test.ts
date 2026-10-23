@@ -359,7 +359,9 @@ describe('every top-menu button explains itself on hover', () => {
     expect(read('renderer/src/components/nav/menuParts.tsx')).toContain('title={[note ? `${label} — ${note}` : label, hint].filter(Boolean).join')
     expect(read('renderer/src/components/nav/WidgetsSection.tsx')).toContain('hint={widgetMenuHint(entry)}')
     const section = read('renderer/src/components/nav/WidgetsSection.tsx')
-    expect(section).toContain("label: 'Add to this desk'")
+    // The label comes from the shared lexicon since the §9 menu contract
+    // (tests/unit/contextMenuContract.wp2.test.tsx asserts the rendered text).
+    expect(section).toContain('label: MENU.addToThisDesk.label')
     expect(section).toContain("label: 'Move to Other work widgets'")
   })
 })

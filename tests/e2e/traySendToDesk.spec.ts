@@ -12,12 +12,11 @@ test.setTimeout(180_000)
 let launched: LaunchedApp | null = null
 test.afterEach(async () => { if (launched) { await launched.dispose(); launched = null } })
 
+// A real right-click on the tab. The menu is the context-menu kit's now (§9),
+// so it is found as the open menu rather than by a tray-specific test id.
 async function openTrayMenu(window: Page, key: string): Promise<void> {
-  await window.evaluate((k) => {
-    const el = document.querySelector(`[data-testid="tray-item-${k}"]`) as HTMLElement | null
-    el?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-  }, key)
-  await window.waitForTimeout(400)
+  await window.locator(`[data-testid="tray-item-${key}"]`).click({ button: 'right' })
+  await expect(window.locator('[data-canvas-ctx-menu][role="menu"]').first()).toBeVisible()
 }
 
 test('a document in the tray can be sent to a named desk without dragging', async () => {
@@ -37,11 +36,12 @@ test('a document in the tray can be sent to a named desk without dragging', asyn
   await window.waitForTimeout(1200)
 
   await openTrayMenu(window, `document:${docId}`)
-  const menu = window.locator(`[data-testid="tray-menu-document:${docId}"]`)
-  await expect(menu, 'the tray menu should open on right-click').toBeVisible()
-  await expect(menu, 'and offer the desks by name').toContainText('Q4 launch')
+  // Send to desk ▸ is a submenu offering every desk by name.
+  await window.locator(`[data-testid="tray-send-document:${docId}"]`).hover()
+  const desk = window.locator(`[data-testid="tray-send-document:${docId}-${deskId}"]`)
+  await expect(desk, 'and offer the desks by name').toContainText('Q4 launch')
 
-  await window.locator(`[data-testid="tray-send-document:${docId}-${deskId}"]`).click()
+  await desk.click()
   await window.waitForTimeout(1200)
 
   const onDesk = await window.evaluate((id) => (window as any).api.widgets.listByTask(id), deskId)
@@ -68,8 +68,8 @@ test('a desk tab offers no Send to desk — only documents can be filed', async 
   await window.waitForTimeout(1200)
 
   await openTrayMenu(window, `task:${deskId}`)
-  const menu = window.locator(`[data-testid="tray-menu-task:${deskId}"]`)
-  await expect(menu).toBeVisible()
-  // Pin / close the others / close all, and nothing about filing.
+  const menu = window.locator('[data-canvas-ctx-menu][role="menu"]').first()
+  // Pin tab / Close tab / Close other tabs / Close all tabs, and nothing about filing.
+  await expect(menu).toContainText('Pin tab')
   await expect(menu).not.toContainText('Send to desk')
 })

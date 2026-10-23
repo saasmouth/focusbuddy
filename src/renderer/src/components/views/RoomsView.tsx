@@ -3,17 +3,14 @@ import type { FbNode, Widget } from '@shared/types'
 import { useNodeStore } from '../../stores/nodes'
 import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
 import { useViewStore } from '../../stores/view'
-import { useMessagingStore } from '../../stores/messaging'
 import { useDeskWidgets } from '../../lib/useDeskWidgets'
 import { formatRelativeTime } from '../../lib/changelog'
 import RoomThumb from '../RoomThumb'
 import Icon from '../Icon'
 import SharedBadge from '../SharedBadge'
-import { promptText } from '../plexi/PromptDialog'
-import { shareToOrgOrGroup } from '../../lib/shareScope'
 import ShareDialog from '../ShareDialog'
 import RoomsDesksIndex, { type IndexConfig } from './RoomsDesksIndex'
-import { lifecycleIndexActions } from '../../lib/deskLifecycleMenu'
+import { chatAboutRoom, deskMenuItems, renameNode, shareNodeToTeam, togglePlan } from '../../lib/deskLifecycleMenu'
 import { bulkArchive, bulkTrash } from '../../lib/deleteDeskFlow'
 
 // The All Rooms index. A Room is a folder node — a place desks live. Clicking a
@@ -28,8 +25,6 @@ export default function RoomsView(): JSX.Element {
   const nodes = useNodeStore((s) => s.nodes)
   const move = useNodeStore((s) => s.move)
   const create = useNodeStore((s) => s.create)
-  const update = useNodeStore((s) => s.update)
-  const moveToOrg = useNodeStore((s) => s.moveToOrg)
   // Lifecycle L1: the archived shelf (same mechanics as All Desks).
   const [showArchived, setShowArchived] = useState(
     () => localStorage.getItem('rooms-index.archived') === '1'
@@ -53,7 +48,6 @@ export default function RoomsView(): JSX.Element {
   // note on goRoom in stores/view.ts.
   const goProject = useViewStore((s) => s.goProject)
   const goDesks = useViewStore((s) => s.goDesks)
-  const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   // Public share-link target (a room shared as a 'folder' snapshot with its
   // desks). Opens the universal ShareDialog; null when closed.
   const [linkTarget, setLinkTarget] = useState<{ id: string; title: string } | null>(null)
@@ -216,8 +210,9 @@ export default function RoomsView(): JSX.Element {
         }
       })()
     },
-    // One declarative list drives both the hover icon strip and the right-click
-    // context menu — the menu is where the icons become discoverable.
+    // The hover strip: share, public link, chat, rename, plan. The right-click
+    // menu is the shared room menu (lib/deskLifecycleMenu); both call the same
+    // functions, so the strip and the menu cannot drift.
     itemActions: (r) => [
       ...(canShare
         ? [
@@ -226,14 +221,7 @@ export default function RoomsView(): JSX.Element {
               icon: 'group_add',
               label: 'Share with team or group',
               title: 'Share with your team or a group',
-              onClick: () => {
-                void shareToOrgOrGroup({
-                  name: r.title || 'this room',
-                  kindLabel: 'room and its desks',
-                  sharedOrgs,
-                  move: (org, team) => moveToOrg(r.id, org, team)
-                })
-              }
+              onClick: () => shareNodeToTeam(r)
             }
           ]
         : []),
@@ -244,31 +232,8 @@ export default function RoomsView(): JSX.Element {
         title: 'Create a public link — anyone with it can view this room',
         onClick: () => setLinkTarget({ id: r.id, title: r.title || 'this room' })
       },
-      {
-        key: 'chat',
-        icon: 'forum',
-        label: 'Chat about this room',
-        onClick: () => {
-          void openObjectChannel('room', r.id, r.title || 'Room')
-        }
-      },
-      {
-        key: 'rename',
-        icon: 'edit',
-        label: 'Rename room',
-        onClick: () => {
-          void (async () => {
-            const next = await promptText({
-              title: 'Rename room',
-              label: 'Room name',
-              initial: r.title || '',
-              confirmLabel: 'Rename'
-            })
-            const trimmed = next?.trim()
-            if (trimmed && trimmed !== (r.title || '')) await update(r.id, { title: trimmed })
-          })()
-        }
-      },
+      { key: 'chat', icon: 'forum', label: 'Chat about this room', onClick: () => chatAboutRoom(r) },
+      { key: 'rename', icon: 'edit', label: 'Rename room', onClick: () => void renameNode(r) },
       {
         key: 'plan',
         icon: r.isPlan ? 'layers_clear' : 'account_tree',
@@ -276,21 +241,10 @@ export default function RoomsView(): JSX.Element {
         title: r.isPlan
           ? 'Make this a plain room (removes it from Plans)'
           : 'Make this a plan (adds it to the Plans timeline)',
-        onClick: () => {
-          void update(r.id, { isPlan: !r.isPlan })
-        }
-      },
-      {
-        key: 'open',
-        icon: 'chevron_right',
-        label: r.isPlan ? 'Open plan' : 'Open room',
-        onClick: () => (r.isPlan ? goProject(r.id) : goDesks(r.id))
-      },
-      // Lifecycle (DEC-021): the ONE shared definition — archive/trash for
-      // personal rooms; Archive-for-me / Leave-share + the reason for shared.
-      // A trashed room's desks travel with it; the undo toast restores all.
-      ...lifecycleIndexActions(r)
+        onClick: () => togglePlan(r)
+      }
     ],
+    itemMenu: (r) => deskMenuItems(r, { onShare: (n) => setLinkTarget({ id: n.id, title: n.title || 'this room' }) }),
     // DEC-022: bulk archive/trash over selected rooms (desks travel along).
     bulkActions: (ids, done) => {
       const byId = (): FbNode[] => {

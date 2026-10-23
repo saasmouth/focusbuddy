@@ -131,7 +131,7 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     console.log('Desk "Restyle Task Alpha" is created inside the Room: OK')
 
     // ------------------------------------------------------------------ //
-    // 3. Rename the Room from its index row (right-click → Rename room),  //
+    // 3. Rename the Room from its index row (right-click → Rename),       //
     //    through the house prompt dialog.                                  //
     // ------------------------------------------------------------------ //
     await window.evaluate(() => {
@@ -140,7 +140,8 @@ test('restyled folders/desks/tasks surfaces: functional flows still work', async
     })
     await expect(roomItem).toBeVisible({ timeout: 5_000 })
     await roomItem.click({ button: 'right' })
-    await window.locator('[data-testid="index-context-menu-rename"]').click()
+    // The index menu is the shared desk/room menu on the context-menu kit (§9).
+    await window.locator('[data-canvas-ctx-menu] [data-testid="node-menu-rename"]').click()
 
     const renameInput = window.locator('[data-testid="prompt-dialog-input"]')
     await expect(renameInput).toBeVisible({ timeout: 3_000 })

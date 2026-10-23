@@ -27,6 +27,9 @@ import { openMeetingMoment } from '../../lib/openMeeting'
 import { startWithPlexii } from '../../lib/startWithPlexii'
 import { meetingOf, meetingEnded, meetProviderLabel } from '../../lib/meetInvite'
 import { formatMeetWhen } from '../../lib/meetWhen'
+import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { focusRowMenuItems, focusSourceLabel } from '../../lib/focusRowMenu'
+import { focusInvoker } from '../../lib/objectMenu'
 
 // DEC-128 — the Attention WIDGET's row (home canvas, a desk, the assistant's
 // Attention tab): the same item, three depths, none of them a trip to the
@@ -66,6 +69,8 @@ export function WidgetItemRow({
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
+  // Right-click: this row's own doors (lib/focusRowMenu), on the kit.
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null)
   const all = useWorkItemStore((s) => s.items)
   const setState = useWorkItemStore((s) => s.setState)
   const snooze = useWorkItemStore((s) => s.snooze)
@@ -137,6 +142,27 @@ export function WidgetItemRow({
       data-widget-item
       data-item-id={i.id}
       data-testid={`widget-item-${i.id}`}
+      onContextMenu={(e) => {
+        if (e.defaultPrevented) return
+        e.preventDefault()
+        // The row sits inside a work widget, whose body menu must not open too.
+        e.stopPropagation()
+        focusInvoker(e)
+        setMenuAt({
+          x: e.clientX,
+          y: e.clientY,
+          items: focusRowMenuItems({
+            open: () => setEditing(true),
+            openDesk: hasDesk ? openDesk : undefined,
+            openSource: i.sourceUrl
+              ? { label: focusSourceLabel(moment ? 'meeting' : msgLink ? 'message' : 'page'), run: openSourceDoor }
+              : undefined,
+            snooze: closed ? undefined : () => void snoozeTomorrow(),
+            askAssist: closed ? undefined : () => startWithPlexii([i], nodes),
+            archive: closed ? undefined : () => void setState(i.id, 'archived')
+          })
+        })
+      }}
       onDoubleClick={(e) => {
         // The action cluster is off-limits — double-clicking Archive should
         // archive, not open the editor behind it. Everything else, including
@@ -460,6 +486,7 @@ export function WidgetItemRow({
           </div>
         </div>
       )}
+      {menuAt && <CanvasContextMenu x={menuAt.x} y={menuAt.y} items={menuAt.items} onClose={() => setMenuAt(null)} />}
       {editing &&
         createPortal(
           <AttentionItemEditor
