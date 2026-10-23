@@ -17,7 +17,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, chooseCloudAiSource, suppressFeatureSpotlights } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -45,6 +45,12 @@ async function seedAndOpenDesk(l: LaunchedApp, label: string): Promise<string> {
     return task.id
   }, label)
 
+  // Clear the corner cards first. The local-AI intro card sits over the bottom
+  // edge of the canvas, and edge-pan rightly stands down over floating chrome,
+  // so a pointer parked on it measured the card, not the behaviour under test
+  // (EDGE-PAN-3 failed there on every run).
+  await chooseCloudAiSource(window)
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.getByRole('button', { name: new RegExp(label) }).first().click()
