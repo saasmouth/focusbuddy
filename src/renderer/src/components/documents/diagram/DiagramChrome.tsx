@@ -212,9 +212,12 @@ export function DiagramChrome({
         icon: 'upload_file',
         items: [
           { kind: 'item', label: 'Mermaid…', icon: 'code', run: () => setDialog('mermaid') },
-          { kind: 'item', label: 'draw.io / diagrams.net file…', icon: 'draw', run: () => ((fileKind.current = 'drawio'), fileRef.current?.click()) },
+          // draw.io and PlexiiDiagrams JSON can carry several pages (JSON replaces
+          // the whole diagram); a single-page editor would keep page one and drop
+          // the rest, so neither is offered there.
+          ...(singlePage ? [] : [{ kind: 'item' as const, label: 'draw.io / diagrams.net file…', icon: 'draw', run: () => ((fileKind.current = 'drawio'), fileRef.current?.click()) }]),
           { kind: 'item', label: 'Visio (.vsdx)…', icon: 'schema', run: () => void cmd.importVsdx().then((e) => e && setStatus(e)) },
-          { kind: 'item', label: 'PlexiiDiagrams JSON…', icon: 'data_object', run: () => ((fileKind.current = 'json'), fileRef.current?.click()) }
+          ...(singlePage ? [] : [{ kind: 'item' as const, label: 'PlexiiDiagrams JSON…', icon: 'data_object', run: () => ((fileKind.current = 'json'), fileRef.current?.click()) }])
         ]
       },
       {
@@ -465,7 +468,8 @@ export function DiagramChrome({
             collapsed={collapsed}
             onCollapsedChange={changeCollapsed}
             readOnly={readOnly}
-            menuBar={<DrawMenuBar actions={menus} />}
+            // A single-page diagram is a snippet session, not a document: no document-level File items.
+            menuBar={<DrawMenuBar actions={{ ...menus, documentOps: !singlePage }} />}
             pinnedStart={
               <>
                 <BarButton icon="undo" label="Undo" shortcut="⌘Z" disabled={!canUndo} onClick={cmd.undo} testid="diagram-undo" />

@@ -3,7 +3,10 @@
 //   - a diagram snippet opens PlexiiDiagrams on ONE page (no page tabs, no
 //     "New page" anywhere), since a snippet is a single graph;
 //   - a slide snippet opens PlexiiDeck on ONE in-memory slide (no navigator,
-//     no new/duplicate slide, the Slide menu's items disabled);
+//     no new/duplicate slide, the Slide menu's items disabled, no speaker notes
+//     box, since a fragment has nowhere to keep notes), and its File menu's
+//     document items are disabled (they act on the documents store's ACTIVE
+//     document, which in a session is some other document);
 //   - neither creates or writes a document: the only thing a session persists
 //     is the snippet, and only on Save (the host's own tests pin that part).
 // The wrap/unwrap mapping is pinned in snippetSessionMapping.test.ts.
@@ -92,7 +95,7 @@ async function open(snippet: Snippet): Promise<void> {
     root.render(<SnippetEditSessionView snippetId="s1" onClose={() => {}} />)
   })
   // The kind's editor is lazy: let the import and the Suspense boundary settle.
-  for (let i = 0; i < 200 && !host.querySelector('[data-testid="diagram-editor"], [data-testid="slides-notes-editor"]'); i++) {
+  for (let i = 0; i < 200 && !host.querySelector('[data-testid="diagram-editor"], [data-testid="slides-present"]'); i++) {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 25))
     })
@@ -110,6 +113,37 @@ describe('a diagram snippet opens PlexiiDiagrams on one page', () => {
     expect(host.querySelector('[data-testid="diagram-insert-page"]')).toBeNull()
   })
 
+  it('File › Import offers no multi-page format (draw.io, JSON), only single-graph ones', async () => {
+    await open(DIAGRAM)
+    const file = host.querySelector('[data-testid="draw-menubar-file"]') as HTMLElement | null
+    expect(file, 'the Diagrams menu bar renders').not.toBeNull()
+    act(() => file!.click())
+    const list = host.querySelector('[data-testid="draw-menubar-file-list"]') as HTMLElement
+    // The Import submenu opens on hover (menuBarKit's SubmenuRow).
+    const importRow = Array.from(list.querySelectorAll<HTMLElement>(':scope > div.relative')).find((el) => el.textContent?.includes('Import'))
+    expect(importRow, 'File has an Import submenu').toBeDefined()
+    act(() => importRow!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })))
+    const labels = Array.from(list.querySelectorAll('button')).map((b) => b.textContent ?? '')
+    expect(labels.some((l) => l.includes('Mermaid')), 'Mermaid (one graph) is offered').toBe(true)
+    expect(labels.some((l) => l.includes('Visio')), 'Visio (into this page) is offered').toBe(true)
+    expect(labels.some((l) => l.includes('draw.io')), 'draw.io can carry pages').toBe(false)
+    expect(labels.some((l) => l.includes('PlexiiDiagrams JSON')), 'JSON replaces the diagram, pages and all').toBe(false)
+  })
+
+  it('the File menu cannot create, copy, rename, meet on or trash a document', async () => {
+    await open(DIAGRAM)
+    act(() => (host.querySelector('[data-testid="draw-menubar-file"]') as HTMLElement).click())
+    const item = (label: string): HTMLButtonElement | undefined =>
+      Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="draw-menubar-file-list"] > button')).find((b) => b.textContent?.includes(label))
+    for (const label of ['New diagram', 'Make a copy', 'Rename', 'Version history', 'Start a meeting', 'Move to trash']) {
+      expect(item(label), label).toBeDefined()
+      expect(item(label)!.disabled, `${label} is disabled in a session`).toBe(true)
+    }
+    // Try them anyway: a disabled item must not run.
+    for (const label of ['New diagram', 'Make a copy', 'Move to trash']) act(() => item(label)!.click())
+    expect(docsCreate).not.toHaveBeenCalled()
+  })
+
   it('creates and writes no document', async () => {
     await open(DIAGRAM)
     expect(docsCreate).not.toHaveBeenCalled()
@@ -121,8 +155,9 @@ describe('a diagram snippet opens PlexiiDiagrams on one page', () => {
 describe('a slide snippet opens PlexiiDeck on one in-memory slide', () => {
   it('mounts the real editor with no navigator and no slide-level commands', async () => {
     await open(SLIDE)
-    expect(host.querySelector('[data-testid="slides-notes-editor"]'), 'PlexiiDeck mounted').not.toBeNull()
+    expect(host.querySelector('[data-testid="slides-present"]'), 'PlexiiDeck mounted').not.toBeNull()
     expect(host.querySelector('[data-testid="slides-thumbnails"]'), 'no navigator').toBeNull()
+    expect(host.querySelector('[data-testid="slides-notes-editor"]'), 'no speaker notes box: the snippet could not keep them').toBeNull()
     expect(host.querySelector('[data-testid="slides-add"]')).toBeNull()
     for (const id of ['slides-home-new-slide', 'slides-home-duplicate-slide', 'slides-insert-new-slide', 'slides-templates-btn']) {
       expect(host.querySelector(`[data-testid="${id}"]`), id).toBeNull()
@@ -130,15 +165,27 @@ describe('a slide snippet opens PlexiiDeck on one in-memory slide', () => {
     expect(text()).toContain('Title')
   })
 
+  it('the File menu cannot create, copy, rename or trash a document; Download stays', async () => {
+    await open(SLIDE)
+    const file = host.querySelector('[data-testid="slides-menubar-file"]') as HTMLElement | null
+    expect(file, 'the Slides menu bar renders').not.toBeNull()
+    act(() => file!.click())
+    const item = (label: string): HTMLButtonElement | undefined =>
+      Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="slides-menubar-file-list"] button')).find((b) => b.textContent?.includes(label))
+    for (const label of ['New presentation', 'Make a copy', 'Rename', 'Version history', 'Import (.pptx)', 'Move to trash']) {
+      expect(item(label), label).toBeDefined()
+      expect(item(label)!.disabled, `${label} is disabled in a session`).toBe(true)
+    }
+    expect(item('Download')?.disabled, 'Download (a file, no document row) stays').toBe(false)
+  })
+
   it('creates no document row and writes nothing (the deck is in memory only)', async () => {
     await open(SLIDE)
-    // Poke the notes, which edit the in-memory deck but not the fragment.
-    const notes = host.querySelector('[data-testid="slides-notes-editor"]') as HTMLTextAreaElement
-    const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!
-    act(() => {
-      set.call(notes, 'a note')
-      notes.dispatchEvent(new Event('input', { bubbles: true }))
-    })
+    // Try the disabled document items anyway: a disabled item must not run.
+    act(() => (host.querySelector('[data-testid="slides-menubar-file"]') as HTMLElement).click())
+    for (const b of Array.from(host.querySelectorAll<HTMLButtonElement>('[data-testid="slides-menubar-file-list"] button'))) {
+      if (/New presentation|Make a copy|Move to trash/.test(b.textContent ?? '')) act(() => b.click())
+    }
     expect(docsCreate).not.toHaveBeenCalled()
     expect(docsUpdate).not.toHaveBeenCalled()
     expect(snippetUpdate).not.toHaveBeenCalled()
