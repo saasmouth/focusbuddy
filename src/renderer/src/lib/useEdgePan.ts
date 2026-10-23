@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWidgetStore } from '../stores/widgets'
 import { isOverFloatingChrome } from './floatingChrome'
+import { createEdgePanArming, isInEdgeZone, type PointerSample } from './edgePanArming'
 
 // Edge-pan / "infinite map" camera control for the canvas.
 //
@@ -31,6 +32,13 @@ import { isOverFloatingChrome } from './floatingChrome'
 // on the canvas (because mousemove doesn't fire during HTML5 drag —
 // the OS is showing the drag image instead).
 //
+// ARMING — a pan starts only when the pointer MOVED into the edge zone
+// (lib/edgePanArming). A cursor that ends up "in the zone" because the
+// surface, the zone or the content shifted under it while it rested — a
+// scroll, a layout shift, the dock widening --fb-dock-inset — never starts
+// one; Chromium's fake mousemove and repeating dragover carry the old screen
+// point, and those re-read the position without arming.
+//
 // Pauses regardless of drag mode when:
 //   - the camera is mid-animation (animatingPan)
 //   - keyboard focus is on a form input / contenteditable
@@ -45,6 +53,28 @@ interface EdgeIntensity {
 }
 
 const ZERO_INTENSITY: EdgeIntensity = { top: 0, right: 0, bottom: 0, left: 0 }
+
+interface Geometry {
+  left: number
+  top: number
+  width: number
+  height: number
+  // --fb-dock-inset: the visible left edge sits this far into the element.
+  inset: number
+}
+
+// A client point relative to the canvas's VISIBLE area (right of the dock),
+// with that area's size and whether the point is on it.
+function canvasPoint(
+  client: { x: number; y: number },
+  g: Geometry
+): { x: number; y: number; width: number; height: number; inside: boolean } {
+  const x = client.x - g.left - g.inset
+  const y = client.y - g.top
+  const width = g.width - g.inset
+  const height = g.height
+  return { x, y, width, height, inside: x >= 0 && y >= 0 && x <= width && y <= height }
+}
 
 interface Options {
   // Pixel width of the active edge zone (distance from the edge within
@@ -87,7 +117,14 @@ export function useEdgePan({
   const panBy = useWidgetStore((s) => s.panBy)
   const [intensity, setIntensity] = useState<EdgeIntensity>(ZERO_INTENSITY)
   // Refs so the rAF loop reads the latest values without re-binding.
-  const mousePosRef = useRef<{ x: number; y: number } | null>(null)
+  // The pointer's last CLIENT point (viewport coordinates), not a position
+  // relative to the canvas: the canvas-relative position is derived from it
+  // each frame against the current geometry. Storing the relative position
+  // went stale the moment the geometry changed under a resting pointer — the
+  // dock widening moved --fb-dock-inset and shrank the zone's width, so a
+  // pointer resting 120 px from the right edge was computed to be 94 px PAST
+  // it, and the desk flew off at over three times the maximum speed.
+  const pointerRef = useRef<{ x: number; y: number } | null>(null)
   const lastFrameRef = useRef<number>(0)
   const disabledRef = useRef(disabled)
   const hardDisabledRef = useRef(hardDisabled)
@@ -98,9 +135,10 @@ export function useEdgePan({
   hardDisabledRef.current = hardDisabled
   const marginRef = useRef(margin)
   const maxSpeedRef = useRef(maxSpeedPerSecond)
-  // Cached size of the container — read in mousemove + rAF, so we
-  // memoise via a ResizeObserver instead of calling gbcr every frame.
-  const sizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 })
+  // Cached geometry of the container (its rect and the dock inset) — read in
+  // the rAF loop, so we memoise via observers instead of calling gbcr every
+  // frame. Every pointer event refreshes it too (it reads gbcr anyway).
+  const geomRef = useRef<Geometry>({ left: 0, top: 0, width: 0, height: 0, inset: 0 })
 
   useEffect(() => {
     marginRef.current = margin
@@ -116,7 +154,7 @@ export function useEdgePan({
     function refreshSize(): void {
       if (!el) return
       const rect = el.getBoundingClientRect()
-      sizeRef.current = { width: rect.width - dockInset(), height: rect.height }
+      geomRef.current = { left: rect.left, top: rect.top, width: rect.width, height: rect.height, inset: dockInset() }
     }
     refreshSize()
     // The dock publishes --fb-dock-inset on <html>; the canvas element itself
@@ -133,6 +171,10 @@ export function useEdgePan({
     //   (b) HTML5 drag — we listen to document-level dragstart/dragend.
     //       Includes drags from the widget palette, the sidebar's
     //       Connected Apps, file drops from Finder, etc.
+    // Fresh per binding: a new surface starts disarmed, so the fake mousemove
+    // Chromium sends when a desk mounts under a resting cursor cannot arm it.
+    const arming = createEdgePanArming()
+
     let rndDragging = document.documentElement.classList.contains('fb-canvas-dragging')
     let htmlDragging = false
     const isDragging = (): boolean => rndDragging || htmlDragging
@@ -156,7 +198,8 @@ export function useEdgePan({
       // After drag ends the next event is a click — clear the cached
       // mouse position so the indicators don't pulse from the last
       // drag point until the user moves the mouse again.
-      mousePosRef.current = null
+      pointerRef.current = null
+      arming.disarm()
       setIntensity((i) => (i === ZERO_INTENSITY ? i : ZERO_INTENSITY))
     }
     document.addEventListener('dragstart', onHtmlDragStart, true)
@@ -189,11 +232,10 @@ export function useEdgePan({
       // internal input as a hard block, which made edge-pan silently
       // stop working after the user clicked into a mindmap label or
       // a sticky and didn't explicitly blur.
-      const pos = mousePosRef.current
-      if (!pos) return false
-      const elRect = el.getBoundingClientRect()
-      const screenX = pos.x + elRect.left
-      const screenY = pos.y + elRect.top
+      const pointer = pointerRef.current
+      if (!pointer) return false
+      const screenX = pointer.x
+      const screenY = pointer.y
       const aeRect = ae.getBoundingClientRect()
       // 40px padding so the user gets a small "grace area" around
       // the input — moving the cursor a little bit off the input
@@ -216,24 +258,25 @@ export function useEdgePan({
       return Number.isFinite(v) ? v : 0
     }
 
-    function readPositionFromEvent(clientX: number, clientY: number): void {
+    function readPositionFromEvent(e: PointerSample): void {
       if (!el) return
-      const rect = el.getBoundingClientRect()
-      const inset = dockInset()
-      const x = clientX - rect.left - inset
-      const y = clientY - rect.top
-      if (x < 0 || y < 0 || x > rect.width - inset || y > rect.height) {
+      refreshSize()
+      const p = canvasPoint({ x: e.clientX, y: e.clientY }, geomRef.current)
+      if (!p.inside) {
+        arming.note(e)
         // Outside the canvas — clear so the camera doesn't drift on
         // stale coordinates. Don't clear during drag mode though, so
         // the user can momentarily leave the canvas (e.g. while
         // crossing over a docked widget) without losing momentum.
         if (!isDragging()) {
-          mousePosRef.current = null
+          pointerRef.current = null
+          arming.disarm()
           setIntensity((i) => (i === ZERO_INTENSITY ? i : ZERO_INTENSITY))
         }
         return
       }
-      mousePosRef.current = { x, y }
+      pointerRef.current = { x: e.clientX, y: e.clientY }
+      arming.observe(e, isInEdgeZone(p, p, marginRef.current))
     }
 
     // The floating menus (sidebar, segment/office menus, the minimised-menu
@@ -252,17 +295,34 @@ export function useEdgePan({
 
     function onMove(e: MouseEvent): void {
       if (isOverFloatingChrome(e.target)) {
+        arming.note(e)
         onLeave()
         return
       }
-      readPositionFromEvent(e.clientX, e.clientY)
+      readPositionFromEvent(e)
     }
     function onLeave(): void {
       // Same as outside-the-canvas behaviour from readPositionFromEvent.
       if (!isDragging()) {
-        mousePosRef.current = null
+        pointerRef.current = null
+        arming.disarm()
         setIntensity((i) => (i === ZERO_INTENSITY ? i : ZERO_INTENSITY))
       }
+    }
+    // Moves that land on something that is NOT the canvas still move the
+    // pointer, and arming judges them by where they are on the canvas's
+    // visible area. Over the dock or the header that is "off the canvas", so
+    // they disarm. Over an overlay portalled above the canvas (a context
+    // menu, a scrim) they can be a real move into the zone: the canvas gets
+    // no event for them, but when the overlay goes, Chromium re-sends the
+    // point to the canvas and the pan resumes, as it always has. Events on
+    // the canvas itself were judged by onMove already (this runs after it,
+    // in the bubble phase), so they are skipped here.
+    function onDocMove(e: MouseEvent): void {
+      if (!el || (e.target instanceof Node && el.contains(e.target))) return
+      refreshSize()
+      const p = canvasPoint({ x: e.clientX, y: e.clientY }, geomRef.current)
+      arming.observe(e, p.inside && isInEdgeZone(p, p, marginRef.current))
     }
     // During HTML5 drag the OS suppresses mousemove and instead emits
     // dragover on valid drop targets. The canvas already accepts drops
@@ -272,14 +332,16 @@ export function useEdgePan({
     // hit-test against our canvas bounds in `readPositionFromEvent`.
     function onDocDragOver(e: DragEvent): void {
       if (isOverFloatingChrome(e.target)) {
+        arming.note(e)
         onLeave()
         return
       }
-      readPositionFromEvent(e.clientX, e.clientY)
+      readPositionFromEvent(e)
     }
 
     el.addEventListener('mousemove', onMove)
     el.addEventListener('mouseleave', onLeave)
+    document.addEventListener('mousemove', onDocMove)
     document.addEventListener('dragover', onDocDragOver, true)
 
     let rafId = 0
@@ -289,10 +351,16 @@ export function useEdgePan({
       // Clamp dt to avoid huge jumps on first frame or tab refocus.
       const dt = Math.min(0.05, dtMs / 1000)
 
-      const pos = mousePosRef.current
+      const pointer = pointerRef.current
       const m = marginRef.current
       const maxSpeed = maxSpeedRef.current
-      const { width, height } = sizeRef.current
+      // Where the resting pointer is NOW, against the current geometry. If
+      // the geometry moved it out of the zone (or off the canvas), the pan is
+      // over; a later move back in re-arms it. Geometry moving it INTO the
+      // zone changes nothing on its own: that is not a move.
+      const pos = pointer ? canvasPoint(pointer, geomRef.current) : null
+      if (pos && !(pos.inside && isInEdgeZone(pos, pos, m))) arming.disarm()
+      const { width, height } = pos ?? { width: 0, height: 0 }
 
       // `disabled` (soft) is overridden during active widget drag so
       // moving a widget toward the edge still scrolls the canvas. Use it
@@ -302,10 +370,12 @@ export function useEdgePan({
       const dragging = isDragging()
       const effectiveDisabled = hardDisabledRef.current || (disabledRef.current && !dragging)
 
-      // Skip while disabled, no cursor, or container has zero size.
+      // Skip while disabled, no cursor, not armed (the cursor did not move
+      // into the zone), or container has zero size.
       if (
         effectiveDisabled ||
         !pos ||
+        !arming.armed ||
         width === 0 ||
         height === 0 ||
         isFormFocused()
@@ -319,10 +389,12 @@ export function useEdgePan({
 
       // Per-edge "depth into zone" — 0 when mouse is OUTSIDE the zone,
       // 1 when mouse is AT the edge. Linear distance, quadratic speed.
-      const tTop = Math.max(0, (m - pos.y) / m)
-      const tBottom = Math.max(0, (m - (height - pos.y)) / m)
-      const tLeft = Math.max(0, (m - pos.x) / m)
-      const tRight = Math.max(0, (m - (width - pos.x)) / m)
+      // Clamped: a point past an edge must never exceed full speed.
+      const depth = (d: number): number => Math.min(1, Math.max(0, (m - d) / m))
+      const tTop = depth(pos.y)
+      const tBottom = depth(height - pos.y)
+      const tLeft = depth(pos.x)
+      const tRight = depth(width - pos.x)
 
       const nextIntensity: EdgeIntensity = {
         top: Math.min(1, tTop),
@@ -361,6 +433,7 @@ export function useEdgePan({
       cancelAnimationFrame(rafId)
       el.removeEventListener('mousemove', onMove)
       el.removeEventListener('mouseleave', onLeave)
+      document.removeEventListener('mousemove', onDocMove)
       document.removeEventListener('dragover', onDocDragOver, true)
       document.removeEventListener('dragstart', onHtmlDragStart, true)
       document.removeEventListener('dragend', onHtmlDragEnd, true)
