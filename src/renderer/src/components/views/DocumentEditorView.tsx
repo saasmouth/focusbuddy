@@ -7,6 +7,7 @@ import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
 import { useSignInPrompt } from '../../stores/signInPrompt'
 import { personDisplayName } from '../../lib/personName'
+import { commentMentionHandles } from '../../lib/mentions'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { createDocumentOps } from '../documents/editor/documentOps'
 import DocumentConflictBar from '../documents/DocumentConflictBar'
@@ -95,16 +96,17 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
   }, [documentId])
 
   const author = userName ?? 'You'
-  // Who a comment can @mention: the real participants in this document's comment
-  // thread plus the signed-in user, restricted to handle-shaped tokens so an
-  // inserted @mention actually resolves. No invented members.
-  const isHandle = (h: string): boolean => /^[a-z0-9._-]{2,32}$/i.test(h)
-  const mentionHandles = Array.from(
-    new Set(
-      [author, ...comments.map((c) => c.author)]
-        .filter((h): h is string => !!h && isHandle(h))
-        .map((h) => h)
-    )
+  // Who a comment can @mention: the signed-in account's HANDLE, plus any
+  // handle-shaped author string already in the thread. No invented members.
+  //
+  // THIS READ THE DISPLAY NAME, and worked only while accounts had no names —
+  // a nameless account displays as its handle, so the two were one string.
+  // Required names (4.3.41) made the display name "Dana Reed", which is not
+  // handle-shaped, so the pool came out empty and the "@" autocomplete stopped
+  // opening at all. commentMentionHandles carries the reasoning and the tests.
+  const mentionHandles = commentMentionHandles(
+    account?.handle,
+    comments.map((c) => c.author)
   )
   const panelThreads = comments
     .filter((c) => !c.parentId)
@@ -202,6 +204,14 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
 
   async function replyComment(threadId: string, body: string): Promise<void> {
     if (!body.trim()) return
+    // The same requirement as addComment, for the same reason, and it was
+    // missing here: `author` falls back to 'You' when signed out, so a reply
+    // went in unattributed — the one thing requiring an account prevents.
+    // The panel no longer offers the box, so this is the second line.
+    if (!account) {
+      requestSignIn()
+      return
+    }
     const created = await window.api.documents.addComment({
       docId: documentId,
       body: body.trim(),
@@ -367,7 +377,12 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
             onReplyComment={(threadId, body) => void replyComment(threadId, body)}
             onJumpComment={jumpToComment}
             mentionHandles={mentionHandles}
-            myHandle={userName}
+            // A HANDLE, not the display name: MentionText lowercases this and
+            // compares it to the "@token" it parsed, so "Dana Reed" could
+            // never match and a mention of yourself rendered as somebody
+            // else's. LiveDocEditorView passes `me?.handle` here for the same
+            // reason.
+            myHandle={account?.handle ?? null}
             documentOps={documentOps}
           />
         )}

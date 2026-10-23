@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { MENU } from '../../src/shared/menus/lexicon'
 
 // "Can you make widgets available render and edit in other all office apps."
 //
@@ -96,7 +97,13 @@ test('the embed offers no control that could trash the file', async () => {
   }, docId)
   await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 8_000 })
   await window.locator('[data-testid="doc-menu-insert"]').click()
-  await window.locator('[data-testid="doc-menu-insert-list"]').getByText('Work widget from a desk', { exact: true }).click()
+  // From the lexicon, not spelled out: the label gained a trailing ellipsis in
+  // ef1fba83 (SPEC §9.2's Insert tail), and the literal here did not follow,
+  // which is the whole of why this test went red. See widgetEmbed.spec.ts.
+  await window
+    .locator('[data-testid="doc-menu-insert-list"]')
+    .getByText(MENU.workWidgetFromDesk.label, { exact: true })
+    .click()
   await expect(window.locator('[data-testid="widget-picker"]')).toBeVisible({ timeout: 3_000 })
   await window.locator(`[data-testid="widget-picker-item-wf:${fileId}"]`).click()
   await expect(window.locator('[data-testid="widget-picker"]')).toHaveCount(0, { timeout: 3_000 })

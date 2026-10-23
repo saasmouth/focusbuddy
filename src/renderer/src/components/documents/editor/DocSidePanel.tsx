@@ -469,7 +469,17 @@ function CommentsTab({
               <Thread
                 key={t.id}
                 thread={t}
-                onReply={onReply}
+                // REPLYING IS COMMENTING, so it needs an account too. Without
+                // this the footer said "Sign in to comment" while every
+                // existing thread still offered a reply box — and a reply
+                // posted from it went in as "You", the unattributed comment
+                // that requiring an account (4.3.41) exists to prevent.
+                //
+                // Withheld rather than disabled: Thread already renders the
+                // box only when it has an onReply, and the footer right below
+                // says why it is gone, which is where that explanation
+                // belongs. Existing replies stay readable.
+                onReply={canComment ? onReply : undefined}
                 onJump={onJumpComment}
                 mentionHandles={mentionHandles}
                 myHandle={myHandle}

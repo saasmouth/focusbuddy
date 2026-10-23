@@ -31,9 +31,27 @@ export interface FakeSignal {
 const API = new URL(ACTIVE.api)
 const isSignal = (u: URL): boolean => u.origin === API.origin
 
+/**
+ * The signed-in account the fixture seeds.
+ *
+ * NAMES ARE OPTIONAL HERE, AND THAT MATTERS BOTH WAYS. From 4.3.41 an account
+ * must carry a first and last name, and LaunchSignInModal puts an account
+ * without both behind the un-skippable "Add your name" wall at z-280 — which
+ * covers the whole app, so a spec seeded without names can reach nothing. A
+ * spec that needs to BE somebody therefore passes `name`.
+ *
+ * Left out, the account stays nameless, exactly as the five existing callers
+ * have it. They test PlexiiChat surfaces that never render the wall, and
+ * changing the default under them would alter what their assertions see.
+ */
+export interface FakeName {
+  firstName: string
+  lastName: string
+}
+
 export async function signInWithFakeSignal(
   window: Page,
-  seed: { conversation?: FakeConversation; messages?: object[] }
+  seed: { conversation?: FakeConversation; messages?: object[]; name?: FakeName }
 ): Promise<FakeSignal> {
   // No conversation seeded = a signed-in account with an empty conversation list.
   const conv = seed.conversation
@@ -48,6 +66,7 @@ export async function signInWithFakeSignal(
       }
     : null
   const messages = seed.messages ?? []
+  const name = seed.name ?? null
   const fake: FakeSignal = { requests: [], uploads: [] }
 
   await window.route(
@@ -78,12 +97,21 @@ export async function signInWithFakeSignal(
   })
 
   const ok = await window.evaluate(
-    ({ conv, messages }) => {
+    ({ conv, messages, name }) => {
       type Store = { setState: (s: object) => void }
       const w = window as unknown as { __fbAccount?: Store; __fbMessaging?: Store }
       if (!w.__fbAccount || !w.__fbMessaging) return false
       w.__fbAccount.setState({
-        account: { id: 'acc_e2e', email: 'e2e@test.local', handle: 'e2e' },
+        account: {
+          id: 'acc_e2e',
+          email: 'e2e@test.local',
+          handle: 'e2e',
+          // Spread, so a nameless seed leaves the fields ABSENT rather than
+          // setting them to null — which is what the five existing callers
+          // have always had, and what keeps "Add your name" appearing for them
+          // if any of them ever starts asserting on it.
+          ...(name ? { firstName: name.firstName, lastName: name.lastName } : {})
+        },
         sessionToken: 'e2e-fake-token'
       })
       // The messaging store keeps its own token (normally set by connect(), which
@@ -95,7 +123,7 @@ export async function signInWithFakeSignal(
       )
       return true
     },
-    { conv, messages }
+    { conv, messages, name }
   )
   expect(ok, 'the renderer exposes __fbAccount and __fbMessaging').toBe(true)
   return fake
