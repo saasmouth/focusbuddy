@@ -135,9 +135,9 @@ test('Destination picker offers both New widget and Append to existing tabs', as
   const seeded = await seedAndOpenVoiceWidget(launched, seededContent)
 
   // Spawn a sticky on the canvas so the Append-to-existing tab has a target.
-  await launched.window.evaluate(async (taskId: string) => {
+  const stickyId = await launched.window.evaluate(async (taskId: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
-    await api.widgets.create({
+    const w = await api.widgets.create({
       taskId,
       kind: 'sticky',
       title: 'Notes',
@@ -147,6 +147,7 @@ test('Destination picker offers both New widget and Append to existing tabs', as
       width: 240,
       height: 200
     })
+    return w.id
   }, seeded.taskId)
   // Reload so the widget store picks up the new sticky.
   await launched.window.reload()
@@ -166,7 +167,12 @@ test('Destination picker offers both New widget and Append to existing tabs', as
 
   // Click Append tab and verify the sticky shows up.
   await launched.window.locator('[data-testid="voice-dest-tab-existing"]').first().click()
-  await expect(launched.window.getByText('Notes').first()).toBeVisible({ timeout: 3_000 })
+  // The sticky's own row in the append list: a bare getByText('Notes') now
+  // finds the side menu's Widgets section first, whose "Notes" group came in
+  // with bbd7e35e.
+  const row = launched.window.locator(`[data-testid="voice-dest-append-${stickyId}"]`)
+  await expect(row).toBeVisible({ timeout: 3_000 })
+  await expect(row).toContainText('Notes')
 })
 
 test('Append to an existing sticky writes the processed text into its content', async () => {
@@ -288,9 +294,16 @@ test('Ready state — pre-seeded transcript renders mode toggle + processed text
 
   // Both proposals shown in the panel.
   await expect(
-    launched.window.getByText('Reply to Sara about the contract')
+    // The card's subject line: the F3 miniature (f58706cd) repeats the title
+    // inside the same card, by design, as a preview of the real task.
+    launched.window.locator('[data-testid^="proposal-card-"] .fb-t-label', { hasText: 'Reply to Sara about the contract' })
   ).toBeVisible()
-  await expect(launched.window.getByText('New task — Buy milk')).toBeVisible()
+  // Voice notes use the shared ProposalCards since a9575455: verb and subject
+  // are separate lines of the card, not "New task — Buy milk". A create-task
+  // proposal makes a desk, so its verb is "New desk" (09e129d9, SPEC-044).
+  const milk = launched.window.locator('[data-testid="proposal-card-p-2"]')
+  await expect(milk).toContainText('New desk')
+  await expect(milk.locator('.fb-t-label')).toHaveText('Buy milk')
 
   // Send-to button is reachable.
   await expect(
@@ -326,7 +339,8 @@ test('Apply All on the proposals panel actually creates tasks in the DB', async 
 
   // Make sure proposals panel rendered before clicking.
   await expect(
-    launched.window.getByText('Reply to Sara about the contract')
+    // The card's subject line (the F3 miniature repeats it, f58706cd).
+    launched.window.locator('[data-testid^="proposal-card-"] .fb-t-label', { hasText: 'Reply to Sara about the contract' })
   ).toBeVisible({ timeout: 5_000 })
 
   await launched.window.getByText('Apply all').first().click()

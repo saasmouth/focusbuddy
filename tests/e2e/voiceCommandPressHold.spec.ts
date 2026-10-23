@@ -1,13 +1,16 @@
 /**
  * voiceCommandPressHold.spec.ts
  *
- * Ground-truth probe for the FAB press-hold flow:
+ * Ground-truth probe for hold-to-talk. The FAB this was written for retired in
+ * d055f252 (voice moved into the mascot): the gesture is now a press-and-hold
+ * on the assistant pill (lib/voiceHold, useVoiceHold phase idle/listening/
+ * transcribing + error), surfaced by voice-hold-indicator / voice-hold-error.
  *   1. Launch Electron with fake media device flags so getUserMedia succeeds.
  *   2. Seed prefs to press-hold mode.
- *   3. Drive pointerdown → hold ~1500ms → pointerup.
- *   4. Record every phase transition via data-phase polling.
- *   5. Assert the error panel (voice-command-error-dismiss) becomes visible
- *      and STAYS visible for ≥3 seconds after release (not a flash).
+ *   3. Press the pill, hold ~1500ms (past the 250ms click threshold), release.
+ *   4. Record every state the indicator shows.
+ *   5. Assert the error chip (voice-hold-error) becomes visible and STAYS
+ *      visible for >=3 seconds after release (not a flash).
  *
  * Also probes the transcribe IPC directly to confirm what it returns with
  * no OpenAI key (isolated userData, no key seeded).
@@ -15,6 +18,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchGuarded } from './_netGuard'
+import { waitForReady } from './_helpers'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -66,20 +70,9 @@ async function launchWithFakeMic() {
 }
 
 async function bootReady(window: Page): Promise<void> {
-  await window.waitForFunction(
-    () => typeof (window as unknown as { api?: unknown }).api === 'object',
-    null,
-    { timeout: 12_000 }
-  )
-  // Dismiss sign-in modal if present.
-  const skip = window.getByRole('button', {
-    name: /continue without account|skip|not now/i
-  })
-  if (await skip.isVisible().catch(() => false)) {
-    await skip.click().catch(() => {})
-  }
-  // Wait for FAB to be in DOM.
-  await window.locator('[data-testid="voice-command-fab"]').waitFor({ state: 'visible', timeout: 10_000 })
+  // The shell is up and the post-boot modals are out of the way (the same
+  // gate every launchApp spec uses). There is no FAB to wait for any more.
+  await waitForReady(window)
 }
 
 // Collect all renderer console messages into an array.
@@ -94,15 +87,25 @@ function collectConsole(window: Page): string[] {
   return logs
 }
 
-// Poll data-phase attribute with timestamps.
+// What the voice indicator shows right now: 'listening', 'transcribing',
+// 'error', or 'idle' when it is not mounted (useVoiceHold idle, no error).
+async function voiceState(window: Page): Promise<string> {
+  return window.evaluate(() => {
+    const root = document.querySelector('[data-testid="voice-hold-indicator"]')
+    if (!root) return 'idle'
+    if (root.querySelector('[data-testid="voice-hold-error"]')) return 'error'
+    const t = root.textContent ?? ''
+    return /Listening/.test(t) ? 'listening' : /Transcribing/.test(t) ? 'transcribing' : 'idle'
+  })
+}
+
+// Record each change of the indicator's state, with timestamps.
 async function pollPhase(window: Page, durationMs: number, intervalMs = 100): Promise<string[]> {
   const transitions: string[] = []
   let last = ''
   const end = Date.now() + durationMs
   while (Date.now() < end) {
-    const phase = await window.locator('[data-testid="voice-command-fab"]')
-      .getAttribute('data-phase')
-      .catch(() => null)
+    const phase = await voiceState(window).catch(() => null)
     if (phase !== null && phase !== last) {
       transitions.push(`${Date.now()} phase→${phase}`)
       last = phase
@@ -197,22 +200,21 @@ test.describe('VoiceCommandFAB press-hold flow (fake mic)', () => {
       console.log('[TEST] prefs:', JSON.stringify(prefs))
       expect(prefs.commandMode).toBe('press-hold')
 
-      // Locate the FAB button.
-      const fab = window.locator('[data-testid="voice-command-fab"]')
+      // The assistant pill carries the gesture now (a hold past 250ms listens).
+      const fab = window.locator('[data-testid="assistant-pill"]')
       await expect(fab).toBeVisible()
-      const initialPhase = await fab.getAttribute('data-phase')
+      const initialPhase = await voiceState(window)
       console.log('[TEST] initial phase:', initialPhase)
       expect(initialPhase).toBe('idle')
 
-      // Get the FAB bounding box to dispatch pointer events at its center.
+      // Get the pill's bounding box to press at its center.
       const box = await fab.boundingBox()
       expect(box).toBeTruthy()
       const cx = box!.x + box!.width / 2
       const cy = box!.y + box!.height / 2
 
       // ── Phase 1: pointerdown ────────────────────────────────────────────
-      // Dispatch a real pointerdown on the FAB. This triggers fabPressDown →
-      // sets pressHoldArmedRef.current = true → beginCapture() async.
+      // A real pointerdown on the pill arms a 250ms timer → startHold().
       await window.mouse.move(cx, cy)
       await window.mouse.down()
 
@@ -222,7 +224,7 @@ test.describe('VoiceCommandFAB press-hold flow (fake mic)', () => {
       console.log('[TEST] phases during hold:', phasesDuringHold)
 
       // Verify the FAB entered listening phase.
-      const phaseAfterDown = await fab.getAttribute('data-phase')
+      const phaseAfterDown = await voiceState(window)
       console.log('[TEST] phase after pointerdown + 2s:', phaseAfterDown)
 
       // Screenshot: listening state.
@@ -239,7 +241,7 @@ test.describe('VoiceCommandFAB press-hold flow (fake mic)', () => {
       const phasesAfterRelease = await pollPhase(window, 5000, 100)
       console.log('[TEST] phases after release:', phasesAfterRelease)
 
-      const phaseAfterRelease = await fab.getAttribute('data-phase')
+      const phaseAfterRelease = await voiceState(window)
       console.log('[TEST] phase 5s after release:', phaseAfterRelease)
 
       // Screenshot: final state after release.
@@ -250,13 +252,13 @@ test.describe('VoiceCommandFAB press-hold flow (fake mic)', () => {
 
       // ── Critical assertion: error panel must be VISIBLE ─────────────────
       // With no OpenAI key, transcribe should fail → phase='error' →
-      // voice-command-error-dismiss button should be visible.
-      const errorDismiss = window.locator('[data-testid="voice-command-error-dismiss"]')
+      // the voice-hold-error chip should be visible.
+      const errorDismiss = window.locator('[data-testid="voice-hold-error"]')
       const isVisible = await errorDismiss.isVisible()
       console.log('[TEST] error dismiss visible:', isVisible)
 
       // Also check what phase the FAB shows.
-      const finalPhase = await fab.getAttribute('data-phase')
+      const finalPhase = await voiceState(window)
       console.log('[TEST] final fab data-phase:', finalPhase)
 
       // Dump renderer console for full trace.
@@ -268,6 +270,8 @@ test.describe('VoiceCommandFAB press-hold flow (fake mic)', () => {
       const sawListening = phasesDuringHold.some((p) => p.includes('listening')) ||
         phaseAfterDown === 'listening'
       console.log('[TEST] saw listening phase:', sawListening)
+      // The title promises the Listening state; it was logged and never checked.
+      expect(sawListening, `the hold showed Listening (saw: ${phasesDuringHold.join(', ')})`).toBe(true)
 
       // After release, error OR staged should appear (not back to idle).
       // The key question: does it flash to idle or stay?
@@ -297,7 +301,7 @@ test.describe('VoiceCommandFAB press-hold flow (fake mic)', () => {
 
         // Fail the test with a descriptive message.
         throw new Error(
-          `Error panel (voice-command-error-dismiss) NOT visible after press-hold release.\n` +
+          `Error chip (voice-hold-error) NOT visible after press-hold release.\n` +
           `Final data-phase="${finalPhase}", all transitions: ${allPhases.join(', ')}\n` +
           `sawError=${sawError} sawStaged=${sawStaged} endedIdle=${endedIdle}`
         )
