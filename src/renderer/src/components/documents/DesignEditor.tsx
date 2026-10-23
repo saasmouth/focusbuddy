@@ -94,6 +94,21 @@ interface Props {
   content: unknown
   title: string
   onChange: (body: unknown) => void
+  /**
+   * A VIEWER of this document: it may be read, never changed. Set by
+   * LiveDocEditorView from the live document's member role (myRole, which the
+   * signal server returns as of v123).
+   *
+   * Nothing writes while this is true — not an edit, not a re-flow, not undo
+   * or redo — so no change reaches onChange and none reaches the local
+   * document either. Greying the controls is NOT the mechanism; it is the
+   * courtesy on top of the four guards below, because a disabled button is
+   * not a permission check.
+   *
+   * It is not security on its own either: the enforcement that matters is the
+   * signal server refusing a viewer's Yjs updates (yjsDocAuth.ts).
+   */
+  readOnly?: boolean
   // Live co-editing only. When true, a change in the content prop's identity is
   // folded in as a peer's merge. Off by default for the single-user editor, where
   // our own saves come back as a new identity and folding them would fight local
@@ -158,7 +173,7 @@ const TOOL_DEFAULT: Record<Exclude<DesignTool, 'select'>, { w: number; h: number
   line: { w: 0.6, h: 0 }
 }
 
-export default function DesignEditor({ content, title, onChange, foldExternal = false }: Props): JSX.Element {
+export default function DesignEditor({ content, title, onChange, readOnly = false, foldExternal = false }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   // A brand-new, empty design: the Start-from menu opens itself once, which is
@@ -324,6 +339,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     // below). Without it the page was typeset in the default families while
     // the caret was measured in the person's own — so for anyone with a brand
     // font, the caret drifted along the line.
+    if (readOnly) return
     const next = applyStoryFlows(design, domFlowMeasure, brand)
     if (next !== design) {
       designRef.current = next
@@ -399,6 +415,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // The single writer: records the prior body on the undo stack, clears redo, and
   // persists. Every change to the design flows through here.
   function commit(next: DesignBody): void {
+    if (readOnly) return
     const synced = syncActivePage(next)
     setPast([...pastRef.current.slice(-59), designRef.current])
     setFuture([])
@@ -415,6 +432,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
    * other kind of edit, closes the run.
    */
   function commitTyping(next: DesignBody): void {
+    if (readOnly) return
     const now = Date.now()
     const synced = syncActivePage(next)
     const continuing = now - lastTypedAt.current < 900 && pastRef.current.length > 0
@@ -518,6 +536,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   }
 
   function undo(): void {
+    if (readOnly) return
     const p = pastRef.current
     if (!p.length) return
     const prev = p[p.length - 1]
@@ -528,6 +547,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
     onChange(prev)
   }
   function redo(): void {
+    if (readOnly) return
     const f = futureRef.current
     if (!f.length) return
     const next = f[0]
@@ -1797,6 +1817,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           items={railItems}
           ctx={null}
           activeId={tool === 'select' ? 'select' : `tool-${tool}`}
+          readOnly={readOnly}
           testid="design-rail"
           ariaLabel="Design tools"
         />
@@ -1904,6 +1925,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
           collapsed={barCollapsed}
           onCollapsedChange={setBarCollapsed}
           menuBar={menuBar}
+          readOnly={readOnly}
           pinnedStart={
             <>
               {/* The shared primitive, as Deck, Write, Cells and Diagrams all
