@@ -13,7 +13,7 @@ import { snapEnabled } from '../../lib/gridPref'
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Rnd } from 'react-rnd'
-import { useWidgetSurface } from '../../lib/widgetSurface'
+import { useWidgetRemovable, useWidgetSurface } from '../../lib/widgetSurface'
 import { type CtxMenuItem } from '../CanvasContextMenu'
 import UnifiedWidgetMenu from '../contextMenu/UnifiedWidgetMenu'
 import WidgetSetupAffordance from './WidgetSetupAffordance'
@@ -69,7 +69,7 @@ import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
-import { minSizeFor } from '../../lib/widgetSizing'
+import { GROW_CEILING, minSizeFor } from '../../lib/widgetSizing'
 import WidgetHeaderOverflow, { type OverflowItem } from './WidgetHeaderOverflow'
 import {
   foldHeaderActions,
@@ -159,6 +159,8 @@ export default function WidgetFrame({
   // tint rather than sitting inside it.
   const hasKindAsset = !!resolveEntityIcon('widget', widget.kind).asset
   const embedded = useWidgetSurface() === 'embedded'
+  // False inside a document embed: the host owns removal (lib/widgetSurface).
+  const removable = useWidgetRemovable()
   const linkedFileId = widgetFileIdFromGroup(widget.syncGroupId)
   // The header's link mark: only when the file is also on another desk (or a
   // plain synced copy), never merely because a work widget is its file's.
@@ -355,8 +357,7 @@ export default function WidgetFrame({
     if (isChildOfSection) return
     // Any size, so a work widget, file or tool can show all of itself (owner,
     // 4.3.41); the ceiling only stops one runaway press from filling the desk.
-    const MAX_W = 4800
-    const MAX_H = 3200
+    const { w: MAX_W, h: MAX_H } = GROW_CEILING
     const { w: MIN_W, h: MIN_H } = minSizeFor(widget.kind)
     const newW = Math.max(MIN_W, Math.min(MAX_W, Math.round(widget.width * factor)))
     const newH = Math.max(MIN_H, Math.min(MAX_H, Math.round(widget.height * factor)))
@@ -481,6 +482,7 @@ export default function WidgetFrame({
     else askAssistantAbout()
   }
   function runRemove(): void {
+    if (!removable) return
     // Remove from this desk, or delete the work widget everywhere
     // (docs/widget-files.md, "Remove or delete").
     void removeWorkWidget(widget)
@@ -493,7 +495,8 @@ export default function WidgetFrame({
   if (!titleEditing) presentActions.push('ai', 'rename')
   if (linkDrag) presentActions.push('link')
   if (!isChildOfSection) presentActions.push('pin', 'shrink', 'grow')
-  presentActions.push('expand', 'remove')
+  presentActions.push('expand')
+  if (removable) presentActions.push('remove')
   const fold = foldHeaderActions(presentActions, actionBudget)
   const shownActions = new Set<HeaderActionId>(fold.visible)
   const overflowItems: OverflowItem[] = fold.overflow.map((id): OverflowItem => {
@@ -533,6 +536,7 @@ export default function WidgetFrame({
         return {
           id,
           label: 'Shrink work widget',
+          title: SHRINK_TITLE,
           icon: 'remove',
           onSelect: () => scaleWidgetBy(1 / 1.5),
           testId: `widget-shrink-${widget.id}`
@@ -541,6 +545,7 @@ export default function WidgetFrame({
         return {
           id,
           label: 'Grow work widget',
+          title: GROW_TITLE,
           icon: 'add',
           onSelect: () => scaleWidgetBy(1.5),
           testId: `widget-grow-${widget.id}`
@@ -1703,12 +1708,19 @@ export default function WidgetFrame({
 
 // ── Resize step button — small +/− in the header for quick scaling ──────────
 //
-// One-click ratchet: every press grows or shrinks the widget by 50%, capped
-// at the same [180×120, 1400×900] envelope as enlarge-on-desk. Used in
+// One-click ratchet: every press grows or shrinks the widget by 50%, floored
+// at the kind's minimum and capped at GROW_CEILING (scaleWidgetBy). Used in
 // pairs so the user gets symmetric grow/shrink ergonomics without opening
 // the expand popover. We deliberately use the inverse factor (×1.5 grow,
 // ÷1.5 shrink) so the two operations cancel — pressing + then − returns
 // the widget to its original size within a pixel.
+
+// The tool states the ceiling it enforces, read from the one constant, on the
+// header button and on its "…" menu item alike. It said "max 1400 × 900" for
+// two releases after 6aa80f61 raised the ceiling to 4800 × 3200.
+const GROW_TITLE = `Grow this work widget by 50% (max ${GROW_CEILING.w} × ${GROW_CEILING.h})`
+const SHRINK_TITLE =
+  'Shrink this work widget by ~33% (min 180 × 120) — inverse of grow so + then − returns to the original size'
 
 function ResizeStepButton({
   direction,
@@ -1730,11 +1742,7 @@ function ResizeStepButton({
       className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)] transition-colors"
       aria-label={isGrow ? 'Grow work widget' : 'Shrink work widget'}
       data-testid={isGrow ? `widget-grow-${widgetId}` : `widget-shrink-${widgetId}`}
-      title={
-        isGrow
-          ? 'Grow this work widget by 50% (max 1400 × 900)'
-          : 'Shrink this work widget by ~33% (min 180 × 120) — inverse of grow so + then − returns to the original size'
-      }
+      title={isGrow ? GROW_TITLE : SHRINK_TITLE}
     >
       <Icon name={isGrow ? 'add' : 'remove'} size={13} />
     </button>

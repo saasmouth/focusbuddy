@@ -30,6 +30,15 @@ const MIN_BY_KIND: Partial<Record<WidgetKind, { w: number; h: number }>> = {
   'mail-thread': { w: 260, h: 200 }
 }
 
+/**
+ * The ceiling on the header's Grow press (+50% a press), in px. Not a maximum
+ * size: a widget can still be dragged or tiled larger. It only stops one runaway
+ * run of presses from filling the desk (owner, 4.3.41, 6aa80f61 raised it from
+ * 1400 x 900 so anything can be grown to show all of itself). The Grow button's
+ * tooltip states it, so it is read from here rather than restated.
+ */
+export const GROW_CEILING = { w: 4800, h: 3200 } as const
+
 /** The minimum size, in px, a widget of this kind may be resized to. */
 export function minSizeFor(kind: WidgetKind | string): { w: number; h: number } {
   return MIN_BY_KIND[kind as WidgetKind] ?? BASE_MIN

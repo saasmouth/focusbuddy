@@ -18,7 +18,15 @@
  */
 
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
-import { clickWidgetTool, composerText, launchApp, type LaunchedApp, typeInComposer, waitForReady } from './_helpers'
+import {
+  clickWidgetTool,
+  composerText,
+  launchApp,
+  type LaunchedApp,
+  switchArea,
+  typeInComposer,
+  waitForReady
+} from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -90,8 +98,22 @@ test('AC-1 — the pill is on every screen, including a segment takeover', async
   await expect(panel(window)).toHaveCount(0)
 
   // Office is a segment takeover that replaces the whole <main> — the screen
-  // the old desk-panel assistant simply did not exist on.
-  await window.getByRole('button', { name: /Office/ }).first().click()
+  // the old desk-panel assistant simply did not exist on. Its menu header has
+  // read "Apps" since the one-menu accordion (b7dae811, "Apps retitled from
+  // Office"); it keeps the area's `switch-office` testid, which is what
+  // switchArea presses. Prove the takeover really happened before asserting
+  // the pill survived it, or a click that went nowhere would pass vacuously.
+  await switchArea(window, 'office')
+  await expect
+    .poll(() =>
+      window.evaluate(
+        () =>
+          (window as unknown as { __fbView?: { getState: () => { view: { kind: string } } } }).__fbView
+            ?.getState().view.kind
+      )
+    )
+    .toBe('office')
+  await expect(window.locator('[data-testid="office-library-nav"]')).toBeVisible({ timeout: 8000 })
   await expect(pill(window)).toBeVisible({ timeout: 8000 })
 
   // And it is not just present there — it works there.
@@ -99,7 +121,8 @@ test('AC-1 — the pill is on every screen, including a segment takeover', async
   await expect(overlay(window)).toBeVisible()
 
   // Back home, still present (now as the open panel).
-  await window.getByRole('button', { name: /Home/ }).first().click()
+  await window.getByRole('button', { name: 'Home', exact: true }).first().click()
+  await expect(window.locator('[data-testid="office-library-nav"]')).toHaveCount(0, { timeout: 8000 })
   await expect(overlay(window)).toBeVisible({ timeout: 8000 })
 })
 
@@ -112,11 +135,17 @@ test('AC-2 — modes switch over one conversation; draft and thread survive', as
   // Floating is the reference default.
   await expect(overlay(window)).toHaveAttribute('data-mode', 'floating')
 
-  // Put a real turn in the thread through the real path.
+  // Put a real turn in the thread through the real path. The text must READ
+  // as a question: since 961e3436 (the instant-web ruling) a short bare
+  // phrase on a fresh conversation is searchy in Auto mode, so the old "a
+  // question" opened DuckDuckGo in the web panel and never reached the chat.
+  // Assert the composer offers no diversion, so this stays a chat turn.
   await stubStream(app, 'The answer you asked for.')
-  await typeInComposer(window, 'a question')
+  await typeInComposer(window, 'What did I ask for?')
+  await expect(window.locator('[data-testid="composer-intent-row"]')).toHaveCount(0)
   await window.locator('button[aria-label="Send"]').click()
   await expect(window.getByText('The answer you asked for.')).toBeVisible({ timeout: 8000 })
+  await expect(panel(window)).toContainText('What did I ask for?')
 
   // Leave a half-typed draft in the composer, then re-dress the panel. Phase
   // 4.3 made the composer a TipTap editor, so the draft lives in a document

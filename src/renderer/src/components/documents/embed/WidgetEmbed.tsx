@@ -24,9 +24,11 @@ const EmbeddedWidgetBody = lazy(() => import('./EmbeddedWidgetBody'))
 // NO DELETE IS OFFERED HERE, deliberately. `remove` on a `wf:` id trashes the
 // FILE and every desk instance of it (stores/widgets.ts), so a stray × inside
 // a document would destroy an object that lives in Files and on other desks.
-// renderWidget draws the body only — the desk's chrome, which carries the
-// close control, is Canvas's and is not rendered here. Removing the EMBED is
-// the host editor's job: delete the node, not the widget.
+// The components renderWidget draws carry their own desk frame, × included,
+// so the body is rendered as NOT removable (EmbeddedWidgetBody, and
+// WidgetRemovableContext in lib/widgetSurface): the frame then offers no
+// remove tool, on its header or in its "…" menu. Removing the EMBED is the
+// host editor's job: delete the node, not the widget.
 
 
 

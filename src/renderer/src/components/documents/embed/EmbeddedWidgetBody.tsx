@@ -18,14 +18,20 @@
 import type { JSX } from 'react'
 import type { Widget } from '@shared/types'
 import { renderWidget } from '../../widgets/renderWidget'
-import { WidgetSurfaceContext } from '../../../lib/widgetSurface'
+import { WidgetRemovableContext, WidgetSurfaceContext } from '../../../lib/widgetSurface'
 
 export default function EmbeddedWidgetBody({ widget }: { widget: Widget }): JSX.Element {
   // 'embedded' fills the box and cannot be dragged, so nothing inside a
   // document writes desk coordinates back to the desk the object came from.
+  //
+  // Not removable: renderWidget draws each kind's own component, and those
+  // carry their own desk frame, title bar and × included. The × here would
+  // be `remove` on a `wf:` id, which trashes the FILE and every desk instance
+  // of it — or, for a desk widget, deletes it from its desk. The frame drops
+  // the tool (header and "…" menu alike) when told the host owns removal.
   return (
     <WidgetSurfaceContext.Provider value="embedded">
-      {renderWidget(widget)}
+      <WidgetRemovableContext.Provider value={false}>{renderWidget(widget)}</WidgetRemovableContext.Provider>
     </WidgetSurfaceContext.Provider>
   )
 }

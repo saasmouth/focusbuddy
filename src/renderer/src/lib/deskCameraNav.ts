@@ -1,4 +1,5 @@
 import { effectivePos, isFocusable } from './focusNavOrder'
+import { EDGE_PAN_MARGIN } from './edgePanArming'
 import type { Widget } from '@shared/types'
 
 // Driving the camera around a desk with the arrow keys and trackpad swipes.
@@ -194,6 +195,41 @@ export function navCamera(
     panX: viewport.dockInset + visibleW / 2 - c.x * zoom,
     panY: visibleH / 2 - c.y * zoom
   }
+}
+
+/**
+ * Home's breathing room around everything it frames: clear of the edge-pan
+ * zone, with a little to spare. It was 60px inside an 80px zone, so on a desk
+ * whose content filled the view, the tools on its top edge (every work widget's
+ * header) sat in the zone — moving the pointer to one started the desk panning
+ * away from it, and the click landed on whatever slid underneath.
+ */
+export const HOME_FIT_PAD = EDGE_PAN_MARGIN + 16
+
+/**
+ * Home — "fit all to view": the camera that frames `bounds` (everything on the
+ * desk) in the viewport, centred, never magnified past 100%, never below the
+ * desk's minimum zoom.
+ *
+ * When even the minimum zoom cannot fit the height, centring would push the
+ * top of the desk — where the headers and their tools are — off the top or
+ * into the edge zone. Home shows the top instead; the rest is below, where a
+ * scroll reaches it.
+ */
+export function homeCamera(bounds: Box, viewport: Viewport): CameraTarget {
+  const visibleW = Math.max(1, viewport.width - viewport.dockInset)
+  const visibleH = Math.max(1, viewport.height)
+  const w = Math.max(1, bounds.w)
+  const h = Math.max(1, bounds.h)
+  const zoomX = (visibleW - 2 * HOME_FIT_PAD) / w
+  const zoomY = (visibleH - 2 * HOME_FIT_PAD) / h
+  const zoom = Math.max(ZOOM_MIN, Math.min(zoomX, zoomY, 1))
+  const panX = viewport.dockInset + visibleW / 2 - (bounds.x + w / 2) * zoom
+  const panY =
+    h * zoom > visibleH - 2 * HOME_FIT_PAD
+      ? HOME_FIT_PAD - bounds.y * zoom
+      : visibleH / 2 - (bounds.y + h / 2) * zoom
+  return { zoom, panX, panY }
 }
 
 /** The canvas-space point currently at the centre of the viewport. */

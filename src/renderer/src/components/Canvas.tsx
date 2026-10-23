@@ -6,6 +6,7 @@ import { quickAddAllowed, deepActiveElement, keyEventTarget } from '../lib/quick
 import { deleteKeyAllowed, isDeleteKey } from '../lib/deleteKey'
 import { removeWorkWidgets } from '../lib/widgetRemoval'
 import { useNodeStore } from '../stores/nodes'
+import { useViewStore } from '../stores/view'
 import { contentForIndependentCopy } from '../lib/copyWidgetContent'
 import { useWidgetStore } from '../stores/widgets'
 import { useMessagingStore } from '../stores/messaging'
@@ -46,6 +47,7 @@ import { chainCanAbsorb, collectScrollChain, readScrollBox } from '../lib/wheelC
 import { useNavPrefs, frictionFromGlide } from '../lib/navPrefs'
 import { getNavPrefs } from '../lib/navPrefs'
 import {
+  homeCamera,
   navCamera,
   navigableWidgets,
   nearestToPoint,
@@ -550,16 +552,30 @@ export default function Canvas(): JSX.Element {
   // a desk's widgets have loaded, baseline each one's "changed since your last
   // visit" health so the frames reflect what moved while the user was away. Runs
   // once per desk open; the ref guards against re-running on later widget edits.
+  //
+  // Only for the desk the VIEW is on. Canvas remounts on every navigation
+  // (MainPane keys PageEnter on the view, since 5d2d532c), and the new instance
+  // renders one beat before App's effect moves activeTaskId to follow the view:
+  // activeTaskId, layoutHydratedFor and the loaded widgets all still belong to
+  // the desk being LEFT, and the fresh ref is null. Baselining there marked the
+  // leaving desk's changed widgets reviewed on the way out, so the frame was
+  // gone when the user came back to it.
+  // A view that names no desk (the PlexiiDesk segment's Desk app) shows the
+  // active desk, so it has no say here.
+  const viewDeskId = useViewStore((s) =>
+    s.view.kind === 'task' ? s.view.taskId : s.view.kind === 'project-dashboard' ? s.view.projectId : undefined
+  )
   const reviewedWidgetsForRef = useRef<string | null>(null)
   useEffect(() => {
     if (!activeTaskId || layoutHydratedFor !== activeTaskId) return
+    if (viewDeskId !== undefined && viewDeskId !== activeTaskId) return
     if (reviewedWidgetsForRef.current === activeTaskId) return
     reviewedWidgetsForRef.current = activeTaskId
     const ids = widgets
       .filter((w) => !w.archived && w.parentSectionId === null && w.kind !== 'section')
       .map((w) => w.id)
     void useContextHealthStore.getState().reviewWidgets(ids)
-  }, [activeTaskId, layoutHydratedFor, widgets])
+  }, [activeTaskId, layoutHydratedFor, widgets, viewDeskId])
 
   // PLX-APP-010 Phase 1 / UX-032 — persist this user's camera + selection for the
   // active Desk and device class, debounced, on user action. Gated on
@@ -1041,21 +1057,16 @@ export default function Canvas(): JSX.Element {
       maxX = Math.max(maxX, w.x + width)
       maxY = Math.max(maxY, w.y + height)
     }
-    const bbW = Math.max(1, maxX - minX)
-    const bbH = Math.max(1, maxY - minY)
     const rect = dropRef.current.getBoundingClientRect()
-    const PAD = 60
-    const visibleW = rect.width - dockInset
-    const zoomX = (visibleW - 2 * PAD) / bbW
-    const zoomY = (rect.height - 2 * PAD) / bbH
-    const newZoom = Math.max(0.25, Math.min(zoomX, zoomY, 1))
-    const bbCenterX = minX + bbW / 2
-    const bbCenterY = minY + bbH / 2
-    const targetPanX = dockInset + visibleW / 2 - bbCenterX * newZoom
-    const targetPanY = rect.height / 2 - bbCenterY * newZoom
+    // lib/deskCameraNav: framed clear of the edge-pan zone, top shown first
+    // when even the minimum zoom cannot fit it.
+    const cam = homeCamera(
+      { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+      { width: rect.width, height: rect.height, dockInset }
+    )
     setAnimatingPan(true)
-    setZoom(newZoom)
-    setPan(targetPanX, targetPanY)
+    setZoom(cam.zoom)
+    setPan(cam.panX, cam.panY)
     window.setTimeout(() => setAnimatingPan(false), 280)
   }
 

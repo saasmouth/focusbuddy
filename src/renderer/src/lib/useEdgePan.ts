@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWidgetStore } from '../stores/widgets'
 import { isOverFloatingChrome } from './floatingChrome'
-import { createEdgePanArming, isInEdgeZone, type PointerSample } from './edgePanArming'
+import { EDGE_PAN_MARGIN, createEdgePanArming, isInEdgeZone, type PointerSample } from './edgePanArming'
 
 // Edge-pan / "infinite map" camera control for the canvas.
 //
@@ -111,7 +111,7 @@ export function useEdgePan({
   container,
   disabled,
   hardDisabled = false,
-  margin = 80,
+  margin = EDGE_PAN_MARGIN,
   maxSpeedPerSecond = 1100
 }: Options): EdgeIntensity {
   const panBy = useWidgetStore((s) => s.panBy)

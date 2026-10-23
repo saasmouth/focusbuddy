@@ -19,3 +19,20 @@ export const WidgetSurfaceContext = createContext<WidgetSurface>('canvas')
 export function useWidgetSurface(): WidgetSurface {
   return useContext(WidgetSurfaceContext)
 }
+
+// Whether the frame may offer to remove the widget it draws.
+//
+// Separate from the surface, because 'embedded' covers hosts with opposite
+// answers: the full-pane view of a work widget file IS the file, so its × is
+// the honest way to delete it, while an embed inside a document, slide, sheet,
+// diagram, design or drawing is a PLACEMENT of an object that lives elsewhere.
+// There, `remove` on a `wf:` id trashes the file and every desk instance of it
+// (stores/widgets.ts), and on a desk widget's id it deletes the widget from its
+// desk — either way a stray × inside a document destroys work that is not the
+// document's. Removing an embed is the host editor's job: delete the node, not
+// the widget. Hosts like that provide `false`.
+export const WidgetRemovableContext = createContext<boolean>(true)
+
+export function useWidgetRemovable(): boolean {
+  return useContext(WidgetRemovableContext)
+}

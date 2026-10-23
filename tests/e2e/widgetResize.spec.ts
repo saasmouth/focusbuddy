@@ -2,18 +2,20 @@ import { test, expect } from '@playwright/test'
 import { clickWidgetTool, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 // WidgetFrame header +/− buttons:
-//   - "Grow widget" multiplies w/h by 1.5 (capped 1400 × 900)
-//   - "Shrink widget" multiplies w/h by 1/1.5 (floored 180 × 120)
+//   - "Grow work widget" multiplies w/h by 1.5, each side clamped to the grow
+//     ceiling GROW_CEILING (4800 × 3200 since 6aa80f61, "scaleWidgetBy's cap
+//     raised to 4800x3200" — the owner's 4.3.41 any-size ruling; it was
+//     1400 × 900 before)
+//   - "Shrink work widget" multiplies w/h by 1/1.5 (floored 180 × 120)
 //   - Operations are symmetric inverses: grow then shrink returns the
 //     widget to its original dimensions within sub-pixel rounding
 //
-// We trigger the button via document.querySelector + .click() rather than
-// Playwright's locator click — once the widget grows, the resize buttons
-// can end up under the right-side sidebar's screen rect, and Playwright's
-// coord-based click (even with force:true) lands on the sidebar instead.
-// Direct DOM click bypasses every overlay and dispatches the React onClick
-// against the actual button element, which is what a user's click would
-// fundamentally trigger through React's synthetic-event delegation.
+// The buttons are pressed through clickWidgetTool: a real pointer click on
+// the header tool, inline or behind the header's "…" overflow. A widget
+// grown past the viewport carries its header tools off screen, exactly as it
+// would for a user, so the cap test brings it back into view the way a user
+// would — the desk's Home shortcut (⌘H, fit all to view) — before each press.
+// The cap test grows a note rather than a sticky; see the test for why.
 
 let launched: LaunchedApp | null = null
 
@@ -24,7 +26,10 @@ test.afterEach(async () => {
   }
 })
 
-async function seedAndOpenStickyWidget(launched: LaunchedApp): Promise<{
+async function seedAndOpenStickyWidget(
+  launched: LaunchedApp,
+  kind: 'sticky' | 'note' = 'sticky'
+): Promise<{
   widgetId: string
   taskId: string
   initialW: number
@@ -41,7 +46,7 @@ async function seedAndOpenStickyWidget(launched: LaunchedApp): Promise<{
   const skip = window.getByRole('button', { name: /Continue without account|Skip|Not now/i })
   if (await skip.isVisible().catch(() => false)) await skip.click().catch(() => {})
 
-  const seeded = await window.evaluate(async () => {
+  const seeded = await window.evaluate(async (k) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({
       parentId: null,
@@ -50,7 +55,7 @@ async function seedAndOpenStickyWidget(launched: LaunchedApp): Promise<{
     })
     const w = await api.widgets.create({
       taskId: task.id,
-      kind: 'sticky',
+      kind: k,
       title: '',
       content: 'resize me',
       x: 200,
@@ -59,7 +64,7 @@ async function seedAndOpenStickyWidget(launched: LaunchedApp): Promise<{
       height: 240
     })
     return { taskId: task.id, widgetId: w.id, initialW: w.width, initialH: w.height }
-  })
+  }, kind)
 
   await window.reload()
   await window.waitForFunction(
@@ -144,19 +149,72 @@ test('Shrink button respects minWidth/minHeight floor (180 × 120)', async () =>
   expect(final!.height).toBeGreaterThanOrEqual(120)
 })
 
-test('Grow button respects MAX_W/MAX_H cap (1400 × 900)', async () => {
+test('Grow button stops at the grow ceiling (4800 × 3200), and its tooltip says so', async () => {
   launched = await launchApp()
-  const { widgetId, taskId } = await seedAndOpenStickyWidget(launched)
-  await launched.window.waitForSelector(`[data-widget-id="${widgetId}"] [data-widget-header]`, { timeout: 5_000 })
+  const { window } = launched
+  // A note, not a sticky: this measures the Grow press's own ceiling, so the
+  // widget must be one whose height nothing else owns. A sticky's height is
+  // content-driven and held to its auto-grow ceiling (useAutoGrowHeight, sticky
+  // 640 since 5d1d3beb), which pulls any taller sticky back down — a separate
+  // rule, and not the one under test here.
+  const { widgetId, taskId, initialW, initialH } = await seedAndOpenStickyWidget(launched, 'note')
+  await window.waitForSelector(`[data-widget-id="${widgetId}"] [data-widget-header]`, { timeout: 5_000 })
 
+  // The tool states the ceiling the press actually enforces — wherever it
+  // sits. At 320px it is folded into the header's "…" menu, whose item had no
+  // tooltip at all; inline it said "max 1400 × 900" for two releases after the
+  // ceiling became 4800 × 3200.
+  const GROW_TITLE = 'Grow this work widget by 50% (max 4800 × 3200)'
+  const header = window.locator(`[data-widget-id="${widgetId}"] [data-widget-header]`).first()
+  await header.hover()
+  await header.locator(`[data-testid="widget-overflow-${widgetId}"]`).click()
+  const folded = window
+    .getByRole('menu', { name: 'More work widget actions' })
+    .getByRole('menuitem', { name: 'Grow work widget', exact: true })
+  await expect(folded).toHaveAttribute('title', GROW_TITLE)
+  await window.keyboard.press('Escape')
+  await expect(window.getByRole('menu', { name: 'More work widget actions' })).toHaveCount(0)
+
+  // Every press is +50% per side, clamped per side to the ceiling. Starting
+  // from 320 × 240: 480×360, 720×540, 1080×810, 1620×1215, 2430×1823,
+  // 3645×2734, then 5468×4101 clamps to 4800×3200, and an eighth press at the
+  // ceiling changes nothing.
+  const CAP_W = 4800
+  const CAP_H = 3200
+  let expected = { width: initialW, height: initialH }
+  // Give the desk the window: minimise the side menu, as someone growing a
+  // widget this large would.
+  await window.getByRole('button', { name: 'Minimise the menu to free the desk' }).click()
   for (let i = 0; i < 8; i++) {
+    // Fit the desk to the view (Home) so the header tools are on screen — and
+    // clear of the edge-pan zone, which Home did not guarantee before (lib/
+    // deskCameraNav homeCamera): at 60px from the top, reaching for Grow
+    // panned the desk away under the pointer. Esc first: it hands the keyboard
+    // back from the widget to the desk, which is where Home is handled (the
+    // canvas reads Control as well as ⌘).
+    await window.keyboard.press('Escape')
+    await window.keyboard.press('Control+h')
+    await window.waitForTimeout(350) // the fit animates for 280ms
+    const growRect = await window.evaluate((id) => {
+      const frame = document.querySelector(`[data-widget-id="${id}"]`)!.getBoundingClientRect()
+      return { left: frame.left, right: frame.right, top: frame.top, vw: window.innerWidth, vh: window.innerHeight }
+    }, widgetId)
+    expect(growRect.right, `press ${i + 1}: Home did not bring the widget into view`).toBeLessThanOrEqual(growRect.vw)
+    expect(growRect.top, `press ${i + 1}: Home did not bring the widget into view`).toBeGreaterThanOrEqual(0)
     await clickResizeButton(launched, 'grow', widgetId)
-    await launched.window.waitForTimeout(80)
+    expected = {
+      width: Math.min(CAP_W, Math.round(expected.width * 1.5)),
+      height: Math.min(CAP_H, Math.round(expected.height * 1.5))
+    }
+    await expect
+      .poll(() => readWidget(launched!, widgetId, taskId), { message: `size after grow press ${i + 1}` })
+      .toEqual(expected)
   }
-  const final = await readWidget(launched, widgetId, taskId)
-  expect(final).not.toBeNull()
-  expect(final!.width).toBeLessThanOrEqual(1400)
-  expect(final!.height).toBeLessThanOrEqual(900)
-  // Sanity that growth actually happened.
-  expect(final!.width).toBeGreaterThan(900)
+  // Growth really happened, all the way to the ceiling and no further.
+  expect(expected).toEqual({ width: CAP_W, height: CAP_H })
+  // At this width the tool is on the header itself, saying the same thing.
+  await expect(header.locator(`.fb-widget-actions [data-testid="widget-grow-${widgetId}"]`)).toHaveAttribute(
+    'title',
+    GROW_TITLE
+  )
 })
