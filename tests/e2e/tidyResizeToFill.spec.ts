@@ -99,19 +99,18 @@ function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
 }
 
-async function openTidyMenu(window: Page, at: { x: number; y: number } = { x: 200, y: 200 }): Promise<void> {
-  const surface = window.locator('[data-canvas-surface="true"]')
-  await surface.click({ button: 'right', position: at })
-  await expect(window.locator('[data-canvas-ctx-menu]').first()).toBeVisible()
-  const menu = window.locator('[data-canvas-ctx-menu]')
-  await menu.getByText('Auto-arrange', { exact: true }).hover()
-  await window.waitForTimeout(200)
-  await menu.getByText('Tidy', { exact: true }).hover()
-  await window.waitForTimeout(200)
+// Pick a Tidy mode from the top pill. DEC-038 moved the Tidy modes out of the
+// canvas right-click menu (Auto-arrange > Tidy > ...) into the pill, where
+// hovering "Tidy" opens its mode icons; one home for one concept.
+async function tidyWith(window: Page, mode: 'square' | 'vertical' | 'horizontal' | 'mosaic' | 'flow'): Promise<void> {
+  await window.locator('[data-testid="pill-tidy"]').first().hover()
+  const item = window.locator(`[data-testid="tidy-menu"] [data-testid="tidy-mode-${mode}"]`)
+  await expect(item).toBeVisible({ timeout: 4_000 })
+  await item.click()
 }
 
 // ---------------------------------------------------------------------------
-// (a) Square grid: a smaller widget grows to fill its cell — no gap around it.
+// (a) Square grid: a smaller widget grows toward its cell (DEC-040: at most 1.25x).
 // ---------------------------------------------------------------------------
 test('(a) Tidy > Square grid resizes widgets to fill their cell, no overlaps', async () => {
   launched = await launchApp()
@@ -132,8 +131,7 @@ test('(a) Tidy > Square grid resizes widgets to fill their cell, no overlaps', a
     expect(before[id].width, `${id} pre-tidy width seeded`).toBeGreaterThan(0)
   }
 
-  await openTidyMenu(window)
-  await window.locator('[data-canvas-ctx-menu]').getByText('Square grid', { exact: true }).click()
+  await tidyWith(window, 'square')
   await window.waitForTimeout(500)
 
   const after = await widgetRects(window, ids)
@@ -141,11 +139,14 @@ test('(a) Tidy > Square grid resizes widgets to fill their cell, no overlaps', a
 
   // Column 0 = w0,w2 (widest 150); column 1 = w1,w3 (widest 300).
   // Row 0 = w0,w1 (tallest 100); row 1 = w2,w3 (tallest 250).
+  // DEC-040: a widget grows toward its cell but at most 1.25x its natural size
+  // (MAX_TIDY_GROWTH), so w3 closes part of the gap instead of being stretched
+  // to the widest/tallest neighbour: 150 -> 188 wide, 100 -> 125 tall.
   expect(w0.width, 'col0 width = widest in col0').toBe(150)
-  expect(w3.width, 'w3 grew from 150 to col1 width (300)').toBe(300)
+  expect(w3.width, 'w3 grew toward col1 width (300), capped at 1.25x: 188').toBe(188)
   expect(w1.width, 'w1 stays at its own (already max) width').toBe(300)
   expect(w2.height, 'row1 height = tallest in row1').toBe(250)
-  expect(w3.height, 'w3 grew from 100 to row1 height (250)').toBe(250)
+  expect(w3.height, 'w3 grew toward row1 height (250), capped at 1.25x: 125').toBe(125)
   expect(w0.height, 'w0 stays at row0 tallest (100)').toBe(100)
   expect(w1.height, 'w1 stays at row0 tallest (100)').toBe(100)
 
@@ -164,7 +165,7 @@ test('(a) Tidy > Square grid resizes widgets to fill their cell, no overlaps', a
 // ---------------------------------------------------------------------------
 // (b) Flow (default Tidy pill button): a row is filled edge to edge.
 // ---------------------------------------------------------------------------
-test('(b) FloatingPill Tidy (default flow) fills each row edge to edge, uniform row height', async () => {
+test('(b) FloatingPill Tidy (default flow) puts the row on one line, growing each widget toward the row at most 1.25x', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -192,13 +193,19 @@ test('(b) FloatingPill Tidy (default flow) fills each row edge to edge, uniform 
   const after = await widgetRects(window, ids)
   const rects = ids.map((id) => after[id])
 
-  // All 3 items should land on one row (canvas is wide) and share the row's
-  // tallest natural height (150), with no trailing gap on the right edge.
+  // All 3 items land on one row (the canvas is wide). Each grows toward the
+  // row's leftover width and its tallest member (150), but DEC-040 caps growth
+  // at 1.25x natural (MAX_TIDY_GROWTH): the old "uniform row height" stretched
+  // a short widget to its tallest neighbour, which is what the operator asked
+  // tidy to stop doing. Exact sizes, from grow(natural, cell):
+  //   w0 200x120 -> 250x150   w1 250x90 -> 313x113   w2 180x150 -> 225x150
   const ys = new Set(rects.map((r) => r.y))
   expect(ys.size, 'all 3 fit on a single row').toBe(1)
-  const heights = new Set(rects.map((r) => r.height))
-  expect(heights.size, 'uniform row height').toBe(1)
-  expect([...heights][0], 'row height = tallest natural height (150)').toBe(150)
+  expect(rects.map((r) => [r.width, r.height]), 'each grew toward the row, capped at 1.25x').toEqual([
+    [250, 150],
+    [313, 113],
+    [225, 150]
+  ])
 
   // No item shrank below its natural size, and none overlap.
   const naturalW: Record<string, number> = { w0: 200, w1: 250, w2: 180 }
@@ -215,9 +222,12 @@ test('(b) FloatingPill Tidy (default flow) fills each row edge to edge, uniform 
 })
 
 // ---------------------------------------------------------------------------
-// (c) Custom rows: grid resize applies the same fill-to-cell rule.
+// (c) A 3x2 grid: grid resize applies the same fill-to-cell rule.
+//     DEC-040 removed the explicit "Rows… > 2 rows" buttons; Square grid now
+//     picks a balanced shape, and balancedColumns(6) = 3, so six items still
+//     make the 3-column, 2-row grid this scenario checks.
 // ---------------------------------------------------------------------------
-test('(c) Tidy > Rows... > 2 rows resizes into an aligned grid with no overlaps', async () => {
+test('(c) Tidy > Square grid of six resizes into an aligned 3x2 grid with no overlaps', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -232,17 +242,13 @@ test('(c) Tidy > Rows... > 2 rows resizes into an aligned grid with no overlaps'
   ])
   await openTask(window, /Tidy resize rows test/)
 
-  await openTidyMenu(window)
-  const menu = window.locator('[data-canvas-ctx-menu]')
-  await menu.getByText('Rows…', { exact: true }).hover()
-  await window.waitForTimeout(200)
-  await menu.getByText('2 rows', { exact: true }).click()
+  await tidyWith(window, 'square')
   await window.waitForTimeout(500)
 
   const after = await widgetRects(window, ids)
   const rects = ids.map((id) => after[id])
 
-  // 6 items / 2 rows -> 3 columns. Distinct x count should be 3.
+  // 6 items -> balancedColumns(6) = 3 columns x 2 rows. Distinct x count should be 3.
   const xs = new Set(rects.map((r) => r.x))
   expect(xs.size, 'three columns').toBe(3)
   const ys = new Set(rects.map((r) => r.y))
@@ -282,10 +288,8 @@ test('(d) Tidy does not resize a section widget, only repositions loose widgets'
     { title: 'w1', x: 1900, y: 100, w: 120, h: 90 }
   ])
 
-  // Section placed well clear of (200,200) — the proven "always bare canvas"
-  // right-click point every other spec in this suite uses — so the default
-  // right-click below reliably opens the canvas context menu, not a
-  // section-specific one.
+  // Section placed well clear of the loose widgets, so its own frame never
+  // decides where they land.
   const sectionId = await window.evaluate(async (taskId: string) => {
     const api = (window as unknown as { api: typeof window.api }).api
     const sec = await api.widgets.create({
@@ -305,22 +309,23 @@ test('(d) Tidy does not resize a section widget, only repositions loose widgets'
 
   const sectionBefore = (await widgetRects(window, [sectionId]))[sectionId]
 
-  await openTidyMenu(window)
-  await window.locator('[data-canvas-ctx-menu]').getByText('Square grid', { exact: true }).click()
+  await tidyWith(window, 'square')
   await window.waitForTimeout(500)
 
   const sectionAfter = (await widgetRects(window, [sectionId]))[sectionId]
   expect(sectionAfter.width, 'section width untouched by tidy').toBe(sectionBefore.width)
   expect(sectionAfter.height, 'section height untouched by tidy').toBe(sectionBefore.height)
 
-  // The two loose widgets were still resized/repositioned normally (2 items ->
-  // 1x2 grid: both share one row, column widths = each item's own width since
-  // they're the sole occupant of their column).
+  // The two loose widgets were still resized/repositioned normally. The section
+  // is placed by tidy too (just never resized), so three items make one row
+  // (balancedColumns(3) = 3): each widget is the sole occupant of its column, so
+  // keeps its own width; the row is as tall as the section's frame, so each
+  // 90px widget grows toward it, capped by DEC-040 at 1.25x: 113.
   const others = await widgetRects(window, ids)
   expect(others[ids[0]].width, 'loose widget w0 kept its own column width').toBe(300)
   expect(others[ids[1]].width, 'loose widget w1 kept its own column width').toBe(120)
-  expect(others[ids[0]].height, 'row height = tallest of the two (90)').toBe(90)
-  expect(others[ids[1]].height, 'row height = tallest of the two (90)').toBe(90)
+  expect(others[ids[0]].height, 'w0 grew toward the section-tall row, capped at 1.25x (113)').toBe(113)
+  expect(others[ids[1]].height, 'w1 grew toward the section-tall row, capped at 1.25x (113)').toBe(113)
 
   await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible()
 })

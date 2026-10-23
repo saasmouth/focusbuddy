@@ -147,7 +147,11 @@ test('sticky widget grows height when text overflows, capped at 640', async () =
   // Click into the sticky textarea and type enough lines to overflow the
   // 160px-tall widget. 30 lines is always enough to push scrollHeight >
   // clientHeight in the real renderer.
+  // A sticky with text shows its rendered view; one click on it drops into the
+  // raw textarea (StickyWidget's edit mode). Only empty stickies start editable.
+  await window.locator(`[data-widget-id="${widgetId}"] .fb-sticky-rendered`).click()
   const textarea = window.locator(`[data-widget-id="${widgetId}"] textarea`)
+  await expect(textarea).toBeVisible({ timeout: 4_000 })
   await textarea.click()
   // First clear the seed text, then type many newline-separated lines.
   await textarea.fill('')

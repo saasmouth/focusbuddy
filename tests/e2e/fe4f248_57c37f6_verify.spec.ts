@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, openProduct, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -148,72 +148,43 @@ test('TIDY-1: handleAutoArrange completes without page error on a desk with mult
 })
 
 // ---------------------------------------------------------------------------
-// 3. MessagesView composer renders when activeId is set (57c37f6)
-//    API-driven: inject activeId into messaging store, assert composer testid.
+// 3. PlexiiChat (MessagesView) opens without crash (57c37f6)
+//    UI-driven: Office > PlexiiChat. With no account the view returns its
+//    sign-in gate before any composer can render, so the composer's gate (on
+//    activeId, not the loaded conversation) is pinned where it can actually be
+//    reached: tests/unit/messagesComposerGate.test.tsx mounts the view signed
+//    in. (This test used to inject into a store global that does not exist and
+//    then assert `visible === true || visible === false`, which cannot fail.)
 // ---------------------------------------------------------------------------
-test('MSG-3: message-composer renders when activeId is set in messaging store', async () => {
+test('MSG-3: PlexiiChat opens from Office and shows its sign-in gate without crash (no account)', async () => {
   launched = await launchApp()
   const { window } = launched
+  const pageErrors: string[] = []
+  window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)
+  await suppressFeatureSpotlights(window)
 
-  // Navigate to Messages view (UI-driven)
-  await window.getByRole('button', { name: /^Messages$/i }).first().click()
-  await window.waitForSelector('h1', { timeout: 6000 })
-
-  // Without an account the sign-in gate shows. Confirm it renders without crash.
-  // Then inject a synthetic activeId to exercise the gating path that was fixed.
-  // We do this in the renderer context (API-driven path into the Zustand store).
-  const composerVisible = await window.evaluate(async () => {
-    // Check whether message-composer is present already (would be if signed in)
-    if (document.querySelector('[data-testid="message-composer"]')) return true
-
-    // Not signed in: set activeId in the messaging store directly and check
-    // that the composer appears (the fix: gated on activeId not activeConv).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stores = (window as any).__zustand_stores__ as Map<string, { getState: () => unknown; setState: (v: unknown) => void }> | undefined
-    if (stores) {
-      for (const [, store] of stores) {
-        const s = store.getState() as Record<string, unknown>
-        if ('activeId' in s && 'send' in s) {
-          store.setState({ ...s, activeId: 'synthetic-conv-id' })
-          break
-        }
-      }
-      await new Promise((r) => setTimeout(r, 100))
-      return !!document.querySelector('[data-testid="message-composer"]')
-    }
-    // If we can't reach the store, return null so we know it wasn't driven
-    return null
-  })
-
-  // If store injection succeeded, the composer must be present.
-  // If not (store not exposed), we can't fully verify in headless — mark as
-  // partial. The structural gate fix is confirmed by typecheck + unit.
-  if (composerVisible === null) {
-    // Can't inject store in this build — verify the sign-in gate rendered
-    // without crash as a minimum regression check.
-    await expect(window.getByRole('heading', { name: 'Messages' })).toBeVisible()
-  } else {
-    // The fix is: composer renders when activeId is set, even without activeConv.
-    // The signed-out path doesn't set activeId, so we assert no page error.
-    expect(composerVisible === true || composerVisible === false).toBe(true)
-  }
+  await openProduct(window, 'chat')
+  await expect(window.getByRole('heading', { name: 'Messages', exact: true })).toBeVisible({ timeout: 8000 })
+  await expect(window.getByText(/Sign in to message other people on PlexiiDesk/i)).toBeVisible()
+  await expect(window.locator('[data-testid="message-composer"]')).toHaveCount(0)
+  expect(pageErrors).toHaveLength(0)
 })
 
 // ---------------------------------------------------------------------------
-// 4. InboxView renders and its rows carry the inbox-item testid (57c37f6)
-//    UI-driven: navigate to PlexiInbox, assert the view renders without crash.
+// 4. InboxView renders and shows its sign-in gate (57c37f6)
+//    UI-driven: Office > Inbox, assert the view renders without crash.
 // ---------------------------------------------------------------------------
 test('INBOX-1: PlexiInbox renders without crash and shows sign-in gate (no account)', async () => {
   launched = await launchApp()
   const { window } = launched
-  await waitForReady(window)
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
   await waitForReady(window)
+  await suppressFeatureSpotlights(window)
 
-  await window.getByRole('button', { name: /^PlexiiInbox$/i }).first().click()
-  await expect(window.getByRole('heading', { name: 'PlexiiInbox' })).toBeVisible({ timeout: 6000 })
+  await openProduct(window, 'inbox')
+  await expect(window.getByRole('heading', { name: 'PlexiiInbox' })).toBeVisible({ timeout: 8000 })
   // The sign-in gate copy must reference PlexiDesk notifications and point email to Mail
   await expect(window.getByText(/your PlexiiDesk notifications/i)).toBeVisible()
   await expect(window.getByText(/Email is in Mail/i)).toBeVisible()
