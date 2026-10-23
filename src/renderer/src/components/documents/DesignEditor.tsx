@@ -76,6 +76,9 @@ import BrandKitModal from './BrandKitModal'
 import { GOOGLE_FONTS, loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import DesignAiPanel from './DesignAiPanel'
 import DesignMenuBar from './editor/DesignMenuBar'
+import RecordFindReplace from './editor/RecordFindReplace'
+import { applyDesignReplacements, designFindRecords, frameForRecord } from './design/designFind'
+import type { FindRecord, RecordHit } from '../../lib/recordFind'
 import type { DocumentOps } from './editor/documentOps'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
@@ -199,6 +202,10 @@ export default function DesignEditor({
 }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // Find… (⌘F) and Find and replace… (⇧⌘H) share one panel; which opened it
+  // decides whether the Replace row shows. Design was the last office app
+  // without them (SPEC §9.6).
+  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false)
   // A brand-new, empty design: the Start-from menu opens itself once, which is
   // the first-run help the permanent chip grid used to provide.
   const [startEmpty, setStartEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
@@ -474,6 +481,33 @@ export default function DesignEditor({
 
   const pages = design.pages ?? []
   const activePage = design.activePage ?? 0
+
+  // Every searchable piece of text: a threaded story's blocks, and the
+  // paragraphs of frames that carry their own text (designFind.ts says why
+  // those are the two places and why a story's frames are not searched).
+  const findRecords = useMemo(() => designFindRecords(design), [design])
+
+  /** Show a hit: switch to its page, select its frame, bring it on screen. */
+  function goToHit(key: string): void {
+    const target = frameForRecord(designRef.current, key)
+    if (!target) return
+    // goToPage clears the selection, so select after it rather than before.
+    if (target.pageIndex !== (designRef.current.activePage ?? 0)) goToPage(target.pageIndex)
+    setSelectedIds([target.elementId])
+    // Best effort: the element may not be mounted yet on a page just switched
+    // to, and a hit already on screen needs no scrolling.
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-element-id="${CSS.escape(target.elementId)}"]`)
+        ?.scrollIntoView({ block: 'center', inline: 'center' })
+    })
+  }
+
+  /** Replace-all is ONE undo entry: one body, committed once. */
+  function replaceText(_changes: FindRecord[], hits: RecordHit[], replacement: string): void {
+    if (readOnly || !hits.length) return
+    commit(applyDesignReplacements(designRef.current, hits, replacement))
+  }
 
   function goToPage(i: number): void {
     const d = designRef.current
@@ -1602,6 +1636,8 @@ export default function DesignEditor({
             canPaste: clipboard.hasClip,
             duplicateSelection: duplicateSelected,
             selectAll,
+            find: () => setFindOpen('find'),
+            findAndReplace: () => setFindOpen('replace'),
             saveSelectionAsSnippet,
             insertSnippet: () => setSnippetLibraryOpen(true),
             duplicatePage,
@@ -2269,6 +2305,18 @@ export default function DesignEditor({
           }
         />
       )}
+      {findOpen && (
+        <RecordFindReplace
+          testid="design-find"
+          scope="Find in this design"
+          replace={findOpen === 'replace'}
+          records={findRecords}
+          onGo={(h) => goToHit(h.key)}
+          onReplace={replaceText}
+          onClose={() => setFindOpen(false)}
+        />
+      )}
+
       {snippetLibraryOpen && (
         <SnippetLibrary kinds={DESIGN_KINDS} targetId={designSnippetTargetId(snippetScope)} onClose={() => setSnippetLibraryOpen(false)} />
       )}
