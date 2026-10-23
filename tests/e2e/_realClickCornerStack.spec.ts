@@ -137,7 +137,7 @@ test('with the whole corner full, every control underneath is still reachable', 
       const el = document.querySelector(`[data-testid="${id}"]`)
       if (el) boxes.push({ id, r: el.getBoundingClientRect() })
     }
-    for (const sel of ['[data-testid="assistant-pill"]', '[data-minimap-fab]', '[data-automations-fab]']) {
+    for (const sel of ['[data-testid="assistant-pill"]', '[data-minimap-fab]', '[data-automations-fab]', '[data-testid="floating-toolbar"]']) {
       const el = document.querySelector(sel)
       if (el) boxes.push({ id: sel, r: el.getBoundingClientRect() })
     }
@@ -172,6 +172,44 @@ test('with the whole corner full, every control underneath is still reachable', 
       { timeout: 8_000, message: 'waiting for the toggle to reach its corner' }
     )
     .toBeLessThanOrEqual(16)
+
+  // EVERY EDGE-DOCKED CONTROL IS REACHABLE, not a list I remembered to write.
+  //
+  // 9d found the last one in a screenshot I had already looked at: the
+  // floating toolbar, a 40x56 rail halfway up the right edge, with the call
+  // window over it and a sliver showing. So this asks the DOM which controls
+  // are docked at an edge and hit-tests every one of them, rather than naming
+  // the three I happened to think of.
+  const covered = await window.evaluate(() => {
+    const SEL = '[data-floating-menu], [data-testid="assistant-pill"], [data-testid="floating-toolbar"]'
+    const bad: string[] = []
+    for (const el of document.querySelectorAll<HTMLElement>(SEL)) {
+      const r = el.getBoundingClientRect()
+      if (r.width < 8 || r.height < 8) continue // not laid out
+      const name =
+        el.getAttribute('data-testid') ??
+        (el.hasAttribute('data-minimap-fab') ? 'minimap' : el.hasAttribute('data-automations-fab') ? 'automations' : 'chrome')
+      // Its own centre, and a point just inside each corner: a control can be
+      // clear in the middle and covered at an edge.
+      const pts: Array<[number, number]> = [
+        [r.left + r.width / 2, r.top + r.height / 2],
+        [r.left + 3, r.top + 3],
+        [r.right - 3, r.bottom - 3]
+      ]
+      for (const [x, y] of pts) {
+        const top = document.elementFromPoint(x, y)
+        if (!top) continue
+        if (top === el || el.contains(top)) continue
+        const by = (top as HTMLElement).closest('[data-testid]')?.getAttribute('data-testid') ?? top.tagName
+        // Another piece of chrome overlapping is this corner's own business;
+        // what must never happen is one of the STACK's overlays on top.
+        if (!['call-window', 'call-incoming', 'meeting-invite', 'local-ai-notice', 'completion-toast', 'feature-spotlight-popup'].includes(by)) continue
+        bad.push(`${name} covered by ${by} at ${Math.round(x)},${Math.round(y)}`)
+      }
+    }
+    return bad
+  })
+  expect(covered, 'no stacked overlay may sit on an edge-docked control').toEqual([])
 
   // AND EVERY CONTROL TAKES A REAL PRESS. The minimap toggle is the one the
   // defect was reported on; the pill is the other live control down there.

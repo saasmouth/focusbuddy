@@ -16,8 +16,10 @@ import {
   CORNER_PRIORITY,
   STACK_GAP,
   footprint,
+  isBottomDocked,
   placeCornerStack,
   stackBase,
+  stackInsetRight,
   type Box,
   type StackItem
 } from '@renderer/lib/cornerStack'
@@ -26,7 +28,7 @@ const WIN_H = 900
 const AVAILABLE = WIN_H - 56 // the top margin
 
 const item = (id: string, priority: number, height: number): StackItem => ({ id, priority, height })
-const byId = (ps: ReturnType<typeof placeCornerStack>, id: string): { bottom: number; visible: boolean } =>
+const byId = (ps: ReturnType<typeof placeCornerStack>, id: string): { bottom: number; right: number; visible: boolean } =>
   ps.find((p) => p.id === id)!
 
 describe('the order of the stack', () => {
@@ -121,6 +123,8 @@ describe('when they do not all fit', () => {
 })
 
 describe('where the stack starts', () => {
+  const WIN_W = 1700
+  const COLUMN = { left: WIN_W - 20 - 360, right: WIN_W - 20 } // a 360-wide right-docked item
   const chrome = (fromBottom: number, height: number): Box => ({
     left: 1600,
     right: 1680,
@@ -128,22 +132,73 @@ describe('where the stack starts', () => {
     bottom: WIN_H - fromBottom
   })
 
-  it('clears the TALLEST piece of chrome, plus a gap', () => {
+  it('clears the TALLEST piece of chrome under it, plus a gap', () => {
     const pill = chrome(42, 52) // top 806
     const automations = chrome(104, 32) // top 764 — reaches higher
-    expect(stackBase([pill, automations], WIN_H, 0)).toBe(WIN_H - 764 + STACK_GAP)
+    expect(stackBase([pill, automations], COLUMN, WIN_H, 0)).toBe(WIN_H - 764 + STACK_GAP)
+  })
+
+  it('ignores chrome that is BESIDE the column, not under it', () => {
+    // THE ONE THAT WOULD HAVE HURT, and it is not hypothetical: the sidebar's
+    // resize strip measures 10x935, reaching y=39. A base that took the
+    // tallest thing it found regardless of where it was would start the stack
+    // 935px up and push every item off the top of the window at once. Found by
+    // enumerating what is actually docked at the edges, not by assuming.
+    const sidebarResize: Box = { left: 262, right: 272, top: 39, bottom: 974 }
+    expect(stackBase([sidebarResize], COLUMN, WIN_H, 20)).toBe(20)
+    // The bottom-left zoom pill is beside it too.
+    const zoom: Box = { left: 284, right: 321, top: WIN_H - 29, bottom: WIN_H }
+    expect(stackBase([zoom], COLUMN, WIN_H, 20)).toBe(20)
   })
 
   it('ignores hidden chrome, which reports an empty rect at the origin', () => {
-    // Without this the base becomes the window's full height and every item
-    // in the stack is pushed off the top of the screen at once.
     const hidden: Box = { left: 0, right: 0, top: 0, bottom: 0 }
-    expect(stackBase([hidden], WIN_H, 20)).toBe(20)
-    expect(stackBase([hidden, chrome(42, 52)], WIN_H, 0)).toBe(WIN_H - 806 + STACK_GAP)
+    expect(stackBase([hidden], COLUMN, WIN_H, 20)).toBe(20)
+    expect(stackBase([hidden, chrome(42, 52)], COLUMN, WIN_H, 0)).toBe(WIN_H - 806 + STACK_GAP)
   })
 
   it('never goes below the floor it is given', () => {
-    expect(stackBase([], WIN_H, 20)).toBe(20)
+    expect(stackBase([], COLUMN, WIN_H, 20)).toBe(20)
+  })
+})
+
+describe('a rail down the right edge is gone AROUND, not over', () => {
+  const WIN_W = 1700
+
+  // The real one, from the edge inventory: the floating toolbar, 40x56,
+  // fixed at the right edge roughly halfway up the window.
+  const toolbar: Box = { left: 1642, right: 1682, top: 494, bottom: 550 }
+
+  it('insets the column past it', () => {
+    expect(stackInsetRight([toolbar], WIN_W, WIN_H, 20)).toBe(WIN_W - 1642 + STACK_GAP)
+  })
+
+  it('does NOT try to clear it vertically', () => {
+    // Clearing the toolbar by lifting would start the stack ~480px up the
+    // window, which is why the two axes are separate. Once the column is
+    // inset past it, it is no longer under the stack at all.
+    const inset = stackInsetRight([toolbar], WIN_W, WIN_H, 20)
+    const column = { left: WIN_W - inset - 360, right: WIN_W - inset }
+    expect(stackBase([toolbar], column, WIN_H, 20), 'beside the column now').toBe(20)
+  })
+
+  it('leaves the BOTTOM-docked chrome to be cleared by lifting instead', () => {
+    // The pill is on the right edge too, but it is in the corner: insetting
+    // for it would shove the stack sideways for no reason, and it is already
+    // handled by the base.
+    const pill: Box = { left: 1628, right: 1680, top: WIN_H - 94, bottom: WIN_H - 42 }
+    expect(isBottomDocked(pill, WIN_H)).toBe(true)
+    expect(stackInsetRight([pill], WIN_W, WIN_H, 20), 'no sideways shift for corner chrome').toBe(20)
+  })
+
+  it('ignores anything that is not on the right edge', () => {
+    const zoom: Box = { left: 284, right: 321, top: WIN_H - 29, bottom: WIN_H }
+    const sidebarResize: Box = { left: 262, right: 272, top: 39, bottom: 974 }
+    expect(stackInsetRight([zoom, sidebarResize], WIN_W, WIN_H, 20)).toBe(20)
+  })
+
+  it('ignores a hidden rail', () => {
+    expect(stackInsetRight([{ left: 0, right: 0, top: 0, bottom: 0 }], WIN_W, WIN_H, 20)).toBe(20)
   })
 })
 

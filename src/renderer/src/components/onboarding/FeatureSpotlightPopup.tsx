@@ -60,10 +60,10 @@ export default function FeatureSpotlightPopup(): JSX.Element | null {
     // Onboarding stage: forced-dark card in every theme; hairlines are relative to the stage.
     <div
       ref={cardRef}
-      className="fixed right-5 z-[230] w-[340px] max-w-[92vw] rounded-2xl bg-[rgba(16,24,39,0.97)] border border-white/10 shadow-2xl text-stone-100 p-4 fb-fade-in-up"
+      className="fixed z-[230] w-[340px] max-w-[92vw] rounded-2xl bg-[rgba(16,24,39,0.97)] border border-white/10 shadow-2xl text-stone-100 p-4 fb-fade-in-up"
       // The stack decides where this sits; `bottom-5` as a class could not be
       // added to, and an inline style beside it would silently win.
-      style={{ bottom: corner.bottom }}
+      style={{ bottom: corner.bottom, right: corner.right }}
       role="dialog"
       aria-label={`New: ${mod.title}`}
       data-testid="feature-spotlight-popup"
