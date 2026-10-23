@@ -62,6 +62,10 @@ export const MODULE_SWAPS: Record<string, string> = {
   // scanned-PDF fallback goes through here, so extraction still works for
   // everything whose text is already text.
   'src/main/ocr.ts': 'src/web/worker/main/ocr.ts',
+  // pdf.js's shared globals: a native-canvas clash that only the desktop has
+  // (pdf-parse vs the page renderer). fileText.ts reaches it; in a tab text
+  // extraction runs as it is, and there is no page renderer.
+  'src/main/pdfCanvasGlobals.ts': 'src/web/worker/main/pdfCanvasGlobals.ts',
   // Image downsampling: same rules, different encoder. The desktop has
   // Electron's nativeImage; a Worker has OffscreenCanvas.
   'src/main/db/imageDownsample.ts': 'src/web/worker/main/imageDownsample.ts',

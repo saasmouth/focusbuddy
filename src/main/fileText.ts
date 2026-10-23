@@ -1,4 +1,5 @@
 import { getFile, readFileBytes } from './db/files'
+import { withPdfTextLayer } from './pdfCanvasGlobals'
 
 // Extract readable plain text from a file so a wire / desk agent / the brain can
 // reason over its CONTENTS, not just its name. Best-effort + defensive: any parse
@@ -28,17 +29,19 @@ export async function extractTextFromBuffer(
   const m = (mime || '').toLowerCase()
   try {
     if (e === 'pdf' || m.includes('pdf')) {
-      const { PDFParse } = await import('pdf-parse')
-      const parser = new PDFParse({ data: buf })
-      let text = ''
-      let pageCount = 0
-      try {
-        const res = await parser.getText()
-        text = (res.text || '').trim()
-        pageCount = res.total ?? 0
-      } finally {
-        await parser.destroy?.()
-      }
+      // pdf-parse shares pdf.js's globals with the PDF renderer (Draw, OCR);
+      // withPdfTextLayer keeps the two from running across each other
+      // (pdfCanvasGlobals.ts). The OCR below runs after this window closes.
+      const { text, pageCount } = await withPdfTextLayer(async () => {
+        const { PDFParse } = await import('pdf-parse')
+        const parser = new PDFParse({ data: buf })
+        try {
+          const res = await parser.getText()
+          return { text: (res.text || '').trim(), pageCount: res.total ?? 0 }
+        } finally {
+          await parser.destroy?.()
+        }
+      })
       // A scanned / image-only PDF has no embedded text layer, so pdf-parse
       // returns little or nothing. When the text is thin relative to the page
       // count, OCR the rendered pages instead (offline, on-device). Only replace

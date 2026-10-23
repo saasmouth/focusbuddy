@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
+import { withPdfRenderer } from './pdfCanvasGlobals'
 
 // Offline OCR for scanned / image-only PDFs (the ones with no embedded text
 // layer, where pdf-parse comes back empty). Pages are rasterised to PNG with
@@ -91,35 +92,21 @@ export async function terminateOcrWorker(): Promise<void> {
 // (possibly empty). Never throws for a readable-but-empty scan; genuine failures
 // (corrupt PDF, missing training data) propagate so the caller can fall back.
 export async function ocrPdfBuffer(buf: Uint8Array, maxPages = MAX_OCR_PAGES): Promise<string> {
-  const mod = (await import('pdf-to-png-converter')) as unknown as {
-    pdfToPng?: (data: Uint8Array, opts: Record<string, unknown>) => Promise<Array<{ content?: Buffer }>>
-    default?: { pdfToPng: (data: Uint8Array, opts: Record<string, unknown>) => Promise<Array<{ content?: Buffer }>> }
-  }
-  const pdfToPng = mod.pdfToPng ?? mod.default?.pdfToPng
-  if (!pdfToPng) throw new Error('pdf-to-png-converter unavailable')
-
-  // pdf-parse bundles pdfjs 5.x and pdf-to-png-converter bundles pdfjs 6.x, and
-  // both stash their worker handler on the shared globalThis.pdfjsWorker — whoever
-  // loaded first wins. Since fileText.ts runs pdf-parse's getText() before us, its
-  // 5.x handler is in place and pdf-to-png's 6.x getDocument() would throw a
-  // version mismatch. Clear the global so pdf-to-png initialises its own handler,
-  // then restore the prior value so a later pdf-parse call in this process stays
-  // consistent. Extraction is awaited one file at a time, so this stays sequential.
-  const g = globalThis as { pdfjsWorker?: unknown }
-  const prevWorker = g.pdfjsWorker
-  delete g.pdfjsWorker
-  let pages: Array<{ content?: Buffer }>
-  try {
-    pages = await pdfToPng(new Uint8Array(buf), {
+  // Rasterising goes through withPdfRenderer: fileText.ts has just run
+  // pdf-parse on this very PDF, which bundles a different pdf.js and a
+  // different @napi-rs/canvas build that share pdf.js's globals (Path2D,
+  // DOMMatrix, ImageData, pdfjsWorker). Without the renderer's own globals in
+  // place, a page with any vector mark on it (a frame, a redaction box, a
+  // signature stroke) failed to render and the scan OCR'd to nothing. Only the
+  // rasterising holds the window; recognition below runs outside it.
+  const pages = await withPdfRenderer((pdfToPng) =>
+    pdfToPng(new Uint8Array(buf), {
       viewportScale: OCR_VIEWPORT_SCALE,
       pagesToProcess: Array.from({ length: maxPages }, (_, i) => i + 1),
       returnPageContent: true,
       verbosityLevel: 0
     })
-  } finally {
-    if (prevWorker !== undefined) g.pdfjsWorker = prevWorker
-    else delete g.pdfjsWorker
-  }
+  )
 
   const worker = await getWorker()
   const parts: string[] = []
