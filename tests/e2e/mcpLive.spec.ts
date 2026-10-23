@@ -282,7 +282,10 @@ test('a draft lands in the queue and nothing is sent', async () => {
   // survive that rather than evaporating, and must say where it went.
   const landed = await window.evaluate(async (deskId) => {
     const api = (window as unknown as { api: Record<string, any> }).api
-    const items = (await api.nodes.list())
+    // Work items have their own list (workItems:list, which Focus reads); the
+    // node list deliberately excludes them (nodes.ts, the S1 census fix), so
+    // looking there found nothing even when the draft had landed.
+    const items = (await api.workItems.list())
       .filter((n: { kind: string }) => n.kind === 'work_item')
       .map((n: { title: string; intentClass?: string; description?: string }) => ({
         where: 'work_item', title: n.title, intent: n.intentClass, notes: n.description
@@ -298,6 +301,11 @@ test('a draft lands in the queue and nothing is sent', async () => {
   expect(draft.notes).toContain('To: dana@example.com')
   // Whichever rail it took, the reply said so.
   expect(body).toContain(draft.where === 'work_item' ? 'work item' : 'note on the desk')
+  // And it is where the person would look: a work item shows in Focus.
+  if (draft.where === 'work_item') {
+    await window.evaluate(() => (window as unknown as { __fbView: { getState: () => { goAttention: () => void } } }).__fbView.getState().goAttention())
+    await expect(window.getByText('Reply to dana@example.com: March invoice').first(), 'the draft is in Focus').toBeVisible({ timeout: 8_000 })
+  }
 })
 
 // The new document types, against the real store. A spreadsheet that saves but
