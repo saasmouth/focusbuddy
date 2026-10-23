@@ -50,6 +50,14 @@ export interface ElementClipboard {
    * story is what makes a threaded frame copyable at all.
    */
   stories?: Record<string, unknown>
+  /**
+   * Which app copied it. Deck and Design share this format, and a paste into
+   * the OTHER one is a conversion (a design's threaded story becomes one text
+   * box in a deck; deck text boxes arrive in a design as unlinked frames), so
+   * the paste needs to know. Absent on a copy from a build that predates it,
+   * which pastes as it always did.
+   */
+  app?: 'slide' | 'design'
 }
 
 /**
@@ -62,7 +70,8 @@ export interface ElementClipboard {
 export function buildElementClipboard(
   elements: SlideElement[],
   source: { w: number; h: number },
-  stories?: Record<string, unknown>
+  stories?: Record<string, unknown>,
+  app?: 'slide' | 'design'
 ): ElementClipboard {
   const referenced = storyIdsOf(elements)
   const embedded: Record<string, unknown> = {}
@@ -74,7 +83,8 @@ export function buildElementClipboard(
     // Sorted by z so a paste can lay them back down in the same order whatever
     // order the selection was made in.
     elements: [...elements].sort((a, b) => (a.z ?? 0) - (b.z ?? 0)).map((e) => clone(e)),
-    ...(Object.keys(embedded).length ? { stories: embedded } : {})
+    ...(Object.keys(embedded).length ? { stories: embedded } : {}),
+    ...(app ? { app } : {})
   }
 }
 
@@ -124,7 +134,8 @@ export function parseElementClipboard(text: string | null | undefined): ElementC
     elements: elements.map((e) => clone(e)),
     ...(o.stories && typeof o.stories === 'object' && !Array.isArray(o.stories)
       ? { stories: clone(o.stories as Record<string, unknown>) }
-      : {})
+      : {}),
+    ...(o.app === 'slide' || o.app === 'design' ? { app: o.app } : {})
   }
 }
 

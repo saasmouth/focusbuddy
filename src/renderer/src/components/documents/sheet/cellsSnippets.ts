@@ -6,6 +6,7 @@ import { colLabel, fmtKey, parseFmtKey } from '../../../lib/sheetBody'
 import { parseA1Range } from '../../../lib/sheetCond'
 import { writeMatrix, type CellRange } from './sheetOps'
 import { registerSnippetTarget } from '../../../stores/snippets'
+import { insertIntoOffice, officeAccepts } from '../../../lib/officeSnippets'
 
 // PlexiiCells as a snippet surface: how a selected range becomes a saved
 // snippet, and how a saved one gets back onto a sheet.
@@ -346,16 +347,25 @@ export function insertSheetSnippet(tab: SheetTab, snippet: Snippet, place: Sheet
 export function useCellsSnippetTarget(instanceId: string, title: string, insert: (snippet: Snippet) => SnippetInsertResult): void {
   const ref = useRef(insert)
   ref.current = insert
-  useEffect(() => {
-    const target: SnippetTarget = {
-      id: cellsSnippetTargetId(instanceId),
-      label: title?.trim() ? `“${title.trim()}”` : 'This spreadsheet',
-      accepts: ['sheet'],
-      supports: CELLS_SNIPPET_LINKS,
-      insert: (snippet, link) => (link === 'duplicate' ? ref.current(snippet) : false)
-    }
-    return registerSnippetTarget(target)
-  }, [instanceId, title])
+  useEffect(() => registerSnippetTarget(cellsSnippetTarget(instanceId, title, (s) => ref.current(s))), [instanceId, title])
+}
+
+/**
+ * The target a mounted spreadsheet registers. Pure, so its contract is
+ * unit-testable. It takes every kind with a conversion into cells (rows of
+ * values: a document's table, a text work widget), converted and then pasted
+ * through the same insert as a sheet snippet; pictures are refused with the
+ * builder's reason.
+ */
+export function cellsSnippetTarget(instanceId: string, title: string, insert: (snippet: Snippet) => SnippetInsertResult): SnippetTarget {
+  return {
+    id: cellsSnippetTargetId(instanceId),
+    label: title?.trim() ? `“${title.trim()}”` : 'This spreadsheet',
+    accepts: officeAccepts('sheet'),
+    host: 'sheet',
+    supports: CELLS_SNIPPET_LINKS,
+    insert: (snippet, link) => insertIntoOffice(snippet, link, 'sheet', (s, l) => (l === 'duplicate' ? insert(s) : false))
+  }
 }
 
 /** A validation id the way the validation dialog mints one, unique within a burst. */

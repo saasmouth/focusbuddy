@@ -261,10 +261,13 @@ export interface SnippetQuery {
  */
 /**
  * What a target returns from `insert`. `true` took it; `false` declined without
- * a reason; the object form declines WITH one, which the store surfaces
- * verbatim. Boolean-returning targets stay valid.
+ * a reason; `{ ok: false, reason }` declines WITH one, which the store surfaces
+ * verbatim. `{ ok: true, notice }` took it CONVERTED, and `notice` is the one
+ * plain line saying so (conversionNotice: "It becomes a picture: edit it in
+ * PlexiiDraw."), which the store shows once the library has closed, so a
+ * converted insert is never silently lossy. Boolean-returning targets stay valid.
  */
-export type SnippetInsertResult = boolean | { ok: false; reason: string }
+export type SnippetInsertResult = boolean | { ok: false; reason: string } | { ok: true; notice?: string | null }
 
 export interface SnippetTarget {
   /** Stable id for the surface instance, e.g. `doc:<documentId>`. */
@@ -282,6 +285,14 @@ export interface SnippetTarget {
   host?: SnippetHostKind
   /** Link modes this surface genuinely supports. Must be non-empty. */
   supports: SnippetLink[]
+  /**
+   * The kinds this surface can take LIVE, when that is fewer than everything it
+   * accepts. A document resolves a live doc snippet, but a kind it can only hold
+   * converted is live only once a converted instance really renders there; until
+   * then it is duplicate-only, and the library must not offer a Live button that
+   * would be refused. Absent: every accepted kind gets every mode in `supports`.
+   */
+  liveKinds?: SnippetKind[]
   /**
    * Insert the snippet. Resolves false when the surface declined — a sheet with
    * no selection, a document that is read-only — so the caller can say why
@@ -356,6 +367,7 @@ export function canRenderNatively(kind: SnippetKind, host: SnippetHostKind): boo
  */
 export function linkModesFor(target: SnippetTarget, kind: SnippetKind): SnippetLink[] {
   if (!target.accepts.includes(kind)) return []
+  if (target.liveKinds && !target.liveKinds.includes(kind)) return target.supports.filter((l) => l !== 'live')
   return target.supports
 }
 

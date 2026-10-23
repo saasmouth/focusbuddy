@@ -6,10 +6,12 @@ import SnippetLibrary from '../../../snippets/SnippetLibrary'
 import type { DrawDialog } from '../editor/types'
 import { drawSnippetTargetId } from '../editor/drawSnippets'
 import type { SnippetKind } from '@shared/snippets'
+import { officeAccepts } from '../../../../lib/officeSnippets'
 
 // One array for the life of the app: the library refreshes when `kinds`
 // changes identity, and the studio re-renders on every edit.
-const DRAW_KINDS: SnippetKind[] = ['draw']
+// Every kind with a conversion into this app, derived from the builders.
+const DRAW_KINDS: SnippetKind[] = officeAccepts('draw')
 
 const snippetLibrary: DrawDialog = {
   id: 'snippet-library',

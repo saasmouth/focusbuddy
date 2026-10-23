@@ -150,6 +150,27 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   const ctxSlots = contextSlots(wc.context, ctx, attnTaken ? 1 : 2)
   slots.push(...ctxSlots)
 
+  // Paste into this widget, through the same conversion as inserting a saved
+  // snippet (lib/widgetSnippetInsert.ts). Only on widgets that take a paste.
+  // After the context rows, so it never takes one of their top-level places
+  // (a table cell's own actions stay where people look for them).
+  if (ctx.frame?.onPaste) {
+    slots.push(
+      toItem(
+        {
+          id: 'core/context/paste',
+          section: MenuSection.Context,
+          priority: -500,
+          label: 'Paste',
+          icon: 'content_paste',
+          shortcut: '⌘V',
+          onSelect: (c) => c.frame?.onPaste?.()
+        },
+        ctx
+      )
+    )
+  }
+
   // 2. AI Assist
   if (!suppress['ai-assist']) {
     const ai = buildAiAssistContribution(ctx)

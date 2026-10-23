@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  linkModesFor,
   ORG_SNIPPET_REACH_NOTE,
   ORG_SNIPPETS_SYNC,
   snippetKindIcon,
@@ -213,8 +214,8 @@ export default function SnippetLibrary({ kinds, targetId, onClose }: SnippetLibr
                   key={s.id}
                   snippet={s}
                   busy={busy === s.id}
-                  canInsertLive={targetsFor(s).some((t) => t.supports.includes('live'))}
-                  canInsertDuplicate={targetsFor(s).some((t) => t.supports.includes('duplicate'))}
+                  canInsertLive={targetsFor(s).some((t) => (!targetId || t.id === targetId) && linkModesFor(t, s.kind).includes('live'))}
+                  canInsertDuplicate={targetsFor(s).some((t) => (!targetId || t.id === targetId) && linkModesFor(t, s.kind).includes('duplicate'))}
                   onInsert={doInsert}
                   onFork={async () => {
                     const copy = await fork(s.id)

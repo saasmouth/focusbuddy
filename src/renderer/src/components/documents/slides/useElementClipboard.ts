@@ -10,6 +10,9 @@ import {
   type ElementClipboard
 } from '@shared/elementClipboard'
 import type { SlideElement } from '@shared/types'
+import type { SnippetBody } from '@shared/snippets'
+import { readClipboardForms } from '../../../lib/clipboardForms'
+import { pasteConverted } from '../../../lib/clipboardPaste'
 
 // Cut, Copy and Paste for canvas elements, shared by PlexiiDesign and
 // PlexiiDeck. The payload and all its awkward arithmetic live in
@@ -67,6 +70,18 @@ export interface ElementClipboardWiring {
   stories?: () => Record<string, unknown>
   /** A fresh story id, minted the way this editor mints them. */
   newStoryId?: () => string
+  /**
+   * Which app this is. Written on the copy, so a paste into the other app of
+   * the two (which shares the format) is known to be a conversion.
+   */
+  app?: 'slide' | 'design'
+  /**
+   * Insert a converted body of this app's kind (the same function a converted
+   * snippet goes through). With it, a paste of another app's content (the other
+   * of Deck/Design, a diagram, a drawing, a Cells range, text, a picture) lands
+   * converted instead of falling back to the last copy made here.
+   */
+  insertConverted?: (body: SnippetBody) => boolean
   /** Remove these ids, for a cut. */
   onCut: (ids: string[]) => void
   /**
@@ -95,7 +110,7 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
     const w = ref.current
     const els = w.selected()
     if (els.length === 0) return false
-    const clip = buildElementClipboard(els, w.canvas(), w.stories?.())
+    const clip = buildElementClipboard(els, w.canvas(), w.stories?.(), w.app)
     lastClip = clip
     setHasClip(true)
     if (data) {
@@ -135,9 +150,28 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
     const ids = ref.current.selected().map((e) => e.id)
     if (writeClip(null) && ids.length) ref.current.onCut(ids)
   }, [writeClip])
+  /** Another app's content, converted; the last copy made here when the clipboard holds nothing usable. */
+  const pasteOther = useCallback(
+    async (data: DataTransfer | null): Promise<void> => {
+      const w = ref.current
+      if (!w.app || !w.insertConverted) return
+      const insert = w.insertConverted
+      const read = await readClipboardForms(data)
+      const outcome = await pasteConverted(w.app, (body) => insert(body), { read })
+      if (outcome === 'nothing') applyPaste(lastClip)
+    },
+    [applyPaste]
+  )
+
   const paste = useCallback(() => {
-    applyPaste(lastClip)
-  }, [applyPaste])
+    // The in-app menu: the last copy made here, as always. With none, the
+    // clipboard (another app's content), so the menu item is never dead.
+    if (lastClip || !ref.current.insertConverted) {
+      applyPaste(lastClip)
+      return
+    }
+    void pasteOther(null)
+  }, [applyPaste, pasteOther])
 
   useEffect(() => {
     /** Is this event ours, or does it belong to a field or a text selection? */
@@ -164,7 +198,19 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
     }
     function onPaste(e: ClipboardEvent): void {
       if (!mine(e)) return
-      if (applyPaste(readClip(e.clipboardData))) e.preventDefault()
+      const w = ref.current
+      const own = e.clipboardData ? parseElementClipboard(e.clipboardData.getData(ELEMENT_CLIP_MIME)) : null
+      // This app's own copy (or one from a build that did not say which app):
+      // the paste it always was.
+      const ours = own && (!own.app || !w.app || own.app === w.app)
+      if (ours || !w.insertConverted || !w.app) {
+        if (applyPaste(ours ? own : readClip(e.clipboardData))) e.preventDefault()
+        return
+      }
+      // Anything else: the other of Deck/Design, another app, text or a
+      // picture, converted as a snippet of it would be.
+      e.preventDefault()
+      void pasteOther(e.clipboardData)
     }
 
     document.addEventListener('copy', onCopy)
@@ -175,7 +221,7 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
       document.removeEventListener('cut', onCut)
       document.removeEventListener('paste', onPaste)
     }
-  }, [writeClip, readClip, applyPaste])
+  }, [writeClip, readClip, applyPaste, pasteOther])
 
   return { copy, cut, paste, hasClip }
 }

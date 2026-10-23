@@ -1,7 +1,8 @@
 import { WIDGET_CATALOG } from '../../lib/widgetCatalog'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import SnippetLibrary from '../snippets/SnippetLibrary'
 import { widgetBodyFromWidget } from '../desk/deskSnippets'
-import type { WidgetSnippetBody } from '@shared/snippets'
+import type { SnippetKind, WidgetSnippetBody } from '@shared/snippets'
 import { GRID } from '../../lib/canvasGrid'
 import { stripMentions } from '@shared/mentionText'
 import { snapEnabled } from '../../lib/gridPref'
@@ -94,6 +95,13 @@ interface Props {
    * placeholder — the mention machinery already exists for click-to-attach.
    */
   onAi?: () => void
+  /**
+   * This widget as a destination (lib/widgetSnippetInsert.ts): the registered
+   * snippet target, the kinds it takes, and its paste. Present on the work
+   * widgets that take inserted and pasted content; the menus then offer
+   * "Insert snippet…" beside "Save as snippet", and "Paste".
+   */
+  snippets?: { targetId: string; kinds: SnippetKind[]; onPaste?: () => void }
 }
 
 export default function WidgetFrame({
@@ -104,7 +112,8 @@ export default function WidgetFrame({
   draggableHandleClass = 'widget-handle',
   zonePosition: zonePositionProp,
   headerMenuExtras,
-  onAi
+  onAi,
+  snippets
 }: Props): JSX.Element {
   // Pull from the prop first (escape hatch for callers that want to drive
   // position explicitly), then fall back to the PinLayoutContext provided
@@ -216,6 +225,7 @@ export default function WidgetFrame({
   // The snippet body is captured when the menu item is chosen, because the
   // dialog needs it after the menu has closed.
   const [snippetDraft, setSnippetDraft] = useState<WidgetSnippetBody | null>(null)
+  const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const isActive = useWidgetStore((s) => s.activeWidgetId === widget.id)
   const zoom = useWidgetStore((s) => s.zoom)
@@ -519,7 +529,10 @@ export default function WidgetFrame({
     // any widget, including a file instance: a snippet is a template for making
     // new widgets, which is a different want from this widget appearing in two
     // places, and both are legitimate for the same widget.
-    onSaveAsSnippet: () => setSnippetDraft(widgetBodyFromWidget(widget))
+    onSaveAsSnippet: () => setSnippetDraft(widgetBodyFromWidget(widget)),
+    // Insert a saved snippet INTO this widget, converted to what it holds.
+    onInsertSnippet: snippets ? () => setSnippetLibraryOpen(true) : undefined,
+    onPaste: snippets?.onPaste
   }
 
   function commitDrop(newX: number, newY: number): void {
@@ -1419,6 +1432,9 @@ export default function WidgetFrame({
           })()}
           onClose={() => setHeaderCtxMenu(null)}
         />
+      )}
+      {snippetLibraryOpen && snippets && (
+        <SnippetLibrary kinds={snippets.kinds} targetId={snippets.targetId} onClose={() => setSnippetLibraryOpen(false)} />
       )}
       {snippetDraft && (
         <SaveSnippetDialog

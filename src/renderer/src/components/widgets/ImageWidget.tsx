@@ -4,6 +4,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import { resolveMediaSrc } from '../../lib/fileUrl'
+import { useImageWidgetSnippets } from './useWidgetSnippets'
 
 function hostnameOf(url: string): string {
   try {
@@ -51,6 +52,9 @@ export default function ImageWidget({ widget, inline = false }: Props): JSX.Elem
     }
   }, [widget.id, widget.content])
 
+  // A destination for saved snippets and ⌘V: the picture replaces this one.
+  const snippets = useImageWidgetSnippets(widget)
+
   const [editing, setEditing] = useState(!widget.content)
   const [draft, setDraft] = useState(widget.content)
 
@@ -67,7 +71,14 @@ export default function ImageWidget({ widget, inline = false }: Props): JSX.Elem
   }
 
   const body = (
-    <div className="h-full w-full bg-[var(--surface-sunken)] relative flex items-center justify-center">
+    <div
+      className="h-full w-full bg-[var(--surface-sunken)] relative flex items-center justify-center outline-none"
+      // Focusable so a click then ⌘V (or Edit › Paste) reaches this widget
+      // rather than the desk, which would place a new widget instead.
+      tabIndex={0}
+      onPaste={snippets.onBodyPaste}
+      data-testid="image-widget-body"
+    >
       {editing ? (
         <form
           onSubmit={(e) => {
@@ -125,6 +136,7 @@ export default function ImageWidget({ widget, inline = false }: Props): JSX.Elem
       widget={widget}
       headerLabel={`Image · ${widget.title || hostnameOf(widget.content || '')}`}
       headerAccent="bg-stone-200/70 dark:bg-white/[0.07]"
+      snippets={snippets}
     >
       {body}
     </WidgetFrame>

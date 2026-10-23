@@ -14,11 +14,11 @@ import { docNodesToParagraphs, imageElement, lineParagraphs, tableElement, textB
  */
 export function toSlide(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body.kind === 'slide') return ok(structuredClone(body), [])
-  if (body.kind === 'design') {
+  if (body?.kind === 'slide') return ok(structuredClone(body), [])
+  if (body?.kind === 'design') {
     const plain = designAsPlainElements(body, 'drop')
     if (!plain.elements.length) return { ok: false, reason: REASON.empty }
-    return ok({ kind: 'slide', elements: plain.elements }, plain.linkedChains ? [L.linkedFrames] : [])
+    return ok({ kind: 'slide', elements: plain.elements }, [...(plain.linkedChains ? [L.linkedFrames] : []), ...(plain.droppedImages ? [L.unsupportedImage] : [])])
   }
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
   if (!f) return refusal(body, 'slide')

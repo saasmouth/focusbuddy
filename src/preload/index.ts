@@ -1,5 +1,6 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
+import type { AppClipboardRead } from '@shared/appClipboard'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -1215,7 +1216,9 @@ const api = {
     recordUse: (id: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('snippets:recordUse', id),
     /** Copy an org snippet into the caller's personal library so it can diverge. */
     fork: (id: string): Promise<SnippetWriteResult> =>
-      ipcRenderer.invoke('snippets:fork', id)
+      ipcRenderer.invoke('snippets:fork', id),
+    /** The system clipboard, every flavour a cross-app paste can use (renderer/src/lib/clipboardForms.ts). */
+    readClipboard: (): Promise<AppClipboardRead> => ipcRenderer.invoke('snippets:readClipboard')
   },
   webMenu: {
     setSurface: (webContentsId: number, surface: 'desk' | 'browser' | 'connected-app' | 'popup' | null): Promise<{ ok: boolean }> =>

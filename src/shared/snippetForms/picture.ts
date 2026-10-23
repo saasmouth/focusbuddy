@@ -6,7 +6,7 @@
 // store holds data:image/svg+xml bytes.
 
 import type { SlideElement, SlideTextElement, SlideTextParagraph } from '../types'
-import { elementHtml } from '../design'
+import { elementHtml, isSafeImageSrc } from '../design'
 import type { SnippetAppName, SvgValue } from '../snippetForms'
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -83,6 +83,22 @@ export function elementsBox(elements: SlideElement[]): { x: number; y: number; w
   }
   if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 1, h: 1 }
   return { x: minX, y: minY, w: Math.max(1, Math.ceil(maxX - minX)), h: Math.max(1, Math.ceil(maxY - minY)) }
+}
+
+/** Which image addresses a reader of slide/design elements keeps. */
+export type ImageSrcCheck = (src: unknown) => boolean
+
+/**
+ * The elements of a slide or design body a conversion may read: drawable ones,
+ * with every image whose address is not usable left out (Design's own rule,
+ * isSafeImageSrc: embedded bytes or https, nothing that could break out of an
+ * attribute). `dropped` counts the images left out, so the conversion says so.
+ * PlexiiDraw passes its stricter isDrawImageSrc (embedded bytes only).
+ */
+export function usableElements(raw: unknown, srcOk: ImageSrcCheck = isSafeImageSrc): { elements: SlideElement[]; dropped: number } {
+  const all = (Array.isArray(raw) ? raw : []).filter(isDrawableElement) as SlideElement[]
+  const elements = all.filter((e) => e.type !== 'image' || srcOk((e as { src?: unknown }).src))
+  return { elements, dropped: all.length - elements.length }
 }
 
 /** Is this something elementHtml can draw? (The element model, loosely checked.) */

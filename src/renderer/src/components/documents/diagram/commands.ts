@@ -22,6 +22,8 @@ import { diagramBodyFromSelection, placeDiagramSnippet } from './diagramSnippets
 import type { DiagramSnippetBody } from '@shared/snippets'
 import type { QuickDir } from './DiagramContext'
 import type { Tool } from './DiagramEditor'
+import { readClipboardForms } from '../../../lib/clipboardForms'
+import { fromAnotherApp, pasteConverted } from '../../../lib/clipboardPaste'
 
 // Every editor action in one place. Menus, the toolbar, keyboard shortcuts, the
 // context menu and the inspector all call these, so an action behaves the same
@@ -243,6 +245,15 @@ function makeCommands(d: Deps) {
       return true
     },
     async paste(data: DataTransfer | null): Promise<void> {
+      // Another of our apps' content (a Cells range, a Deck/Design selection,
+      // a drawing, a Write fragment) lands as a converted diagram snippet
+      // would: a table shape, an image shape, notes. Diagrams' own copies and
+      // everything else keep the paste below, unchanged.
+      const read = await readClipboardForms(data)
+      if (fromAnotherApp(read, 'diagram')) {
+        await pasteConverted('diagram', (b) => b.kind === 'diagram' && cmds.insertSnippetBody(b), { read })
+        return
+      }
       const files = data ? [...data.files].filter((f) => f.type.startsWith('image/')) : []
       if (files.length) return cmds.addImageFiles(files)
       const text = data?.getData('application/x-plexii-diagram') || data?.getData('text/plain') || (window as unknown as { __plexiiDiagramClip?: string }).__plexiiDiagramClip || ''

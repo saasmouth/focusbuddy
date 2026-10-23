@@ -5,6 +5,8 @@ import { isDrawImageSrc } from '../draw'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
 import { REASON, fitWithin, ok, pick, refusal } from './common'
+import { formsOfSlide } from '../snippetForms/fromSlide'
+import { formsOfDesign } from '../snippetForms/fromDesign'
 
 function imageObject(dataUrl: string, w: number, h: number, alt: string): { node: DrawImageNode; assets: Record<string, unknown> } {
   const size = fitWithin(w, h, 2000, 2000)
@@ -23,10 +25,15 @@ function textObject(text: string): DrawTextNode {
  * Text becomes a text object. A sheet is refused: Draw has no tables.
  */
 export function toDraw(ctx: BuildContext): SnippetConversion {
-  const { body, forms, deps } = ctx
-  if (body.kind === 'draw') return ok(structuredClone(body), [])
-  if (body.kind === 'sheet') return { ok: false, reason: REASON.drawNoTables }
+  const { body, deps } = ctx
+  if (body?.kind === 'draw') return ok(structuredClone(body), [])
+  if (body?.kind === 'sheet') return { ok: false, reason: REASON.drawNoTables }
+  // A drawing holds only embedded image bytes (isDrawImageSrc), so a remote
+  // picture can never taint Draw's canvas: slide and design bodies are read
+  // with Draw's own rule, and an image it refuses is left out and said so.
+  const forms = body?.kind === 'slide' ? formsOfSlide(body, isDrawImageSrc) : body?.kind === 'design' ? formsOfDesign(body, isDrawImageSrc) : ctx.forms
   const f = pick(forms, ['svg', 'image', 'text'], body)
+  if (!f && !body && forms.some((x) => x.kind === 'rows')) return { ok: false, reason: REASON.drawNoTables }
   if (!f) return refusal(body, 'draw')
   switch (f.kind) {
     case 'svg': {
@@ -35,7 +42,7 @@ export function toDraw(ctx: BuildContext): SnippetConversion {
         const imported = deps.svgToDraw(v.importSvg ?? v.svg)
         if (imported && imported.objects.length) {
           const lossy = [...f.lossy]
-          if (body.kind === 'diagram') lossy.push(L.connectorsLines)
+          if (body?.kind === 'diagram') lossy.push(L.connectorsLines)
           if (imported.pictured > 0) lossy.push(L.partsPictured)
           return ok({ kind: 'draw', objects: imported.objects, assets: imported.assets, swatches: imported.swatches }, lossy)
         }
