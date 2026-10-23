@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
 import type { DocumentOps } from './documentOps'
 import { menuAction } from '../../../lib/menus/menuAction'
-import { menuItemOf } from '../../../lib/menus/officeCommand'
+import { documentCommands, menuItemOf } from '../../../lib/menus/officeCommand'
 import type { DesignCommands } from '../design/designCommands'
 
 // A menu bar for PlexiDesign — the free-form page designer. Its menus fit what a
@@ -101,6 +101,8 @@ export default function DesignMenuBar({
 }): JSX.Element {
   const a = actions
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  // File's document rows, built from the host-bound ops (documentCommands): absent with none.
+  const doc = documentCommands(documentOps, 'design')
 
   const menus: MenuDef[] = [
     {
@@ -110,13 +112,14 @@ export default function DesignMenuBar({
         // Every document item acts through the host's ops, BY ID. With no
         // document bound (a snippet session) they are absent; Download stays,
         // because exporting what is on screen needs no document row.
-        ...(documentOps
+        ...(doc
           ? ([
-              { kind: 'item', label: 'New design', icon: 'note_add', run: () => void documentOps.newDocument() },
-              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void documentOps.makeCopy() },
+              menuItemOf(doc.newDocument),
+              menuItemOf(doc.makeCopy),
               { kind: 'sep' },
-              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void documentOps.rename() },
-              { kind: 'item', label: 'Version history', icon: 'history', run: () => documentOps.openHistory() }
+              menuItemOf(doc.rename),
+              menuItemOf(doc.versionHistory),
+              ...(doc.print ? [menuItemOf(doc.print)] : [])
             ] as MenuDef['build'] extends () => infer R ? R : never)
           : []),
         {
@@ -128,11 +131,8 @@ export default function DesignMenuBar({
             { kind: 'item', label: 'PDF document (.pdf)', run: () => a.exportAs('pdf') }
           ]
         },
-        ...(documentOps
-          ? ([
-              { kind: 'sep' },
-              { kind: 'item', ...menuAction('moveToTrash'), icon: 'delete', run: () => void documentOps.moveToTrash() }
-            ] as MenuDef['build'] extends () => infer R ? R : never)
+        ...(doc
+          ? ([{ kind: 'sep' }, menuItemOf(doc.moveToTrash)] as MenuDef['build'] extends () => infer R ? R : never)
           : [])
       ]
     },
@@ -188,8 +188,8 @@ export default function DesignMenuBar({
         // A meeting invites other people to a document by id. With no document
         // bound there is nothing to meet about, so the item is absent rather
         // than starting a meeting about id ''.
-        ...(documentOps
-          ? ([{ kind: 'sep' }, { kind: 'item', ...menuAction('meeting'), icon: 'videocam', run: () => documentOps.startMeeting() }] as MenuDef['build'] extends () => infer R ? R : never)
+        ...(doc
+          ? ([{ kind: 'sep' }, menuItemOf(doc.meeting)] as MenuDef['build'] extends () => infer R ? R : never)
           : [])
       ]
     },

@@ -70,10 +70,10 @@ export function canDistribute(ctx: EditorCtx): boolean {
 
 const EDGE_LABEL: Record<DistributeEdge, string> = {
   top: 'Vertical distribute top',
-  vcenter: 'Vertical distribute center',
+  vcenter: 'Vertical distribute centre',
   bottom: 'Vertical distribute bottom',
   left: 'Horizontal distribute left',
-  hcenter: 'Horizontal distribute center',
+  hcenter: 'Horizontal distribute centre',
   right: 'Horizontal distribute right'
 }
 

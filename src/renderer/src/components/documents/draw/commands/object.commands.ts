@@ -498,7 +498,8 @@ export const commands: Command[] = [
   ...ALIGN.map(
     (edge, i): Command => ({
       id: `object.align.${edge}`,
-      label: edge[0].toUpperCase() + edge.slice(1),
+      // Display spelling is the owner's (centre); the edge id stays `center`.
+      label: edge === 'center' ? 'Centre' : edge[0].toUpperCase() + edge.slice(1),
       menu: { path: 'object/Align', order: i },
       // To the selection, the key object or the artboard (align.commands.ts).
       enabled: canAlign,

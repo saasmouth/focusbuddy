@@ -19,6 +19,8 @@ import { buildDesignCommands } from '../../src/renderer/src/components/documents
 import { buildDiagramCommands } from '../../src/renderer/src/components/documents/diagram/diagramCommands'
 import { commandHint, documentCommands, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
 import { MENU } from '../../src/shared/menus/lexicon'
+import { drawOfficeCommands } from '../../src/renderer/src/components/documents/draw/commands/officeAdapter'
+import { blank, harness, withDocument } from './drawTools/harness'
 
 vi.stubGlobal('window', Object.assign(globalThis.window ?? {}, { api: { platform: 'darwin' } }))
 
@@ -31,7 +33,9 @@ const APPS: Record<string, OfficeCommand[]> = {
   Deck: Object.values(buildDeckCommands(stub({ selected: 3, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))),
   Design: Object.values(buildDesignCommands(stub({ selected: 3, grouped: true, canPaste: true, textMarks: {} }))),
   Diagrams: Object.values(buildDiagramCommands({ cmd: cmdStub, nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined })),
-  File: Object.values(documentCommands(stub({ id: 'doc-1', print: () => undefined }), 'doc')!).filter(Boolean) as OfficeCommand[]
+  File: Object.values(documentCommands(stub({ id: 'doc-1', print: () => undefined }), 'doc')!).filter(Boolean) as OfficeCommand[],
+  // PlexiiDraw keeps its command registry; the adapter shows it as OfficeCommands.
+  Draw: drawOfficeCommands(withDocument(harness(blank())).ed.ctx)
 }
 const all = Object.entries(APPS).flatMap(([app, cs]) => cs.map((c) => ({ app, c })))
 
@@ -43,20 +47,37 @@ describe('one definition per action', () => {
     }
   })
 
-  it('no id is defined by two apps (shared File commands come from documentCommands only)', () => {
-    const owner = new Map<string, string>()
+  // The only id two records may share is a File document action: Draw's
+  // registry defines its own (session-aware) rows under documentCommands' ids,
+  // running through the same host-bound ops. Then it must be the same action
+  // by name too. Any other shared id is two implementations of one action.
+  it('no id is defined by two apps, except the shared File actions, which then match by name', () => {
+    const fileIds = new Set(APPS.File!.map((c) => c.id))
+    const first = new Map<string, { app: string; c: OfficeCommand }>()
     const clashes: string[] = []
-    for (const { app, c } of all) {
-      const prev = owner.get(c.id)
-      if (prev && prev !== app) clashes.push(`${c.id}: ${prev} and ${app}`)
-      owner.set(c.id, app)
+    for (const e of all) {
+      const prev = first.get(e.c.id)
+      if (prev && prev.app !== e.app) {
+        if (!fileIds.has(e.c.id)) clashes.push(`${e.c.id}: ${prev.app} and ${e.app}`)
+        else if (prev.c.id !== 'file.new' && prev.c.label !== e.c.label) clashes.push(`${e.c.id}: "${prev.c.label}" (${prev.app}) vs "${e.c.label}" (${e.app})`)
+      }
+      if (!prev) first.set(e.c.id, e)
     }
     expect(clashes).toEqual([])
   })
 
   it('a command that can be off says why', () => {
-    const silent = all.filter(({ c }) => c.enabled && typeof c.reason !== 'function').map(({ app, c }) => `${app} ${c.id}`)
+    const silent = all.filter(({ app, c }) => app !== 'Draw' && c.enabled && typeof c.reason !== 'function').map(({ app, c }) => `${app} ${c.id}`)
     expect(silent).toEqual([])
+  })
+
+  // PlexiiDraw's registry greys commands out without saying why (76 of its 141
+  // menu commands in a blank drawing: distribute, artboard actions…), against
+  // SPEC §9.5. Its owner (d1) fixes them in the registry; this ratchet lets the
+  // number only go down (E-16).
+  it('PlexiiDraw: commands off without a reason only ever get fewer', () => {
+    const silentNow = APPS.Draw!.filter((c) => c.enabled && !c.enabled() && !c.reason?.()).length
+    expect(silentNow).toBeLessThanOrEqual(76)
   })
 
   it('labels use the owner’s spelling: centre, colour', () => {

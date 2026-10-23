@@ -14,10 +14,10 @@ import { CmdButton, useBarReadOnly, useEditor } from './controls'
 
 const ALIGN: Array<{ edge: string; icon: string; label: string }> = [
   { edge: 'left', icon: 'align_horizontal_left', label: 'Horizontal align left' },
-  { edge: 'center', icon: 'align_horizontal_center', label: 'Horizontal align center' },
+  { edge: 'center', icon: 'align_horizontal_center', label: 'Horizontal align centre' },
   { edge: 'right', icon: 'align_horizontal_right', label: 'Horizontal align right' },
   { edge: 'top', icon: 'align_vertical_top', label: 'Vertical align top' },
-  { edge: 'middle', icon: 'align_vertical_center', label: 'Vertical align center' },
+  { edge: 'middle', icon: 'align_vertical_center', label: 'Vertical align centre' },
   { edge: 'bottom', icon: 'align_vertical_bottom', label: 'Vertical align bottom' }
 ]
 
