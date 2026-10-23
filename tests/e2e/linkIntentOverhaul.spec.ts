@@ -283,12 +283,16 @@ test('(e) right-click "Automate with an agent" spawns an agent widget wired from
   const sourceFrame = window.locator(`[data-widget-id="${sourceId}"]`)
   await sourceFrame.locator('.widget-handle').first().click({ button: 'right' })
 
-  // "Automate with an agent" is the first child of the "Create" submenu
-  // (CREATE_AND_CONNECT_MENU) — hover Create to open it, same as the
-  // existing createConnectedTool.spec.ts pattern.
-  await window.locator('[data-canvas-ctx-menu]').getByText('Create', { exact: true }).hover()
-  const menuItem = window.locator('[data-canvas-ctx-menu]').getByText('Automate with an agent', { exact: true }).first()
-  await expect(menuItem, 'Automate with an agent appears in the Create menu').toBeVisible({ timeout: 4_000 })
+  // "Automate with an agent" is a child of the Create submenu
+  // (CREATE_AND_CONNECT_MENU), which has been labelled "Create & link" since
+  // DEC-041 (e846113e: "the wire IS the feature — every entry here spawns a
+  // widget AND links it to this one — so the label finally says so"). Hover it
+  // to open the submenu.
+  const ctxMenu = window.locator('[data-canvas-ctx-menu]')
+  await expect(ctxMenu.getByText('Create', { exact: true }), 'no bare "Create" parent remains').toHaveCount(0)
+  await ctxMenu.getByText('Create & link', { exact: true }).hover()
+  const menuItem = ctxMenu.getByText('Automate with an agent', { exact: true }).first()
+  await expect(menuItem, 'Automate with an agent appears in the Create & link menu').toBeVisible({ timeout: 4_000 })
   await menuItem.click()
   await window.waitForTimeout(500)
 

@@ -122,7 +122,11 @@ test('FC-1 — the panel and the focus chat are the SAME conversation, not a cop
   await window.evaluate(() => window.dispatchEvent(new CustomEvent('fb:open-assistant')))
   await expect(window.locator('[data-testid="assistant-panel"]')).toBeVisible({ timeout: 8000 })
   await stubStream(app, 'The desk answer.')
-  await typeInComposer(window, 'the desk question')
+  // A question, not a bare phrase: since 961e3436 (the instant-web ruling) a
+  // short bare phrase on a fresh conversation searches the web in Auto mode
+  // and never reaches the chat. No diversion offered = a chat turn.
+  await typeInComposer(window, 'What is the desk question?')
+  await expect(window.locator('[data-testid="composer-intent-row"]')).toHaveCount(0)
   await window.locator('button[aria-label="Send"]').click()
   await expect(window.getByText('The desk answer.')).toBeVisible({ timeout: 8000 })
 
@@ -132,7 +136,7 @@ test('FC-1 — the panel and the focus chat are the SAME conversation, not a cop
   await enterFocusMode(window, aId)
   await openFocusChatTab(window)
   const thread = window.locator('[data-testid="focus-chat-thread"]')
-  await expect(thread).toContainText('the desk question', { timeout: 8000 })
+  await expect(thread).toContainText('What is the desk question?', { timeout: 8000 })
   await expect(thread).toContainText('The desk answer.')
   await expect(window.locator('[data-testid="focus-chat-continue-desk"]')).toHaveCount(0)
   // And nothing was announced as imported, because nothing was.
@@ -145,7 +149,7 @@ test('FC-1 — the panel and the focus chat are the SAME conversation, not a cop
     return { count: list.length, title: list[0]?.title ?? '' }
   })
   expect(persisted.count).toBe(1)
-  expect(persisted.title).toContain('the desk question')
+  expect(persisted.title).toContain('What is the desk question?')
   expect(persisted.title).not.toContain('Imported')
 })
 
@@ -158,7 +162,11 @@ test('FC-2 — a panel conversation survives a reload, which it never did before
   await window.evaluate(() => window.dispatchEvent(new CustomEvent('fb:open-assistant')))
   await expect(window.locator('[data-testid="assistant-panel"]')).toBeVisible({ timeout: 8000 })
   await stubStream(app, 'A durable answer.')
-  await typeInComposer(window, 'a durable question')
+  // A question, not a bare phrase: since 961e3436 (the instant-web ruling) a
+  // short bare phrase on a fresh conversation searches the web in Auto mode
+  // and never reaches the chat. No diversion offered = a chat turn.
+  await typeInComposer(window, 'What is a durable question?')
+  await expect(window.locator('[data-testid="composer-intent-row"]')).toHaveCount(0)
   await window.locator('button[aria-label="Send"]').click()
   await expect(window.getByText('A durable answer.')).toBeVisible({ timeout: 8000 })
 
@@ -173,6 +181,6 @@ test('FC-2 — a panel conversation survives a reload, which it never did before
     return conv?.messages.map((m) => `${m.role}:${m.content}`) ?? null
   })
   expect(restored).not.toBeNull()
-  expect(restored).toContain('user:a durable question')
+  expect(restored).toContain('user:What is a durable question?')
   expect(restored).toContain('assistant:A durable answer.')
 })

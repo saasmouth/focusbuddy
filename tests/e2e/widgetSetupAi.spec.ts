@@ -90,9 +90,17 @@ test('AS-1 — Build with AI drafts items, approve and add appends a checklist',
   await window.click(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
-  // Click "Build with AI" inside the context menu (the task toolbar also has a
-  // button of the same name, so scope to the menu).
-  await window.locator('[data-canvas-ctx-menu]').getByText('Build with AI', { exact: true }).click()
+  // "Build with AI" is the sticky's own context row (lib/contextMenu/providers).
+  // Since 163b8914 (Focus always on) the "Add to Focus…" row takes one of the
+  // Context band's two slots, so the band's other slot is "More actions" and
+  // the sticky's rows (Build with AI first, by priority) sit in that submenu.
+  // Scope to the menu: the desk toolbar has a "Build this desk with AI" too.
+  const ctxMenu = window.locator('[data-canvas-ctx-menu]')
+  await expect(ctxMenu.getByRole('menuitem', { name: 'Add to Focus…' })).toBeVisible()
+  await ctxMenu.getByRole('menuitem', { name: 'More actions' }).hover()
+  const buildRow = ctxMenu.getByText('Build with AI', { exact: true })
+  await expect(buildRow, 'Build with AI is in the More actions submenu').toBeVisible({ timeout: 4_000 })
+  await buildRow.click()
 
   // Preview opens and shows the drafted items.
   await window.waitForSelector('[data-testid="widget-setup-preview"]', { timeout: 4_000 })

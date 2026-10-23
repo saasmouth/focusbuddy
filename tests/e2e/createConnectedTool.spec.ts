@@ -86,9 +86,12 @@ test('right-click on a sticky → Create + Connect → new tool and persisted li
   await expect(textarea).toBeVisible({ timeout: 4_000 })
   await textarea.click({ button: 'right' })
 
-  // The unified menu nests the spawn offerings under Create. Hover it, then
-  // click "Note" (a different kind from the source so the spawn is verifiable).
-  await window.locator('[data-canvas-ctx-menu]').getByText('Create', { exact: true }).hover()
+  // The unified menu nests the spawn offerings under Create, labelled "Create &
+  // link" since DEC-041 (e846113e: every entry spawns a widget AND links it).
+  // Hover it, then click "Note" (a different kind from the source so the spawn
+  // is verifiable).
+  await expect(window.locator('[data-canvas-ctx-menu]').getByText('Create', { exact: true })).toHaveCount(0)
+  await window.locator('[data-canvas-ctx-menu]').getByText('Create & link', { exact: true }).hover()
   const noteItem = window.locator('[data-canvas-ctx-menu]').getByText('Note', { exact: true }).first()
   await expect(noteItem).toBeVisible({ timeout: 4_000 })
   await noteItem.click()
