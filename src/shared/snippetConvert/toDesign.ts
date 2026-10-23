@@ -6,7 +6,7 @@ import { docFeatures, firstTableRows } from '../snippetForms/tiptap'
 import { paragraphNode } from '../snippetForms/rows'
 import { pictureLossy, svgDataUrl, usableElements } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { REASON, estimateLines, linkRefusal, ok, pick, refusal } from './common'
+import { emptyReason, estimateLines, linkRefusal, ok, pick, refusal } from './common'
 import { imageElement, tableElement } from './elements'
 
 /** The story id a converted text frame reads. Design's insert mints a fresh one. */
@@ -47,7 +47,7 @@ export function toDesign(ctx: BuildContext): SnippetConversion {
   if (body?.kind === 'design') return ok(structuredClone(body), [])
   if (body?.kind === 'slide') {
     const { elements, dropped } = usableElements(body.elements)
-    if (!elements.length) return dropped ? { ok: false, reason: L.unsupportedImage } : { ok: false, reason: REASON.empty }
+    if (!elements.length) return dropped ? { ok: false, reason: L.unsupportedImage } : { ok: false, reason: emptyReason(ctx.verb) }
     // Deck text boxes land as plain frames, each holding its own words. That
     // is faithful, but a Design user expects text to flow, so say how.
     const texts = elements.filter((e) => e.type === 'text').length
@@ -55,13 +55,13 @@ export function toDesign(ctx: BuildContext): SnippetConversion {
     return ok({ kind: 'design', elements: structuredClone(elements) }, lossy)
   }
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
-  if (!f) return linkRefusal(forms, 'design') ?? refusal(body, 'design')
+  if (!f) return linkRefusal(forms, 'design') ?? refusal(body, 'design', ctx.verb)
   switch (f.kind) {
     case 'rows':
       return ok({ kind: 'design', elements: [tableElement(f.value)] }, f.lossy)
     case 'docNodes': {
       const story = parseTiptap({ type: 'doc', content: tablesAsRowParagraphs(f.value) })
-      if (!story.blocks.length) return refusal(body, 'design')
+      if (!story.blocks.length) return refusal(body, 'design', ctx.verb)
       const feat = docFeatures(f.value)
       const lossy = [...f.lossy]
       if (feat.marks.size) lossy.push(L.marksPlain)
@@ -81,11 +81,11 @@ export function toDesign(ctx: BuildContext): SnippetConversion {
         .map((l) => l.trim())
         .filter(Boolean)
         .map((text) => ({ kind: 'paragraph', text }))
-      if (!blocks.length) return refusal(body, 'design')
+      if (!blocks.length) return refusal(body, 'design', ctx.verb)
       const story: ContentDoc = { blocks }
       return ok({ kind: 'design', elements: [storyFrame(story)], stories: { [STORY_ID]: story } }, f.lossy)
     }
     default:
-      return refusal(body, 'design')
+      return refusal(body, 'design', ctx.verb)
   }
 }

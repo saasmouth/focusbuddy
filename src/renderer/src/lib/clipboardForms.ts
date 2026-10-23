@@ -30,6 +30,7 @@
 
 import type { AppClipboardRead } from '@shared/appClipboard'
 import type { DrawSnippetBody, SheetSnippetBody, SnippetBody, SnippetKind } from '@shared/snippets'
+import type { ConvertVerb } from '@shared/snippetConvert'
 import { formsOf, type ConvertDeps, type Form } from '@shared/snippetForms'
 import { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION } from '@shared/draw/clipboardFormat'
 import { translateNode } from '@shared/draw/ops/geometry'
@@ -61,6 +62,13 @@ export interface ClipboardForms {
    * are then empty, and the reason is shown verbatim.
    */
   refused?: string
+  /**
+   * How these forms arrive, when it is not a paste: the Files drop reader sets
+   * 'drop', so an office app's existing paste path (pasteConverted, given
+   * `{ read }`) words a refusal "Nothing that was dropped …". Absent for the
+   * clipboard, which keeps today's wording.
+   */
+  verb?: ConvertVerb
 }
 
 /**

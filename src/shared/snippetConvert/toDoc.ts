@@ -2,7 +2,7 @@ import type { BuildContext, SnippetConversion } from '../snippetConvert'
 import type { LinkValue } from '../snippetForms'
 import { nodesToPlainText } from '../snippetForms/tiptap'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
-import { REASON, fitWithin, isSafeLinkHref, ok, pick, refusal } from './common'
+import { REASON, emptyReason, fitWithin, isSafeLinkHref, ok, pick, refusal } from './common'
 
 /** The widest a converted picture lands in a document: Write's text column. */
 export const DOC_PICTURE_MAX_WIDTH = 640
@@ -46,9 +46,9 @@ export function toDoc(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
   if (body?.kind === 'doc') return ok(structuredClone(body), [])
   const f = pick(forms, ['docNodes', 'image', 'svg', 'link'], body)
-  if (!f) return refusal(body, 'doc')
+  if (!f) return refusal(body, 'doc', ctx.verb)
   if (f.kind === 'docNodes') {
-    if (!f.value.length) return { ok: false, reason: REASON.empty }
+    if (!f.value.length) return { ok: false, reason: emptyReason(ctx.verb) }
     const content = structuredClone(f.value)
     return ok({ kind: 'doc', content, text: nodesToPlainText(content) }, f.lossy)
   }
@@ -66,5 +66,5 @@ export function toDoc(ctx: BuildContext): SnippetConversion {
     const content = linkNodes(f.value)
     return ok({ kind: 'doc', content, text: nodesToPlainText(content) }, f.lossy)
   }
-  return refusal(body, 'doc')
+  return refusal(body, 'doc', ctx.verb)
 }

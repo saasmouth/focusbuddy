@@ -789,6 +789,24 @@ additions carry it:
   SAME `land` as paste and insert runs. It shows no notice: the drop handler
   gathers one line per drop from the results.
 
+The office builders word themselves by verb too. `convertSnippetBody(body,
+to, deps, { verb })` and `convertForms(forms, to, deps, source, { verb })` put
+an optional `verb` ('insert' | 'paste' | 'drop') on the `BuildContext`; it
+changes only the wording of a refusal or a no-content line ("Nothing that was
+dropped is something PlexiiDeck can hold.", "Drop it on a desk instead.",
+`REASON.emptyDrop`, `REASON.drawNoTablesDrop`, `REASON.widgetEmptyDrop`), never
+what lands. No verb, 'insert' and 'paste' keep today's sentences exactly. A
+`FormsRead` (`ClipboardForms`) may carry `verb: 'drop'`; `convertClipboard`
+passes it on, so an office app's existing paste path given `{ read }` (Write's
+`pasteIntoDoc`, Cells' `pasteConverted`, Draw's `convertClipboard`) words a
+drop correctly as soon as the Files drop reader sets it. Deck/Design
+(`useElementClipboard`) and Diagrams (`commands.ts` paste) read the clipboard
+themselves today, so the Files drop handler hands them its own read through
+the same `pasteConverted('…', insert, { read })` call. No office drop path
+calls `convertForms` yet: that is the drop handler's to add, passing the read
+with `verb: 'drop'`. `tests/unit/convertVerb.test.ts` covers every builder per
+verb.
+
 `probeFileForms` and `fileAcceptsFor` (`shared/snippetConvert/accepts.ts`) and
 `widgetFileAccepts` (`lib/widgetSnippetInsert.ts`) derive what each destination
 takes from representative file forms, beside `acceptsFor`;

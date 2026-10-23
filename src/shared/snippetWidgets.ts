@@ -23,7 +23,7 @@ import { docFeatures, firstTableRows, inlineText, tiptapToMarkdown, type TipNode
 import { paragraphNode, rowsToGfm, rowsToTableNode } from './snippetForms/rows'
 import { L, docMarkdownLossy, uniq } from './snippetForms/lossy'
 import { pictureLossy } from './snippetForms/picture'
-import { REASON, fitWithin, isSafeLinkHref, linkAsText, linkRefusal, refusal, widgetPictureSrc } from './snippetConvert/common'
+import { REASON, emptyReason, fitWithin, isSafeLinkHref, linkAsText, linkRefusal, refusal, widgetPictureSrc } from './snippetConvert/common'
 
 /** The work widgets that take inserted and pasted content. */
 export type WidgetTargetKind = 'sticky' | 'note' | 'page' | 'markdown' | 'table' | 'image'
@@ -236,13 +236,13 @@ export function acceptForTextWidget(kind: 'sticky' | 'note', forms: Form[], ctx:
   // A sticky or a note copied into another keeps exactly what was typed.
   if (body?.kind === 'widget' && (body.widgetKind === 'sticky' || body.widgetKind === 'note')) {
     const raw = String(body.content ?? '').replace(/\r\n?/g, '\n')
-    if (!raw.trim()) return refusal(body, 'widget') as Refusal
+    if (!raw.trim()) return refusal(body, 'widget', ctx.verb) as Refusal
     return { ok: true, text: raw, lossy: [] }
   }
   const art = isArt(forms, body)
   if (art) return textWidgetRefusal(kind, ctx.verb)
   const f = pickForm(forms, ['rows', 'docNodes', 'markdown', 'text', 'link'], false)
-  if (!f) return body ? (refusal(body, 'widget') as Refusal) : textWidgetRefusal(kind, ctx.verb)
+  if (!f) return body ? (refusal(body, 'widget', ctx.verb) as Refusal) : textWidgetRefusal(kind, ctx.verb)
   // A file, document or folder from Files: its name and where it is, as text.
   if (f.kind === 'link') return { ok: true, text: linkAsText(f.value), lossy: [...f.lossy] }
   if (f.kind === 'rows') {
@@ -339,20 +339,20 @@ export function acceptForPage(forms: Form[], ctx: AcceptContext): PageAccept {
   const { body } = ctx
   const art = isArt(forms, body)
   const f = pickForm(forms, ['docNodes', 'image', 'svg', 'text', 'link'], art)
-  if (!f) return body ? (refusal(body, 'doc') as Refusal) : { ok: false, reason: `${nothingFrom(ctx.verb)} can go in a page.` }
+  if (!f) return body ? (refusal(body, 'doc', ctx.verb) as Refusal) : { ok: false, reason: `${nothingFrom(ctx.verb)} can go in a page.` }
   if (f.kind === 'link') {
     if (!isSafeLinkHref(f.value.href)) return { ok: false, reason: REASON.linkUnsafe }
     return { ok: true, nodes: [linkParagraph(f.value)], lossy: [...f.lossy] }
   }
   if (f.kind === 'docNodes') {
-    if (!f.value.length) return { ok: false, reason: 'There is nothing in this snippet to insert.' }
+    if (!f.value.length) return { ok: false, reason: emptyReason(ctx.verb) }
     const nodes = structuredClone(f.value)
     return { ok: true, nodes, lossy: uniq([...f.lossy, ...pageLossy(nodes)]) }
   }
   const pic = pictureNodes(f)
   if (pic) return { ok: true, nodes: pic.nodes, lossy: uniq(pic.lossy) }
   const text = String(f.value).replace(/\r\n?/g, '\n')
-  if (!text.trim()) return { ok: false, reason: 'There is nothing in this to insert.' }
+  if (!text.trim()) return { ok: false, reason: ctx.verb === 'drop' ? 'There is nothing in this to add.' : 'There is nothing in this to insert.' }
   return { ok: true, nodes: text.split('\n').map((l) => paragraphNode(l)), lossy: [...f.lossy] }
 }
 
@@ -364,18 +364,18 @@ export function acceptForMarkdown(forms: Form[], ctx: AcceptContext): MarkdownAc
   // A markdown widget copied into another keeps its source exactly.
   if (body?.kind === 'widget' && body.widgetKind === 'markdown') {
     const raw = String(body.content ?? '')
-    if (!raw.trim()) return refusal(body, 'widget') as Refusal
+    if (!raw.trim()) return refusal(body, 'widget', ctx.verb) as Refusal
     return { ok: true, markdown: raw, lossy: [] }
   }
   const art = isArt(forms, body)
   const f = pickForm(forms, ['docNodes', 'markdown', 'image', 'svg', 'text', 'link'], art)
-  if (!f) return body ? (refusal(body, 'doc') as Refusal) : { ok: false, reason: `${nothingFrom(ctx.verb)} can go in a markdown work widget.` }
+  if (!f) return body ? (refusal(body, 'doc', ctx.verb) as Refusal) : { ok: false, reason: `${nothingFrom(ctx.verb)} can go in a markdown work widget.` }
   if (f.kind === 'link') {
     if (!isSafeLinkHref(f.value.href)) return { ok: false, reason: REASON.linkUnsafe }
     return { ok: true, markdown: tiptapToMarkdown([linkParagraph(f.value)]), lossy: [...f.lossy] }
   }
   if (f.kind === 'docNodes') {
-    if (!f.value.length) return { ok: false, reason: 'There is nothing in this snippet to insert.' }
+    if (!f.value.length) return { ok: false, reason: emptyReason(ctx.verb) }
     // Width is not markdown: a picture lands at its natural size.
     const nodes = structuredClone(f.value)
     return { ok: true, markdown: tiptapToMarkdown(nodes), lossy: uniq([...f.lossy, ...docMarkdownLossy(docFeatures(nodes))]) }
@@ -384,7 +384,7 @@ export function acceptForMarkdown(forms: Form[], ctx: AcceptContext): MarkdownAc
   const pic = pictureNodes(f)
   if (pic) return { ok: true, markdown: tiptapToMarkdown(pic.nodes.map(withoutWidth)), lossy: uniq(pic.lossy) }
   const text = String(f.value).replace(/\r\n?/g, '\n')
-  if (!text.trim()) return { ok: false, reason: 'There is nothing in this to insert.' }
+  if (!text.trim()) return { ok: false, reason: ctx.verb === 'drop' ? 'There is nothing in this to add.' : 'There is nothing in this to insert.' }
   return { ok: true, markdown: tiptapToMarkdown(text.split('\n').map((l) => paragraphNode(l))), lossy: [...f.lossy] }
 }
 
@@ -403,7 +403,7 @@ export function acceptForTable(forms: Form[], ctx: AcceptContext): TableAccept {
   if (isArt(forms, body)) return { ok: false, reason: TABLE_NO_PICTURES }
   const f = pickForm(forms, ['rows'], false)
   if (!f || f.kind !== 'rows' || !f.value.rows.length) {
-    if (body) return refusal(body, 'sheet') as Refusal
+    if (body) return refusal(body, 'sheet', ctx.verb) as Refusal
     return linkRefusal(forms, 'table') ?? { ok: false, reason: `${nothingFrom(ctx.verb)} reads as rows for this table.` }
   }
   return { ok: true, rows: structuredClone(f.value.rows), header: f.value.header, lossy: [...f.lossy] }
@@ -425,7 +425,7 @@ export function acceptForImage(forms: Form[], ctx: AcceptContext): ImageAccept {
   const { body } = ctx
   const f = pickForm(forms, ['image', 'svg'], true)
   if (!f) {
-    if (body && isArt(forms, body)) return refusal(body, 'widget') as Refusal
+    if (body && isArt(forms, body)) return refusal(body, 'widget', ctx.verb) as Refusal
     // A folder names where it can go; a file or a document has no picture.
     return linkRefusal(forms, 'image') ?? { ok: false, reason: IMAGE_NEEDS_PICTURE }
   }
@@ -521,6 +521,6 @@ export function planDesk(forms: Form[], ctx: AcceptContext): DeskPlan {
       }
     }
   }
-  if (body) return refusal(body, 'widget') as Refusal
+  if (body) return refusal(body, 'widget', ctx.verb) as Refusal
   return { ok: false, reason: ctx.verb === 'drop' ? 'Nothing that was dropped can be placed on a desk.' : 'There is nothing on the clipboard that can be placed on a desk.' }
 }
