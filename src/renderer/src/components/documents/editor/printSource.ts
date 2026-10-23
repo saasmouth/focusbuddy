@@ -5,7 +5,8 @@
 // page setup, a deck's slides inside the save debounce, a sheet's computed
 // cells. So each editor hands the ops a print SOURCE, a function that builds
 // the same request its Download ▸ PDF sends (shared/printJob.ts), and
-// DocumentOps.print() asks the source bound to it.
+// DocumentOps.print() asks the source bound to it. A source may be async: Cells
+// reads what the editor has drawn (its charts) and names placed widgets.
 //
 // Keyed by the ops object itself (a WeakMap), never by a document id: an
 // editor still holds no id, and a host that drops its ops drops the binding.
@@ -14,7 +15,7 @@ import { useEffect, useRef } from 'react'
 import type { PrintRequest } from '@shared/printJob'
 import type { DocumentOps } from './documentOps'
 
-type Source = () => PrintRequest | null
+type Source = () => PrintRequest | null | Promise<PrintRequest | null>
 
 const SOURCES = new WeakMap<DocumentOps, Source>()
 
@@ -36,7 +37,7 @@ export function bindPrintSource(ops: DocumentOps, source: Source): () => void {
  * An editor's hook: bind `build` to the ops while mounted. `build` is read
  * through a ref, so it always sees the editor's latest state without rebinding.
  */
-export function usePrintSource(ops: DocumentOps | undefined, build: () => PrintRequest | null): void {
+export function usePrintSource(ops: DocumentOps | undefined, build: Source): void {
   const ref = useRef(build)
   ref.current = build
   useEffect(() => {
