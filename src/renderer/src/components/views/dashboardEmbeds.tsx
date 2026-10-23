@@ -6,6 +6,7 @@ import Modal from '../plexi/Modal'
 import { renderWidget } from '../widgets/renderWidget'
 import { WidgetSurfaceContext } from '../../lib/widgetSurface'
 import OfficeDocWidget from '../widgets/OfficeDocWidget'
+import { officeKindForDocType } from '../../lib/officeDocKinds'
 import { useWidgetStore } from '../../stores/widgets'
 import { useNodeStore } from '../../stores/nodes'
 import { widgetDisplayName } from '../../lib/widgetDisplayName'
@@ -175,12 +176,17 @@ export function OfficeDocumentCard({
 
   const synthetic = useMemo<Widget | null>(() => {
     if (!documentId || !meta) return null
+    // The same table OfficeDocWidget reads, so each type mounts its own editor
+    // (a drawing in PlexiiDraw, not PlexiiWrite). A type no office widget edits
+    // gets no widget at all and says so below.
+    const kind = officeKindForDocType(meta.docType)
+    if (!kind) return null
     return {
       // Not a stored row: OfficeDocWidget only reads `content` and edits the
       // document itself, so nothing is ever written against this id.
       id: `dashboard-doc-${documentId}`,
       taskId: '',
-      kind: (meta.docType === 'sheet' ? 'sheet' : meta.docType === 'slides' ? 'slides' : 'doc') as WidgetKind,
+      kind: kind as WidgetKind,
       title: meta.title,
       content: documentId,
       x: 0,
@@ -205,7 +211,7 @@ export function OfficeDocumentCard({
       <EmptyCard
         icon="description"
         title="No document chosen"
-        hint="Pick a doc, sheet or deck to edit here."
+        hint="Pick a document, spreadsheet, deck, design, drawing or diagram to edit here."
         action={onPick ? { label: 'Choose a document', run: onPick } : undefined}
       />
     )
@@ -216,6 +222,18 @@ export function OfficeDocumentCard({
         icon="link_off"
         title={documentTitle ? `"${documentTitle}" is unavailable` : 'Document unavailable'}
         hint="It may have been deleted."
+        action={onPick ? { label: 'Choose another', run: onPick } : undefined}
+      />
+    )
+  }
+  if (meta && !officeKindForDocType(meta.docType)) {
+    // Loaded, but no office widget edits this type. Say so rather than open it
+    // in the wrong editor or sit on "Loading…" forever.
+    return (
+      <EmptyCard
+        icon="block"
+        title={`"${meta.title}" can't be edited here`}
+        hint="Open it from Documents instead."
         action={onPick ? { label: 'Choose another', run: onPick } : undefined}
       />
     )

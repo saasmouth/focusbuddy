@@ -6,6 +6,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import { useViewStore } from '../../stores/view'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { createDocumentOps } from '../documents/editor/documentOps'
+import { docTypeForOfficeKind } from '../../lib/officeDocKinds'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
 
 // A document / spreadsheet / slide deck living on the canvas as a native widget.
@@ -19,14 +20,6 @@ interface Props {
   inline?: boolean
 }
 
-const KIND_TO_DOCTYPE: Record<string, DocType> = {
-  doc: 'doc',
-  sheet: 'sheet',
-  slides: 'slides',
-  map: 'map',
-  design: 'design',
-  draw: 'draw'
-}
 const TYPE_META: Record<DocType, { label: string; accent: string }> = {
   doc: { label: 'Document', accent: 'bg-sky-300/60 dark:bg-sky-400/25' },
   sheet: { label: 'Spreadsheet', accent: 'bg-emerald-300/60 dark:bg-emerald-400/25' },
@@ -40,7 +33,7 @@ const TYPE_META: Record<DocType, { label: string; accent: string }> = {
 }
 
 export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.Element {
-  const docType = KIND_TO_DOCTYPE[widget.kind] ?? 'doc'
+  const docType: DocType = docTypeForOfficeKind(widget.kind) ?? 'doc'
   const updateWidget = useWidgetStore((s) => s.update)
   const [doc, setDoc] = useState<FbDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
