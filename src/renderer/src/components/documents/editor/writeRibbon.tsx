@@ -411,7 +411,7 @@ export function writeRailItems(): RailItem<WCtx>[] {
       onSelect: (c) => chain(c).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
       testid: 'doc-rail-table'
     },
-    { id: 'link', label: 'Link', icon: 'link', kind: 'action', role: 'insert', group: railGroup('insert'), order: 2, shortcut: '⌘K', onSelect: (c) => c.openLink(), testid: 'doc-rail-link' },
+    { id: 'link', label: 'Insert link', icon: 'link', kind: 'action', role: 'insert', group: railGroup('insert'), order: 2, onSelect: (c) => c.openLink(), testid: 'doc-rail-link' },
     { id: 'divider', label: 'Divider', icon: 'horizontal_rule', kind: 'action', role: 'insert', group: railGroup('insert'), order: 3, onSelect: (c) => chain(c).setHorizontalRule().run(), testid: 'doc-rail-divider' },
     { id: 'widget', label: 'Insert work widget', icon: 'widgets', kind: 'action', role: 'insert', group: railGroup('insert'), order: 4, onSelect: (c) => cmd(c, 'doc-insert-widget').run(), testid: 'doc-rail-widget' },
     {
