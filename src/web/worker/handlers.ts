@@ -301,6 +301,8 @@ export const HANDLERS: Record<string, Handler> = {
   'deskLayout:load': h((userId: string, deskId: string, deviceClass: never) =>
     deskLayoutStore().load(userId, deskId, deviceClass)),
   'deskLayout:save': h((layout: never) => deskLayoutStore().save(layout, new Date().toISOString())),
+  'deskLayout:saveWorkcentre': h((userId: string, deskId: string, deviceClass: never, workcentre: never) =>
+    deskLayoutStore().saveWorkcentre(userId, deskId, deviceClass, workcentre, new Date().toISOString())),
 
   // createSnapshot takes the widgets to snapshot, not just a label -- the
   // desktop handler reads them first, and so must this.

@@ -98,7 +98,7 @@ import type {
   FbTablePatch
 } from '@shared/fields'
 import type { KnowledgeEntry, KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
-import type { DeskLayout, DeviceClass } from '@shared/deskLayout'
+import type { DeskLayout, DeviceClass, WorkcentreLayout } from '@shared/deskLayout'
 import type { Decision } from '@shared/decision'
 import type { DeskPopupInfo, DeskPopupMode, PopupRect } from '@shared/deskPopup'
 
@@ -464,7 +464,9 @@ const api = {
   deskLayout: {
     load: (userId: string, deskId: string, deviceClass: DeviceClass): Promise<DeskLayout | null> =>
       ipcRenderer.invoke('deskLayout:load', userId, deskId, deviceClass),
-    save: (layout: DeskLayout): Promise<void> => ipcRenderer.invoke('deskLayout:save', layout)
+    save: (layout: DeskLayout): Promise<void> => ipcRenderer.invoke('deskLayout:save', layout),
+    saveWorkcentre: (userId: string, deskId: string, deviceClass: DeviceClass, workcentre: WorkcentreLayout): Promise<void> =>
+      ipcRenderer.invoke('deskLayout:saveWorkcentre', userId, deskId, deviceClass, workcentre)
   },
   chat: {
     send: (req: ChatRequest): Promise<ChatResponse> => ipcRenderer.invoke('chat:send', req),

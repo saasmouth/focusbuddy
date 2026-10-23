@@ -64,6 +64,7 @@ import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
+import { minSizeFor } from '../../lib/widgetSizing'
 
 const EJECT_THRESHOLD = 40
 const HOVER_THROTTLE_MS = 60
@@ -303,10 +304,11 @@ export default function WidgetFrame({
   // applies to ProseMirror editors and any component with internal state.
   function scaleWidgetBy(factor: number): void {
     if (isChildOfSection) return
-    const MAX_W = 1400
-    const MAX_H = 900
-    const MIN_W = 180
-    const MIN_H = 120
+    // Any size, so a work widget, file or tool can show all of itself (owner,
+    // 4.3.41); the ceiling only stops one runaway press from filling the desk.
+    const MAX_W = 4800
+    const MAX_H = 3200
+    const { w: MIN_W, h: MIN_H } = minSizeFor(widget.kind)
     const newW = Math.max(MIN_W, Math.min(MAX_W, Math.round(widget.width * factor)))
     const newH = Math.max(MIN_H, Math.min(MAX_H, Math.round(widget.height * factor)))
     if (newW === widget.width && newH === widget.height) return
@@ -787,8 +789,10 @@ export default function WidgetFrame({
       }
       // Both are multiples of GRID, so the floor is itself a legal size --
       // otherwise the smallest a widget can get is a width no neighbour shares.
-      minWidth={180}
-      minHeight={120}
+      // Per kind (lib/widgetSizing, shared with the Workcentre view): editors and
+      // viewports need room for their own chrome; nothing has a maximum.
+      minWidth={minSizeFor(widget.kind).w}
+      minHeight={minSizeFor(widget.kind).h}
       // Snap while dragging and while resizing. Rnd does this natively, which
       // keeps the rounding in one place instead of correcting a position after
       // the fact -- correcting afterwards is what makes a widget appear to

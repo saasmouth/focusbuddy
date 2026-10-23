@@ -16,6 +16,25 @@ export interface ObjectLayout {
   height: number
   zIndex: number
 }
+/** One tile of the Workcentre dashboard, in grid units (columns × rows). */
+export interface WorkcentreTile {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+/**
+ * The Workcentre view's dashboard layout for one Desk: tile geometry in grid
+ * units, keyed by object id, independent of the canvas geometry (a tile's size
+ * never moves or resizes the object on the canvas). Stored alongside the canvas
+ * overlay in desk_layouts, per (user, Desk, device class): device-local, not
+ * synced, like the canvas's own custom layout.
+ */
+export interface WorkcentreLayout {
+  cols: number
+  items: Record<string, WorkcentreTile>
+}
+
 export interface DeskLayout {
   userId: string
   deskId: string
@@ -31,6 +50,10 @@ export interface DeskLayout {
   // geometry, unchanged. Gates all Phase 2 routing so the default path is never
   // affected.
   customLayout?: boolean
+  // The Workcentre view's dashboard. Written ONLY by deskLayout:saveWorkcentre
+  // (a read-modify-write of this field); the canvas's whole-layout saves preserve
+  // it, so saving the camera never wipes a dashboard someone sized by hand.
+  workcentre?: WorkcentreLayout
 }
 
 // A Desk persists its COMPLETE visual layout — object positions/sizes/z-order,

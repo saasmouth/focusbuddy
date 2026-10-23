@@ -123,6 +123,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'design:searchPhotos': [{ kind: 'object', optional: false, nullable: false }],
   'deskLayout:load': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'deskLayout:save': [{ kind: 'object', optional: false, nullable: false }],
+  'deskLayout:saveWorkcentre': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }],
   'deskPopup:close': [{ kind: 'string', optional: false, nullable: false }],
   'deskPopup:focus': [{ kind: 'string', optional: false, nullable: false }],
   'deskPopup:openExternal': [{ kind: 'string', optional: false, nullable: false }],

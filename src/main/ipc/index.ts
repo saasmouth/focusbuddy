@@ -244,7 +244,7 @@ import {
 import { proposeCleanup } from '../ai/cleanupRewrite'
 import { staleDesks } from '../db/nodeActivity'
 import { createDeskLayoutStore } from '../db/deskLayoutStore'
-import type { DeskLayout, DeviceClass } from '@shared/deskLayout'
+import type { DeskLayout, DeviceClass, WorkcentreLayout } from '@shared/deskLayout'
 import { generateDocument, processMeetingEnd, generateDesignContent, generateDesignVariations, planDesignLayout, setConversationSnapshot } from '../ai/anthropic'
 import { generateImage, generateImageToFile } from '../imageGen'
 import { generateCustomWidget, nameCustomWidget } from '../ai/customWidget'
@@ -1223,6 +1223,10 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('deskLayout:save', (_e, layout: DeskLayout) =>
     deskLayoutStore().save(layout, new Date().toISOString())
+  )
+  // The Workcentre dashboard for one Desk: a read-modify-write of only that field.
+  ipcMain.handle('deskLayout:saveWorkcentre', (_e, userId: string, deskId: string, deviceClass: DeviceClass, workcentre: WorkcentreLayout) =>
+    deskLayoutStore().saveWorkcentre(userId, deskId, deviceClass, workcentre, new Date().toISOString())
   )
 
   ipcMain.handle('widgetLinks:listByTask', (_e, taskId: string) => listLinksByTask(taskId))

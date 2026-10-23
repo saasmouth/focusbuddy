@@ -43,6 +43,19 @@ function ColumnsPreview(): JSX.Element {
   )
 }
 
+function WorkcentrePreview(): JSX.Element {
+  // Tiles of different sizes on one grid, none overlapping: a dashboard.
+  return (
+    <svg viewBox="0 0 80 52" className="w-full h-full" aria-hidden="true">
+      <rect x="6" y="6" width="40" height="22" rx="3" className="fill-[rgb(var(--accent))]/20 stroke-[rgb(var(--accent))]" strokeWidth="1" />
+      <rect x="50" y="6" width="24" height="12" rx="3" className="fill-[var(--surface-sunken)] stroke-[var(--edge-firm)]" strokeWidth="1" />
+      <rect x="50" y="22" width="24" height="24" rx="3" className="fill-[var(--surface-sunken)] stroke-[var(--edge-firm)]" strokeWidth="1" />
+      <rect x="6" y="32" width="18" height="14" rx="3" className="fill-[var(--surface-sunken)] stroke-[var(--edge-firm)]" strokeWidth="1" />
+      <rect x="28" y="32" width="18" height="14" rx="3" className="fill-[var(--surface-sunken)] stroke-[var(--edge-firm)]" strokeWidth="1" />
+    </svg>
+  )
+}
+
 function RowsPreview(): JSX.Element {
   return (
     <svg viewBox="0 0 80 52" className="w-full h-full" aria-hidden="true">
@@ -89,6 +102,7 @@ function CompactPreview(): JSX.Element {
 const VIEWS: ViewDef[] = [
   { mode: 'canvas', label: 'Free canvas', icon: 'dashboard', Preview: CanvasPreview },
   { mode: 'columns', label: 'Columns', icon: 'view_column', Preview: ColumnsPreview },
+  { mode: 'workcentre', label: 'Workcentre', icon: 'space_dashboard', Preview: WorkcentrePreview },
   { mode: 'list', label: 'List', icon: 'view_list', Preview: RowsPreview },
   { mode: 'table', label: 'Table', icon: 'table_rows', Preview: TablePreview },
   { mode: 'gallery', label: 'Gallery', icon: 'grid_view', Preview: GalleryPreview },
