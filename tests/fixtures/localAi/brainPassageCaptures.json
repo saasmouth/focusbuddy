@@ -1,7 +1,7 @@
 {
   "_about": "Raw on-device output (bundled Qwen3-4B-Instruct-2507 Q4_K_M, 16k window) captured with PLEXII_LOCAL_AI_TRACE on 2026-10-23 at 37115bfb by tests/e2e/localAiBrainPassage.spec.ts LBP-1: one 7,285-word operations manual with the fact deep inside, three short documents, AI set to Local. Every JSON call that PlexiiBrain makes on the local path, one per contract and entry point. None of them failed: 4.3.41 does not produce the owner's warning on any entry point.",
   "ownerStoredWarning": "The on-device model could not produce a reply for this request (no JSON object was found). Nothing was sent anywhere. Try again, rephrase it, or use your own key for PlexiiAssist and PlexiiBrain answers in Settings → AI.",
-  "_ownerStoredWarning": "Saved in the owner's PlexiiAssist history with two turns on 2026-10-22 08:42 and 11:26 (before 4.3.41 was built at 21:30) and shown again on reopening those conversations. 4.3.41 has no code that writes this sentence.",
+  "_ownerStoredWarning": "The app's own 4.3.40 failure template (no user content), as PlexiiAssist saved it with a failed turn under 4.3.40 and shows it again when that conversation is reopened. 4.3.41 has no code that writes this sentence.",
   "captures": [
     {
       "_case": "PlexiiAssist, streamed (chat:sendStream)",

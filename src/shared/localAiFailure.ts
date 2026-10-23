@@ -8,7 +8,7 @@
 // the conversation history and is shown again — beside the answer it was
 // saved with — every time the conversation is reopened, on any later version.
 // The owner's 4.3.41 check of "PlexiiBrain ranks by passage" saw exactly that:
-// both stored copies on the machine were written on 2026-10-22, before 4.3.41
+// the stored copies were written under 4.3.40, before 4.3.41
 // was built, and 4.3.41 cannot produce the sentence at all.
 //
 // So a failure line is put into plain words where it is shown: the saved

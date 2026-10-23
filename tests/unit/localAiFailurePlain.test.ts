@@ -1,7 +1,7 @@
 // "PlexiiBrain ranks by passage", owner's 4.3.41 check: an answer AND "The
 // on-device model could not produce a reply for this request (no JSON object
 // was found). Nothing was sent anywhere…". 4.3.41 cannot write that sentence;
-// it was saved with a PlexiiAssist turn on 2026-10-22 (4.3.40) and is shown
+// it was saved with a PlexiiAssist turn under 4.3.40 and is shown
 // again whenever that conversation is reopened. The two saved copies on the
 // owner's machine are replayed here verbatim.
 import { describe, it, expect } from 'vitest'
