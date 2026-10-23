@@ -1,5 +1,5 @@
 import type { WidgetInput } from '@shared/customWidgetSandbox'
-import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery } from '@shared/snippets'
+import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -1206,15 +1206,15 @@ const api = {
     },
     /** By id, unscoped — this is how a live instance resolves its master. */
     get: (id: string): Promise<Snippet | null> => ipcRenderer.invoke('snippets:get', id),
-    create: (draft: SnippetDraft): Promise<{ ok: boolean; snippet?: Snippet; error?: string }> =>
+    create: (draft: SnippetDraft): Promise<SnippetWriteResult> =>
       ipcRenderer.invoke('snippets:create', draft),
-    update: (id: string, patch: SnippetPatch): Promise<{ ok: boolean; snippet?: Snippet; error?: string }> =>
+    update: (id: string, patch: SnippetPatch): Promise<SnippetWriteResult> =>
       ipcRenderer.invoke('snippets:update', id, patch),
     delete: (id: string): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('snippets:delete', id),
     /** Count one insertion. Called by the surface that inserted it. */
     recordUse: (id: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('snippets:recordUse', id),
     /** Copy an org snippet into the caller's personal library so it can diverge. */
-    fork: (id: string): Promise<{ ok: boolean; snippet?: Snippet; error?: string }> =>
+    fork: (id: string): Promise<SnippetWriteResult> =>
       ipcRenderer.invoke('snippets:fork', id)
   },
   webMenu: {

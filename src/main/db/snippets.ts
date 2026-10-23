@@ -25,7 +25,8 @@ import {
   type SnippetKind,
   type SnippetPatch,
   type SnippetQuery,
-  type SnippetScope
+  type SnippetScope,
+  type SnippetWriteResult
 } from '@shared/snippets'
 
 export const SNIPPET_SCHEMA = `
@@ -171,19 +172,10 @@ export function getSnippet(id: string): Snippet | null {
   return row ? rowToSnippet(row) : null
 }
 
-export interface CreateSnippetResult {
-  ok: boolean
-  snippet?: Snippet
-  error?: string
-  /**
-   * Set when the write was refused because the master had moved on. Carries what
-   * is stored NOW, so the caller can offer Reload (take this) or Overwrite
-   * (re-save against this revision) without a second round trip — and can show
-   * the user what they would be replacing rather than asking them to choose
-   * blind.
-   */
-  conflictWith?: Snippet
-}
+// The write result, defined in src/shared/snippets.ts so the preload and the
+// renderer cannot drift from it. Kept under the old name because every function
+// here returns it.
+export type CreateSnippetResult = SnippetWriteResult
 
 /**
  * Save something as a snippet.

@@ -203,6 +203,25 @@ export interface SnippetDraft {
 }
 
 /** The fields that can change afterwards. Omitting one leaves it alone. */
+/**
+ * What a snippet write returns. Defined ONCE here because it has three users —
+ * the main-process DB functions, the preload bridge and the renderer store — and
+ * the preload had hand-written its own copy for create, update and fork. That
+ * copy silently lacked `conflictWith` when the compare-and-set landed, so the
+ * field existed on both sides of the bridge and could not cross it.
+ */
+export interface SnippetWriteResult {
+  ok: boolean
+  snippet?: Snippet
+  error?: string
+  /**
+   * Set when a write was refused because the master had moved on. Carries what
+   * is stored NOW, so the caller can offer Reload or Overwrite without a second
+   * round trip, and can show the user what they would be replacing.
+   */
+  conflictWith?: Snippet
+}
+
 export interface SnippetPatch {
   name?: string
   description?: string
