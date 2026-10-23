@@ -58,6 +58,12 @@ export interface SvgValue {
   vector: boolean
   /** Where the editable original lives. */
   app: SnippetAppName
+  /**
+   * The same art without its backdrop, for importing as objects (a picture
+   * wants the app's page colour behind it; editable objects do not want a
+   * page-sized rectangle under them). Absent when the picture has no backdrop.
+   */
+  importSvg?: string
 }
 
 export interface ImageValue {

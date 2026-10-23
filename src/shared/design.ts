@@ -810,8 +810,10 @@ function styleStr(props: Record<string, string | number | undefined>): string {
 }
 
 // Render one element to absolutely-positioned HTML, mirroring SlideElementView so
-// the export matches the on-canvas appearance pixel for pixel.
-function elementHtml(el: SlideElement): string {
+// the export matches the on-canvas appearance pixel for pixel. Exported for the
+// snippet converter (shared/snippetForms/picture.ts), which draws a selection of
+// slide or design elements as a picture with exactly this markup.
+export function elementHtml(el: SlideElement): string {
   const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;overflow:hidden;${
     el.rotation ? `transform:rotate(${el.rotation}deg);` : ''
   }${el.opacity != null ? `opacity:${el.opacity};` : ''}${el.cornerRadius ? `border-radius:${el.cornerRadius}px;` : ''}${
