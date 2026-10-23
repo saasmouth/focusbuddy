@@ -201,7 +201,7 @@ test('Design, as a viewer: Duplicate and Insert › Text are off with the senten
   await expect(w.locator('[data-testid="save-snippet-dialog"]')).toBeVisible()
   // It holds the selected frame: a real read, not an empty draft.
   await expect(w.locator('[data-testid="save-snippet-empty"]')).toHaveCount(0)
-  await w.keyboard.press('Escape')
+  await w.locator('[data-testid="save-snippet-dialog"] button[aria-label="Close"]').click()
   await expect(w.locator('[data-testid="save-snippet-dialog"]')).toBeHidden()
   // viewer-registry-41: Insert's rows were written by hand, live for a viewer.
   // From the registry now, each is off with the sentence.
@@ -243,6 +243,7 @@ test('Diagrams, as a viewer: Duplicate, Undo and right-click Edit text are off w
   // undo, and silently); the right-click Edit text was live for a viewer.
   expect(await menuRow(w, app, 'edit', 'Undo')).toEqual({ off: true, hint: SENTENCE })
   const node = w.locator('.react-flow__node').first()
+  // A viewer's right-click on a shape opens the SHAPE's menu (it opened the canvas's until viewer-registry-41).
   await node.click({ button: 'right' })
   const editText = w.locator('[data-testid="diagram-context-menu"] [data-testid="ctx-dg-edit-text"]')
   await expect(editText).toBeDisabled()

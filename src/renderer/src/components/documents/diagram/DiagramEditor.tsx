@@ -860,7 +860,15 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
               if (!selRef.current.edges.has(ed.id)) setSel({ nodes: new Set(), edges: new Set([ed.id]) })
               openContext(e, { kind: 'edge', id: ed.id })
             }}
-            onPaneContextMenu={(e) => openContext(e, { kind: 'pane', flow: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) })}
+            onPaneContextMenu={(e) => {
+              // React Flow's pan-zoom layer reports a right-click on a shape as a
+              // pane right-click too, unless the shape carries `nopan`, which only
+              // draggable shapes do. So a VIEWER's right-click on a shape opened
+              // the canvas menu over the shape's own (viewer-registry-41): the
+              // shape or line handler has already opened the right one.
+              if ((e.target as Element | null)?.closest?.('.react-flow__node, .react-flow__edge')) return
+              openContext(e, { kind: 'pane', flow: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) })
+            }}
             onEdgeDoubleClick={(_e, ed) => !readOnly && setEditingId(`edge:${ed.id}`)}
             onMoveEnd={(_e, vp) => {
               const b = bodyRef.current
