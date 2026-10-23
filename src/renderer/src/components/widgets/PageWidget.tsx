@@ -16,6 +16,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { isTextContextTarget } from './bodyMenus'
 import { WidgetImage } from './widgetImage'
 import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { confirmDialog } from '../plexi/PromptDialog'
@@ -47,7 +48,7 @@ interface Props {
 // on each transaction (debounced lightly) so the page survives reloads.
 export default function PageWidget({ widget, inline = false }: Props): JSX.Element {
   const update = useWidgetStore((s) => s.update)
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; selectionText?: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [slashOpen, setSlashOpen] = useState(false)
   const [slashPos, setSlashPos] = useState<{ top: number; left: number } | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
@@ -395,10 +396,12 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
       <div
         className={`md-rendered tiptap-editor px-5 py-4 text-[var(--ink-100)] min-h-[140px] flex-1 leading-relaxed ${isLiving ? 'select-text' : ''}`}
         onContextMenu={(e) => {
-          if (e.shiftKey) return
+          // The editor's text (editable, or selected on a read-only living
+          // page) is the text menu's (§9.3); the margin around it opens the
+          // work widget's menu.
+          if (isTextContextTarget(e.target)) return
           e.preventDefault()
-          const sel = window.getSelection()?.toString() ?? ''
-          setCtxMenu({ x: e.clientX, y: e.clientY, selectionText: sel })
+          setCtxMenu({ x: e.clientX, y: e.clientY })
         }}
       >
         <EditorContent editor={editor} />
@@ -408,7 +411,6 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
           sourceWidgetId={widget.id}
           x={ctxMenu.x}
           y={ctxMenu.y}
-          selectionContext={{ selectionText: ctxMenu.selectionText }}
           onClose={() => setCtxMenu(null)}
         />
       )}

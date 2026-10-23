@@ -4,10 +4,11 @@
 // resize, and column reorder. Persistence is verified by reading back the
 // schema via IPC after each mutation.
 //
-// The HeaderContextMenu is a fixed-position <div> rendered via React state in
-// TableWidget. Playwright's synthetic click can be blocked by the canvas
-// transform overlay (aside.fb-glass-chrome). We bypass this with element.click()
-// via window.evaluate — the same pattern used throughout tableImport.spec.ts.
+// The column-header menu is the context-menu kit (CanvasContextMenu, portalled
+// to the body, position: fixed). This spec drives the column ACTIONS with
+// element.click() via window.evaluate — the same pattern used throughout
+// tableImport.spec.ts; contextMenuWp1b.spec.ts drives the menu itself with real
+// right-clicks, keys and screenshots.
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
@@ -75,7 +76,7 @@ async function navigateToTable(
   )
 }
 
-// Right-click a column header by its text label and open the HeaderContextMenu.
+// Right-click a column header by its text label and open the column menu.
 async function rightClickHeader(window: LaunchedApp['window'], widgetId: string, label: string): Promise<void> {
   await window.evaluate(({ wid, lbl }: { wid: string; lbl: string }) => {
     // Find all <th> elements inside this widget. The header text lives in a
@@ -101,9 +102,9 @@ async function rightClickHeader(window: LaunchedApp['window'], widgetId: string,
   await window.waitForTimeout(200)
 }
 
-// Click an item in the fixed HeaderContextMenu by its visible text.
-// The menu is a fixed-position div with z-[100]; we locate it by position=fixed
-// and checking its content, then dispatch a real click on the matching button.
+// Click an item in the (fixed-position) column menu by its visible text, then
+// dispatch a click on the matching button. A row with a submenu (Insert column
+// left / right) opens its type picker.
 async function clickMenuText(window: LaunchedApp['window'], text: string): Promise<void> {
   await window.evaluate((txt: string) => {
     // Find all fixed-positioned divs that contain a button with our text.
@@ -244,13 +245,8 @@ test('3 — Delete column disabled when only one column remains', async () => {
 
   // The delete button must be present but disabled.
   const isDisabled = await window.evaluate(() => {
-    const menus = Array.from(document.querySelectorAll('.fixed.z-\\[100\\]'))
-    for (const menu of menus) {
-      const btns = Array.from(menu.querySelectorAll('button'))
-      const btn = btns.find((b) => b.textContent?.includes('Delete column'))
-      if (btn) return (btn as HTMLButtonElement).disabled
-    }
-    return null
+    const btn = document.querySelector('[data-canvas-ctx-menu] [data-testid="table-col-delete"]')
+    return btn ? (btn as HTMLButtonElement).disabled : null
   })
   expect(isDisabled, 'Delete column is disabled for single-column table').toBe(true)
 })

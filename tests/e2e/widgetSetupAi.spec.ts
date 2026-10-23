@@ -83,11 +83,10 @@ test('AS-1 — Build with AI drafts items, approve and add appends a checklist',
     }))
   })
 
-  // Enter edit mode and open the unified menu from the sticky textarea.
+  // Open the unified menu from the sticky being read (the editing textarea is
+  // text, and text gets the text menu: SPEC §9.3, E-5).
   await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-sticky-rendered`, { timeout: 8_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-sticky-rendered`)
-  await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`, { timeout: 4_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-sticky-textarea`, { button: 'right' })
+  await window.click(`[data-widget-id="${widgetId}"] .fb-sticky-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
   // "Build with AI" is the sticky's own context row (lib/contextMenu/providers).

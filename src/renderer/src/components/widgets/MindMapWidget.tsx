@@ -3,6 +3,8 @@ import MentionTextarea from '../MentionTextarea'
 import type { ActionProposal, GoToTarget, Widget, WidgetKind } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import UnifiedConnectedMenu from '../contextMenu/UnifiedConnectedMenu'
+import CanvasContextMenu from '../CanvasContextMenu'
+import { isTextContextTarget, mindMapNodeMenuItems } from './bodyMenus'
 import Icon from '../Icon'
 import PlexiiIcon from '../PlexiiIcon'
 import { useWidgetStore } from '../../stores/widgets'
@@ -252,6 +254,14 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   // Position of the unified right-click menu, or null when closed.
   const [mindCtxMenu, setMindCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  // A node's own menu (on the kit): the node that was right-clicked, and where.
+  const [nodeCtxMenu, setNodeCtxMenu] = useState<{
+    x: number
+    y: number
+    nodeId: string
+    pending: boolean
+    pendingParentId?: string
+  } | null>(null)
   // The agent-creation wizard is a modal; the slug is the suggested
   // starting point when the user first opens it.
   const [agentWizardOpen, setAgentWizardOpen] = useState(false)
@@ -1040,14 +1050,51 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
     <div
       className="h-full w-full flex bg-[var(--surface-sunken)] overflow-hidden"
       onContextMenu={(e) => {
-        // Right-click anywhere in the mind map opens the unified menu, which is
-        // where "Build with AI" lives. Shift-right-click falls through to the
-        // native menu.
-        if (e.shiftKey) return
+        // Right-click on the map (not a node, which has its own menu) opens the
+        // work widget's menu, where "Build with AI" lives. Text (the side
+        // panel's fields, a selection) is the text menu's (§9.3).
+        if (isTextContextTarget(e.target)) return
         e.preventDefault()
         setMindCtxMenu({ x: e.clientX, y: e.clientY })
       }}
     >
+      {nodeCtxMenu && (() => {
+        // findNode walks accepted children only; a pending (AI-proposed) node
+        // lives in its parent's pendingChildren and only needs its id.
+        const node = nodeCtxMenu.pending
+          ? ({ id: nodeCtxMenu.nodeId } as MindMapNode)
+          : findNode(state.root, nodeCtxMenu.nodeId)
+        if (!node) return null
+        const close = (): void => setNodeCtxMenu(null)
+        return (
+          <CanvasContextMenu
+            x={nodeCtxMenu.x}
+            y={nodeCtxMenu.y}
+            onClose={close}
+            items={mindMapNodeMenuItems(
+              {
+                isRoot: node.id === state.root.id,
+                pending: nodeCtxMenu.pending,
+                isViewRoot: node.id === viewRoot.id,
+                busy: busy !== null
+              },
+              {
+                addChild: () => void addChild(node.id),
+                addSibling: () => void addSibling(node.id),
+                drillIn: () => drillInto(node.id),
+                expand: () => void expand(node),
+                accept: () => {
+                  if (nodeCtxMenu.pendingParentId) acceptPending(nodeCtxMenu.pendingParentId, node.id)
+                },
+                reject: () => {
+                  if (nodeCtxMenu.pendingParentId) rejectPending(nodeCtxMenu.pendingParentId, node.id)
+                },
+                remove: () => deleteNode(node.id)
+              }
+            )}
+          />
+        )
+      })()}
       {mindCtxMenu && (
         <UnifiedConnectedMenu
           sourceWidgetId={widget.id}
@@ -1127,6 +1174,13 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
                   // breadcrumb at the top of the widget lets the user
                   // step back up.
                   drillInto(n.id)
+                }}
+                onContextMenu={(e) => {
+                  // The node's own menu, not the map's.
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (!n.pending) persist({ ...state, selectedId: n.id })
+                  setNodeCtxMenu({ x: e.clientX, y: e.clientY, nodeId: n.id, pending: !!n.pending, pendingParentId: n.pendingParentId })
                 }}
                 data-testid={`mindmap-node-${n.id}`}
               >

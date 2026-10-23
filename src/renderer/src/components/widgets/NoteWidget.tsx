@@ -5,6 +5,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { isTextContextTarget } from './bodyMenus'
 import { splitStickyBlocks } from '../../lib/stickyText'
 import { useTextWidgetSnippets } from './useWidgetSnippets'
 
@@ -27,7 +28,7 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
   textRef.current = text
   const saveTimerRef = useRef<number | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; selectionText?: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   // A note shows a rendered view (so a pasted |---| markdown table becomes a
   // real table, the same as the sticky does) and flips to a raw textarea while
   // editing. Whether we are editing is driven by explicit user intent, tracked
@@ -172,13 +173,6 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
       onBlur={leaveEdit}
       onPaste={snippets.onTextareaPaste}
       placeholder="Notes, thoughts, anything that doesn’t fit on a sticky…"
-      onContextMenu={(e) => {
-        // Shift-right-click for the browser's native menu (cut/copy/paste).
-        if (e.shiftKey) return
-        e.preventDefault()
-        const sel = window.getSelection()?.toString() ?? ''
-        setCtxMenu({ x: e.clientX, y: e.clientY, selectionText: sel })
-      }}
       wrapperClassName="h-full w-full"
       className={`w-full h-full resize-none bg-transparent text-stone-800 leading-relaxed placeholder:text-stone-500/60 font-serif ${
         'fb-body'
@@ -187,14 +181,25 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
   )
 
   const content = (
-    <div className={`h-full w-full bg-[#fefcf6] ${inline ? 'p-8' : 'p-4'}`}>
+    <div
+      className={`h-full w-full bg-[#fefcf6] ${inline ? 'p-8' : 'p-4'}`}
+      data-testid="note-body"
+      // In read mode too: the note's menu used to open only from the editing
+      // textarea, so a right-click on a note being read did nothing.
+      onContextMenu={(e) => {
+        // Text (the textarea while editing, or a selection) is the text
+        // menu's (§9.3); the rest of the body opens the work widget's menu.
+        if (isTextContextTarget(e.target)) return
+        e.preventDefault()
+        setCtxMenu({ x: e.clientX, y: e.clientY })
+      }}
+    >
       {editing ? editor : rendered}
       {ctxMenu && (
         <ConnectedToolMenu
           sourceWidgetId={widget.id}
           x={ctxMenu.x}
           y={ctxMenu.y}
-          selectionContext={{ selectionText: ctxMenu.selectionText }}
           onClose={() => setCtxMenu(null)}
         />
       )}
