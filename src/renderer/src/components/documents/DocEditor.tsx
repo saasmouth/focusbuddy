@@ -40,6 +40,10 @@ import Icon from '../Icon'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
 import DocPickerModal from '../DocPickerModal'
 import { primeDocMeta } from '../../lib/docMetaCache'
+import { dragCarriesFiles } from '../../lib/filesDrag'
+import { filesDropRefs, runContentDrop } from '../../lib/filesContentDrop'
+import { widgetFileGroupId } from '@shared/widgetFiles'
+import type { EditorView } from '@tiptap/pm/view'
 
 // Focus mode dims every block except the one under the cursor, so a long draft
 // collapses to the single sentence being written. The FocusBlock decoration tags
@@ -389,6 +393,8 @@ export default function DocEditor({
   // DiagramEditor.
   const readOnlyRef = useRef(readOnly)
   readOnlyRef.current = readOnly
+  // The Files drop, set below once the editor exists (editorProps.handleDrop calls it).
+  const filesDropRef = useRef<((view: EditorView, event: DragEvent) => boolean) | null>(null)
   const editor = useEditor({
     editable: !readOnly,
     extensions: buildDocExtensions({
@@ -425,6 +431,13 @@ export default function DocEditor({
         class:
           'prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[60vh] text-[15px] leading-relaxed',
         'data-testid': 'doc-editor-surface'
+      },
+      // Something dragged out of Files: handled HERE, ahead of ProseMirror's
+      // own drop (which would insert the dragged names as text) and of the
+      // work widget drop below. A document becomes its live card, a file a
+      // link or its content, per the drop matrix (lib/filesContentDrop).
+      handleDrop(view, event) {
+        return filesDropRef.current?.(view, event as DragEvent) ?? false
       },
       handlePaste(_view, event) {
         // Swallowed rather than passed on: returning true tells ProseMirror it
@@ -673,12 +686,46 @@ export default function DocEditor({
     const dom = editor.view.dom as HTMLElement
 
     const onOver = (e: DragEvent): void => {
+      if (dragCarriesFiles(e.dataTransfer)) {
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.dropEffect = readOnlyRef.current ? 'none' : 'copy'
+        return
+      }
       if (!acceptsWidgetDrag(e.dataTransfer)) return
       e.preventDefault()
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
     }
 
+    // A Files drag (one work widget file carries the widget drag too) is
+    // editorProps.handleDrop's; never handled twice.
+    filesDropRef.current = (view, e) => {
+      const dt = e.dataTransfer
+      if (!dragCarriesFiles(dt)) return false
+      e.preventDefault()
+      const refs = filesDropRefs(dt)
+      if (!refs?.length) return true
+      const at = view.posAtCoords({ left: e.clientX, top: e.clientY })
+      const alt = e.altKey
+      let placedCaret = false
+      void runContentDrop(
+        refs,
+        { target: 'doc', alt, readOnly: readOnlyRef.current || !editor.isEditable, ownDocumentId: documentOps?.id ?? null },
+        async (read, ref) => {
+          if (!placedCaret && at) editor.chain().focus().setTextSelection(at.pos).run()
+          placedCaret = true
+          // A work widget file is a LIVE embed (the reference), as its own drag
+          // lands today; ⌥ copies its content instead.
+          if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !alt) {
+            return editor.chain().focus().insertWidgetEmbed(widgetFileGroupId(ref.docId)).run()
+          }
+          return pasteIntoDoc(editor, { read })
+        }
+      )
+      return true
+    }
+
     const onDrop = (e: DragEvent): void => {
+      if (dragCarriesFiles(e.dataTransfer)) return
       if (readOnlyRef.current) return
       if (!acceptsWidgetDrag(e.dataTransfer)) return
       e.preventDefault()
@@ -696,8 +743,9 @@ export default function DocEditor({
     return () => {
       dom.removeEventListener('dragover', onOver)
       dom.removeEventListener('drop', onDrop)
+      filesDropRef.current = null
     }
-  }, [editor])
+  }, [editor, documentOps?.id])
 
   // Tables are the one block with a per-table page-layout choice (repeat the
   // header row on continuation pages), and a right-click on the table itself is

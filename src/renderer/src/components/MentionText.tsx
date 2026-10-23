@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
-import { parseMentionText, type TextMention } from '@shared/mentionText'
+import { parseMentionHref, parseMentionText, type TextMention } from '@shared/mentionText'
 import { useViewStore } from '../stores/view'
+import { useFileManagerStore } from '../stores/fileManager'
 import Icon from './Icon'
 
 // Text with its @-mentions drawn as links.
@@ -12,6 +13,26 @@ import Icon from './Icon'
 /** Take the user to whatever a mention names. */
 export function openMention(m: TextMention): void {
   const view = useViewStore.getState()
+  // A folder or file link dropped in from Files (plexii://folder/<id>,
+  // plexii://file/<id>): Files, at that folder, or at the file's folder with
+  // the file selected. Not a chat mention kind, so read before the switch.
+  const kind = m.kind as string
+  if (kind === 'folder') {
+    view.goFiles()
+    void useFileManagerStore.getState().openFolder(m.id)
+    return
+  }
+  if (kind === 'file') {
+    view.goFiles()
+    void (async () => {
+      const meta = await window.api.fileManager.get(m.id).catch(() => null)
+      if (!meta) return
+      const fm = useFileManagerStore.getState()
+      await fm.openFolder(meta.parentId ?? null)
+      fm.select(m.id)
+    })()
+    return
+  }
   switch (m.kind) {
     case 'desk':
       view.goTask(m.id)
@@ -25,7 +46,10 @@ export function openMention(m: TextMention): void {
       if (m.taskId) view.goTask(m.taskId)
       return
     case 'document':
-      view.goDocuments?.()
+      // The document itself (a link to it was made on purpose); the list only
+      // when the link names no document.
+      if (m.id) view.goDocument(m.id)
+      else view.goDocuments?.()
       return
     default:
       // person, file, knowledge: no view owns them on their own, so the link is
@@ -56,6 +80,8 @@ export function mentionIsNavigable(m: TextMention): boolean {
     m.kind === 'desk' ||
     m.kind === 'room' ||
     m.kind === 'document' ||
+    m.kind === 'file' ||
+    (m.kind as string) === 'folder' ||
     (m.kind === 'widget' && Boolean(m.taskId))
   )
 }
@@ -104,4 +130,16 @@ export function MentionChip({ mention }: { mention: TextMention }): JSX.Element 
       <span className="truncate">{mention.title}</span>
     </button>
   )
+}
+
+/**
+ * Follow a `plexii://` link (a mention, or a link dropped in from Files).
+ * True when it was ours to follow; the caller then stops the default.
+ */
+export function openPlexiiHref(href: string | null | undefined): boolean {
+  if (!href || !href.startsWith('plexii://')) return false
+  const parsed = parseMentionHref(href)
+  if (!parsed) return false
+  openMention(parsed)
+  return true
 }

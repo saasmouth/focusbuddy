@@ -95,6 +95,12 @@ export interface SlideSnippetPlacement {
   newId: () => string
   /** The deck cannot be edited right now (presenting, read-only). */
   readOnly: boolean
+  /**
+   * Where the block's centre goes, in slide coordinates (a drop from Files
+   * lands where it was dropped). Absent: centred on the slide, as before.
+   * Additive (Files beside, Phase 3); the block is kept on the slide.
+   */
+  centre?: { x: number; y: number }
 }
 
 /**
@@ -123,8 +129,10 @@ export function slideElementsFromSnippet(snippet: Snippet, at: SlideSnippetPlace
   const h = Math.max(...clip.elements.map((e) => e.y + e.h)) - minY
   // Centred: the body carries no position of its own, so the destination
   // decides, and the middle of the slide is where a person is looking.
-  const dx = Math.round((at.canvas.w - w) / 2) - minX
-  const dy = Math.round((at.canvas.h - h) / 2) - minY
+  const left = at.centre ? Math.max(0, Math.min(at.canvas.w - w, Math.round(at.centre.x - w / 2))) : Math.round((at.canvas.w - w) / 2)
+  const top = at.centre ? Math.max(0, Math.min(at.canvas.h - h, Math.round(at.centre.y - h / 2))) : Math.round((at.canvas.h - h) / 2)
+  const dx = left - minX
+  const dy = top - minY
   const centred = { ...clip, elements: clip.elements.map((e) => translate(e, dx, dy)) }
   const pasted = pasteElements(centred, { canvas: at.canvas, topZ: at.topZ, newId: at.newId, offset: 0 })
   // The paste engine moves x/y only. A line's stored end point travels with

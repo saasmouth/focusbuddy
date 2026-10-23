@@ -1,3 +1,7 @@
+import { dragCarriesFiles } from '../../lib/filesDrag'
+import { filesDropRefs, pagePointFromDrop, runContentDrop } from '../../lib/filesContentDrop'
+import { pasteConverted } from '../../lib/clipboardPaste'
+import { widgetFileGroupId } from '@shared/widgetFiles'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideLayout, SlidesBody, SlideTransition } from '@shared/types'
 import { resolveTheme, layoutElements, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
@@ -681,13 +685,16 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // Insertion: a duplicate onto the CURRENT slide, through the paste engine
   // (fresh ids, groups remapped, on top, on the page), selected afterwards, as
   // ONE commit so one undo takes it all back. Declines while presenting.
-  function insertSlideSnippet(snippet: Snippet): boolean {
+  // `centre` (optional, additive): where the block goes, in slide coordinates,
+  // for a drop from Files. Absent: centred, as before.
+  function insertSlideSnippet(snippet: Snippet, centre?: { x: number; y: number }): boolean {
     if (!slides[slideIdx]) return false
     const els = slideElementsFromSnippet(snippet, {
       canvas: { w: body.size?.w ?? DECK_PAGE.w, h: body.size?.h ?? DECK_PAGE.h },
       topZ: (slides[slideIdx]?.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0),
       newId: elementId,
-      readOnly: presenting || readOnly
+      readOnly: presenting || readOnly,
+      ...(centre ? { centre } : {})
     })
     if (!els) return false
     mutateSlide((s) => els.reduce((acc, el) => addElement(acc, el), s))
@@ -1161,11 +1168,36 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
           // which could not reach a widget that has no desk — i.e. most of
           // them, since 4.3.32 made every work widget a file.
           onDragOver={(e) => {
+            if (dragCarriesFiles(e.dataTransfer)) {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = readOnly || presenting ? 'none' : 'copy'
+              return
+            }
             if (!acceptsWidgetDrag(e.dataTransfer)) return
             e.preventDefault()
             e.dataTransfer.dropEffect = 'copy'
           }}
           onDrop={(e) => {
+            // From Files: Deck's own converted paste (never the system
+            // clipboard) with our read, landing where it was dropped. A work
+            // widget file stays a live widget element, as its own drag lands.
+            if (dragCarriesFiles(e.dataTransfer)) {
+              e.preventDefault()
+              e.stopPropagation()
+              const refs = filesDropRefs(e.dataTransfer)
+              if (!refs?.length) return
+              const canvas = { w: body.size?.w ?? DECK_PAGE.w, h: body.size?.h ?? DECK_PAGE.h }
+              const at = pagePointFromDrop(e.currentTarget, e.clientX, e.clientY, canvas) ?? undefined
+              const alt = e.altKey
+              void runContentDrop(refs, { target: 'slide', alt, readOnly: readOnly || presenting, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
+                if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !alt) {
+                  insertWidget(widgetFileGroupId(ref.docId))
+                  return true
+                }
+                return pasteConverted('slide', (b) => insertSlideSnippet(pastedSnippet(b), at), { read })
+              })
+              return
+            }
             if (!acceptsWidgetDrag(e.dataTransfer)) return
             e.preventDefault()
             void widgetIdFromDrop(e.dataTransfer).then((id) => {

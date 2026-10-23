@@ -12,6 +12,8 @@
 // file on this disk would make every viewer of a shared drawing fetch it (see
 // isDrawImageSrc). Placed files are always embedded in the drawing.
 
+import { join } from 'node:path'
+import { createRequire } from 'node:module'
 import { BrowserWindow, dialog } from 'electron'
 import { readFile, stat } from 'fs/promises'
 import { basename } from 'path'
@@ -120,16 +122,45 @@ async function loadPdfToPng(): Promise<PdfToPng> {
 /**
  * pdf-parse and pdf-to-png-converter bundle different pdf.js versions that
  * share globalThis.pdfjsWorker (see ocr.ts); clear it around our call.
+ *
+ * They ALSO bring different @napi-rs/canvas builds (pdf-parse 0.1.x,
+ * pdf-to-png-converter 1.x), and pdf.js on Node installs the canvas's Path2D,
+ * DOMMatrix and ImageData as globals only when they are missing. Whichever
+ * library loads first owns them for the life of the process. Files extracts
+ * the text of every PDF it is given (fileText.ts, pdf-parse), so once that has
+ * run, every page Draw rendered drew with the other build's Path2D and failed
+ * ("Value is none of these types `String`, `Path`"): Place of a PDF, and a PDF
+ * dropped from Files, silently became nothing. Our own build's classes are
+ * swapped in for the call and the previous ones put back after.
  */
+const PDF_CANVAS_GLOBALS = ['Path2D', 'DOMMatrix', 'ImageData'] as const
+
+function pdfToPngCanvas(): Record<string, unknown> | null {
+  try {
+    const here = createRequire(typeof __filename === 'string' ? __filename : join(process.cwd(), 'index.js'))
+    const converterEntry = here.resolve('pdf-to-png-converter')
+    return createRequire(converterEntry)('@napi-rs/canvas') as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 async function withOwnPdfWorker<T>(fn: () => Promise<T>): Promise<T> {
-  const g = globalThis as { pdfjsWorker?: unknown }
+  const g = globalThis as Record<string, unknown> & { pdfjsWorker?: unknown }
   const prev = g.pdfjsWorker
   delete g.pdfjsWorker
+  const canvas = pdfToPngCanvas()
+  const saved = PDF_CANVAS_GLOBALS.map((k) => [k, Object.prototype.hasOwnProperty.call(g, k), g[k]] as const)
+  if (canvas) for (const k of PDF_CANVAS_GLOBALS) if (canvas[k]) g[k] = canvas[k]
   try {
     return await fn()
   } finally {
     if (prev !== undefined) g.pdfjsWorker = prev
     else delete g.pdfjsWorker
+    if (canvas) for (const [k, had, v] of saved) {
+      if (had) g[k] = v
+      else delete g[k]
+    }
   }
 }
 

@@ -1,3 +1,7 @@
+import { dragCarriesFiles } from '../../../lib/filesDrag'
+import { filesDropRefs, runContentDrop } from '../../../lib/filesContentDrop'
+import { pasteConverted } from '../../../lib/clipboardPaste'
+import { widgetFileGroupId } from '@shared/widgetFiles'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
@@ -667,6 +671,26 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
+      // From Files: Diagrams' own converted paste (never the system
+      // clipboard) with our read, centred where it was dropped. Read-only
+      // says so instead of doing nothing. A work widget file stays a live
+      // widget shape, as its own drag lands.
+      if (dragCarriesFiles(e.dataTransfer)) {
+        e.preventDefault()
+        e.stopPropagation()
+        const refs = filesDropRefs(e.dataTransfer)
+        if (!refs?.length) return
+        const flow = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+        const alt = e.altKey
+        void runContentDrop(refs, { target: 'diagram', alt, readOnly, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
+          if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !alt) {
+            cmd.addWidget(widgetFileGroupId(ref.docId), flow)
+            return true
+          }
+          return pasteConverted('diagram', (b) => b.kind === 'diagram' && cmd.insertSnippetBody(b, flow), { read })
+        })
+        return
+      }
       if (readOnly) return
       e.preventDefault()
       const flow = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
@@ -683,7 +707,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       else if (icon) cmd.addIcon(icon, flow)
       else if (e.dataTransfer.files.length) void cmd.addImageFiles([...e.dataTransfer.files], flow)
     },
-    [rf, cmd, readOnly]
+    [rf, cmd, readOnly, documentOps?.id]
   )
 
   const onPaneClick = useCallback(

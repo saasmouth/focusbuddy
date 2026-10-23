@@ -189,12 +189,21 @@ export function useEdgePan({
       attributeFilter: ['class']
     })
 
-    function onHtmlDragStart(): void {
+    // A drag that STARTS OUTSIDE the desk (the Files panel beside the menu,
+    // the side menu's work widgets) enters it across an edge, and that edge
+    // is an edge-pan zone: the desk scrolled away under the pointer before it
+    // got anywhere, and the drop missed what it was aimed at (found with real
+    // OS drags from the Files panel). Such a drag pans only after it has been
+    // in the desk's interior once, as a drag that starts on the desk does.
+    let entryGuard = false
+    function onHtmlDragStart(e: DragEvent): void {
       htmlDragging = true
       lastFrameRef.current = 0
+      entryGuard = !(el && e.target instanceof Node && el.contains(e.target))
     }
     function onHtmlDragEnd(): void {
       htmlDragging = false
+      entryGuard = false
       // After drag ends the next event is a click — clear the cached
       // mouse position so the indicators don't pulse from the last
       // drag point until the user moves the mouse again.
@@ -275,8 +284,19 @@ export function useEdgePan({
         }
         return
       }
+      const inEdge = isInEdgeZone(p, p, marginRef.current)
+      if (entryGuard && htmlDragging) {
+        if (inEdge) {
+          // Still crossing in from outside: no pan yet.
+          arming.note(e)
+          pointerRef.current = null
+          setIntensity((i) => (i === ZERO_INTENSITY ? i : ZERO_INTENSITY))
+          return
+        }
+        entryGuard = false
+      }
       pointerRef.current = { x: e.clientX, y: e.clientY }
-      arming.observe(e, isInEdgeZone(p, p, marginRef.current))
+      arming.observe(e, inEdge)
     }
 
     // The floating menus (sidebar, segment/office menus, the minimised-menu
