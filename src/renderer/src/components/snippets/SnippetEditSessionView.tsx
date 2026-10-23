@@ -14,7 +14,6 @@ import Icon from '../Icon'
 // node, which renders the embed, so that one has to be lazy regardless.
 const SnippetDocSurface = lazy(() => import('./SnippetDocSurface'))
 const SnippetSheetSession = lazy(() => import('./SnippetSheetSession'))
-const SnippetDrawSession = lazy(() => import('./SnippetDrawSession'))
 
 function Loading(): JSX.Element {
   return <div className="p-4 text-[12px] text-[var(--ink-50)]">Opening the editor…</div>
@@ -85,14 +84,21 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
         <SnippetSheetSession body={body} title={title} onChange={onChange} />
       </Suspense>
     )
-  },
-  draw: {
-    render: ({ body, title, onChange }) => (
-      <Suspense fallback={<Loading />}>
-        <SnippetDrawSession body={body} title={title} onChange={onChange} />
-      </Suspense>
-    )
   }
+  // NO `draw` ENTRY, and its absence is deliberate rather than pending.
+  //
+  // I had one, built on d1's first answer that a DrawSnippetBody could go
+  // straight into DrawStudio's `content`. d1 then corrected that: a
+  // DrawSnippetBody is {kind, objects, assets, swatches} and NOT a drawing body,
+  // so it needs wrapping — objects onto a vector layer, the asset store, the
+  // swatches, an artboard sized to the object bounds — and unwrapping again on
+  // the way out. Passing it raw would have opened an editor on something
+  // DrawStudio does not understand.
+  //
+  // Those helpers are Draw's model, so d1 is writing them in src/shared/draw.
+  // Until they land, `draw` falls through to "cannot be opened for editing yet",
+  // which is the honest state: a registry entry that opens a broken editor is
+  // worse than one that is missing.
 }
 
 export interface SnippetEditSessionViewProps {

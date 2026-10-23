@@ -230,6 +230,23 @@ describe('a conflict offers both ways out, explicitly', () => {
     expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('theirs')
   })
 
+  it('after Reload, the next save CAS-es against THEIR revision, not the stale one', async () => {
+    // d1's framing of this is sharper than mine was, and it is the reason the
+    // remount matters: the risk is not a stale VIEW, it is silent DATA LOSS. If
+    // the session kept its old base revision after taking theirs, the next edit
+    // would be saved against a revision that no longer exists — and with the
+    // guard satisfied by the wrong number, it would overwrite their work without
+    // the conflict bar ever appearing again.
+    await mount()
+    await click('stub-change')
+    await click('snippet-session-save')
+    await click('snippet-session-reload')
+    await click('stub-change')
+    await click('snippet-session-save')
+    const last = update.mock.calls[update.mock.calls.length - 1]!
+    expect(last[1].expectedRevision).toBe(9)
+  })
+
   it('Overwrite does NOT remount, so undo history and scroll survive', async () => {
     // The mirror of the rule above: overwriting keeps MY body, so remounting
     // would throw away the editor's state for nothing.
