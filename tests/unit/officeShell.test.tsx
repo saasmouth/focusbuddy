@@ -1,4 +1,4 @@
-// The shared office shell (SPEC §2, §9): ToolRail, flyouts, ContextBar, the
+// The shared office shell (SPEC §2, §10): ToolRail, flyouts, ContextBar, the
 // bar primitives, ShellPanel, ShellSidePane and the Row 1 folding plan.
 
 import { act, useState } from 'react'
