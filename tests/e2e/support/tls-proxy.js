@@ -67,7 +67,18 @@ ensureCert()
 
 const options = { key: fs.readFileSync(KEY_PATH), cert: fs.readFileSync(CERT_PATH) }
 
+// Opt-in request log (TLS_PROXY_LOG=1). Off by default so ordinary runs stay
+// quiet, but worth having: when a live spec fails with a message that makes no
+// sense, the first question is what the app actually sent and what came back,
+// and without this the proxy is a black box. A 502 raised HERE never reaches
+// the backend's log at all, so the backend looking idle proves nothing.
+const LOG = process.env.TLS_PROXY_LOG === '1'
+const log = (...a) => {
+  if (LOG) console.log('[proxy]', ...a)
+}
+
 const server = https.createServer(options, (clientReq, clientRes) => {
+  const started = Date.now()
   const proxyReq = http.request(
     {
       hostname: '127.0.0.1',
@@ -77,11 +88,19 @@ const server = https.createServer(options, (clientReq, clientRes) => {
       headers: clientReq.headers
     },
     (proxyRes) => {
+      log(clientReq.method, clientReq.url, '->', proxyRes.statusCode, `${Date.now() - started}ms`)
       clientRes.writeHead(proxyRes.statusCode || 502, proxyRes.headers)
       proxyRes.pipe(clientRes)
     }
   )
   proxyReq.on('error', (err) => {
+    // PLAIN TEXT, deliberately left as it is: this is what a gateway in front
+    // of a real server does, and a client that mistranslates it is a client
+    // bug. One did — sign-in reported "Invalid email or password." for a 502
+    // whose body had no `error` field, which is how a correct password came
+    // to look wrong. Fixed in accountClient; the shape stays realistic so
+    // nothing re-learns the lesson by being handed tidy JSON.
+    log('BACKEND UNREACHABLE', clientReq.method, clientReq.url, '->', err.message)
     clientRes.writeHead(502)
     clientRes.end(`proxy error: ${err.message}`)
   })
