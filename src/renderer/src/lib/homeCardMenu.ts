@@ -1,5 +1,5 @@
 import type { CtxMenuItem } from '../components/CanvasContextMenu'
-import { MENU } from '@shared/menus/lexicon'
+import { MENU, removeFromLabel } from '@shared/menus/lexicon'
 import { objectMenu } from './objectMenu'
 import { leadRows, lifecycleRows } from './deskLifecycleMenu'
 
@@ -22,9 +22,8 @@ export interface HomeCardMenuInput {
   removeLabel: string
 }
 
-// TODO(§9 lexicon): move to removeFromLabel('home' | 'dashboard') in src/shared/menus/lexicon.ts.
 export function removeFromDashboardLabel(surface: string): string {
-  return surface === 'home' ? 'Remove from Home' : 'Remove from this dashboard'
+  return removeFromLabel(surface === 'home' ? 'home' : 'dashboard')
 }
 
 export function homeCardMenuItems(m: HomeCardMenuInput): CtxMenuItem[] {

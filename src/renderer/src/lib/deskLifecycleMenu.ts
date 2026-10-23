@@ -172,8 +172,7 @@ export function deskMenuItems(node: FbNode, host: NodeMenuHost): CtxMenuItem[] {
   // room and a file read alike.
   object.push({ label: MENU.share.label, icon: 'ios_share', testid: id('share'), onClick: () => host.onShare(node) })
   if (canShareToTeam()) {
-    // TODO(§9 lexicon): move to MENU.shareWithTeam (shared with FILES_MENU_LABELS.shareWithTeam).
-    object.push({ label: 'Share with team or group…', icon: 'group_add', testid: id('share-team'), onClick: () => shareNodeToTeam(node) })
+    object.push({ label: MENU.shareWithTeam.label, icon: 'group_add', testid: id('share-team'), onClick: () => shareNodeToTeam(node) })
   }
   if (room) {
     object.push(

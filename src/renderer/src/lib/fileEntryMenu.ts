@@ -22,19 +22,18 @@
 
 import type { FileEntry } from '@shared/fields'
 import type { CtxMenuItem } from '../components/CanvasContextMenu'
-import { MENU } from '@shared/menus/lexicon'
+import { MENU, removeFromLabel } from '@shared/menus/lexicon'
 import { isWidgetFileEntry } from './fileEntryType'
 
 export type FilesSurface = 'view' | 'flyout'
 
-// TODO(§9 lexicon): move to MENU.removeFromFolder (removeFromLabel has no 'folder' container yet).
-export const REMOVE_FROM_FOLDER_LABEL = 'Remove from folder'
+export const REMOVE_FROM_FOLDER_LABEL = removeFromLabel('folder')
 
 export const FILES_MENU_LABELS = {
   showInFiles: 'Show in full Files',
   export: 'Export…',
   collaborateLive: 'Collaborate live',
-  shareWithTeam: 'Share with team or group…',
+  shareWithTeam: MENU.shareWithTeam.label,
   newFolder: 'New folder',
   addFiles: 'Add files…',
   importFolder: 'Import folder…',

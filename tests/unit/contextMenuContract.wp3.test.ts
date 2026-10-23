@@ -94,7 +94,7 @@ describe('Files entry menu (one builder, full view and flyout)', () => {
   })
 
   it('a filed document: Remove from folder (a placement; the document is untouched); a work widget file: Export… and Move to Trash', () => {
-    expectMenuContract(menuFor(DOC, 'view'), { groups: [['Open', 'Rename'], ['Share…'], ['Remove from folder']] })
+    expectMenuContract(menuFor(DOC, 'view'), { groups: [['Open', 'Rename'], ['Share…'], ['Remove from this folder']] })
     expectMenuContract(menuFor(WIDGET_FILE, 'view'), { groups: [['Open', 'Rename', 'Export…'], ['Move to Trash']] })
   })
 

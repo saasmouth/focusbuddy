@@ -1,5 +1,6 @@
 import type { CtxMenuItem } from '../components/CanvasContextMenu'
 import { objectMenu } from './objectMenu'
+import { MENU } from '@shared/menus/lexicon'
 
 // The open tray's tab menu (SPEC §9.3 on the context-menu kit). It used to be
 // its own popover: no roles, no arrow keys, no Escape, and it closed when the
@@ -10,14 +11,13 @@ import { objectMenu } from './objectMenu'
 // but it is still the placement-removing group, so it sits last behind its
 // own separator like every other "Remove from ‹container›".
 
-// TODO(§9 lexicon): move to MENU.pinTab / unpinTab / closeTab / closeOtherTabs / closeAllTabs.
 export const TRAY_LABELS = {
-  pinTab: 'Pin tab',
-  unpinTab: 'Unpin tab',
+  pinTab: MENU.pinTab.label,
+  unpinTab: MENU.unpinTab.label,
   sendToDesk: 'Send to desk',
-  closeTab: 'Close tab',
-  closeOtherTabs: 'Close other tabs',
-  closeAllTabs: 'Close all tabs'
+  closeTab: MENU.closeTab.label,
+  closeOtherTabs: MENU.closeOtherTabs.label,
+  closeAllTabs: MENU.closeAllTabs.label
 } as const
 
 export interface TrayTabMenuInput {
