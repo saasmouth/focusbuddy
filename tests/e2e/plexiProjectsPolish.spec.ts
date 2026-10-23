@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { openProduct, launchApp, waitForReady } from './_helpers'
+import { openProduct, launchApp, waitForReady, switchArea } from './_helpers'
 
 // Polish-pass verification for three changes:
 // 1. Knowledge deep-link: clicking a PlexiBrain hit in PlexiSearch opens KnowledgeView
@@ -26,8 +26,10 @@ test('1. knowledge deep-link: PlexiSearch hit opens KnowledgeView with entry sel
     )
     const entryId: string = (entry as { id: string }).id
 
-    // Open PlexiSearch via sidebar
-    await window.getByRole('button', { name: 'PlexiiSearch' }).first().click()
+    // Open Search from the Brain section of the one menu (b7dae8110 merged the
+    // area menus; the row is labelled 'Search').
+    await switchArea(window, 'plexibrain')
+    await window.locator('[data-testid="nav-plexibrain-search"]').click()
     await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 8_000 })
 
     // Type the distinctive title
@@ -70,6 +72,8 @@ test('2. duration input: setting task-estimate-days=3 drives durationDays===3 in
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator(`[data-testid="gantt-row-${taskId}"]`)).toBeVisible({ timeout: 8_000 })
 
     // Confirm initial bar width is 1 day (default durationDays=1, DAY_W=26px, clamped to max(1*26,8)=26)
@@ -170,6 +174,8 @@ test('3. drift marker: completed-late task shows amber glyph; on-time task does 
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator(`[data-testid="gantt-bar-${driftTaskId}"]`)).toBeVisible({ timeout: 8_000 })
 
     // Note: the drift marker (amber warning Icon) is rendered inside the bar
@@ -225,6 +231,8 @@ test('3b. late marker: an overdue, not-done task shows the late marker', async (
     await openProduct(window, 'projects')
     await expect(window.locator(`[data-testid="project-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
     await window.locator(`[data-testid="project-card-${folderId}"]`).click()
+    // A plan lands on Overview since 4811bd60c; the Gantt is the Timeline tab.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
     await expect(window.locator(`[data-testid="gantt-bar-${taskId}"]`)).toBeVisible({ timeout: 8_000 })
     await expect(window.locator(`[data-testid="gantt-late-${taskId}"]`)).toBeVisible({ timeout: 5_000 })
   } finally {

@@ -280,8 +280,9 @@ test('(g) the data-receipt footer line is present with non-empty text', async ()
   await openAutomationsPanel(window)
 
   const panel = window.locator('[data-testid="automations-panel"]')
+  // Managed AI reads 'Plexii credits' since 8b2d05f37.
   await expect(panel).toContainText(
-    /your key, sent directly to Anthropic|PlexiDesk credits, relayed through our server/,
+    /your key, sent directly to Anthropic|Plexii credits, relayed through our server/,
     { timeout: 4_000 }
   )
 })

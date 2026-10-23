@@ -441,7 +441,7 @@ const SEGMENT_OF: Record<string, ProductRoute> = {
   tasks: { mode: 'direct', go: 'goAllTasks' },
   reports: { mode: 'direct', go: 'goReports' },
   // Flow / API live in the PlexiBrain area; jump there via the always-visible
-  // area switcher, then click the app tile.
+  // area switcher, then click the app's menu row.
   flow: { mode: 'seg', switch: 'plexibrain', app: 'flows' },
   api: { mode: 'seg', switch: 'plexibrain', app: 'api' },
   chat: { mode: 'comms', app: 'chat' },
@@ -480,7 +480,9 @@ export async function openProduct(window: Page, product: keyof typeof SEGMENT_OF
   }
 
   await switchArea(window, route.switch)
-  await window.locator(`[data-testid="segment-app-${route.app}"]`).click()
+  // The segment tab strip (segment-app-*) became the one menu's accordion rows
+  // in b7dae8110; segment-app-<key> now names the opened page, not a button.
+  await window.locator(`[data-testid="nav-${route.switch}-${route.app}"]`).click()
 }
 
 // Navigate through the exposed view store. The object-based IA no longer has

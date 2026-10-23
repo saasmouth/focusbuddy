@@ -26,6 +26,7 @@ import { useAssistantChrome } from '../stores/assistantChrome'
 import { useChatStore, NEW_CHAT_KEY } from '../stores/chat'
 import { useDocumentsStore } from '../stores/documents'
 import { useQuickCreate } from '../stores/quickCreate'
+import { rankPaletteItems } from '../lib/paletteRank'
 import { recencyRank } from '../lib/viewRecency'
 import { createShowcaseDesk } from '../lib/createShowcaseDesk'
 
@@ -977,9 +978,7 @@ export default function CommandCenter({
       }
     }
 
-    const ranked = items
-      .filter((i) => (q === '' ? true : i.score > 0))
-      .sort((a, b) => b.score - a.score)
+    const ranked = rankPaletteItems(items, q)
     // Empty query shows the FULL list so every command — each Add-widget entry,
     // all navigation, every desk/task — is scrollable and findable by eye, not
     // just a top slice. A search query is self-limiting, but cap it generously
