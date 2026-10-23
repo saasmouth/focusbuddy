@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { DocType, DocumentMeta, FbDocument } from '@shared/types'
 import { pullCloudDocs, pushCloudDoc, pushCloudDelete } from '../lib/cloudDocsSync'
+import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
 import { recordActionWithToast } from './actionHistory'
 import { useMessagingStore } from './messaging'
@@ -23,6 +24,68 @@ import { crdtEmitDocumentCreate, crdtEmitDocumentDelete, crdtEmitDocumentAttrs }
 // content even after the active document has changed.
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const pendingBodies = new Map<string, FbDocument['body']>()
+/**
+ * The body version each pending save is based on — the one the editor was
+ * handed, not whatever the row says now.
+ *
+ * Kept per document and NOT read from `active` at write time, because the write
+ * happens 600ms after the edit and `active` may have been replaced by then (a
+ * sync apply, a restore, another document opened). Saving against the current
+ * row would be the same unconditional overwrite with extra steps.
+ */
+const pendingBaseRev = new Map<string, number>()
+/**
+ * Write a queued body on the way out — closing a document, or flushing before
+ * the app goes away — with nowhere left to ask the user anything.
+ *
+ * CONDITIONAL, like every other body write, because the close path was the hole
+ * in this fix: the debounced save refused a stale write, and then closing the
+ * document wrote exactly the same body unconditionally and destroyed the other
+ * editor's work anyway.
+ *
+ * And when it IS refused, the user's text is not dropped either. There is no
+ * conflict bar to show at this point, and silently discarding their last
+ * sentences is its own data loss, so the text becomes a document of its own and
+ * a notice says where it went. Nobody's work is lost by default; the only thing
+ * lost is the assumption that it saved where they expected.
+ */
+async function flushPendingBody(id: string, body: FbDocument['body']): Promise<void> {
+  const base = pendingBaseRev.get(id)
+  pendingBaseRev.delete(id)
+  try {
+    if (base === undefined) {
+      // Nothing recorded a base, so this editor never held a version to be
+      // stale against (an import, a programmatic write). Unconditional is right.
+      await window.api.documents.update(id, { body })
+      return
+    }
+    const res = await window.api.documents.updateBody(id, body, base)
+    if (res.ok) return
+    if (res.reason === 'missing') return
+    const theirs = res.current
+    const copy = await window.api.documents.create({
+      docType: theirs.docType,
+      title: `${theirs.title || 'Untitled'} (unsaved copy)`,
+      body
+    })
+    useNoticeStore.getState().show(
+      {
+        icon: 'warning',
+        text: `"${theirs.title || 'Untitled'}" changed elsewhere while you were editing. Your version was saved as "${copy.title}".`,
+        // The notice is the only place this is said, so it also has to be the
+        // way back to the work: a notice that names a document the user cannot
+        // reach is barely better than silence.
+        action: { label: 'Open it', run: () => void useDocumentsStore.getState().open(copy.id) }
+      },
+      12000
+    )
+    void useDocumentsStore.getState().refresh()
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[documents.flush] final flush failed', err)
+  }
+}
+
 
 interface DocumentsStore {
   list: DocumentMeta[]
@@ -34,6 +97,16 @@ interface DocumentsStore {
   // "Couldn't save" banner instead of a stuck "Saving" and the in-memory edit
   // is retried on the next change. Cleared on the next successful write.
   saveError: boolean
+  /**
+   * Set when a save was REFUSED because the document changed elsewhere — the
+   * same document open in a desk widget, another window, or a body that arrived
+   * from sync.
+   *
+   * The edit is not thrown away and not written: it stays in `active.body` and
+   * on the screen, and `theirs` is what is actually stored, so the user can
+   * choose. Anything that silently picked one would be the bug this replaced.
+   */
+  conflict: { id: string; theirs: FbDocument } | null
 
   refresh: () => Promise<void>
   refreshTrashed: () => Promise<void>
@@ -48,6 +121,14 @@ interface DocumentsStore {
   /** Import a Visio .vsdx into a new map document (opens a file picker). */
   importMap: () => Promise<{ ok: boolean; id?: string; error?: string; canceled?: boolean }>
   saveBody: (body: unknown) => void
+  /**
+   * Resolve a refused save. Every branch keeps the user's text until they have
+   * said what to do with it:
+   *   theirs    take what is stored and discard my edit (they asked)
+   *   mine      overwrite, against the revision I was just shown
+   *   copy      keep both: my text becomes a new document, theirs stays put
+   */
+  resolveConflict: (choice: 'theirs' | 'mine' | 'copy') => Promise<void>
   /** Rename THE OPEN document (Documents view). Anything else renames by id. */
   rename: (title: string) => Promise<void>
   /** Rename a document by id: the way to rename a document that is not the open one (a desk widget's). */
@@ -67,6 +148,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   loadingList: false,
   saving: false,
   saveError: false,
+  conflict: null,
 
   refresh: async () => {
     set({ loadingList: true })
@@ -79,7 +161,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   open: async (id) => {
     const doc = await window.api.documents.get(id)
-    set({ active: doc })
+    set({ active: doc, conflict: null })
+    // A fresh editor, a fresh base: anything queued from a previous session of
+    // this document has either been written or been abandoned.
+    pendingBaseRev.delete(id)
   },
 
   close: () => {
@@ -93,10 +178,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       saveTimers.delete(a.id)
       const body = pendingBodies.get(a.id) ?? a.body
       pendingBodies.delete(a.id)
-      void window.api.documents.update(a.id, { body }).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error('[documents.close] final flush failed', err)
-      })
+      void flushPendingBody(a.id, body)
     }
     set({ active: null })
   },
@@ -164,6 +246,11 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     // Queue the freshest body for THIS document and (re)arm only this document's
     // timer. Switching to another document no longer cancels this write.
     pendingBodies.set(id, body as FbDocument['body'])
+    // The base revision is whatever this document was at when the FIRST
+    // unsaved edit was made, not the latest one: successive keystrokes all
+    // replace the same stored body, so re-reading it per keystroke would walk
+    // the base forward past a change this editor never saw.
+    if (!pendingBaseRev.has(id)) pendingBaseRev.set(id, a.bodyRev)
     const existing = saveTimers.get(id)
     if (existing) clearTimeout(existing)
     saveTimers.set(
@@ -173,12 +260,43 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         const bodyToSave = pendingBodies.get(id)
         pendingBodies.delete(id)
         if (bodyToSave === undefined) return
+        const baseRev = pendingBaseRev.get(id) ?? 0
         try {
-          // Write to THIS document's id with its queued body, regardless of which
-          // document is on screen now.
-          await window.api.documents.update(id, { body: bodyToSave })
+          // CONDITIONAL: replace the body only if it is still the one this
+          // editor was handed. The same document can be open in a desk widget
+          // or another window, each holding its own copy of the whole body, and
+          // an unconditional write silently destroyed whichever edit was
+          // slower. See documents.body_rev.
+          const res = await window.api.documents.updateBody(id, bodyToSave, baseRev)
+          if (!res.ok) {
+            if (res.reason === 'stale') {
+              // Keep the edit — in `active.body`, on the screen, and queued —
+              // and say what is stored instead. Writing either side here would
+              // be choosing for the user.
+              pendingBodies.set(id, bodyToSave)
+              if (get().active?.id === id) {
+                set({ saving: false, saveError: false, conflict: { id, theirs: res.current } })
+              }
+              return
+            }
+            // 'missing': the document is gone (trashed elsewhere, or purged).
+            // An error banner is honest; a retry loop against a dead id is not.
+            pendingBaseRev.delete(id)
+            if (get().active?.id === id) set({ saving: false, saveError: true })
+            return
+          }
+          pendingBaseRev.set(id, res.doc.bodyRev)
           // Only touch the shared saving/error UI state for the document still open.
-          if (get().active?.id === id) set({ saving: false, saveError: false })
+          if (get().active?.id === id) {
+            set({
+              saving: false,
+              saveError: false,
+              conflict: null,
+              // Carry the new revision forward, or the next save would be
+              // refused against the one we just superseded.
+              active: { ...get().active!, bodyRev: res.doc.bodyRev }
+            })
+          }
           nudgeSync()
         } catch (err) {
           // Never lose work silently: re-queue the body so the next edit or close
@@ -196,6 +314,77 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
         if (conflictedTo && get().active?.id === conflictedTo.id) set({ active: conflictedTo })
       }, 600)
     )
+  },
+
+  resolveConflict: async (choice) => {
+    const c = get().conflict
+    if (!c) return
+    const { id, theirs } = c
+    // The edit that was refused. Read from the queue rather than from `active`:
+    // the queue is what the save would have written, and it is still there
+    // precisely because nothing was written.
+    const mine = pendingBodies.get(id)
+
+    if (choice === 'theirs') {
+      // They asked to discard it, so this is the one branch that may drop the
+      // edit — and it drops it completely rather than half-writing it.
+      pendingBodies.delete(id)
+      pendingBaseRev.set(id, theirs.bodyRev)
+      const t = saveTimers.get(id)
+      if (t) clearTimeout(t)
+      saveTimers.delete(id)
+      set({ active: get().active?.id === id ? theirs : get().active, conflict: null, saveError: false })
+      return
+    }
+
+    if (choice === 'mine') {
+      if (mine === undefined) {
+        set({ conflict: null })
+        return
+      }
+      // Against the revision just SHOWN, not the one originally held: this is a
+      // deliberate replacement of a body the user has been told about, rather
+      // than another blind race.
+      const res = await window.api.documents.updateBody(id, mine, theirs.bodyRev)
+      if (res.ok) {
+        pendingBodies.delete(id)
+        pendingBaseRev.set(id, res.doc.bodyRev)
+        set({
+          active: get().active?.id === id ? { ...get().active!, bodyRev: res.doc.bodyRev } : get().active,
+          conflict: null,
+          saveError: false
+        })
+        nudgeSync()
+        return
+      }
+      // It moved AGAIN between being shown and being overwritten. Show the new
+      // one rather than looping silently.
+      if (res.reason === 'stale') set({ conflict: { id, theirs: res.current } })
+      else set({ conflict: null, saveError: true })
+      return
+    }
+
+    // 'copy' — keep both. The document on disk is left exactly as it is and the
+    // refused edit becomes a document of its own, which is the only branch
+    // where nobody loses anything.
+    if (mine === undefined) {
+      set({ conflict: null })
+      return
+    }
+    const copy = await window.api.documents.create({
+      docType: theirs.docType,
+      title: `${theirs.title || 'Untitled'} (my copy)`,
+      body: mine as FbDocument['body']
+    })
+    pendingBodies.delete(id)
+    pendingBaseRev.set(id, theirs.bodyRev)
+    const t = saveTimers.get(id)
+    if (t) clearTimeout(t)
+    saveTimers.delete(id)
+    await get().refresh()
+    // The editor moves to the copy, because that is where their text is now.
+    await get().open(copy.id)
+    set({ conflict: null, saveError: false })
   },
 
   rename: async (title) => {
@@ -272,18 +461,12 @@ export function flushPendingDocumentSaves(): void {
     const body = pendingBodies.get(id)
     if (body === undefined) continue
     pendingBodies.delete(id)
-    void window.api.documents.update(id, { body }).catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error('[documents.flush] final flush failed', err)
-    })
+    void flushPendingBody(id, body)
   }
   // Any bodies queued without a live timer (edge cases) still get written.
   for (const [id, body] of pendingBodies) {
     pendingBodies.delete(id)
-    void window.api.documents.update(id, { body }).catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error('[documents.flush] final flush failed', err)
-    })
+    void flushPendingBody(id, body)
   }
 }
 
@@ -307,4 +490,55 @@ if (typeof window !== 'undefined') {
 // the real store, not a mock; it changes nothing about how the app behaves.
 if (typeof window !== 'undefined') {
   ;(window as unknown as { __fbDocuments?: typeof useDocumentsStore }).__fbDocuments = useDocumentsStore
+}
+
+// WHY THERE IS NO SHARED PER-DOCUMENT BODY STORE, decided with 9d rather than
+// overlooked. The obvious third step after the guard and this broadcast is one
+// in-memory body and one save queue per document id, shared by every editor in
+// the window, so two views of one document could never disagree. It is not
+// built, on purpose.
+//
+// What it would actually buy, once the broadcast below exists, is narrow: two
+// editors in ONE window, BOTH holding unsaved text, converging without a
+// prompt. Everything else is already handled — an idle copy catches up
+// silently, and a copy with unsaved text gets a conflict it can resolve in one
+// click with nothing lost. The cost is a third source of truth for document
+// bodies alongside this store and OfficeDocWidget's local state, and the two
+// disagreeing is a worse failure than the prompt it would remove.
+//
+// Revisit it if the prompt turns out to be common in practice, which would mean
+// people really do edit one document in two places at once; until then the
+// guard is the backstop and the broadcast is what keeps it out of sight.
+
+// Someone else replaced this document's body: another editor on the same
+// document, another window, a snapshot restore, or a body that arrived from
+// sync. Catch up when there is nothing to lose.
+//
+// THE RULE, and both halves of it matter:
+//   nothing unsaved  -> reload, silently. This is what keeps two editors on one
+//                       document in step at all, so a conflict prompt stays
+//                       rare rather than routine.
+//   unsaved edits     -> do NOTHING. Replacing the body under someone mid-
+//                       sentence would destroy the very work body_rev exists to
+//                       protect, and interrupting them with a prompt they have
+//                       not yet earned is worse than letting their save be
+//                       refused when they stop typing.
+//
+// The echo of our own write is ignored by revision, not by a flag: the writer
+// already knows the number it just wrote.
+if (typeof window !== 'undefined' && window.api?.documents?.onChanged) {
+  window.api.documents.onChanged((id, bodyRev) => {
+    const s = useDocumentsStore.getState()
+    if (s.active?.id !== id) return
+    if (s.active.bodyRev === bodyRev) return // our own save, already applied
+    if (pendingBodies.has(id)) return // unsaved work on screen — leave it alone
+    void window.api.documents.get(id).then((doc) => {
+      const cur = useDocumentsStore.getState()
+      // Re-check: the document may have been closed, or edited, while the
+      // refetch was in flight.
+      if (!doc || cur.active?.id !== id || pendingBodies.has(id)) return
+      pendingBaseRev.set(id, doc.bodyRev)
+      useDocumentsStore.setState({ active: doc, conflict: null })
+    })
+  })
 }

@@ -31,6 +31,17 @@ vi.mock('../../src/main/db/activeOrg', () => ({
   PERSONAL_ORG_ID: 'personal'
 }))
 
+// Spied rather than left real, so the announcement contract can be asserted.
+// The real one reaches Electron's BrowserWindow, which does not exist here —
+// and the reason it does not simply explode is its own guard: a save must never
+// fail because a notification could not be delivered.
+const announced = vi.hoisted(() => ({ calls: [] as { id: string; bodyRev: number }[] }))
+vi.mock('../../src/main/documentEvents', () => ({
+  notifyDocumentChanged: (id: string, bodyRev: number) => {
+    announced.calls.push({ id, bodyRev })
+  }
+}))
+
 const { applySchemaAndMigrations } = await import('../../src/main/db/migrations')
 const { createDocument, getDocument, updateDocument, updateDocumentBody, upsertDocument } =
   await import('../../src/main/db/documents')
@@ -51,6 +62,7 @@ beforeAll(async () => {
 beforeEach(() => {
   db = openMemoryDatabase()
   applySchemaAndMigrations(db as never)
+  announced.calls = []
 })
 
 describe('the column exists wherever the schema is built', () => {
@@ -249,5 +261,46 @@ describe('a remote body neither sets nor ignores the local version', () => {
     expect(landed).not.toBeNull()
     expect(landed!.bodyRev).not.toBe(99)
     expect(landed!.bodyRev).toBeLessThan(10)
+  })
+})
+
+describe('who gets told, and who does not', () => {
+  it('announces a body write, carrying the version it landed at', () => {
+    // The version is in the message so a listener can recognise the echo of its
+    // OWN save and not refetch a body it already has.
+    const doc = createDocument({ docType: 'doc', title: 'A' })
+    announced.calls = []
+    updateDocument(doc.id, { body: text('one') as never })
+    expect(announced.calls).toEqual([{ id: doc.id, bodyRev: 1 }])
+  })
+
+  it('says NOTHING when a conditional write was refused', () => {
+    // Nothing changed, so there is nothing to tell. An announcement here would
+    // send every other editor to refetch the body they already have — and, far
+    // worse, a listener that treated any announcement as "the body moved" would
+    // discard its own unsaved work over a write that never happened.
+    const doc = createDocument({ docType: 'doc', title: 'A' })
+    updateDocument(doc.id, { body: text('theirs') as never })
+    announced.calls = []
+    const res = updateDocumentBody(doc.id, text('mine') as never, 0)
+    expect(res.ok).toBe(false)
+    expect(announced.calls).toEqual([])
+  })
+
+  it('says nothing for a write that does not touch the body', () => {
+    const doc = createDocument({ docType: 'doc', title: 'A' })
+    announced.calls = []
+    updateDocument(doc.id, { title: 'Renamed' })
+    expect(announced.calls).toEqual([])
+  })
+
+  it('announces a document arriving through upsert', () => {
+    // The cloud-pull path. An editor sitting open on this document has to hear
+    // about it, or it keeps showing a body the server has already replaced.
+    const doc = createDocument({ docType: 'doc', title: 'A' })
+    announced.calls = []
+    upsertDocument({ id: doc.id, docType: 'doc', title: 'A', body: text('from the cloud') as never })
+    expect(announced.calls).toHaveLength(1)
+    expect(announced.calls[0]!.id).toBe(doc.id)
   })
 })

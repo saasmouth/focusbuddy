@@ -2631,7 +2631,7 @@ function QueryPanel({
                   <option value="lower">lowercase</option>
                 </select>
               )}
-              <button className="btn-secondary text-[12px] px-2.5 py-1 inline-flex items-center gap-1 ml-auto" data-testid="query-add" onClick={addStep}>
+              <button className="btn-ghost text-[12px] px-2.5 py-1 inline-flex items-center gap-1 ml-auto" data-testid="query-add" onClick={addStep}>
                 <Icon name="add" size={13} /> Add step
               </button>
             </div>

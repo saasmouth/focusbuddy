@@ -452,7 +452,7 @@ export default function AttentionItemEditor({
             <div className="mt-3 pt-2.5 border-t border-[var(--edge-soft)] flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => void putOnCalendar()}
-                className="btn-soft !h-7 fb-t-label"
+                className="btn-ghost !h-7 fb-t-label"
                 data-testid="meet-schedule"
               >
                 <Icon name="event_available" size={13} />

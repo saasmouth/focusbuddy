@@ -29,7 +29,8 @@ import {
 } from '../../main/db/tables'
 import {
   listDocuments, getDocument, createDocument, updateDocument, trashDocument,
-  listTrashedDocuments, restoreDocument, deleteDocument
+  listTrashedDocuments, restoreDocument, deleteDocument,
+  updateDocumentBody
 } from '../../main/db/documents'
 import {
   createWidgetFile, getWidgetFile, listWidgetFiles, updateWidgetFile, listWidgetFileInstances, listWidgetFilePlacements,
@@ -234,6 +235,17 @@ export const HANDLERS: Record<string, Handler> = {
     if (doc && patch?.body !== undefined) captureDocSnapshot(id, snapshotLabel ?? '')
     return doc
   }),
+  // The editors' conditional body write. Without this the cloud runtime would
+  // simply have no such channel, and every save from a browser would fail —
+  // silently, since the renderer would get an unhandled-channel rejection
+  // rather than a refusal it knows how to show.
+  'documents:updateBody': h(
+    (id: string, body: unknown, expectedBodyRev: number, snapshotLabel?: string) => {
+      const res = updateDocumentBody(id, body as never, expectedBodyRev)
+      if (res.ok) captureDocSnapshot(id, snapshotLabel ?? '')
+      return res
+    }
+  ),
   'documents:delete': h((id: string) => trashDocument(id)),
   'documents:listTrashed': h(() => listTrashedDocuments()),
   'documents:restore': h((id: string) => restoreDocument(id)),

@@ -240,7 +240,7 @@ export default function MailTriagePanel({ onClose, describe, onChanged }: Props)
                     }}
                     disabled={busy}
                     data-testid={`mail-triage-apply-${action}`}
-                    className="ml-auto btn-secondary fb-t-caption px-2 py-0.5 disabled:opacity-50"
+                    className="ml-auto btn-ghost fb-t-caption px-2 py-0.5 disabled:opacity-50"
                   >
                     File all {left}
                   </button>
@@ -290,7 +290,7 @@ export default function MailTriagePanel({ onClose, describe, onChanged }: Props)
                             onClick={() => void apply(row).then((ok) => ok && onChanged())}
                             disabled={busy}
                             data-testid={`mail-triage-do-${s.uid}`}
-                            className="btn-secondary fb-t-caption px-2 py-0.5 disabled:opacity-50"
+                            className="btn-ghost fb-t-caption px-2 py-0.5 disabled:opacity-50"
                           >
                             {s.action === 'file' ? 'File' : s.action === 'trash' ? 'Trash' : s.action === 'spam' ? 'Junk' : 'Open'}
                           </button>

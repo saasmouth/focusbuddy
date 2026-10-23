@@ -343,7 +343,7 @@ export default function SnippetEditSessionView({
           <span>{save.message}</span>
           <button
             type="button"
-            className="fb-btn !h-5 px-2 text-[10px]"
+            className="btn-ghost !h-5 px-2 text-[10px]"
             data-testid="snippet-session-reload"
             onClick={() => {
               // Take theirs: their body becomes the session's, and the base
@@ -364,7 +364,7 @@ export default function SnippetEditSessionView({
           </button>
           <button
             type="button"
-            className="fb-btn !h-5 px-2 text-[10px]"
+            className="btn-ghost !h-5 px-2 text-[10px]"
             data-testid="snippet-session-overwrite"
             onClick={() => void commit(save.theirs.revision)}
           >
@@ -428,7 +428,7 @@ export default function SnippetEditSessionView({
           type="button"
           onClick={() => void commit(baseRevision.current)}
           disabled={!dirty || save.phase === 'saving' || !editor}
-          className="fb-btn fb-btn-primary !h-6 px-2.5 text-[11px]"
+          className="btn-primary !h-6 px-2.5 text-[11px]"
           data-testid="snippet-session-save"
         >
           {save.phase === 'saving' ? 'Saving…' : 'Save'}
@@ -436,7 +436,7 @@ export default function SnippetEditSessionView({
         <button
           type="button"
           onClick={close}
-          className="fb-btn !h-6 px-2.5 text-[11px]"
+          className="btn-ghost !h-6 px-2.5 text-[11px]"
           data-testid="snippet-session-close"
         >
           Done

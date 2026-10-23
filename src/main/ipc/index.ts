@@ -174,6 +174,7 @@ import {
   getDocument,
   createDocument,
   updateDocument,
+  updateDocumentBody,
   upsertDocument,
   trashDocument,
   restoreDocument,
@@ -4008,6 +4009,29 @@ export function registerIpcHandlers(): void {
     reindexDocumentChunks(id) // the doc is now trashed: its chunks come out
     return ok
   })
+  // A CONDITIONAL body write, for the editors.
+  //
+  // Separate from documents:update rather than a flag on it, because `update`
+  // answers with the document or null and a refusal has to be told apart from
+  // "no such document" — a caller that cannot tell them apart will either
+  // destroy work or report a missing file. This one answers with the reason and,
+  // when the body has moved on, with the body that is actually stored, so the
+  // editor can offer a real choice.
+  //
+  // documents:update stays the unconditional path, which is right for a writer
+  // that is not holding an older copy of the body: an import, a snapshot
+  // restore, an AI edit that reads and writes in one step.
+  ipcMain.handle(
+    'documents:updateBody',
+    (_e, id: string, body: DocumentPatch['body'], expectedBodyRev: number, snapshotLabel?: string) => {
+      const res = updateDocumentBody(id, body as NonNullable<DocumentPatch['body']>, expectedBodyRev)
+      if (res.ok) {
+        void embedDocument(res.doc.id)
+        captureDocSnapshot(res.doc.id, snapshotLabel ?? '')
+      }
+      return res
+    }
+  )
   ipcMain.handle('documents:listTrashed', () => listTrashedDocuments())
 
   // ── Widget files (docs/widget-files.md) ─────────────────────────────────

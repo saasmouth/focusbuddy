@@ -73,7 +73,7 @@ export default function SnippetInlineEditor({
           type="button"
           onClick={commit}
           disabled={busy}
-          className="fb-btn fb-btn-primary !h-6 px-2 text-[11px]"
+          className="btn-primary !h-6 px-2 text-[11px]"
           data-testid="snippet-inline-save"
         >
           {busy ? 'Saving…' : 'Save to snippet'}
@@ -82,7 +82,7 @@ export default function SnippetInlineEditor({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="fb-btn !h-6 px-2 text-[11px]"
+          className="btn-ghost !h-6 px-2 text-[11px]"
           data-testid="snippet-inline-cancel"
         >
           Cancel
