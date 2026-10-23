@@ -115,9 +115,30 @@ test('dropping a text/uri-list URL creates a webview widget with that URL', asyn
     `expected webview with content="${dropUrl}"; got: ${JSON.stringify(webviews.map((w) => ({ kind: w.kind, content: w.content })))}`
   ).toBeDefined()
 
-  // Width/height should use the default catalogue dimensions (560 x 400).
-  expect(created!.width).toBe(560)
-  expect(created!.height).toBe(400)
+  // Size: the Browser's catalogue default, fitted to the view.
+  //
+  // Two deliberate changes since this spec asserted 560 x 400:
+  //   - c4fed905 (2.5.32) then b245754a: Browser opens at Desktop size,
+  //     1920 x 1080 (widgetCatalog.ts, "Open at Desktop size").
+  //   - 364e801d "Cap EVERY new widget to the view, in one place": an untouched
+  //     default is scaled (aspect kept, never enlarged) to at most 3/4 of the
+  //     visible canvas, measured in canvas units at the current zoom
+  //     (lib/fitDroppedWidget.ts: DROP_VIEW_FRACTION 0.75, floor 240 x 160).
+  // So the exact size is derived from the canvas the drop landed on.
+  const view = await window.evaluate(() => {
+    const surface = document.querySelector('[data-canvas-surface="true"]') as HTMLElement
+    const r = surface.getBoundingClientRect()
+    const pct = document.querySelector('[data-testid="zoom-controls"]')?.textContent?.match(/(\d+)%/)
+    return { w: r.width, h: r.height, zoom: pct ? Number(pct[1]) / 100 : NaN }
+  })
+  expect(view.zoom, 'zoom read from the zoom pill').toBeGreaterThan(0)
+  const DEFAULT_W = 1920
+  const DEFAULT_H = 1080
+  const scale = Math.min(1, ((view.w / view.zoom) * 0.75) / DEFAULT_W, ((view.h / view.zoom) * 0.75) / DEFAULT_H)
+  const expectedW = scale >= 1 ? DEFAULT_W : Math.max(240, Math.round(DEFAULT_W * scale))
+  const expectedH = scale >= 1 ? DEFAULT_H : Math.max(160, Math.round(DEFAULT_H * scale))
+  expect(created!.width, `view ${JSON.stringify(view)}`).toBe(expectedW)
+  expect(created!.height, `view ${JSON.stringify(view)}`).toBe(expectedH)
 
   // Position must be plausibly on-canvas, not wildly off-screen.
   expect(created!.x).toBeGreaterThan(-5000)
@@ -134,14 +155,23 @@ test('multi-line uri-list with a leading comment line picks the first real URL',
   await waitForReady(window)
 
   const taskId = await seedAndOpenTask(window)
-  const expectedUrl = 'https://news.ycombinator.com'
+  // URLs already in the form the browser reports after loading them. The drop
+  // stores the raw line it picked (lib/dropUrl.ts), but the browser widget then
+  // persists the LIVE url back into widget.content on every navigation
+  // (WebViewWidget persistNavUrl, there since the initial commit), and Chromium
+  // canonicalises a bare origin to a trailing slash. With a bare
+  // "https://news.ycombinator.com" the stored value therefore depended on
+  // whether the page had loaded inside the wait: the red run read back
+  // "https://news.ycombinator.com/". A path URL is its own canonical form, so
+  // the value read back is the one the drop picked, loaded or not.
+  const expectedUrl = 'https://example.com/first-real-url'
 
   const result = await dispatchUrlDrop(window, [
     {
       type: 'text/uri-list',
       // RFC 2483 uri-list: comment line first, then two URLs — only the first
       // non-comment URL should be selected.
-      data: '# comment line\r\nhttps://news.ycombinator.com\r\nhttps://example.org'
+      data: '# comment line\r\nhttps://example.com/first-real-url\r\nhttps://example.org/second-url'
     }
   ])
   expect(result.found, result.message).toBe(true)
@@ -157,6 +187,10 @@ test('multi-line uri-list with a leading comment line picks the first real URL',
     match,
     `expected webview with content="${expectedUrl}"; got: ${JSON.stringify(widgets.map((w) => ({ kind: w.kind, content: w.content })))}`
   ).toBeDefined()
+
+  // Exactly one browser, and never one for the second URL in the list.
+  const webviews = widgets.filter((w) => w.kind === 'webview')
+  expect(webviews.map((w) => w.content)).toEqual([expectedUrl])
 
   console.log(`[urlDrop step4] PASS multi-line uri-list selected URL="${match!.content}"`)
 })

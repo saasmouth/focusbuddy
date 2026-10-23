@@ -84,21 +84,38 @@ test('right-click a table cell → Create + connect menu seeded with the cell te
   const cell = cellInput.locator('xpath=ancestor::td[1]')
   await cell.click({ button: 'right' })
 
-  // The cell now opens the unified menu: real row actions (Add row inlined, the
-  // rest under More actions) plus Create seeded from the cell text.
+  // The cell opens the unified menu: the cell's real row actions plus Create
+  // seeded from the cell text.
+  //
+  // WHERE the row actions sit changed deliberately in 163b8914 ("Focus is
+  // always on", DEC-144): the always-on "Add to Focus…" row is first on every
+  // object menu and takes one of the Context band's two slots, so the band's
+  // budget is ONE slot. A table cell has three context rows (Add row from the
+  // table provider, Duplicate row + Delete row from the cell provider), so all
+  // three fold under a single "More actions" parent — nothing is inlined
+  // (resolve.ts contextSlots with max=1; pinned by the unit test "folds context
+  // rows into the band budget"). This spec used to expect "Add row" inlined at
+  // the top level, which held only while the Attention row was flag-gated off.
   const menu = window.locator('[data-canvas-ctx-menu]').first()
-  await expect(menu).toContainText('Add row', { timeout: 4_000 })
-  await expect(menu).toContainText('More actions')
-  await expect(menu).toContainText('Create')
-  // Delete row is a real action, folded under More actions.
-  // "Delete row" is a top-level item when the cell has few actions, and sits
-  // under the "More actions" submenu when there are several (resolve.ts folds
-  // everything past the first into it). Open the submenu only if it is there.
-  const more = menu.getByText('More actions', { exact: true })
-  if (await more.isVisible().catch(() => false)) await more.hover()
-  await expect(
-    window.locator('[data-canvas-ctx-menu]').getByText('Delete row', { exact: true })
-  ).toBeVisible({ timeout: 3_000 })
+  const topLevel = menu.locator(':scope > div > button[role="menuitem"]')
+  await expect(topLevel.first()).toBeVisible({ timeout: 4_000 })
+  // The label span, not the button's innerText: icons are ligature text.
+  const topLabels = await menu.locator(':scope > div > button[role="menuitem"] > span.flex-1').allInnerTexts()
+  expect(topLabels[0], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add to Focus…')
+  expect(topLabels[1], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('More actions')
+  expect(topLabels, 'row actions are folded, never top-level').not.toContain('Add row')
+  expect(topLabels.includes('Create & link'), `top-level menu: ${JSON.stringify(topLabels)}`).toBe(true)
+
+  // Every row action is real and reachable under More actions, in priority
+  // order: Add row (0), Duplicate row (1), Delete row (2).
+  await menu.getByRole('menuitem', { name: /More actions/ }).hover()
+  const sub = window.locator('[data-canvas-ctx-menu]').nth(1)
+  await expect(sub).toBeVisible({ timeout: 3_000 })
+  await expect(sub.locator(':scope > div > button[role="menuitem"] > span.flex-1')).toHaveText([
+    'Add row',
+    'Duplicate row',
+    'Delete row'
+  ])
 
   // Create a sticky from the cell via Create > Sticky (seeds the cell text).
   // The create group's label carries its own wording now ("Create a sticky
