@@ -864,10 +864,7 @@ export async function shiftClickWidgetHeader(window: Page, widgetId: string): Pr
  * widget's width. The tool row is opacity-gated on hover, so hover first.
  */
 export async function clickWidgetTool(window: Page, widgetId: string, name: string | RegExp): Promise<void> {
-  const frame = window.locator(`[data-widget-id="${widgetId}"]`).first()
-  const header = frame.locator('[data-widget-header]').first()
-  await expect(header).toBeVisible({ timeout: 8_000 })
-  await header.hover({ position: { x: 12, y: 12 } })
+  const header = await hoverWidgetHeader(window, widgetId)
   const inline = header.locator('.fb-widget-actions').getByRole('button', { name, exact: typeof name === 'string' })
   if ((await inline.count()) > 0) {
     await inline.first().click()
@@ -887,9 +884,7 @@ export async function clickWidgetTool(window: Page, widgetId: string, name: stri
  * clickWidgetTool). Leaves the "…" menu closed again.
  */
 export async function expectWidgetTool(window: Page, widgetId: string, name: string, message?: string): Promise<void> {
-  const header = window.locator(`[data-widget-id="${widgetId}"]`).first().locator('[data-widget-header]').first()
-  await expect(header, message).toBeVisible({ timeout: 8_000 })
-  await header.hover({ position: { x: 12, y: 12 } })
+  const header = await hoverWidgetHeader(window, widgetId)
   const inline = header.locator('.fb-widget-actions').getByRole('button', { name, exact: true })
   if ((await inline.count()) > 0) {
     await expect(inline.first(), message).toBeVisible({ timeout: 4_000 })
@@ -902,4 +897,24 @@ export async function expectWidgetTool(window: Page, widgetId: string, name: str
   await expect(menu.getByRole('menuitem', { name, exact: true }), message).toBeVisible({ timeout: 4_000 })
   await window.keyboard.press('Escape')
   await expect(menu).toHaveCount(0)
+}
+
+/**
+ * Hover a work widget's header so its tool row shows, over the grab strip
+ * between the title and the tools — the part of the header least likely to sit
+ * under a title-bar dropdown. Dismisses the bottom-right feature spotlight
+ * first: it floats at z-230 over that corner and swallows clicks on a menu
+ * opened from a widget pinned there.
+ */
+async function hoverWidgetHeader(window: Page, widgetId: string): Promise<Locator> {
+  const spotlight = window.locator('[data-testid="feature-spotlight-dismiss"]')
+  if (await spotlight.isVisible().catch(() => false)) {
+    await spotlight.click({ timeout: 2_000 }).catch(() => undefined)
+  }
+  const header = window.locator(`[data-widget-id="${widgetId}"]`).first().locator('[data-widget-header]').first()
+  await expect(header).toBeVisible({ timeout: 8_000 })
+  const grab = header.locator('[data-testid="widget-grab"]')
+  if ((await grab.count()) > 0) await grab.first().hover()
+  else await header.hover({ position: { x: 12, y: 12 } })
+  return header
 }

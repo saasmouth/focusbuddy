@@ -98,4 +98,33 @@ describe('WidgetHeaderOverflow', () => {
     })
     expect(menu()).toBeNull()
   })
+
+  it('opens below "…", and flips above it when the window has no room below', () => {
+    const real = Element.prototype.getBoundingClientRect
+    const rect = (top: number, h: number, right = 300): DOMRect =>
+      ({ top, bottom: top + h, left: right - 24, right, width: 24, height: h, x: right - 24, y: top, toJSON: () => ({}) }) as DOMRect
+    let triggerTop = 100
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.getAttribute('role') === 'menu') return rect(0, 200)
+      if (this.getAttribute('aria-label') === 'More actions') return rect(triggerTop, 24)
+      return real.call(this)
+    })
+    const h = window.innerHeight
+    try {
+      act(() => trigger().click())
+      expect(menu()!.dataset.placement).toBe('below')
+      expect(menu()!.style.top).toBe(`${100 + 24 + 6}px`)
+      act(() => trigger().click())
+      expect(menu()).toBeNull()
+      // A "…" near the bottom of the window: 200px of menu does not fit below.
+      triggerTop = h - 40
+      act(() => trigger().click())
+      expect(menu()!.dataset.placement).toBe('above')
+      expect(menu()!.style.bottom).toBe(`${h - triggerTop + 6}px`)
+      expect(menu()!.style.top).toBe('')
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })
+

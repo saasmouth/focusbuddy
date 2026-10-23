@@ -49,7 +49,9 @@ export default function WidgetHeaderOverflow({
   onBeforeToggle
 }: Props): JSX.Element {
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+  // Below "…" by default; above it when the window has no room below (a work
+  // widget pinned to a bottom corner, or one near the bottom of the desk).
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -79,6 +81,22 @@ export default function WidgetHeaderOverflow({
     const r = triggerRef.current.getBoundingClientRect()
     setPos({ top: r.bottom + 6, right: window.innerWidth - r.right })
   }, [open, triggerRef])
+
+  // Once the menu has a height, flip it above "…" if it would run off the
+  // bottom of the window and there is more room above. Layout effect, so the
+  // flip happens before paint.
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    const trigger = triggerRef.current
+    if (!open || !pos || pos.top === undefined || !menu || !trigger) return
+    const r = trigger.getBoundingClientRect()
+    const h = menu.getBoundingClientRect().height
+    const roomBelow = window.innerHeight - r.bottom - 6
+    const roomAbove = r.top - 6
+    if (h > roomBelow - 8 && roomAbove > roomBelow) {
+      setPos({ bottom: window.innerHeight - r.top + 6, right: window.innerWidth - r.right })
+    }
+  }, [open, pos, triggerRef])
 
   // Focus the first item once the menu is on screen.
   useEffect(() => {
@@ -146,7 +164,8 @@ export default function WidgetHeaderOverflow({
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={onMenuKey}
             className="fixed z-[200] min-w-[184px] max-w-[260px] rounded-[var(--radius-row)] fb-glass-panel fb-pop-in p-1 cursor-default"
-            style={{ top: pos.top, right: pos.right }}
+            style={{ top: pos.top, bottom: pos.bottom, right: pos.right }}
+            data-placement={pos.bottom !== undefined ? 'above' : 'below'}
             data-testid={`widget-overflow-menu-${widgetId}`}
           >
             {items.map((it) => (
