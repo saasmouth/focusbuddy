@@ -82,6 +82,7 @@ import GuestCaptureBar from './components/GuestCaptureBar'
 import MissedTriagePrompt from './components/MissedTriagePrompt'
 import { PromptDialogHost, confirmDialog } from './components/plexi/PromptDialog'
 import { DocHistoryPanelHost } from './components/documents/DocHistoryPanel'
+import { SnippetSessionHost } from './components/snippets/SnippetSessionHost'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
 import { FilesDockSlot, FilesFlyout, reservedWidth } from './components/files/FilesDock'
 import FilesFloat from './components/files/FilesFloat'
@@ -889,6 +890,11 @@ export default function App(): JSX.Element {
         <FilesFloat />
         <PromptDialogHost />
         <DocHistoryPanelHost />
+        {/* A saved snippet opened as a document, from wherever it is
+            placed. Mounted once, globally, for the same reason as the
+            history panel: the embed that opens it is a ProseMirror node
+            view with no React parent to hand it a callback. */}
+        <SnippetSessionHost />
         {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
         {/* Looking at a cited reference without leaving the conversation.
             Mounted once, globally: a citation can be clicked from the assistant

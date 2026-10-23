@@ -20,6 +20,7 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import SnippetEmbed from './SnippetEmbed'
+import { openSnippetSession } from '../../snippets/snippetSessionStore'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -54,6 +55,12 @@ function SnippetEmbedView({ node, selected, updateAttributes, editor, getPos }: 
           host="doc"
           showChrome={showChrome}
           onShowChromeChange={(next) => updateAttributes({ showChrome: next })}
+          // A converted instance is live and read-only, so the only way to
+          // change what it shows is to edit the master — "open and edit the
+          // original from where it's placed". The session is mounted globally
+          // (SnippetSessionHost) and opened imperatively, because a node view
+          // has no React parent to pass it a callback.
+          onOpenOriginal={(snippet) => openSnippetSession(snippet.id)}
           onDetach={(content) => {
             // "Detach to edit only here": this reference becomes the content it
             // was showing, unlinked. Only the node view can do it, because only

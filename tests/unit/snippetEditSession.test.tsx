@@ -13,7 +13,7 @@
 // last-write-win, so Save carries the revision it loaded and a refusal offers
 // both ways out explicitly.
 
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -48,18 +48,53 @@ let docsCreate: ReturnType<typeof vi.fn>
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
 
-/** A stand-in for an app's editor: a button that emits one change. */
-const stubEditor = (): SnippetKindEditor => ({
-  render: ({ onChange }) => (
-    <button
-      data-testid="stub-change"
-      onClick={() =>
-        onChange({ kind: 'doc', content: [{ type: 'paragraph' }], text: 'edited' } as SnippetBody)
-      }
-    >
-      type
-    </button>
+/**
+ * A stand-in for an app's editor, and it SEEDS ITS STATE ONCE on purpose.
+ *
+ * Every real office editor does: DrawStudio, DesignEditor, DiagramEditor,
+ * SheetEditor and SlidesEditor all build their store, undo stack and loaded
+ * rasters from `content` on mount, and none re-seeds on a prop change. An
+ * earlier version of this stub was stateless, which made it USELESS for the one
+ * bug in this area — the host replacing the body without remounting, so a
+ * Reload left the old content on screen. The stub passed; the real thing would
+ * not have.
+ */
+function StubEditor({
+  body,
+  onChange
+}: {
+  body: SnippetBody
+  onChange: (next: SnippetBody) => void
+}): JSX.Element {
+  const [seeded] = useState(() => (body as { text?: string }).text ?? '')
+  return (
+    <>
+      <span data-testid="stub-seeded">{seeded}</span>
+      <button
+        data-testid="stub-change"
+        onClick={() =>
+          onChange({ kind: 'doc', content: [{ type: 'paragraph' }], text: 'edited' } as SnippetBody)
+        }
+      >
+        type
+      </button>
+      <button
+        data-testid="stub-change-lossy"
+        onClick={() =>
+          onChange({ kind: 'doc', content: [{ type: 'paragraph' }], text: 'edited' } as SnippetBody, [
+            'a paint layer',
+            '2 extra artboards'
+          ])
+        }
+      >
+        type something the snippet cannot hold
+      </button>
+    </>
   )
+}
+
+const stubEditor = (): SnippetKindEditor => ({
+  render: ({ body, onChange }) => <StubEditor body={body} onChange={onChange} />
 })
 
 beforeEach(() => {
@@ -191,5 +226,143 @@ describe('a conflict offers both ways out, explicitly', () => {
     await click('snippet-session-reload')
     expect(host.querySelector('[data-testid="snippet-session-conflict"]')).toBeNull()
     expect(update.mock.calls.length).toBe(before)
+  })
+
+  it('Reload actually REMOUNTS the editor, so their body is what is on screen', async () => {
+    // The bug this exists for: the host replaced its buffered body but left the
+    // editor mounted, and editors seed from content on mount only — so the user
+    // pressed "Reload theirs" and went on looking at the body they had just
+    // chosen to discard. Silent, and invisible to a stateless stub.
+    await mount()
+    expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('v1')
+    await click('stub-change')
+    await click('snippet-session-save')
+    await click('snippet-session-reload')
+    expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('theirs')
+  })
+
+  it('after Reload, the next save CAS-es against THEIR revision, not the stale one', async () => {
+    // d1's framing of this is sharper than mine was, and it is the reason the
+    // remount matters: the risk is not a stale VIEW, it is silent DATA LOSS. If
+    // the session kept its old base revision after taking theirs, the next edit
+    // would be saved against a revision that no longer exists — and with the
+    // guard satisfied by the wrong number, it would overwrite their work without
+    // the conflict bar ever appearing again.
+    await mount()
+    await click('stub-change')
+    await click('snippet-session-save')
+    await click('snippet-session-reload')
+    await click('stub-change')
+    await click('snippet-session-save')
+    const last = update.mock.calls[update.mock.calls.length - 1]!
+    expect(last[1].expectedRevision).toBe(9)
+  })
+
+  it('Overwrite does NOT remount, so undo history and scroll survive', async () => {
+    // The mirror of the rule above: overwriting keeps MY body, so remounting
+    // would throw away the editor's state for nothing.
+    await mount()
+    await click('stub-change')
+    await click('snippet-session-save')
+    await click('snippet-session-overwrite')
+    expect(host.querySelector('[data-testid="stub-seeded"]')!.textContent).toBe('v1')
+  })
+})
+
+describe('Escape closes, but only when nothing nearer wanted it', () => {
+  const mountWith = async (onClose: () => void): Promise<void> => {
+    await act(async () => {
+      root.render(
+        <SnippetEditSessionView snippetId="s1" onClose={onClose} editors={{ doc: stubEditor() }} />
+      )
+    })
+  }
+  const press = async (on: HTMLElement): Promise<void> => {
+    await act(async () => {
+      on.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    })
+  }
+  const shell = (): HTMLElement => host.querySelector('[data-testid="snippet-session"]') as HTMLElement
+
+  it('closes a clean session', async () => {
+    // A modal with no Escape is the kind of gap nobody files a bug about; they
+    // just hunt for the × every time.
+    const onClose = vi.fn()
+    await mountWith(onClose)
+    await press(shell())
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks before discarding unsaved work, like the × does', async () => {
+    const onClose = vi.fn()
+    ;(window as unknown as { confirm: () => boolean }).confirm = () => false
+    await mountWith(onClose)
+    await click('stub-change')
+    await press(shell())
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('ignores an Escape that something nearer the user already handled', async () => {
+    // The real case, and the reason this guard exists rather than a bare
+    // handler: PlexiiCells cancels a cell edit on Escape and calls
+    // preventDefault WITHOUT stopping propagation (SheetGrid's cell input), so
+    // the keypress reaches the session shell too. Closing on it would abandon a
+    // whole sheet snippet because the user backed out of one cell — and if the
+    // snippet were dirty they would get a discard prompt for pressing Escape in
+    // a cell, which is worse than useless.
+    const onClose = vi.fn()
+    await mountWith(onClose)
+    const inner = host.querySelector('[data-testid="stub-change"]') as HTMLElement
+    inner.addEventListener('keydown', (e) => e.preventDefault())
+    await press(inner)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('still closes on an Escape that bubbled up unclaimed', async () => {
+    // The mirror of the rule above: bubbling from inside an editor is normal —
+    // Write does nothing with Escape — so an unclaimed one must still work, or
+    // the guard would have broken Escape everywhere except the shell itself.
+    const onClose = vi.fn()
+    await mountWith(onClose)
+    await press(host.querySelector('[data-testid="stub-change"]') as HTMLElement)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('what a snippet cannot hold is said, not dropped', () => {
+  it('names each loss, beside Save, before the decision is made', async () => {
+    await mount()
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).toBeNull()
+    await click('stub-change-lossy')
+    const warn = host.querySelector('[data-testid="snippet-session-lost"]')!
+    expect(warn.textContent).toContain('a paint layer')
+    expect(warn.textContent).toContain('2 extra artboards')
+  })
+
+  it('still allows the save, because it is the user\'s call', async () => {
+    // Refusing would be worse: the alternative to saving a lossy body is losing
+    // the whole edit. The warning informs the decision rather than making it.
+    await mount()
+    await click('stub-change-lossy')
+    const save = host.querySelector('[data-testid="snippet-session-save"]') as HTMLButtonElement
+    expect(save.disabled).toBe(false)
+    await click('snippet-session-save')
+    expect(update).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears when a later change loses nothing', async () => {
+    // Otherwise the warning would outlive the thing it warned about, and a stale
+    // warning teaches people to ignore the real one.
+    await mount()
+    await click('stub-change-lossy')
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).not.toBeNull()
+    await click('stub-change')
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).toBeNull()
+  })
+
+  it('says nothing when there is nothing to say', async () => {
+    await mount()
+    await click('stub-change')
+    expect(host.querySelector('[data-testid="snippet-session-lost"]')).toBeNull()
   })
 })

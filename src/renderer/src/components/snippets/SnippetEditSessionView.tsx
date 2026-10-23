@@ -49,7 +49,22 @@ export interface SnippetKindEditor {
   render: (args: {
     body: SnippetBody
     title: string
-    onChange: (next: SnippetBody) => void
+    /**
+     * Hand back the snippet-shaped body, plus anything the snippet CANNOT HOLD.
+     *
+     * `lost` exists because a session editor is a full app and a snippet body is
+     * narrower than the document it edits. A user can make something the snippet
+     * has no field for — d1's examples in Draw are a paint layer or a second
+     * artboard — and the choice is then between dropping it silently and saying
+     * so. Silently is not a choice: the save reports success and the work is
+     * gone.
+     *
+     * Entries should still PREVENT the loss where they can, which is strictly
+     * better: 84 hid the page tabs in a diagram session so a second page cannot
+     * be made, rather than reporting one that was. `lost` is for what cannot be
+     * prevented. Each string is user-facing copy, in the destination's terms.
+     */
+    onChange: (next: SnippetBody, lost?: string[]) => void
   }) => ReactNode
 }
 
@@ -103,6 +118,20 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
       </Suspense>
     )
   }
+  // NO `draw` ENTRY, and its absence is deliberate rather than pending.
+  //
+  // I had one, built on d1's first answer that a DrawSnippetBody could go
+  // straight into DrawStudio's `content`. d1 then corrected that: a
+  // DrawSnippetBody is {kind, objects, assets, swatches} and NOT a drawing body,
+  // so it needs wrapping — objects onto a vector layer, the asset store, the
+  // swatches, an artboard sized to the object bounds — and unwrapping again on
+  // the way out. Passing it raw would have opened an editor on something
+  // DrawStudio does not understand.
+  //
+  // Those helpers are Draw's model, so d1 is writing them in src/shared/draw.
+  // Until they land, `draw` falls through to "cannot be opened for editing yet",
+  // which is the honest state: a registry entry that opens a broken editor is
+  // worse than one that is missing.
 }
 
 export interface SnippetEditSessionViewProps {
@@ -139,6 +168,20 @@ export default function SnippetEditSessionView({
   const [load, setLoad] = useState<Load>({ phase: 'loading' })
   const [save, setSave] = useState<SaveState>({ phase: 'idle' })
   const [dirty, setDirty] = useState(false)
+  // Bumped only when the body is REPLACED from outside the editor — which today
+  // means Reload. Every office editor seeds its own store, undo stack and loaded
+  // rasters from `content` on MOUNT and does not re-seed on a prop change, so
+  // without a remount a Reload would leave the user looking at the body they
+  // just chose to discard. d1 caught this for DrawStudio; it is true of all of
+  // them, including my own sheet session, which seeds its wrapped workbook in a
+  // useState initialiser.
+  //
+  // Deliberately NOT keyed on the revision: a successful Save bumps that, and
+  // remounting then would throw away undo history and scroll position for no
+  // reason, since the body on screen is already the body that was saved.
+  const [seed, setSeed] = useState(0)
+  // What the current body cannot keep, as reported by the editor entry.
+  const [lost, setLost] = useState<string[]>([])
 
   // The latest body lives in a ref, not state: it is written by every keystroke
   // and read only by Save, so re-rendering the editor on each change would be
@@ -273,8 +316,13 @@ export default function SnippetEditSessionView({
               latest.current = save.theirs.body
               baseRevision.current = save.theirs.revision
               setDirty(false)
+              setLost([])
               setSave({ phase: 'idle' })
               setLoad({ phase: 'ready', snippet: save.theirs })
+              // Forces the editor to remount and re-seed from their body. The
+              // editors do not re-seed on a prop change, so without this the
+              // Reload would be invisible.
+              setSeed((n) => n + 1)
             }}
           >
             Reload theirs
@@ -301,20 +349,43 @@ export default function SnippetEditSessionView({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {editor ? (
-          editor.render({
-            body: latest.current ?? snippet.body,
-            title: snippet.name,
-            onChange: (next) => {
-              latest.current = next
-              if (!dirty) setDirty(true)
-            }
-          })
+          <div key={`${snippetId}:${seed}`} className="h-full min-h-0">
+            {editor.render({
+              body: latest.current ?? snippet.body,
+              title: snippet.name,
+              onChange: (next, losing) => {
+                latest.current = next
+                setLost(losing ?? [])
+                if (!dirty) setDirty(true)
+              }
+            })}
+          </div>
         ) : (
           <p className="p-4 text-[13px] text-[var(--ink-60)]" data-testid="snippet-session-unsupported">
             A {snippetKindLabel(snippet.kind).toLowerCase()} cannot be opened for editing yet.
           </p>
         )}
       </div>
+
+      {lost.length > 0 && (
+        // Beside Save, not after it. The user is about to decide, and this is
+        // the only moment the information is useful — afterwards the work is
+        // already gone. Saving is still allowed: it is their call, not ours.
+        <div
+          className="flex items-start gap-2 border-t border-[var(--edge-soft)] bg-amber-500/10 px-3 py-1.5 text-[11px] text-[var(--ink-70)]"
+          data-testid="snippet-session-lost"
+        >
+          <Icon name="warning" size={13} className="mt-0.5 shrink-0 text-amber-600" />
+          <span>
+            Saving will not keep:
+            <ul className="list-disc pl-4">
+              {lost.map((what) => (
+                <li key={what}>{what}</li>
+              ))}
+            </ul>
+          </span>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 border-t border-[var(--edge-soft)] px-3 py-1.5">
         <button
@@ -349,12 +420,28 @@ function SessionShell({
   onClose: () => void
   children: ReactNode
 }): JSX.Element {
+  // tabIndex so Escape still reaches the dialog when focus is on the shell
+  // itself rather than inside one of the editors.
   return (
     <div
       className="flex h-full min-h-0 flex-col bg-[var(--surface-base)]"
       data-testid="snippet-session"
       role="dialog"
       aria-label={title}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape') return
+        // `defaultPrevented` is the whole reason this is safe to put on the
+        // shell. Escape means "cancel the nearest thing", and inside a session
+        // that is usually not the session: PlexiiCells cancels a cell edit with
+        // Escape and calls preventDefault without stopping propagation
+        // (SheetGrid's cell input), so the keypress arrives here too. Closing
+        // on it would abandon a sheet snippet because the user backed out of
+        // one cell. Anything nearer the user that handled it wins.
+        if (e.defaultPrevented) return
+        e.stopPropagation()
+        onClose()
+      }}
     >
       <header className="flex items-center gap-2 border-b border-[var(--edge-soft)] px-3 py-1.5">
         <Icon name="bookmark" size={14} className="text-[var(--ink-40)]" />
