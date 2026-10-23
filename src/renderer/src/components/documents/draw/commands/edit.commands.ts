@@ -9,12 +9,19 @@ import { finishCurvature } from '../tools/curvature.tool'
 import { finishPen, popPenAnchor } from '../tools/pen.tool'
 import { nudgeSelection } from '../transform/apply'
 import { escapeIntent } from '../../../office/shell/chrome'
+import { firstOf, gate, notReadOnly, unless } from './gate'
 
 /** Selection tools: Esc deselects with these rather than switching tool. */
 const SELECTION_TOOLS = new Set(['select', 'direct', 'groupSelect', 'lasso'])
 
-const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
+/** What Duplicate acts on: selected objects that are not locked or hidden. */
+const duplicable = (ctx: EditorCtx): string[] => editableIds(ctx.get().doc, ctx.get().selection)
+/** What Delete acts on: those, or anchors picked with Direct Selection (deleteSelection). */
+const deletable = (ctx: EditorCtx): boolean => {
+  const s = ctx.get()
+  return editableIds(s.doc, wholeSelection(s)).length > 0 || partialAnchors(s).length > 0
+}
 
 export const menus: MenuSpec[] = [{ path: 'edit', label: 'Edit', order: 20 }]
 
@@ -67,7 +74,7 @@ export const commands: Command[] = [
     icon: 'undo',
     menu: { path: 'edit', order: 100 },
     // Inside a pen path, ⌘Z takes back its last point (Illustrator).
-    enabled: (ctx) => writable(ctx) && (ctx.get().pen !== null || ctx.history.canUndo()),
+    ...gate(firstOf(notReadOnly, unless((ctx) => ctx.get().pen !== null || ctx.history.canUndo(), 'Nothing to undo yet.'))),
     run: (ctx) => (ctx.get().pen ? popPenAnchor(ctx) : ctx.history.undo())
   },
   {
@@ -75,7 +82,7 @@ export const commands: Command[] = [
     label: 'Redo',
     icon: 'redo',
     menu: { path: 'edit', order: 110 },
-    enabled: (ctx) => writable(ctx) && ctx.history.canRedo(),
+    ...gate(firstOf(notReadOnly, unless((ctx) => ctx.history.canRedo(), 'Nothing to redo.'))),
     run: (ctx) => ctx.history.redo()
   },
   {
@@ -93,7 +100,7 @@ export const commands: Command[] = [
     label: 'Deselect',
     icon: 'deselect',
     menu: { path: 'edit', order: 301 },
-    enabled: hasSelection,
+    ...gate(unless(hasSelection, 'Nothing is selected.')),
     run: (ctx) => ctx.select([])
   },
   {
@@ -102,10 +109,11 @@ export const commands: Command[] = [
     icon: 'file_copy',
     // ⌘D is Transform Again, as in Illustrator (Object › Transform).
     menu: { path: 'edit', order: 210 },
-    enabled: (ctx) => writable(ctx) && hasSelection(ctx),
+    // Locked and hidden objects are never duplicated, so a selection of only those leaves it off.
+    ...gate(firstOf(notReadOnly, unless(hasSelection, 'Select something to duplicate.'), unless((ctx) => duplicable(ctx).length > 0, 'Locked or hidden objects cannot be duplicated.'))),
     run: (ctx) => {
       const s = ctx.get()
-      const ids = editableIds(s.doc, s.selection)
+      const ids = duplicable(ctx)
       if (!ids.length) return
       const { doc, newIds } = duplicateObjects(s.doc, ids)
       ctx.history.commit(doc, 'Duplicate')
@@ -117,7 +125,7 @@ export const commands: Command[] = [
     label: 'Delete',
     icon: 'delete',
     menu: { path: 'edit', order: 220 },
-    enabled: (ctx) => writable(ctx) && hasSelection(ctx),
+    ...gate(firstOf(notReadOnly, unless(hasSelection, 'Select something to delete.'), unless(deletable, 'Locked or hidden objects cannot be deleted.'))),
     run: (ctx) => deleteSelection(ctx)
   },
   {

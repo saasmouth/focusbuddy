@@ -24,8 +24,8 @@ function ImageTab({ ctx }: { ctx: EditorCtx }): JSX.Element | null {
   return (
     <>
       <BarGroup label="Image">
-        <CmdButton ctx={ctx} id="file.replaceImage" icon="swap_horiz" showLabel reason="the picture is locked or hidden" testid="draw-image-replace" />
-        <CmdButton ctx={ctx} id="file.placeTemplate" icon="layers" showLabel reason="a template layer needs the newer drawing format" testid="draw-image-template" />
+        <CmdButton ctx={ctx} id="file.replaceImage" icon="swap_horiz" showLabel testid="draw-image-replace" />
+        <CmdButton ctx={ctx} id="file.placeTemplate" icon="layers" showLabel testid="draw-image-template" />
       </BarGroup>
       <BarSep />
       <span className="shrink-0 px-1 text-[11px] text-[var(--ink-50)] fb-tabular" data-testid="draw-image-info">

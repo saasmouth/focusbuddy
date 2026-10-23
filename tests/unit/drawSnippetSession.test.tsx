@@ -417,7 +417,7 @@ describe('the mounted studio in a session', () => {
         "Place…",
         "Place as template…",
         "Import SVG…",
-        "Replace image… (off)",
+        "Replace image… (off: Select one image to replace it.)",
         "—",
         "Download ›",
         "—",

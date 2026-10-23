@@ -1,6 +1,8 @@
 // Path (contextual, a path selected): Illustrator's path commands -- Join,
-// Average…, Simplify…, Cut at anchors, Close, Open, Reverse, Join into one
-// path -- then Pathfinder (two or more paths) and Compound Path. It was the
+// Average…, Simplify…, Cut at anchors, Close, Open, Reverse -- then
+// Pathfinder (two or more paths) and Compound Path (⌘8 / ⌥⇧⌘8). Its Merge
+// button ran "Join into one path", a second, weaker Make Compound Path; it is
+// gone, and Compound Path › Make is the one. It was the
 // inspector's Path and Pathfinder sections plus the anchor panel's Path row.
 
 import { BarGroup, BarSep } from '../../../office/shell'
@@ -21,35 +23,33 @@ const BOOLEANS = [
 ] as const
 
 function PathTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
-  const s = useEditor(ctx)
-  const paths = selectedPaths(s)
-  const two = paths.length >= 2
+  // Re-render with the editor: each button's state and reason are read from it.
+  useEditor(ctx)
   return (
     <>
       <BarGroup label="Path">
-        <CmdButton ctx={ctx} id="path.join" icon="link" reason="select two open ends to join" testid="draw-path-join" />
-        <CmdButton ctx={ctx} id="path.average" icon="vertical_align_center" reason="select two or more anchor points" testid="draw-path-average" />
-        <CmdButton ctx={ctx} id="path.simplify" icon="auto_fix_high" reason="select a path first" testid="draw-path-simplify" />
-        <CmdButton ctx={ctx} id="path.cutAtAnchors" icon="content_cut" reason="select anchor points with Direct Selection (A) first" testid="draw-path-cut" />
+        <CmdButton ctx={ctx} id="path.join" icon="link" testid="draw-path-join" />
+        <CmdButton ctx={ctx} id="path.average" icon="vertical_align_center" testid="draw-path-average" />
+        <CmdButton ctx={ctx} id="path.simplify" icon="auto_fix_high" testid="draw-path-simplify" />
+        <CmdButton ctx={ctx} id="path.cutAtAnchors" icon="content_cut" testid="draw-path-cut" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Open and close">
-        <CmdButton ctx={ctx} id="object.closePath" icon="pentagon" reason="select a path" testid="draw-path-close" />
-        <CmdButton ctx={ctx} id="object.openPath" icon="polyline" reason="select a path" testid="draw-path-open" />
-        <CmdButton ctx={ctx} id="object.reverse" icon="swap_horiz" reason="select a path" testid="draw-path-reverse" />
-        <CmdButton ctx={ctx} id="object.join" icon="merge" reason="select two or more paths" testid="draw-path-merge" />
+        <CmdButton ctx={ctx} id="object.closePath" icon="pentagon" testid="draw-path-close" />
+        <CmdButton ctx={ctx} id="object.openPath" icon="polyline" testid="draw-path-open" />
+        <CmdButton ctx={ctx} id="object.reverse" icon="swap_horiz" testid="draw-path-reverse" />
       </BarGroup>
       <BarSep />
       <BarGroup label="Pathfinder">
         <BarLabel>Pathfinder</BarLabel>
         {BOOLEANS.map((b) => (
-          <CmdButton key={b.op} ctx={ctx} id="object.boolean" args={b.op} icon={b.icon} label={b.label} off={!two} reason="select two or more paths" testid={`draw-bool-${b.op}`} />
+          <CmdButton key={b.op} ctx={ctx} id="object.boolean" args={b.op} icon={b.icon} label={b.label} testid={`draw-bool-${b.op}`} />
         ))}
       </BarGroup>
       <BarSep />
       <BarGroup label="Compound path">
-        <CmdButton ctx={ctx} id="object.compound.make" icon="join" reason="select two or more paths" testid="draw-compound-make" />
-        <CmdButton ctx={ctx} id="object.compound.release" icon="call_split" reason="select a compound path" testid="draw-compound-release" />
+        <CmdButton ctx={ctx} id="object.compound.make" icon="join" testid="draw-compound-make" />
+        <CmdButton ctx={ctx} id="object.compound.release" icon="call_split" testid="draw-compound-release" />
       </BarGroup>
     </>
   )

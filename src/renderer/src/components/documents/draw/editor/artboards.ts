@@ -9,6 +9,7 @@ import type { Box } from '@shared/drawGeometry'
 import type { DrawDoc, DrawNode } from '@shared/draw/model'
 import { applyPaintFollow, artboardAt, artboardById, planPaintFollow, primaryArtboard, setActiveArtboard, type PaintRelay } from '@shared/draw/ops'
 import * as raster from '../raster'
+import { READ_ONLY_REASON } from '../commands/gate'
 import { withFreshIds } from './clipboard'
 import { v2BlockedReason, v2Writable } from './v2gate'
 import type { EditorCtx, EditorState } from './types'
@@ -41,7 +42,7 @@ export function artboardsEditable(s: Pick<EditorState, 'readOnly' | 'doc' | 'sto
 
 /** Why the artboards cannot change, as a sentence; null when they can. */
 export function artboardsBlockedReason(s: EditorState): string | null {
-  if (s.readOnly) return 'This artwork is read-only.'
+  if (s.readOnly) return READ_ONLY_REASON
   if (!v2Writable(s)) return `Artboards can't be added or changed in this drawing yet: ${v2BlockedReason(s)}.`
   return null
 }

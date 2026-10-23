@@ -7,7 +7,7 @@
 
 import { BarCustom, BarGroup, BarSelect, BarSep } from '../../../office/shell'
 import { DISTRIBUTE_EDGES, type DistributeEdge } from '@shared/draw/ops'
-import { activeKey, alignState, canAlign, canDistribute, type AlignToMode } from '../commands/align.commands'
+import { activeKey, alignState, type AlignToMode } from '../commands/align.commands'
 import type { DrawBarTab, EditorCtx } from '../editor/types'
 import { NumField } from '../transform/fields'
 import { CmdButton, useBarReadOnly, useEditor } from './controls'
@@ -35,15 +35,11 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
   const readOnly = useBarReadOnly() || s.readOnly
   const a = alignState(s)
   const key = activeKey(s)
-  const alignOk = canAlign(ctx)
-  const distOk = canDistribute(ctx)
-  const alignWhy = a.to === 'key' && key ? 'select at least two objects, one of them the key' : 'select an object first'
-  const distWhy = 'select at least three objects (two with a key object and an exact spacing)'
   return (
     <>
       <BarGroup label="Align objects" testid="draw-align-panel">
         {ALIGN.map((b) => (
-          <CmdButton key={b.edge} ctx={ctx} id={`object.align.${b.edge}`} icon={b.icon} label={b.label} reason={alignOk ? undefined : alignWhy} testid={`draw-alignpanel-${b.edge}`} />
+          <CmdButton key={b.edge} ctx={ctx} id={`object.align.${b.edge}`} icon={b.icon} label={b.label} testid={`draw-alignpanel-${b.edge}`} />
         ))}
         <BarSelect<AlignToMode>
           label="Align to"
@@ -61,13 +57,13 @@ export function AlignControls({ ctx }: { ctx: EditorCtx }): JSX.Element {
       <BarSep />
       <BarGroup label="Distribute objects">
         {DISTRIBUTE_EDGES.map((e) => (
-          <CmdButton key={e} ctx={ctx} id={`object.distribute.${e}`} icon={DIST_ICON[e]} reason={distOk ? undefined : distWhy} testid={`draw-distribute-${e}`} />
+          <CmdButton key={e} ctx={ctx} id={`object.distribute.${e}`} icon={DIST_ICON[e]} testid={`draw-distribute-${e}`} />
         ))}
       </BarGroup>
       <BarSep />
       <BarGroup label="Distribute spacing">
-        <CmdButton ctx={ctx} id="object.distributeSpacing.v" icon="vertical_distribute" reason={distOk ? undefined : distWhy} testid="draw-distribute-space-v" />
-        <CmdButton ctx={ctx} id="object.distributeSpacing.h" icon="horizontal_distribute" reason={distOk ? undefined : distWhy} testid="draw-distribute-space-h" />
+        <CmdButton ctx={ctx} id="object.distributeSpacing.v" icon="vertical_distribute" testid="draw-distribute-space-v" />
+        <CmdButton ctx={ctx} id="object.distributeSpacing.h" icon="horizontal_distribute" testid="draw-distribute-space-h" />
         <BarCustom label="Spacing">
           <NumField
             label="Distribute spacing"
