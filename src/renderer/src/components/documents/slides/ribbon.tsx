@@ -55,6 +55,8 @@ export interface DeckCtx {
   el: SlideElement | null
   anyGrouped: boolean
   readOnly: boolean
+  /** One slide, no deck around it (a slide snippet): no new/duplicate slide. */
+  singleSlide?: boolean
   tool: DeckTool
   setTool: (t: DeckTool, lock?: boolean) => void
   isPanelOpen: (p: DeckPanel) => boolean
@@ -228,8 +230,8 @@ const homeTab: BarTab<DeckCtx> = {
     <>
       {!c.selected.length && (
         <>
-          <BarButton icon="add_to_photos" label="New slide" showLabel onClick={c.ed.openGallery} testid="slides-home-new-slide" />
-          <BarButton icon="file_copy" label="Duplicate slide" onClick={c.ed.duplicateSlide} testid="slides-home-duplicate-slide" />
+          {!c.singleSlide && <BarButton icon="add_to_photos" label="New slide" showLabel onClick={c.ed.openGallery} testid="slides-home-new-slide" />}
+          {!c.singleSlide && <BarButton icon="file_copy" label="Duplicate slide" onClick={c.ed.duplicateSlide} testid="slides-home-duplicate-slide" />}
           <BarMenu
             icon="dashboard"
             label="Layout"
@@ -280,9 +282,13 @@ const insertTab: BarTab<DeckCtx> = {
       <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.ed.insertSnippet} testid="slides-insert-snippet" />
       {/* The old toolbar's AI button opened deck generation in one click; it still does. */}
       <BarButton icon="auto_awesome" label="AI slides" showLabel onClick={() => c.openSidePane('generate')} controls={SIDE_PANE_DOM_ID} testid="slides-insert-ai" />
-      <BarSep />
-      <BarButton icon="add_to_photos" label="New slide" showLabel onClick={c.ed.openGallery} testid="slides-insert-new-slide" />
-      <BarDialogButton icon="dashboard_customize" label="Templates" onOpen={c.ed.openGallery} testid="slides-templates-btn" />
+      {!c.singleSlide && (
+        <>
+          <BarSep />
+          <BarButton icon="add_to_photos" label="New slide" showLabel onClick={c.ed.openGallery} testid="slides-insert-new-slide" />
+          <BarDialogButton icon="dashboard_customize" label="Templates" onOpen={c.ed.openGallery} testid="slides-templates-btn" />
+        </>
+      )}
     </>
   )
 }

@@ -46,6 +46,8 @@ export interface DCtx {
   themeId?: string
   palette: string[]
   readOnly: boolean
+  /** One graph, no pages: editing a diagram snippet (a snippet is a single graph). */
+  singlePage?: boolean
   zoom: number
   tool: Tool
   setTool: (t: Tool, lock?: boolean) => void
@@ -269,8 +271,12 @@ const insertTab: BarTab<DCtx> = {
         <BarDialogButton icon="widgets" label="Work widget" onOpen={() => c.openDialog('data-widgets')} testid="diagram-insert-widget" />
         <BarDialogButton icon="code" label="Mermaid" onOpen={() => c.openDialog('mermaid')} testid="diagram-insert-mermaid" />
         <BarButton icon="auto_awesome" label="AI diagram" onClick={() => c.sidePane !== 'ai' && c.toggleSidePane('ai')} controls={SIDE_PANE_DOM_ID} testid="diagram-insert-ai" />
-        <BarSep />
-        <BarButton icon="note_add" label="New page" showLabel onClick={cmd.addPage} testid="diagram-insert-page" />
+        {!c.singlePage && (
+          <>
+            <BarSep />
+            <BarButton icon="note_add" label="New page" showLabel onClick={cmd.addPage} testid="diagram-insert-page" />
+          </>
+        )}
       </>
     )
   }
