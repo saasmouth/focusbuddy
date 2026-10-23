@@ -38,6 +38,8 @@ export interface CellsCommandDeps {
   macros: () => void
   query: () => void
   shortcuts: () => void
+  /** Open Page setup — print area, repeat rows, printed gridlines. */
+  pageSetup: () => void
   /**
    * Download ▸ PDF, where the host can really produce one. Read structurally
    * from the document ops, as `print` is: the export engine adds the op, and
@@ -242,6 +244,18 @@ export function buildCellsCommands(d: CellsCommandDeps): CellsCommands {
     { id: 'sheet-macros', label: 'Macros — automate the sheet with a script', icon: 'code', group: 'Tools', keywords: 'script automate', run: d.macros, ...edits() },
 
     // ── File ───────────────────────────────────────────────────────────────
+    // What goes on paper. An edit, like any other setting stored in the
+    // workbook, so a viewer gets the row with a reason rather than a dialog
+    // whose Clear button would do nothing.
+    {
+      id: 'sheet-page-setup',
+      label: 'Page setup…',
+      icon: 'print',
+      group: 'File',
+      keywords: 'print area gridlines repeat rows header paper page',
+      run: d.pageSetup,
+      ...edits()
+    },
     // Import REPLACES the body, so it is an edit: the ribbon used to mark it
     // read-only safe, which left a viewer a button that did nothing.
     { id: 'sheet-import', label: 'Import (.xlsx / .csv)', barLabel: 'Import .xlsx / .csv', icon: 'upload_file', group: 'File', keywords: 'open excel csv', run: a.importFile, ...edits() },
