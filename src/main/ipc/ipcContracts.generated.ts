@@ -38,7 +38,6 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'ai:processMeetingEnd': [{ kind: 'object', optional: false, nullable: false }],
   'ai:processTranscript': [{ kind: 'object', optional: false, nullable: false }],
   'ai:rewriteSelection': [{ kind: 'object', optional: false, nullable: false }],
-  'ai:routeCommand': [{ kind: 'object', optional: false, nullable: false }],
   'ai:setMode': [{ kind: 'string', optional: false, nullable: false }],
   'ai:suggestDocContent': [{ kind: 'object', optional: false, nullable: false }],
   'ai:suggestFormula': [{ kind: 'object', optional: false, nullable: false }],

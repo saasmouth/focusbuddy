@@ -77,7 +77,6 @@ describe('resolveModel', () => {
   it('routes the long agentic loops to the cheap tier, where per-round rate compounds', () => {
     setModelMode('auto')
     expect(resolveModel('browser_agent')).toBe(MODEL_HAIKU)
-    expect(resolveModel('command_route')).toBe(MODEL_HAIKU)
   })
 
   it('keeps quality-sensitive one-shot work on the higher tiers', () => {

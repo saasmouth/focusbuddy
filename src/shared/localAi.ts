@@ -82,7 +82,6 @@ export const AI_FEATURE_COPY: Record<AiFeature, { label: string; covers: string 
 export const PURPOSE_FEATURE: Record<AIPurpose | 'enrichment' | 'generic' | 'media', AiFeature> = {
   chat: 'assistant',
   welcome: 'assistant',
-  command_route: 'assistant',
   intent_classify: 'assistant',
   setup: 'build',
   smart_stack: 'build',

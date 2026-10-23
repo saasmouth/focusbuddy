@@ -694,7 +694,6 @@ import {
   runTransformWire,
   sendChat,
   sendChatStream,
-  routeCommandBar,
   transformText,
   suggestWidgetSetup,
   suggestPageContent,
@@ -1928,10 +1927,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('ai:suggestPageContent', (_e, prompt: string) => {
     recordAiCall()
     return suggestPageContent(prompt)
-  })
-  ipcMain.handle('ai:routeCommand', (_e, input: { system: string; text: string }) => {
-    recordAiCall()
-    return routeCommandBar(input)
   })
   // In-editor document AI: formatted insert + selection rewrite.
   ipcMain.handle('ai:suggestDocContent', (_e, input: { prompt: string }) => {
