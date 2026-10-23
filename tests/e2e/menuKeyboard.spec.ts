@@ -78,10 +78,15 @@ test('KB-1 — drive the unified menu by keyboard to create a sticky', async () 
 
   expect(await stickyCount(launched)).toBe(0)
 
-  // Type-ahead to "Create", open it, type-ahead to "Sticky", activate.
+  // Type-ahead to "More actions" and open it (§9.3: Create & link lives
+  // there), then to "Create & link", open it, type-ahead to "Sticky", activate.
+  await window.keyboard.type('more')
+  await window.waitForTimeout(120)
+  await window.keyboard.press('ArrowRight') // open More actions
+  await window.waitForTimeout(700) // the type-ahead buffer clears after 600ms
   await window.keyboard.type('create')
   await window.waitForTimeout(120)
-  await window.keyboard.press('ArrowRight') // open the Create submenu
+  await window.keyboard.press('ArrowRight') // open the Create & link submenu
   await window.waitForTimeout(200)
   await window.keyboard.type('sticky')
   await window.waitForTimeout(120)

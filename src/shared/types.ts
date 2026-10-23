@@ -208,23 +208,6 @@ export type WidgetKind =
   // wire OUT of this (it's a source) — the mirror of the outbound 'webhook'.
   | 'inbound-hook'
 
-export type ContextMenuAction =
-  | 'createStickyFromSelection'
-  | 'createNoteFromSelection'
-  | 'openLinkInNewBrowser'
-  | 'saveImageToCanvas'
-  | 'saveVideoToCanvas'
-
-export interface ContextMenuPayload {
-  action: ContextMenuAction
-  webContentsId: number
-  x: number
-  y: number
-  selectionText?: string
-  linkURL?: string
-  srcURL?: string
-}
-
 export interface FbNode {
   id: string
   parentId: string | null

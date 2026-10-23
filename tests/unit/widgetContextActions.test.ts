@@ -64,10 +64,10 @@ describe('per-widget context actions — the menu is genuinely contextual', () =
     expect(menuLabels(widget('color', '#ff8800'))).toContain('Copy #ff8800')
   })
 
-  it('a file/link widget offers Open and Copy of its URL', () => {
+  it('a file/link widget offers Open in browser and Copy link', () => {
     const ls = menuLabels(widget('file', 'https://example.com/report.pdf'))
     expect(ls).toContain('Open in browser')
-    expect(ls).toContain('Copy URL')
+    expect(ls).toContain('Copy link')
   })
 
   it('an image widget with a path offers Open and Copy path', () => {

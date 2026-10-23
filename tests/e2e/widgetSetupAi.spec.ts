@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow } from './_helpers'
 
 // Per-widget AI setup ("Build with AI"), end to end on a sticky: the context
 // menu opens the preview, the mocked draft renders as tickable items, and Add
@@ -89,17 +89,13 @@ test('AS-1 — Build with AI drafts items, approve and add appends a checklist',
   await window.click(`[data-widget-id="${widgetId}"] .fb-sticky-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
-  // "Build with AI" is the sticky's own context row (lib/contextMenu/providers).
-  // Since 163b8914 (Focus always on) the "Add to Focus…" row takes one of the
-  // Context band's two slots, so the band's other slot is "More actions" and
-  // the sticky's rows (Build with AI first, by priority) sit in that submenu.
+  // "Build with AI" is the sticky's own context row (lib/contextMenu/providers):
+  // its first kind row, kept beside Add to Focus… in the object group (§9.3)
+  // unless the menu is over its ceiling, when it folds into More actions.
   // Scope to the menu: the desk toolbar has a "Build this desk with AI" too.
   const ctxMenu = window.locator('[data-canvas-ctx-menu]')
   await expect(ctxMenu.getByRole('menuitem', { name: 'Add to Focus…' })).toBeVisible()
-  await ctxMenu.getByRole('menuitem', { name: 'More actions' }).hover()
-  const buildRow = ctxMenu.getByText('Build with AI', { exact: true })
-  await expect(buildRow, 'Build with AI is in the More actions submenu').toBeVisible({ timeout: 4_000 })
-  await buildRow.click()
+  await clickWidgetMenuRow(window, 'Build with AI')
 
   // Preview opens and shows the drafted items.
   await window.waitForSelector('[data-testid="widget-setup-preview"]', { timeout: 4_000 })

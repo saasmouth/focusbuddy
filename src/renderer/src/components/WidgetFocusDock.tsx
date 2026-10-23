@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { FocusCluster, Widget } from '@shared/types'
 import { catalogFor } from '../lib/widgetCatalog'
-import { buildContextForWidget } from '../lib/contextMenu/buildContext'
+import { focusDockTileContext } from '../lib/contextMenu/buildContext'
 import type { MenuContext } from '../lib/contextMenu/types'
-import type { CtxMenuItem } from './CanvasContextMenu'
 import UnifiedWidgetMenu from './contextMenu/UnifiedWidgetMenu'
+import ShareDialog from './ShareDialog'
+import MakeTaskDialog from './MakeTaskDialog'
+import SaveSnippetDialog from './snippets/SaveSnippetDialog'
+import { widgetBodyFromWidget } from './desk/deskSnippets'
+import type { WidgetSnippetBody } from '@shared/snippets'
 import WidgetPreview from './WidgetPreview'
 import FocusClusterTab from './focus/FocusClusterTab'
 import Icon from './Icon'
@@ -62,24 +66,28 @@ export default function WidgetFocusDock({
   const activeRef = useRef<HTMLButtonElement | null>(null)
   const { beginDrag } = useSplitDrag()
 
-  // Right-click context menu for a dock tile. Reuses the app-wide unified menu
-  // engine (the same one widget headers use) so a dock tile gets the full
-  // kind-aware action set for free. We add two dock-natural rows via headerExtras
-  // (Focus, Open full-size) since the dock is fundamentally a "jump here" surface.
+  // Right-click on a dock tile: the same unified menu a widget's header opens,
+  // with "Show in full view" as the dock's own object row. The tile has no
+  // frame, so the dock hosts the dialogs a frame would (Share…, Make this a
+  // desk…, Save selection as snippet…) and the tile's menu offers them too.
   const [menuCtx, setMenuCtx] = useState<MenuContext | null>(null)
+  const [dialog, setDialog] = useState<
+    | { kind: 'share'; w: Widget }
+    | { kind: 'desk'; w: Widget }
+    | { kind: 'snippet'; w: Widget; body: WidgetSnippetBody }
+    | null
+  >(null)
 
   function openTileMenu(e: React.MouseEvent, w: Widget): void {
     e.preventDefault()
     e.stopPropagation()
-    const headerExtras: CtxMenuItem[] = [
-      {
-        label: 'Show in full view',
-        icon: 'center_focus_strong',
-        onClick: () => onPick(w.id)
-      }
-    ]
     setMenuCtx(
-      buildContextForWidget(w, { clientX: e.clientX, clientY: e.clientY }, { headerExtras })
+      focusDockTileContext(w, { clientX: e.clientX, clientY: e.clientY }, {
+        onShowInFullView: () => onPick(w.id),
+        onShare: () => setDialog({ kind: 'share', w }),
+        onMakeTask: () => setDialog({ kind: 'desk', w }),
+        onSaveAsSnippet: () => setDialog({ kind: 'snippet', w, body: widgetBodyFromWidget(w) })
+      })
     )
   }
 
@@ -325,6 +333,15 @@ export default function WidgetFocusDock({
           CanvasContextMenu, so it renders above the focus overlay. */}
       {menuCtx && (
         <UnifiedWidgetMenu menuContext={menuCtx} onClose={() => setMenuCtx(null)} />
+      )}
+      {dialog?.kind === 'share' && (
+        <ShareDialog kind="widget" entityId={dialog.w.id} label={dialog.w.title || dialog.w.kind} onClose={() => setDialog(null)} />
+      )}
+      {dialog?.kind === 'desk' && (
+        <MakeTaskDialog seedTitle={dialog.w.title || dialog.w.kind} sourceWidget={dialog.w} onClose={() => setDialog(null)} />
+      )}
+      {dialog?.kind === 'snippet' && (
+        <SaveSnippetDialog body={dialog.body} suggestedName={dialog.w.title || ''} onClose={() => setDialog(null)} />
       )}
     </div>
   )

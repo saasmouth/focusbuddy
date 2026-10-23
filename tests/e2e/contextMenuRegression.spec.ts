@@ -121,7 +121,8 @@ test('CTX-REG-1 — right-clicking a widget header in a 2-item selection opens t
     .allInnerTexts()
   expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Add 2 to Focus…')
   expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Copy all text')
-  expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Delete 2 work widgets')
+  // E-2: the one remove-or-delete question for a mixed selection, as a danger row.
+  expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Remove or delete 2 work widgets…')
   expect(labels, 'single-widget rows must not appear on the bulk menu').not.toContain('Add to Focus…')
 })
 
@@ -235,13 +236,12 @@ test('CTX-REG-3 — unified menu on a note body has canonical sections', async (
 
   console.log('[CTX-REG-3] note menu text snippet:', menuText.slice(0, 200))
 
-  // Must contain AI Assist section
+  // Must contain AI Assist
   expect(menuText, 'Expected AI Assist in menu').toMatch(/AI Assist/i)
-  // Must contain Create section
-  expect(menuText, 'Expected Create in menu').toMatch(/Create/i)
-  // Must contain at least one of Organise / Bring to front / Share
-  const hasOrganise = /organis/i.test(menuText) || /bring/i.test(menuText) || /Share/i.test(menuText)
-  expect(hasOrganise, 'Expected Organise/Bring/Share section in menu').toBe(true)
+  // §9.3: Create & link, Bring to front and Share… live under More actions on
+  // a crowded text widget (the eight-row ceiling, E-6).
+  expect(menuText, 'Expected More actions in menu').toMatch(/More actions/)
+  expect(menuText, 'Expected the clipboard group').toMatch(/Copy all text|Copy/)
 })
 
 // ---------------------------------------------------------------------------
@@ -346,7 +346,8 @@ test('CTX-REG-5 — table widget right-click opens unified menu (has AI Assist, 
   // The unified menu contains AI Assist and Create; the old bespoke table
   // menu only had "Add row", "Duplicate row", "Delete row" — verifying AI
   // Assist is present confirms we are seeing the unified path.
-  expect(menuText, 'Unified menu must contain Create section').toMatch(/Create/i)
+  expect(menuText, 'Unified menu must lead with Add to Focus…').toMatch(/Add to Focus…/)
+  expect(menuText, 'Unified menu must offer More actions').toMatch(/More actions/)
 })
 
 // ---------------------------------------------------------------------------

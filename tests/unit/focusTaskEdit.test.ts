@@ -201,7 +201,9 @@ describe('one concept, one set of words (DEC-144)', () => {
     expect(r('renderer/src/components/views/AttentionView.tsx')).toContain('>Focus</h1>')
     expect(r('renderer/src/components/Sidebar.tsx')).toContain('label="Focus"')
     expect(r('renderer/src/components/nav/AreaAccordion.tsx')).toContain("{ kind: 'attention', label: 'Focus',")
-    expect(r('renderer/src/lib/contextMenu/universal.ts')).toContain("label: 'Add to Focus…',")
+    // The work widget menu takes its label from the shared lexicon (SPEC §9.4).
+    expect(r('shared/menus/lexicon.ts')).toContain("addToFocus: { label: 'Add to Focus…' }")
+    expect(r('renderer/src/lib/contextMenu/universal.ts')).toContain('label: MENU.addToFocus.label,')
     expect(r('renderer/src/components/widgets/WidgetFrame.tsx')).toContain(": 'Add to Focus'")
   })
   it('the full-pane widget view is "Full view", so "Focus" means one thing', () => {

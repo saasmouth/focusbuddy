@@ -1,6 +1,6 @@
 // E2E: the table widget's AI button must be reachable for BOTH columns and rows.
 //
-// The AI assistant used to be reachable only from the widget header's overflow
+// The AI Assistant used to be reachable only from the widget header's overflow
 // menu, while the table's own empty state told the user to "use the AI button
 // to generate some" — a button that existed nowhere in the table. These tests
 // pin a visible affordance in each of the two places a user is already working:
@@ -75,7 +75,7 @@ test('TAI-2 — either AI button opens the assistant, and it names columns and r
   await openDesk(window, widgetId)
 
   const widget = window.locator(`[data-widget-id="${widgetId}"]`)
-  const panel = widget.getByText(/AI assistant — columns and rows/i)
+  const panel = widget.getByText(/AI Assistant — columns and rows/i)
 
   // The rows button opens it.
   await expect(panel).toHaveCount(0)

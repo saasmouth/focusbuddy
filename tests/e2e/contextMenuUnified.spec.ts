@@ -79,7 +79,8 @@ test('CM-1 — unified menu opens on a note with the canonical sections', async 
   )
   console.log('[CM-1] menu text:', JSON.stringify(menuText))
   expect(menuText).toContain('AI Assist')
-  expect(menuText).toContain('Create')
+  // §9.3: Create & link lives under More actions (the eight-row ceiling, E-6).
+  expect(menuText).toContain('More actions')
   // Destructive present (Archive or Delete or a Remove parent).
   expect(/Archive|Delete|Remove/.test(menuText)).toBe(true)
 })

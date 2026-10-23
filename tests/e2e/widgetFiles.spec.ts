@@ -15,7 +15,7 @@ import {
 // represented in apps … Widgets should be able to be created without a desk,
 // same as docs, slides etc, but also dragged onto a desk. They should also get
 // the same treatment for naming … These widgets should appear in Files as well
-// as their own file type … interrogatable by any AI assistant."
+// as their own file type … interrogatable by any AI Assistant."
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {

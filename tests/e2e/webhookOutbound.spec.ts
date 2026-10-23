@@ -318,9 +318,10 @@ test('(a2) "Send to a URL" is offered from the side menu and the right-click cre
   // sticky's body off its text: a toolbar button, not the textarea (text gets
   // the text menu, SPEC §9.3, E-5; the body's edge is the frame's resize band).
   await window.locator('[data-fb-sticky-body] [data-testid="sticky-checklist"]').first().click({ button: 'right' })
-  // The unified right-click menu nests the create-and-connect list under a
-  // "Create" submenu (opens on hover), rather than a flat list.
-  await window.getByRole('menuitem', { name: 'Create' }).hover()
+  // The unified right-click menu nests the create-and-connect list under
+  // More actions › Create & link (opens on hover), rather than a flat list.
+  await window.locator('[data-canvas-ctx-menu]').first().getByRole('menuitem', { name: 'More actions' }).hover()
+  await window.getByRole('menuitem', { name: 'Create & link' }).hover()
   // In the menu: the side menu's own "Send to a URL" tile is on screen too.
   await expect(window.locator('[data-canvas-ctx-menu]').getByText('Send to a URL', { exact: true })).toBeVisible({ timeout: 3_000 })
 })

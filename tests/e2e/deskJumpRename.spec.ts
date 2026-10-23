@@ -5,7 +5,7 @@
 // user to the widget, also add a subtle hover effect to show its clickable".
 
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -27,6 +27,8 @@ async function openDeskWithWidgets(window: LaunchedApp['window']) {
     })
     return { taskId: d.id, a: a.id, b: b.id }
   })
+  // The bottom-right feature spotlight can cover the minimap, the list's door.
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.evaluate((id) => {
@@ -78,7 +80,10 @@ test('JR-1 — double-clicking a name edits it, and the new name sticks', async 
     .toBe('Renamed by double click')
 })
 
-test('JR-2 — right-clicking a name edits it instead of opening the canvas menu', async () => {
+// E-11: right-click on a row now opens the standard work widget menu with
+// Rename first (it used to start the rename with no menu at all). Rename from
+// that menu, by keyboard, is the same in-place edit.
+test('JR-2 — right-clicking a name opens the standard menu, Rename first, and Rename edits it', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -86,11 +91,19 @@ test('JR-2 — right-clicking a name edits it instead of opening the canvas menu
   await openJumpList(window)
 
   await window.locator(`[data-testid="desk-jump-${seeded.a}"]`).click({ button: 'right' })
+  const menu = window.locator('[data-canvas-ctx-menu]').first()
+  await expect(menu).toBeVisible()
+  const first = menu.locator(':scope > div > button[role="menuitem"] > span.flex-1').first()
+  await expect(first).toHaveText('Rename')
+  // The list stays open while its row's menu is (the menu is outside the minimap).
+  await expect(window.locator('[data-testid="desk-jump-list"]')).toBeVisible()
+  // Home: the menu may have opened under the pointer, which highlights a row.
+  await window.keyboard.press('Home')
+  await window.keyboard.press('Enter')
+  await expect(window.locator('[data-canvas-ctx-menu]')).toHaveCount(0)
 
   const input = window.locator(`[data-testid="desk-jump-edit-${seeded.a}"] input`)
   await expect(input).toBeVisible()
-  // The desk's own context menu must not have opened over it.
-  await expect(window.locator('[data-canvas-ctx-menu]')).toHaveCount(0)
 
   // Escape abandons the edit and keeps the old name.
   await input.fill('discarded')

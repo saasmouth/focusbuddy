@@ -7,7 +7,8 @@
 
 import { useWidgetStore } from '../../stores/widgets'
 import { buildContextForWidget } from '../../lib/contextMenu/buildContext'
-import { useFrameCallbacks } from '../../lib/contextMenu/frameContext'
+import { useFrameCallbacks, useFrameRows } from '../../lib/contextMenu/frameContext'
+import type { MenuContribution } from '../../lib/contextMenu/types'
 import UnifiedWidgetMenu from './UnifiedWidgetMenu'
 
 export interface UnifiedConnectedMenuProps {
@@ -23,11 +24,17 @@ export interface UnifiedConnectedMenuProps {
   // providers can offer cell/row/node actions for what was actually clicked.
   granularity?: string
   payload?: Record<string, unknown>
+  /**
+   * Rows this body adds for this one menu (the provider API, lib/contextMenu/
+   * types.ts): each names its §9.3 group and the resolver places and counts it.
+   */
+  contributions?: MenuContribution[]
 }
 
 export default function UnifiedConnectedMenu(props: UnifiedConnectedMenuProps): JSX.Element | null {
   const widget = useWidgetStore((s) => s.widgets.find((w) => w.id === props.sourceWidgetId))
   const frame = useFrameCallbacks()
+  const frameRows = useFrameRows()
   if (!widget) return null
   const menuContext = buildContextForWidget(
     widget,
@@ -36,7 +43,8 @@ export default function UnifiedConnectedMenu(props: UnifiedConnectedMenuProps): 
       selectionText: props.selectionContext?.selectionText,
       frame,
       granularity: props.granularity,
-      payload: props.payload
+      payload: props.payload,
+      contributions: [...(frameRows ?? []), ...(props.contributions ?? [])]
     }
   )
   return <UnifiedWidgetMenu menuContext={menuContext} onClose={props.onClose} />

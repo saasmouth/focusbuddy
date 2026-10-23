@@ -5,8 +5,8 @@ import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 // handlers (not the IPC layer), so it catches breakage between the store/UI
 // wiring and the DB propagation that syncedWidgets.spec.ts (IPC-level) cannot.
 //
-//   • "Duplicate (keep synced)"      → both copies share a syncGroupId; edits mirror.
-//   • "Duplicate (independent copy)" → no syncGroupId; the two never affect each other.
+//   • "Duplicate, keep synced"       → both copies share a syncGroupId; edits mirror.
+//   • "Duplicate"                    → no syncGroupId; the two never affect each other.
 //   • The synced copy exposes "Unlink from synced copies"; the independent one does not.
 
 let launched: LaunchedApp | null = null
@@ -75,14 +75,19 @@ async function openAdvanced(l: LaunchedApp, widgetId: string): Promise<void> {
   await window.locator(`[data-widget-id="${widgetId}"] .widget-handle`).click({ button: 'right' })
   const root = window.locator('[data-canvas-ctx-menu]').first()
   await expect(root).toBeVisible({ timeout: 4_000 })
-  await root.getByRole('menuitem', { name: 'Advanced' }).hover()
+  // §9.3: the synced duplicate and Unlink live under More actions; Duplicate
+  // (the independent copy) is a top-level clipboard row.
+  await root.getByRole('menuitem', { name: 'More actions' }).hover()
   await expect(window.locator('[data-canvas-ctx-menu]').nth(1)).toBeVisible({ timeout: 3_000 })
 }
 
 async function clickInMenus(l: LaunchedApp, label: string): Promise<boolean> {
   return l.window.evaluate((lbl: string) => {
     for (const menu of Array.from(document.querySelectorAll('[data-canvas-ctx-menu]'))) {
-      const btn = Array.from(menu.querySelectorAll('button')).find((b) => (b.textContent ?? '').includes(lbl))
+      // The row's own label, exactly: "Duplicate" must not match "Duplicate, keep synced".
+      const btn = Array.from(menu.querySelectorAll('button')).find(
+        (b) => (b.querySelector('span.flex-1')?.firstChild?.textContent ?? '').trim() === lbl
+      )
       if (btn) {
         ;(btn as HTMLButtonElement).click()
         return true
@@ -111,7 +116,7 @@ test('Duplicate (keep synced) links both copies with a shared syncGroupId', asyn
   launched = await launchApp()
   const { taskId, widgetId } = await seedStickyAndOpen(launched)
 
-  const found = await duplicateVia(launched, widgetId, 'Duplicate (keep synced)')
+  const found = await duplicateVia(launched, widgetId, 'Duplicate, keep synced')
   expect(found).toBe(true)
 
   const widgets = await widgetsOf(launched, taskId)
@@ -126,7 +131,7 @@ test('synced duplicate mirrors a content edit to its linked copy', async () => {
   launched = await launchApp()
   const { taskId, widgetId } = await seedStickyAndOpen(launched)
 
-  expect(await duplicateVia(launched, widgetId, 'Duplicate (keep synced)')).toBe(true)
+  expect(await duplicateVia(launched, widgetId, 'Duplicate, keep synced')).toBe(true)
 
   // Edit the ORIGINAL's content via the store path (window.api) and confirm the
   // linked copy receives it through the DB fan-out.
@@ -146,7 +151,7 @@ test('Duplicate (independent copy) does NOT link — edits never cross over', as
   launched = await launchApp()
   const { taskId, widgetId } = await seedStickyAndOpen(launched)
 
-  const found = await duplicateVia(launched, widgetId, 'Duplicate (independent copy)')
+  const found = await duplicateVia(launched, widgetId, 'Duplicate')
   expect(found).toBe(true)
 
   let widgets = await widgetsOf(launched, taskId)
@@ -177,7 +182,7 @@ test('synced copy exposes "Unlink from synced copies"; independent copy does not
   const { widgetId } = await seedStickyAndOpen(launched)
 
   // After a SYNCED duplicate, the original is in a group → Unlink is offered.
-  expect(await duplicateVia(launched, widgetId, 'Duplicate (keep synced)')).toBe(true)
+  expect(await duplicateVia(launched, widgetId, 'Duplicate, keep synced')).toBe(true)
   await window.keyboard.press('Escape')
   await openAdvanced(launched, widgetId)
   const hasUnlinkWhenSynced = await window.evaluate(() =>

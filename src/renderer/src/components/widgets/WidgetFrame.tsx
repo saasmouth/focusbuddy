@@ -27,8 +27,9 @@ import { getNavPrefs } from '../../lib/navPrefs'
 import { useContextHealthStore } from '../../stores/contextHealth'
 import { healthFrameStyle } from '../../lib/healthFrame'
 import { buildContextForWidget, buildContextForMulti } from '../../lib/contextMenu/buildContext'
-import type { FrameCallbacks } from '../../lib/contextMenu/types'
-import { FrameCallbacksProvider } from '../../lib/contextMenu/frameContext'
+import type { FrameCallbacks, MenuContribution } from '../../lib/contextMenu/types'
+import { FrameCallbacksProvider, FrameRowsProvider } from '../../lib/contextMenu/frameContext'
+import { bodyMenuTarget } from '../../lib/contextMenu/bodyTarget'
 import MakeTaskDialog from '../MakeTaskDialog'
 import ShareDialog from '../ShareDialog'
 import { removeWorkWidget } from '../../lib/widgetRemoval'
@@ -97,6 +98,12 @@ interface Props {
   // generic items so kind-specific actions are immediately discoverable.
   headerMenuExtras?: CtxMenuItem[]
   /**
+   * Rows this widget adds to its menu (header AND body), each in its §9.3
+   * group: the provider API in lib/contextMenu/types.ts. Preferred over
+   * headerMenuExtras for anything new.
+   */
+  menuContributions?: MenuContribution[]
+  /**
    * The widget's OWN AI surface, when it has one — the table's column/row
    * assistant, for instance.
    *
@@ -140,6 +147,7 @@ export default function WidgetFrame({
   draggableHandleClass = 'widget-handle',
   zonePosition: zonePositionProp,
   headerMenuExtras,
+  menuContributions,
   onAi,
   snippets
 }: Props): JSX.Element {
@@ -680,7 +688,8 @@ export default function WidgetFrame({
     onShare: () => setShareOpen(true),
     onDuplicateSynced: () => duplicateWidgetCopy(true),
     onDuplicateIndependent: () => duplicateWidgetCopy(false),
-    onDuplicateToFolder: !isChildOfSection && !isSection ? () => setMakeTaskOpen(true) : undefined,
+    // E-7: "Duplicate into another Room / Desk…" opened this same dialog; the
+    // one route left is onMakeTask ("Make this a desk…").
     onEjectFromSection: isChildOfSection && parent ? ejectFromSectionFrame : undefined,
     onUnlinkSynced: widget.syncGroupId && !isWidgetFilePaneId(widget.id)
       ? () => void unlinkFromSyncedCopies()
@@ -702,7 +711,12 @@ export default function WidgetFrame({
     onSaveAsSnippet: () => setSnippetDraft(widgetBodyFromWidget(widget)),
     // Insert a saved snippet INTO this widget, converted to what it holds.
     onInsertSnippet: snippets ? () => setSnippetLibraryOpen(true) : undefined,
-    onPaste: snippets?.onPaste
+    onPaste: snippets?.onPaste,
+    // The header title edits in place; the menu's Rename starts the same edit.
+    onRename: beginRename,
+    // Inside a document embed the host owns removal (lib/widgetSurface): no
+    // Archive, Remove or Move to Trash from here either.
+    removal: removable ? 'full' : 'none'
   }
 
   function commitDrop(newX: number, newY: number): void {
@@ -1633,8 +1647,21 @@ export default function WidgetFrame({
           // content stays reachable whenever the frame cannot grow to fit it.
           // A widget whose root fills the frame never shows a bar.
           className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+          // A right-click on the body opens the same menu as the header, unless
+          // the body drew its own, the click is in web content, or it is on an
+          // editable field or selected text (lib/contextMenu/bodyTarget.ts has
+          // the one precedence rule). Before this, 30+ kinds were silent here.
+          onContextMenu={(e) => {
+            if (bodyMenuTarget(e, bodyRef.current) !== 'widget') return
+            e.preventDefault()
+            e.stopPropagation()
+            setHeaderCtxMenu({ x: e.clientX, y: e.clientY })
+          }}
+          data-widget-body
         >
-          <FrameCallbacksProvider value={frameCallbacks}>{children}</FrameCallbacksProvider>
+          <FrameCallbacksProvider value={frameCallbacks}>
+            <FrameRowsProvider value={menuContributions}>{children}</FrameRowsProvider>
+          </FrameCallbacksProvider>
           <WidgetSetupAffordance widget={widget} />
         </div>
       </div>
@@ -1656,7 +1683,7 @@ export default function WidgetFrame({
             return buildContextForWidget(
               widget,
               { clientX: headerCtxMenu.x, clientY: headerCtxMenu.y },
-              { frame: frameCallbacks, headerExtras: headerMenuExtras }
+              { frame: frameCallbacks, headerExtras: headerMenuExtras, contributions: menuContributions }
             )
           })()}
           onClose={() => setHeaderCtxMenu(null)}

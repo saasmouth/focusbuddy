@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, clickWidgetMenuRow } from './_helpers'
 
 // Decision Risk (spec §37 / PLX-UX-025) — the previously-dormant red widget
 // frame. A human flags a widget as a Decision (context menu "Flag as a
@@ -119,11 +119,10 @@ test('DECISION-RISK — flag via real context menu activates the red path; non-f
   )
   expect(beforeFlag).toEqual([])
 
-  // ── Step 1: flag via the REAL right-click menu (Organise > Flag as a decision) ──
+  // ── Step 1: flag via the REAL right-click menu (More actions > Flag as a decision) ──
   await window.click(`[data-widget-id="${ids.target}"]`, { button: 'right', position: { x: 110, y: 8 } })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
-  await window.getByRole('menuitem', { name: 'Organise' }).click()
-  await window.getByRole('menuitem', { name: 'Flag as a decision' }).click()
+  await clickWidgetMenuRow(window, 'Flag as a decision')
 
   // Undoable-action toast confirms the flag went through the real UI action.
   const toast = window.locator('[data-testid="undo-toast"]')
@@ -290,8 +289,7 @@ test('DECISION-RISK — undo cancels the Decision and the widget falls back off 
   // Flag via the real menu again (independent proof, not reusing the API path).
   await window.click(`[data-widget-id="${ids.target}"]`, { button: 'right', position: { x: 110, y: 8 } })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
-  await window.getByRole('menuitem', { name: 'Organise' }).click()
-  await window.getByRole('menuitem', { name: 'Flag as a decision' }).click()
+  await clickWidgetMenuRow(window, 'Flag as a decision')
 
   const toast = window.locator('[data-testid="undo-toast"]')
   await expect(toast).toBeVisible({ timeout: 4_000 })

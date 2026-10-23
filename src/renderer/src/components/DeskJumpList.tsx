@@ -3,6 +3,9 @@ import type { Widget } from '@shared/types'
 import { useWidgetStore } from '../stores/widgets'
 import Icon from './Icon'
 import PlexiiIcon from './PlexiiIcon'
+import UnifiedWidgetMenu from './contextMenu/UnifiedWidgetMenu'
+import { jumpListRowContext } from '../lib/contextMenu/buildContext'
+import type { MenuContext } from '../lib/contextMenu/types'
 
 // Every item on the desk, newest-touched first, each one a camera shortcut.
 //
@@ -102,11 +105,13 @@ export default function DeskJumpList({
   /** Centre the camera on this widget. Pinned widgets report false. */
   onJump: (w: Widget) => void
   /**
-   * Raised while a name is being edited.
+   * Raised while a name is being edited, or a row's right-click menu is open.
    *
    * The list is held open by hovering the minimap, so without this the pointer
    * drifting off it mid-rename would unmount the input and lose what was
-   * typed. The FAB suppresses its close timer while this is true.
+   * typed, and moving onto the menu (portalled to the body, outside the
+   * minimap) would close the list and the menu with it. The FAB suppresses its
+   * close timer while this is true.
    */
   onEditingChange?: (editing: boolean) => void
 }): JSX.Element | null {
@@ -115,10 +120,12 @@ export default function DeskJumpList({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const [menu, setMenu] = useState<MenuContext | null>(null)
+  const held = editingId !== null || menu !== null
 
   useEffect(() => {
-    onEditingChange?.(editingId !== null)
-  }, [editingId, onEditingChange])
+    onEditingChange?.(held)
+  }, [held, onEditingChange])
 
   useEffect(() => {
     if (editingId !== null) inputRef.current?.select()
@@ -194,13 +201,20 @@ export default function DeskJumpList({
               beginRename(w)
             }}
             onContextMenu={(e) => {
-              // Right-click renames rather than opening the canvas menu.
+              // E-11: the standard work widget menu, Rename first (right-click
+              // used to start the rename with no menu at all), then Show on
+              // the canvas, which is what a click on the row does.
               e.preventDefault()
               e.stopPropagation()
-              beginRename(w)
+              setMenu(
+                jumpListRowContext(w, { clientX: e.clientX, clientY: e.clientY }, {
+                  onRename: () => beginRename(w),
+                  onJump: () => onJump(w)
+                })
+              )
             }}
             data-testid={`desk-jump-${w.id}`}
-            title={`${w.title || kindLabel(w.kind)} — ${w.pinned ? 'pinned to the screen' : 'click to centre the camera here'}; double-click or right-click to rename`}
+            title={`${w.title || kindLabel(w.kind)} — ${w.pinned ? 'pinned to the screen' : 'click to centre the camera here'}; double-click to rename`}
             className="group w-full flex items-center gap-1.5 px-1.5 py-1 rounded-[var(--radius-chip)] text-left text-[11.5px] text-[var(--ink-80)] cursor-pointer transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)]"
           >
             {/* The work widget kind's own icon from the owner's set. */}
@@ -229,6 +243,7 @@ export default function DeskJumpList({
           </button>
         )
       )}
+      {menu && <UnifiedWidgetMenu menuContext={menu} onClose={() => setMenu(null)} />}
     </div>
   )
 }

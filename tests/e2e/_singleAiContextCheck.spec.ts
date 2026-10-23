@@ -88,7 +88,7 @@ async function readAssistantPanel(
   return { subtitle: subtitle.trim(), firstSuggestion: firstSuggestion?.trim() ?? null }
 }
 
-test('single AI assistant + context-aware subtitle/suggestions + overlap fixes (UI-driven)', async () => {
+test('single AI Assistant + context-aware subtitle/suggestions + overlap fixes (UI-driven)', async () => {
   test.setTimeout(150_000)
   launched = await launchApp()
   const { window } = launched
@@ -118,7 +118,7 @@ test('single AI assistant + context-aware subtitle/suggestions + overlap fixes (
     await window.waitForTimeout(300)
   }
 
-  // ── CHECK 1 — exactly one AI assistant panel on the desk ──────────────────
+  // ── CHECK 1 — exactly one AI Assistant panel on the desk ──────────────────
   const nextBestActions = window.getByText(/NEXT BEST ACTIONS/i)
   const nextBestActionsCount = await nextBestActions.count()
   console.log('"NEXT BEST ACTIONS" element count (should be 0):', nextBestActionsCount)

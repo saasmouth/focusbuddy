@@ -920,3 +920,52 @@ async function hoverWidgetHeader(window: Page, widgetId: string): Promise<Locato
   else await header.hover({ position: { x: 12, y: 12 } })
   return header
 }
+
+// ── Work widget menus on the §9.3 contract (WP1a, appended) ────────────────
+
+/**
+ * Click a row of the OPEN work widget menu by its exact label. The resolver
+ * keeps eight rows at the top and folds the rest into "More actions"
+ * (lib/contextMenu/resolve.ts), and which rows fold depends on the widget, so
+ * a spec names the row and this finds it: at the top level first, otherwise
+ * under More actions. `path` opens submenus on the way ("Create & link").
+ */
+export async function clickWidgetMenuRow(window: Page, label: string, path: string[] = []): Promise<void> {
+  const root = window.locator('[data-canvas-ctx-menu]').first()
+  await expect(root).toBeVisible({ timeout: 4_000 })
+  const rowIn = (menu: Locator, l: string): Locator =>
+    menu.locator(':scope > div > button[role^="menuitem"]').filter({ has: window.locator(`span.flex-1:text-is("${l}")`) })
+  const first = path[0] ?? label
+  let level = 0
+  if ((await rowIn(root, first).count()) === 0) {
+    await rowIn(root, 'More actions').hover()
+    level = 1
+    await expect(window.locator('[data-canvas-ctx-menu]').nth(level)).toBeVisible({ timeout: 3_000 })
+  }
+  for (const step of path) {
+    await rowIn(window.locator('[data-canvas-ctx-menu]').nth(level), step).hover()
+    level += 1
+    await expect(window.locator('[data-canvas-ctx-menu]').nth(level)).toBeVisible({ timeout: 3_000 })
+  }
+  await rowIn(window.locator('[data-canvas-ctx-menu]').nth(level), label).click()
+}
+
+/** The open menu as rendered: groups of row labels split at separators, plus which rows are danger. */
+export async function renderedMenuGroups(window: Page, nth = 0): Promise<{ groups: string[][]; danger: string[] }> {
+  return window.locator('[data-canvas-ctx-menu]').nth(nth).evaluate((menu) => {
+    const groups: string[][] = [[]]
+    const danger: string[] = []
+    for (const el of Array.from(menu.children)) {
+      if (el.getAttribute('role') === 'separator') {
+        groups.push([])
+        continue
+      }
+      const b = el.querySelector('button')
+      if (!b) continue
+      const label = (b.querySelector('span.flex-1')?.firstChild?.textContent ?? '').trim()
+      groups[groups.length - 1]!.push(label)
+      if (b.className.includes('text-red-600')) danger.push(label)
+    }
+    return { groups: groups.filter((g) => g.length), danger }
+  })
+}

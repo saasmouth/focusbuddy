@@ -5,8 +5,10 @@
 import './providers'
 
 export { resolveMenu } from './resolve'
-export { MenuSection } from './types'
-export type { MenuContext, MenuContribution, ObjectKind, MenuSelection } from './types'
+export { MenuSection, MENU_GROUP_ORDER } from './types'
+export type { MenuContext, MenuContribution, MenuGroup, ObjectKind, MenuSelection, FrameCallbacks } from './types'
+export { MENU_ROW_CEILING } from './resolve'
+export { bodyMenuTarget } from './bodyTarget'
 export {
   registerWidgetContextActions,
   registerPluginContextActions,

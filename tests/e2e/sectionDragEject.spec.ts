@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow } from './_helpers'
 
 // Feature 3 — Drag items out of a section (alternative eject gesture):
 //
@@ -111,8 +111,7 @@ test('right-click "Move out of section" ejects a grid child to the canvas', asyn
   // "Move out of section" lives in the unified Organise submenu. Open it, then
   // click the eject item (getByText throws if the item is absent, which is the
   // assertion that the contextual action is present for a section child).
-  await window.locator('[data-canvas-ctx-menu]').getByText('Organise', { exact: true }).hover()
-  await window.getByText('Move out of section', { exact: true }).click()
+  await clickWidgetMenuRow(window, 'Move out of section')
   await window.waitForTimeout(400)
 
   // Verify the child no longer has a parentSectionId
@@ -469,8 +468,7 @@ test('free layout: right-click "Move out of section" ejects child to canvas', as
   await window.waitForTimeout(300)
 
   // Eject now lives in the unified Organise submenu — open it, then click.
-  await window.locator('[data-canvas-ctx-menu]').getByText('Organise', { exact: true }).hover()
-  await window.getByText('Move out of section', { exact: true }).click()
+  await clickWidgetMenuRow(window, 'Move out of section')
   await window.waitForTimeout(400)
 
   const result = await window.evaluate(

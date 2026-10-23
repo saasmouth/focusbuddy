@@ -5,9 +5,11 @@ import {
   registerWidgetContextActions,
   clearWidgetContextActions
 } from '../../src/renderer/src/lib/contextMenu/registry'
-import { MenuSection } from '../../src/renderer/src/lib/contextMenu/types'
 import type { MenuContext } from '../../src/renderer/src/lib/contextMenu/types'
 import type { CtxMenuItem } from '../../src/renderer/src/components/CanvasContextMenu'
+import { MENU_ROW_CEILING } from '../../src/renderer/src/lib/contextMenu/resolve'
+import { AI_ACTION_SET } from '../../src/renderer/src/lib/contextMenu/aiAssist'
+import { AI_DIRECT_ACTIONS, AI_READ_ACTIONS } from '../../src/shared/aiTextActions'
 // 4.3.32 lexicon standard: user-facing text says “work widget”. The string pins in
 // this file that read “widget” were rewritten to the new wording (owner ruling).
 
@@ -54,8 +56,11 @@ function widgetCtx(w: Widget, selectionText?: string): MenuContext {
   }
 }
 
-// Top-level rows that actually take a slot (separators do not count toward the
-// eight-item ceiling).
+// Rows above the destructive group: what the eight-row ceiling counts (E-6).
+// Separators do not count; More actions does.
+function ceilingRows(items: CtxMenuItem[]): CtxMenuItem[] {
+  return items.filter((i) => !i.separator && !i.danger)
+}
 function topLevel(items: CtxMenuItem[]): CtxMenuItem[] {
   return items.filter((i) => !i.separator)
 }
@@ -72,172 +77,244 @@ function labels(items: CtxMenuItem[]): string[] {
   return topLevel(items).map((i) => i.label ?? '')
 }
 
-describe('resolveMenu — deterministic eight-item ceiling and ordering', () => {
+function allLabels(items: CtxMenuItem[]): string[] {
+  const out: string[] = []
+  for (const it of items) {
+    if (it.label) out.push(it.label)
+    if (it.children) out.push(...allLabels(it.children))
+  }
+  return out
+}
+
+const find = (items: CtxMenuItem[], label: string): CtxMenuItem | undefined => {
+  for (const it of items) {
+    if (it.label === label) return it
+    const k = it.children && find(it.children, label)
+    if (k) return k
+  }
+  return undefined
+}
+
+function frameCtx(w: Widget, frame: Partial<NonNullable<MenuContext['frame']>> = {}): MenuContext {
+  return {
+    object: { type: 'widget', widget: w },
+    taskId: 't-1',
+    canvasPoint: { x: 0, y: 0 },
+    clientPoint: { x: 10, y: 10 },
+    frame: {
+      onMakeTask: () => {},
+      onShare: () => {},
+      onDuplicateSynced: () => {},
+      onDuplicateIndependent: () => {},
+      ...frame
+    }
+  }
+}
+
+describe('resolveMenu — the eight-row ceiling (E-6) counts Paste and kind rows', () => {
   beforeEach(() => clearWidgetContextActions())
 
-  it('never exceeds eight top-level slots, even on a rich text widget with a selection', () => {
-    // Give the widget two context rows so the Context band fills both of its
-    // inlined slots, the worst case for the ceiling.
+  // F-9: Paste and header extras used to be spliced in outside the slot
+  // arithmetic (9 rows on a sticky, 10 on a table header, 15+ on a custom).
+  it('never exceeds the ceiling with Paste, snippets, three provider rows and nine header extras', () => {
     registerWidgetContextActions('sticky', () => ({
       context: [
-        { id: 'a', section: MenuSection.Context, priority: 0, label: 'Action A' },
-        { id: 'b', section: MenuSection.Context, priority: 1, label: 'Action B' }
+        { id: 'a', group: 'object', priority: 0, label: 'Action a' },
+        { id: 'b', group: 'object', priority: 1, label: 'Action b' },
+        { id: 'c', group: 'object', priority: 2, label: 'Action c' }
       ]
     }))
-    const items = resolveMenu(widgetCtx(widget('sticky', 'hello world'), 'hello'))
-    expect(topLevel(items).length).toBeLessThanOrEqual(8)
-    // Every canonical band that applies is represented.
-    const ls = labels(items)
-    expect(ls).toContain('AI Assist')
-    expect(ls).toContain('Create & link')
+    const ctx = frameCtx(widget('sticky', 'hello world'), {
+      onPaste: () => {},
+      onInsertSnippet: () => {},
+      onSaveAsSnippet: () => {},
+      onRename: () => {},
+      onSaveAsFile: () => {}
+    })
+    ctx.headerExtras = Array.from({ length: 9 }, (_, i) => ({ label: `Extra ${i}`, onClick: () => {} }))
+    ctx.selection = { text: 'hello', sourceWidgetId: 'w-sticky', sourceKind: 'sticky' }
+    const items = resolveMenu(ctx)
+    expect(MENU_ROW_CEILING).toBe(8)
+    expect(ceilingRows(items).length).toBeLessThanOrEqual(8)
+    // Nothing was lost: every extra and provider row is reachable under More actions.
+    const all = allLabels(items)
+    for (let i = 0; i < 9; i++) expect(all).toContain(`Extra ${i}`)
+    expect(all).toEqual(expect.arrayContaining(['Action a', 'Action b', 'Action c', 'Paste', 'Insert snippet…']))
+    // Paste is never the row that folds.
+    expect(labels(items)).toContain('Paste')
   })
 
-  // DEC-144 rewrite: this pinned "Action A" first with B and C under More. That
-  // held only while the Attention row was flag-gated off in tests. Focus is now
-  // always offered and takes the first slot, so the band's budget drops to one
-  // slot and all three rows fold under More actions.
-  it('folds context rows into the band budget (one slot beside the Attention row)', () => {
+  it('folds the overflow into More actions and keeps Add to Focus… first', () => {
     registerWidgetContextActions('sticky', () => ({
       context: [
-        { id: 'a', section: MenuSection.Context, priority: 0, label: 'Action A' },
-        { id: 'b', section: MenuSection.Context, priority: 1, label: 'Action B' },
-        { id: 'c', section: MenuSection.Context, priority: 2, label: 'Action C' }
+        { id: 'a', group: 'object', priority: 0, label: 'Action a' },
+        { id: 'b', group: 'object', priority: 1, label: 'Action b' },
+        { id: 'c', group: 'object', priority: 2, label: 'Action c' }
       ]
     }))
-    const items = resolveMenu(widgetCtx(widget('sticky', 'x')))
+    const items = resolveMenu(frameCtx(widget('sticky', 'x'), { onSaveAsSnippet: () => {}, onPaste: () => {} }))
     const ls = labels(items)
-    expect(ls[0]).toMatch(/^Add to /)
-    expect(ls[1]).toBe('More actions')
-    expect(ls).not.toContain('Action A')
+    expect(ls[0]).toBe('Add to Focus…')
+    // The first kind row keeps its place; the later ones fold.
+    expect(ls[1]).toBe('Action a')
     const more = topLevel(items).find((i) => i.label === 'More actions')
-    expect(more?.children?.map((c) => c.label)).toEqual(['Action A', 'Action B', 'Action C'])
+    expect(more?.children?.map((c) => c.label)).toEqual(expect.arrayContaining(['Action b', 'Action c']))
   })
+})
 
-  it('keeps the canonical order, with Destructive always last', () => {
-    const items = resolveMenu(widgetCtx(widget('note', 'some text')))
+describe('resolveMenu — §9.3 group order', () => {
+  beforeEach(() => clearWidgetContextActions())
+
+  it('object, clipboard, arrange, Plexii, More actions, then destructive behind its own separator', () => {
+    const items = resolveMenu(frameCtx(widget('timer', ''), { onSaveAsSnippet: () => {}, onRename: () => {} }))
     const ls = labels(items)
-    const aiIdx = ls.indexOf('AI Assist')
-    const createIdx = ls.indexOf('Create & link')
-    expect(aiIdx).toBeGreaterThanOrEqual(0)
-    expect(createIdx).toBeGreaterThan(aiIdx)
-    // The very last non-separator row is a destructive one.
-    const last = topLevel(items).at(-1)
-    expect(['Archive', 'Delete', 'Remove']).toContain(last?.label)
+    const at = (l: string): number => ls.indexOf(l)
+    expect(at('Add to Focus…')).toBe(0)
+    expect(at('Duplicate')).toBeGreaterThan(at('Share…'))
+    expect(at('Bring to front')).toBeGreaterThan(at('Duplicate'))
+    expect(at('Save selection as snippet…')).toBeGreaterThan(at('Bring to front'))
+    expect(at('More actions')).toBeGreaterThan(at('Save selection as snippet…'))
+    const firstDanger = items.findIndex((i) => i.danger)
+    expect(items[firstDanger - 1]?.separator).toBe(true)
+    expect(items.slice(firstDanger).every((i) => i.danger)).toBe(true)
   })
 
-  it('respects the depth rules: AI Assist reaches three levels, the rest stay within two', () => {
+  it('AI Assist reaches three levels at the top; More actions › Create & link stays within three', () => {
     const items = resolveMenu(widgetCtx(widget('note', 'some text')))
     const ai = topLevel(items).find((i) => i.label === 'AI Assist')
-    // AI Assist (1) -> Change Tone (2) -> Professional (3)
     expect(maxDepth([ai as CtxMenuItem])).toBe(3)
-    // Create / Convert merged slot stays within two levels.
-    const create = topLevel(items).find((i) => i.label === 'Create & link')
-    expect(maxDepth([create as CtxMenuItem])).toBe(2)
+    const more = topLevel(items).find((i) => i.label === 'More actions')
+    expect(maxDepth([more as CtxMenuItem])).toBe(3)
   })
 })
 
-describe('resolveMenu — Create and Convert merge into one slot', () => {
+describe('resolveMenu — Create & link carries the Copy into rows', () => {
   beforeEach(() => clearWidgetContextActions())
 
-  it('puts both the create offerings and a Copy-into group under a single slot', () => {
+  it('puts the create offerings and the copy targets under one Create & link', () => {
     const items = resolveMenu(widgetCtx(widget('note', 'convert me')))
-    const ls = labels(items)
-    expect(ls.filter((l) => l === 'Create & link')).toHaveLength(1)
-    expect(ls).not.toContain('Convert')
-    expect(ls).not.toContain('Create') // the bare, wire-hiding label is gone
-    const create = topLevel(items).find((i) => i.label === 'Create & link')
+    expect(allLabels(items).filter((l) => l === 'Create & link')).toHaveLength(1)
+    const create = find(items, 'Create & link')
     const childLabels = create?.children?.map((c) => c.label) ?? []
-    expect(childLabels).toContain('Copy into')
+    expect(childLabels).toContain('Copy into sticky')
+    // A disabled "Copy into" heading is gone: it was a dead row without a reason.
+    expect(childLabels).not.toContain('Copy into')
   })
 })
 
-describe('resolveMenu — AI Assist gating', () => {
+describe('resolveMenu — AI Assist (E-12)', () => {
   beforeEach(() => clearWidgetContextActions())
+
+  it('offers the one set of eight from @shared/aiTextActions, in sentence case', () => {
+    expect(AI_ACTION_SET).toEqual([...AI_DIRECT_ACTIONS, ...AI_READ_ACTIONS])
+    expect(AI_ACTION_SET).toHaveLength(8)
+    const items = resolveMenu(widgetCtx(widget('note', 'some text')))
+    const ai = topLevel(items).find((i) => i.label === 'AI Assist')
+    const rows = (ai?.children ?? []).filter((c) => !c.separator && !c.children).map((c) => c.label)
+    expect(rows.slice(0, 8)).toEqual([
+      'Expand', 'Simplify', 'Summarise', 'Rewrite', 'Fix grammar', 'Improve clarity', 'Continue writing', 'Explain'
+    ])
+    expect(allLabels([ai as CtxMenuItem]).some((l) => l.includes('...'))).toBe(false)
+  })
 
   it('omits AI Assist when there is no workable text', () => {
-    // A timer has no text content and no selection.
     const items = resolveMenu(widgetCtx(widget('timer', '')))
-    expect(labels(items)).not.toContain('AI Assist')
+    expect(allLabels(items)).not.toContain('AI Assist')
   })
 
   it('lets a widget suppress AI Assist via the provider', () => {
-    registerWidgetContextActions('living-doc', () => ({
-      context: [],
-      suppress: { 'ai-assist': true }
-    }))
+    registerWidgetContextActions('living-doc', () => ({ context: [], suppress: { 'ai-assist': true } }))
     const items = resolveMenu(widgetCtx(widget('living-doc', 'living body text')))
-    expect(labels(items)).not.toContain('AI Assist')
+    expect(allLabels(items)).not.toContain('AI Assist')
   })
 })
 
-describe('resolveMenu — frame actions (unified header menu)', () => {
-  function allLabels(items: CtxMenuItem[]): string[] {
-    const out: string[] = []
-    for (const it of items) {
-      if (it.label) out.push(it.label)
-      if (it.children) out.push(...allLabels(it.children))
-    }
-    return out
-  }
+describe('resolveMenu — frame actions', () => {
+  beforeEach(() => clearWidgetContextActions())
 
-  function frameCtx(w: Widget, frame: Partial<MenuContext['frame']>): MenuContext {
-    return {
-      object: { type: 'widget', widget: w },
-      taskId: 't-1',
-      canvasPoint: { x: 0, y: 0 },
-      clientPoint: { x: 10, y: 10 },
-      frame: {
-        onMakeTask: () => {},
-        onShare: () => {},
-        onDuplicateSynced: () => {},
-        onDuplicateIndependent: () => {},
-        ...frame
-      } as MenuContext['frame']
-    }
-  }
-
-  it('surfaces make-task, share, and synced/independent duplicate when frame callbacks are present', () => {
-    const items = resolveMenu(frameCtx(widget('timer', ''), {}))
-    const labels = allLabels(items)
-    expect(labels).toContain('Make this a Desk...')
-    expect(labels).toContain('Share...')
-    expect(labels).toContain('Duplicate (keep synced)')
-    expect(labels).toContain('Duplicate (independent copy)')
-    // Destructive still last and present (Archive/Delete folded under Remove).
-    expect(['Archive', 'Delete', 'Remove']).toContain(topLevel(items).at(-1)?.label)
-    // Ceiling still holds with the frame actions.
-    expect(topLevel(items).length).toBeLessThanOrEqual(8)
+  it('surfaces Make this a desk…, Share…, Duplicate and Duplicate, keep synced; E-7 drops the duplicate route', () => {
+    const items = resolveMenu(frameCtx(widget('timer', '')))
+    const ls = allLabels(items)
+    expect(ls).toContain('Make this a desk…')
+    expect(ls).toContain('Share…')
+    expect(ls).toContain('Duplicate')
+    expect(ls).toContain('Duplicate, keep synced')
+    expect(ls.some((l) => /another Room/i.test(l))).toBe(false)
+    expect(ceilingRows(items).length).toBeLessThanOrEqual(8)
   })
 
   it('only shows eject and unlink when the widget is in a section or synced', () => {
-    const plain = allLabels(resolveMenu(frameCtx(widget('note', 'x'), {})))
+    const plain = allLabels(resolveMenu(frameCtx(widget('note', 'x'))))
     expect(plain).not.toContain('Move out of section')
     expect(plain).not.toContain('Unlink from synced copies')
-
-    // In real usage WidgetFrame provides onEjectFromSection only when the widget
-    // is in a section (parentSectionId set), and onUnlinkSynced only when it has
-    // a syncGroupId, so the test mirrors that.
     const sectioned: Widget = { ...widget('note', 'x'), parentSectionId: 'sec-1', syncGroupId: 'g-1' }
-    const rich = allLabels(
-      resolveMenu(frameCtx(sectioned, { onEjectFromSection: () => {}, onUnlinkSynced: () => {} }))
-    )
+    const rich = allLabels(resolveMenu(frameCtx(sectioned, { onEjectFromSection: () => {}, onUnlinkSynced: () => {} })))
     expect(rich).toContain('Move out of section')
     expect(rich).toContain('Unlink from synced copies')
   })
 
-  // DEC-144 rewrite: header extras used to be index 0; the always-on Attention
-  // row now sits above them (CR-09 D-A: first on every object menu).
-  it('prepends header extras into the context band', () => {
-    const ctx = frameCtx(widget('webview', ''), {})
-    ctx.headerExtras = [{ label: 'Pin to Apps', icon: 'push_pin', onClick: () => {} }]
+  it('puts header extras in the object group, right after Add to Focus…', () => {
+    const ctx = frameCtx(widget('webview', ''))
+    ctx.headerExtras = [{ label: 'Pin to Apps', icon: 'push_pin', onClick: () => {} }, { separator: true }]
     const items = resolveMenu(ctx)
-    expect(topLevel(items)[0]?.label).toMatch(/^Add to /)
+    expect(topLevel(items)[0]?.label).toBe('Add to Focus…')
     expect(topLevel(items)[1]?.label).toBe('Pin to Apps')
+    // The extras' own separator is dropped: groups draw their own.
+    expect(items[1]?.separator).not.toBe(true)
+  })
+})
+
+describe('resolveMenu — a body\'s own More actions merges into the resolver\'s', () => {
+  beforeEach(() => clearWidgetContextActions())
+  it('shows one More actions holding both the body\'s rows and the folded ones', () => {
+    const ctx = frameCtx(widget('custom', ''), { onSaveAsSnippet: () => {}, onRename: () => {} })
+    ctx.headerExtras = [
+      { label: 'Change what it does…', onClick: () => {} },
+      { label: 'More actions', children: [{ label: 'View source', onClick: () => {} }, { label: 'Start over', onClick: () => {} }] }
+    ]
+    const items = resolveMenu(ctx)
+    expect(labels(items).filter((l) => l === 'More actions')).toHaveLength(1)
+    const more = topLevel(items).find((i) => i.label === 'More actions')!
+    expect(allLabels(more.children ?? [])).toEqual(expect.arrayContaining(['View source', 'Start over', 'Make this a desk…']))
+  })
+})
+
+describe('resolveMenu — removal rows (E-2)', () => {
+  beforeEach(() => clearWidgetContextActions())
+  const danger = (items: CtxMenuItem[]): string[] => items.filter((i) => i.danger).map((i) => i.label ?? '')
+
+  it('a work widget file: Remove from this desk · Archive · Move to Trash, no Remove ▸ chooser', () => {
+    const items = resolveMenu(frameCtx({ ...widget('sticky', 'x'), syncGroupId: 'wf:file-1' }))
+    expect(danger(items)).toEqual(['Remove from this desk', 'Archive', 'Move to Trash'])
+    expect(allLabels(items)).not.toContain('Remove')
+  })
+
+  it('a desk-only kind (no file, no Trash entry): Archive · Delete', () => {
+    expect(danger(resolveMenu(frameCtx(widget('timer', ''))))).toEqual(['Archive', 'Delete'])
+  })
+
+  it('the full-pane file view: only Move to Trash', () => {
+    expect(danger(resolveMenu(frameCtx({ ...widget('sticky', 'x'), id: 'wf:file-1' })))).toEqual(['Move to Trash'])
+  })
+
+  it('a host that owns removal (a document embed): none', () => {
+    expect(danger(resolveMenu(frameCtx(widget('sticky', 'x'), { removal: 'none' })))).toEqual([])
+  })
+
+  it('honours danger: a provider row marked danger joins the destructive group', () => {
+    registerWidgetContextActions('table', 'cell', () => ({
+      context: [{ id: 'del', group: 'object', priority: 0, label: 'Delete row', danger: true }]
+    }))
+    const ctx = frameCtx(widget('table', 't'))
+    ctx.sub = { granularity: 'cell', payload: {} }
+    const items = resolveMenu(ctx)
+    expect(danger(items)).toContain('Delete row')
+    expect(labels(items).slice(0, 3)).not.toContain('Delete row')
   })
 })
 
 describe('resolveMenu — multi-selection', () => {
-  it('exposes bulk actions and no single-item-only sections', () => {
+  it('exposes bulk actions on the contract, the one remove-or-delete question last', () => {
     const ctx: MenuContext = {
       object: { type: 'multi', widgets: [widget('sticky', 'one'), widget('note', 'two')] },
       taskId: 't-1',
@@ -245,55 +322,42 @@ describe('resolveMenu — multi-selection', () => {
       clientPoint: { x: 10, y: 10 }
     }
     const items = resolveMenu(ctx)
-    // Flatten one level so bulk actions folded under a section parent (Organise
-    // now holds two: the widget-link overhaul added a bulk "Automate N with an
-    // agent" alongside "Bring all to front") are still asserted.
-    const flat = items.flatMap((i) => [i.label, ...(i.children?.map((c) => c.label) ?? [])])
+    const flat = allLabels(items)
+    expect(flat).toContain('Add 2 to Focus…')
     expect(flat).toContain('Copy all text')
     expect(flat).toContain('Bring all to front')
-    // Bulk "Automate with an agent" — wires one agent to all selected widgets.
     expect(flat).toContain('Automate 2 with an agent')
-    expect(flat).toContain('Delete 2 work widgets')
-    // No AI Assist or Create on a heterogeneous multi-selection.
-    const ls = labels(items)
-    expect(ls).not.toContain('AI Assist')
-    expect(ls).not.toContain('Create')
-    // Destructive still last.
-    expect(topLevel(items).at(-1)?.label).toBe('Delete 2 work widgets')
+    expect(flat).not.toContain('AI Assist')
+    expect(flat).not.toContain('Create & link')
+    const last = topLevel(items).at(-1)
+    expect(last?.label).toBe('Remove or delete 2 work widgets…')
+    expect(last?.danger).toBe(true)
   })
 })
 
 describe('DEC-041 — the menu only offers what it can actually do', () => {
   beforeEach(() => clearWidgetContextActions())
 
-  it('hides "Copy into" entirely when the source has no text to copy', () => {
-    // A browser is not a text kind, so a "conversion" would have copied
-    // nothing — it degraded into Create under a misleading name.
+  it('hides the Copy into rows when the source has no text to copy', () => {
     const items = resolveMenu(widgetCtx(widget('webview')))
-    const create = topLevel(items).find((i) => i.label === 'Create & link')
-    const childLabels = create?.children?.map((c) => c.label) ?? []
-    expect(childLabels).not.toContain('Copy into')
+    const create = find(items, 'Create & link')
+    const childLabels = create?.children?.map((c) => c.label ?? '') ?? []
+    expect(childLabels.some((l) => l.startsWith('Copy into'))).toBe(false)
     // …but Create & link is still offered: spawning a wired widget is real.
     expect(childLabels.length).toBeGreaterThan(0)
   })
 
   it('only offers copy targets that can RECEIVE text', () => {
-    const items = resolveMenu(widgetCtx(widget('note', 'some real text')))
-    const create = topLevel(items).find((i) => i.label === 'Create & link')
-    const childLabels = create?.children?.map((c) => c.label) ?? []
-    expect(childLabels).toContain('Copy into')
-    // These three never carried the text across, in any direction.
-    const afterHeader = childLabels.slice(childLabels.indexOf('Copy into'))
-    expect(afterHeader).not.toContain('Table')
-    expect(afterHeader).not.toContain('Mind map')
-    expect(afterHeader).not.toContain('Diagram')
+    const create = find(resolveMenu(widgetCtx(widget('note', 'some real text'))), 'Create & link')
+    const childLabels = create?.children?.map((c) => c.label ?? '') ?? []
+    expect(childLabels).toContain('Copy into sticky')
+    expect(childLabels).not.toContain('Copy into table')
+    expect(childLabels).not.toContain('Copy into mind map')
+    expect(childLabels).not.toContain('Copy into diagram')
   })
 
   it('no longer offers the broken Task link', () => {
-    const items = resolveMenu(widgetCtx(widget('note', 'text')))
-    const create = topLevel(items).find((i) => i.label === 'Create & link')
-    const childLabels = create?.children?.map((c) => c.label) ?? []
-    // It could only ever render "Referenced task was deleted or moved."
-    expect(childLabels).not.toContain('Task link')
+    const create = find(resolveMenu(widgetCtx(widget('note', 'text'))), 'Create & link')
+    expect(create?.children?.map((c) => c.label)).not.toContain('Task link')
   })
 })
