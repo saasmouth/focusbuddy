@@ -299,3 +299,69 @@ export function clampRange(range: ResolvedRange, docSize: number): ResolvedRange
   if (to <= from) return null
   return { from, to }
 }
+
+// ── The seam with the decoration plugin ─────────────────────────────────────
+
+/** One thread, as a host hands it to the plugin: a range in the CURRENT doc. */
+export interface ResolvedThread {
+  id: string
+  from: number
+  to: number
+  state: 'open' | 'resolved'
+  /** True when the range was re-found rather than believed: the caller should save it back. */
+  corrected?: boolean
+}
+
+export interface OrphanThread {
+  id: string
+  reason: 'missing' | 'ambiguous' | 'malformed'
+}
+
+export interface ThreadInput {
+  id: string
+  anchor: unknown
+  state?: 'open' | 'resolved'
+  /**
+   * The candidate range, for a thread whose anchor only the editor can read:
+   * a Yjs anchor converted to absolute positions, or null when its relative
+   * positions no longer resolve. Omitted for a local anchor, whose own
+   * from/to is the candidate.
+   */
+  candidate?: ResolvedRange | null
+}
+
+/**
+ * Resolve every thread against the document as it is now.
+ *
+ * This is the whole of what the decoration plugin needs (ec owns that file):
+ * ranges in the current document, and the threads that have no place in it.
+ * Called afresh whenever the host has ranges to push — including after a
+ * REMOUNT, which is now a real state: a local document's body can be replaced
+ * underneath an open editor (a second window, a desk widget, a snapshot
+ * restore, sync), and catching up rebuilds the editor, so a plugin's
+ * decoration set is gone and there is no transaction history to rebase
+ * through. A pure function called again is exactly the right shape for that.
+ */
+export function resolveThreads(
+  threads: ThreadInput[],
+  docText: string
+): { ranges: ResolvedThread[]; orphans: OrphanThread[] } {
+  const ranges: ResolvedThread[] = []
+  const orphans: OrphanThread[] = []
+  for (const t of threads) {
+    const anchor = readCommentAnchor(t.anchor)
+    const candidate =
+      t.candidate !== undefined ? t.candidate : anchor && anchor.kind === 'local' ? { from: anchor.from, to: anchor.to } : null
+    const out = resolveAnchor(anchor, docText, candidate)
+    if (out.status === 'orphan') orphans.push({ id: t.id, reason: out.reason })
+    else
+      ranges.push({
+        id: t.id,
+        from: out.range.from,
+        to: out.range.to,
+        state: t.state ?? 'open',
+        ...(out.status === 'moved' ? { corrected: true } : {})
+      })
+  }
+  return { ranges, orphans }
+}

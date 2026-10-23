@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   QUOTE_MAX,
+  resolveThreads,
   clampRange,
   quoteFor,
   readCommentAnchor,
@@ -212,5 +213,66 @@ describe('the tripwire for synced bodies', () => {
       docAttrs!.includes("'body'"),
       'body is synced as a document attribute now: comment anchors must be re-verified against the incoming body (resolveAnchor) before this can pass'
     ).toBe(false)
+  })
+})
+
+describe('resolveThreads: the catch-up case, where a body was replaced wholesale', () => {
+  // ec's trigger, and now a real state rather than a theoretical one: a local
+  // document's body can be replaced underneath an open editor (a second
+  // window, a desk widget, a snapshot restore, sync), and catching up
+  // REMOUNTS the editor — so there is no transaction history to rebase
+  // through and the plugin's decoration set is gone. The host resolves again
+  // from scratch, which is why this is a pure function.
+  const before =
+    'Chapter one. The quarterly numbers landed on a Tuesday. ' +
+    'Nobody quite believed them. ' +
+    'Revenue had climbed for the sixth consecutive quarter.'
+  const at = (text: string): { from: number; to: number } => ({
+    from: before.indexOf(text),
+    to: before.indexOf(text) + text.length
+  })
+
+  const threads = (): Array<{ id: string; anchor: unknown }> => [
+    { id: 'survives', anchor: { kind: 'local', ...at('Nobody quite believed them'), quote: quoteFor(before, at('Nobody quite believed them').from, at('Nobody quite believed them').to) } },
+    { id: 'moves', anchor: { kind: 'local', ...at('Revenue had climbed'), quote: quoteFor(before, at('Revenue had climbed').from, at('Revenue had climbed').to) } },
+    { id: 'removed', anchor: { kind: 'local', ...at('Chapter one'), quote: quoteFor(before, at('Chapter one').from, at('Chapter one').to) } }
+  ]
+
+  it('gives each thread the right place, or honestly none — never a wrong one', () => {
+    // The body someone else saved: the opening is gone, a paragraph was
+    // inserted at the top, and the rest survives with everything shifted.
+    const after =
+      'A note the assistant added at the top. ' +
+      'The quarterly numbers landed on a Tuesday. ' +
+      'Nobody quite believed them. ' +
+      'Revenue had climbed for the sixth consecutive quarter.'
+
+    const { ranges, orphans } = resolveThreads(threads(), after)
+
+    // Nothing is drawn at a stale offset: both survivors point at their own
+    // words, and both are flagged for saving back.
+    const byId = Object.fromEntries(ranges.map((r) => [r.id, r]))
+    expect(after.slice(byId.survives!.from, byId.survives!.to)).toBe('Nobody quite believed them')
+    expect(after.slice(byId.moves!.from, byId.moves!.to)).toBe('Revenue had climbed')
+    expect(byId.survives!.corrected).toBe(true)
+    expect(byId.moves!.corrected).toBe(true)
+
+    // And the comment whose text was deleted says so rather than landing
+    // somewhere plausible.
+    expect(orphans).toEqual([{ id: 'removed', reason: 'missing' }])
+  })
+
+  it('carries each thread’s state through, since the plugin draws them differently', () => {
+    const { ranges } = resolveThreads(
+      [{ id: 'a', anchor: { kind: 'local', ...at('Revenue had climbed') }, state: 'resolved' }],
+      before
+    )
+    expect(ranges[0]!.state).toBe('resolved')
+  })
+
+  it('a thread with no anchor at all is an orphan, not a highlight at zero', () => {
+    const { ranges, orphans } = resolveThreads([{ id: 'legacy', anchor: null }], before)
+    expect(ranges).toEqual([])
+    expect(orphans).toEqual([{ id: 'legacy', reason: 'malformed' }])
   })
 })
