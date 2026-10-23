@@ -1,6 +1,7 @@
 import { useStore } from 'zustand'
 import { artboardsBounds, deleteObjects, getObject, mapObject, nodeFrame } from '@shared/draw/ops'
 import { fontShorthand } from '../textMeasure'
+import { resolveKey } from '../commands/keys'
 import type { EditorCtx } from '../editor/types'
 
 /**
@@ -37,6 +38,16 @@ export default function TextEditor({ ctx }: { ctx: EditorCtx }): JSX.Element | n
       }}
       onKeyDown={(e) => {
         if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur()
+        // Save works while typing, as in Illustrator. Every keystroke is already
+        // in the document (history.replace above), so nothing typed is lost.
+        // Only where the host saves on request; otherwise ⌘S is left alone.
+        else if (ctx.host.saveRequest?.()) {
+          const hit = resolveKey(e.nativeEvent)
+          if (hit?.kind === 'command' && hit.id === 'file.save') {
+            e.preventDefault()
+            ctx.run('file.save')
+          }
+        }
         e.stopPropagation()
       }}
       className="absolute bg-transparent outline outline-1 outline-[var(--accent)] resize-none overflow-hidden"

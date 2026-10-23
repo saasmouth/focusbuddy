@@ -29,8 +29,10 @@
 //   'cmd:<id>'  bound to that command in KEYMAP
 //   'tool:<id>' that tool's key
 //   'res:<id>'  reserved in RESERVED_KEYS for the command or tool still to come
-//   'app'       left to the app and the operating system (close, quit, save --
-//               PlexiiDraw saves as you work -- and document switching)
+//   'app'       left to the app and the operating system (close, quit, Save As --
+//               PlexiiDraw saves as you work -- and document switching). Save
+//               itself (Cmd+S) is file.save: it saves only where the host saves
+//               on request (a snippet edit session) and is otherwise left alone.
 
 export interface IllustratorShortcut {
   section: string
@@ -69,7 +71,7 @@ export const ILLUSTRATOR_SHORTCUTS: IllustratorShortcut[] = [
   { section: 'Work with documents', action: 'Open the Document Setup dialog box', win: 'Alt + Ctrl + P', mac: 'Option + Command + P', context: 'global', key: 'mod+alt+p', target: 'cmd:document.artboardSize' },
   { section: 'Work with documents', action: 'Browse in Adobe Bridge', win: 'Alt + Ctrl + O', mac: 'Option + Command + O', context: 'global', key: 'mod+alt+o', target: 'app' },
   { section: 'Work with documents', action: 'Close the document window', win: 'Ctrl + W', mac: 'Command + W', context: 'global', key: 'mod+w', target: 'app' },
-  { section: 'Work with documents', action: 'Save changes made to the document', win: 'Ctrl + S', mac: 'Command + S', context: 'global', key: 'mod+s', target: 'app' },
+  { section: 'Work with documents', action: 'Save changes made to the document', win: 'Ctrl + S', mac: 'Command + S', context: 'global', key: 'mod+s', target: 'cmd:file.save' },
   { section: 'Work with documents', action: 'Open the Save As dialog box', win: 'Shift + Ctrl + S', mac: 'Shift + Command + S', context: 'global', key: 'mod+shift+s', target: 'app' },
   { section: 'Work with documents', action: 'Save a copy of the document', win: 'Alt + Ctrl + S', mac: 'Option + Command + S', context: 'global', key: 'mod+alt+s', target: 'cmd:file.copy' },
   { section: 'Work with documents', action: 'Save the document as script files', win: 'Ctrl + F12', mac: 'Command + F12', context: 'global', key: 'mod+f12', target: 'app' },

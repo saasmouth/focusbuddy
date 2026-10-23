@@ -437,6 +437,23 @@ means.
 - Tests: `withOlderPeer(harness(...))` (`tests/unit/drawTools/harness.ts`) is
   the v1-only live session; a plain harness is a normal drawing. Test both.
 
+## Saving: the studio never saves
+
+`DrawStudio` emits `onChange(body)` for every edit; its HOST persists. A
+drawing's host (the document editor, a live session) writes each change, so
+there is nothing to save, File › Save shows disabled ("drawings save as you
+work") and ⌘S is left alone (`keyWhen`), as it always was.
+
+A host that writes only when asked -- a saved snippet's edit session,
+`components/snippets/SnippetEditSessionView.tsx` -- passes `onSaveRequest`.
+File › Save and ⌘S (`file.save`, Illustrator's key, bound in `keymap.ts`) then
+call it and prevent the key's default, from the canvas, a field of the studio
+and the canvas text box alike (typing is already in the emitted body). It is
+disabled on a read-only drawing. The editor reads it through
+`ctx.host.saveRequest()` at call time. A session passes no `foldExternal`,
+`liveUndo` or `v2Blocked`; it remounts the studio (a `key`) when it replaces
+the body, since the studio reads `content` only on mount.
+
 ## Test it
 
 - **Headless, the bulk of it.** `tests/unit/drawTools/harness.ts` builds the
