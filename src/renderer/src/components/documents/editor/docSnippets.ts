@@ -73,12 +73,13 @@ export function insertSnippetIntoDoc(editor: Editor, snippet: Snippet, link: Sni
  *
  * SnippetEmbed renders such an instance read-only, re-converted from the
  * master on every resolve, with "Open original" to edit the master where it
- * lives. It is offered only once that whole path is proven in the app
- * (tests/e2e/snippetsWriteConverted.spec.ts). Until then a converted kind is
- * duplicate-only here, so the library never shows a Live button that would
- * not work.
+ * lives. Offered because that whole path is proven in the app
+ * (tests/e2e/snippetsWriteConverted.spec.ts: a sheet as a read-only table that
+ * follows its master and shows the missing state when it is deleted; a drawing
+ * as a sized data:image/svg+xml picture). Set false and a converted kind is
+ * duplicate-only here, with no Live button offered for it.
  */
-export const DOC_LIVE_CONVERTED = false
+export const DOC_LIVE_CONVERTED = true
 
 /**
  * Any snippet into a document: a doc snippet as before (duplicate or live);
