@@ -142,8 +142,18 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
   const attnTaken = !!attn && !suppress['attention']
   if (attnTaken) slots.push(toItem(attn, ctx))
 
+  // 1. Context — kind-specific header extras (a widget's own rows) first, then
+  // the registered context-band rows.
+  if (ctx.headerExtras && ctx.headerExtras.length) {
+    slots.push(...ctx.headerExtras)
+  }
+  const ctxSlots = contextSlots(wc.context, ctx, attnTaken ? 1 : 2)
+  slots.push(...ctxSlots)
+
   // Paste into this widget, through the same conversion as inserting a saved
   // snippet (lib/widgetSnippetInsert.ts). Only on widgets that take a paste.
+  // After the context rows, so it never takes one of their top-level places
+  // (a table cell's own actions stay where people look for them).
   if (ctx.frame?.onPaste) {
     slots.push(
       toItem(
@@ -160,14 +170,6 @@ export function resolveMenu(ctx: MenuContext): CtxMenuItem[] {
       )
     )
   }
-
-  // 1. Context — kind-specific header extras (a widget's own rows) first, then
-  // the registered context-band rows.
-  if (ctx.headerExtras && ctx.headerExtras.length) {
-    slots.push(...ctx.headerExtras)
-  }
-  const ctxSlots = contextSlots(wc.context, ctx, attnTaken ? 1 : 2)
-  slots.push(...ctxSlots)
 
   // 2. AI Assist
   if (!suppress['ai-assist']) {
