@@ -53,9 +53,12 @@ describe('the AI button lives on the shared widget frame', () => {
       frame.indexOf('data-testid="widget-ai"') - 1400,
       frame.indexOf('data-testid="widget-ai"')
     )
-    expect(btn).toContain('aria-label=')
-    expect(btn).toContain('ask the assistant instead')
-    expect(btn).toContain('aiPlan.purpose')
+    expect(btn).toContain('aria-label={aiAriaLabel}')
+    // One label, shared by the header button and its "…" menu item when the
+    // row is folded (lib/widgetHeaderActions).
+    const def = frame.slice(frame.indexOf('const aiAriaLabel ='), frame.indexOf('const aiAriaLabel =') + 300)
+    expect(def).toContain('ask the assistant instead')
+    expect(def).toContain('aiPlan.purpose')
   })
 
   it('does not drag the widget when clicked', () => {
