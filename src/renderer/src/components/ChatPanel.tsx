@@ -30,6 +30,9 @@ import { useWidgetStore } from '../stores/widgets'
 import { chimeIn } from '../lib/audioBeep'
 import { alertDialog } from './plexi/PromptDialog'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
+import { chatMessageMenu } from '../lib/chatMessageMenu'
+import { runWebMenuCommand } from './browser/WebMenuCommandHost'
+import { registerTextMenuHandler } from '../lib/textMenuHandlers'
 import { FLOATING_MENU_ASIDE, FLOATING_MENU_STYLE } from './chrome/floatingMenu'
 import ModelPickerChip from './assistant/ModelPickerChip'
 import { CHAT_MODES, chatModeDef } from '../lib/chatModes'
@@ -446,10 +449,25 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   const isFullscreen = page || chromeMode === 'fullscreen'
   const fullscreenHome = isFullscreen && messages.length === 0
 
+  // The composer's native text menu (main/webContextMenu.ts) leaves out "Ask
+  // PlexiiAssist about this": asking about your own draft would only quote it
+  // back over itself.
+  const composerWrapRef = useRef<HTMLDivElement | null>(null)
+  // Every commit, not once: the composer's wrapper remounts when the layout
+  // swaps (fullscreen home ↔ thread), and registering is a push to an array.
+  useEffect(() => {
+    const el = composerWrapRef.current
+    return el ? registerTextMenuHandler(el, { askAssist: false }) : undefined
+  })
+
+  // The right-click menu on the messages (AUDIT M-o): on a message, with or
+  // without a selection (lib/chatMessageMenu.ts decides the rows).
   const [ctxMenu, setCtxMenu] = useState<{
     x: number
     y: number
     selection: string
+    /** The message right-clicked, by its index in `messages`; null when the click was beside every message. */
+    index: number | null
   } | null>(null)
 
   async function saveSelection(kind: 'sticky' | 'note', text: string): Promise<void> {
@@ -482,66 +500,71 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     window.getSelection()?.removeAllRanges()
   }
 
+  // Right-click on a message, or on text selected anywhere in the messages.
+  // Turns mark themselves with data-chat-turn (their index in `messages`).
   function handleMessagesContextMenu(e: React.MouseEvent): void {
     const selection = window.getSelection()?.toString() ?? ''
-    if (!selection.trim()) return // let the default browser menu show (or nothing)
+    const turn = (e.target as HTMLElement).closest?.('[data-chat-turn]')
+    const index = turn ? Number(turn.getAttribute('data-chat-turn')) : null
+    if (!selection.trim() && index === null) return // beside every message: nothing to act on
     e.preventDefault()
-    setCtxMenu({ x: e.clientX, y: e.clientY, selection })
+    setCtxMenu({ x: e.clientX, y: e.clientY, selection, index: index !== null && Number.isFinite(index) ? index : null })
+  }
+
+  function addToFocus(text: string): void {
+    // DEC-044: a highlight in the CHAT marks the same way one in a doc
+    // does — first row, first line titles it, the full selection rides
+    // the notes. Works with no desk open (the item files standalone).
+    // 'ai-chat' lands the preset's DEFAULT class (to_do): a highlighted
+    // AI answer is usually something to act on — 'chat' would map to
+    // to_respond, but nobody awaits words back from a bot.
+    const p = presetForSelection('ai-chat', text)
+    window.dispatchEvent(
+      new CustomEvent('fb:command-new-work-item', {
+        detail: {
+          captureText: p.text,
+          notes: p.notes || undefined,
+          source: {
+            sourceType: 'chat',
+            sourceRef: activeConversationId ?? 'chat',
+            intentClass: p.intentClass,
+            deskId: activeTaskId
+          }
+        }
+      })
+    )
+    window.getSelection()?.removeAllRanges()
   }
 
   function ctxMenuItems(): CtxMenuItem[] {
     if (!ctxMenu) return []
-    const text = ctxMenu.selection
-    const noTask = !activeTaskId
-    return [
+    const m = ctxMenu.index !== null ? messages[ctxMenu.index] : undefined
+    const role = m?.role === 'user' ? 'user' : 'assistant'
+    const index = ctxMenu.index
+    const hasQuestion = index !== null && messages.slice(0, index).some((x) => x.role === 'user')
+    return chatMessageMenu(
       {
-        // DEC-044: a highlight in the CHAT marks the same way one in a doc
-        // does — first row, first line titles it, the full selection rides
-        // the notes. Works with no desk open (the item files standalone).
-        label: 'Add to Focus…',
-        icon: 'notifications',
-        onClick: () => {
-          // 'ai-chat' lands the preset's DEFAULT class (to_do): a highlighted
-          // AI answer is usually something to act on — 'chat' would map to
-          // to_respond, but nobody awaits words back from a bot.
-          const p = presetForSelection('ai-chat', text)
-          window.dispatchEvent(
-            new CustomEvent('fb:command-new-work-item', {
-              detail: {
-                captureText: p.text,
-                notes: p.notes || undefined,
-                source: {
-                  sourceType: 'chat',
-                  sourceRef: activeConversationId ?? 'chat',
-                  intentClass: p.intentClass,
-                  deskId: activeTaskId
-                }
-              }
-            })
-          )
-          window.getSelection()?.removeAllRanges()
-        }
-      },
-      { separator: true },
-      {
-        label: 'Save selection as sticky',
-        icon: 'sticky_note_2',
-        disabled: noTask,
-        onClick: () => void saveSelection('sticky', text)
+        role,
+        selection: ctxMenu.selection,
+        content: m?.content ?? '',
+        deskOpen: !!activeTaskId,
+        retry: role === 'assistant' && hasQuestion ? (sending ? 'busy' : 'ready') : null,
+        canInsertIntoDoc: typeof window !== 'undefined' && !!(window as unknown as { __docEditor?: unknown }).__docEditor,
+        platform: window.api?.platform ?? 'darwin'
       },
       {
-        label: 'Save selection as note',
-        icon: 'description',
-        disabled: noTask,
-        onClick: () => void saveSelection('note', text)
-      },
-      { separator: true },
-      {
-        label: 'Copy',
-        icon: 'content_copy',
-        onClick: () => void navigator.clipboard?.writeText(text)
+        addToFocus,
+        saveSelection: (kind, text) => void saveSelection(kind, text),
+        copy: (text) => void navigator.clipboard?.writeText(text),
+        // The same route as "Ask PlexiiAssist about this" everywhere else: the
+        // passage is quoted in the composer for the person to finish.
+        askAbout: (text) => runWebMenuCommand({ command: 'ask-assist', text, pageUrl: '', pageTitle: '' }),
+        retry: () => {
+          if (index !== null) void retryFrom(index)
+        },
+        insertIntoDoc: (text) => insertIntoDoc(text)
       }
-    ]
+    )
   }
 
   useEffect(() => {
@@ -1090,6 +1113,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
             return (
               <div
                 key={i}
+                data-chat-turn={i}
                 data-testid="user-turn"
                 className="ml-auto w-fit max-w-[70%] mt-8 first:mt-0 rounded-[var(--radius-card)] px-4 py-2.5 fb-chat-prose whitespace-pre-wrap bg-[rgb(var(--accent)/0.10)] text-[var(--ink-100)]"
               >
@@ -1147,7 +1171,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
           const entering = enteringTs === m.ts
           let enteringIndex = 0
           return (
-            <div key={i} className="group/turn flex flex-col gap-3" data-testid="assistant-turn">
+            <div key={i} className="group/turn flex flex-col gap-3" data-chat-turn={i} data-testid="assistant-turn">
               {/* No identity row (P2). The premium-chat convention is
                   unanimous: the asymmetry itself marks the speaker — user
                   turns sit right-anchored in a quiet tint, assistant turns are
@@ -1450,6 +1474,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
             </div>
           )}
           <div
+            ref={composerWrapRef}
             onKeyDownCapture={(e) => {
               // The "@" picker OWNS Tab whenever it is open (DEC-028's keyboard
               // contract: Tab picks the highlighted row). This handler is

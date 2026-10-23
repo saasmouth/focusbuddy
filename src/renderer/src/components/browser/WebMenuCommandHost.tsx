@@ -1,6 +1,8 @@
-// Carries out what was chosen in the native right-click menu on a web page
-// (main/webContextMenu.ts): Add to desk, Ask PlexiiAssist about this, and the
-// AI Assist text actions. Mounted once; renders nothing itself.
+// Carries out what was chosen in the native right-click menus
+// (main/webContextMenu.ts): on a web page, Add to desk, Ask PlexiiAssist about
+// this and the AI Assist text actions; in the app window's text menu, the
+// Plexii rows, through the surface registry (lib/textMenuHandlers.ts). Mounted
+// once; renders nothing itself.
 import { useEffect } from 'react'
 import type { WebMenuCommand } from '@shared/webMenu'
 import { resolveAiCommand } from '@shared/aiTextActions'
@@ -9,6 +11,7 @@ import { useAddToDeskPicker } from '../../stores/addToDeskPicker'
 import { useAiAssistPreview } from '../../stores/aiAssistPreview'
 import { useAssistantChrome } from '../../stores/assistantChrome'
 import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
+import { dispatchTextMenuCommand, installTextMenuQuery } from '../../lib/textMenuHandlers'
 
 /** The composer text for "Ask PlexiiAssist about this": the passage quoted, its page named. Pure; exported for tests. */
 export function askAboutPrompt(text: string, pageTitle: string, pageUrl: string): string {
@@ -67,7 +70,17 @@ export function runWebMenuCommand(cmd: WebMenuCommand): void {
 export default function WebMenuCommandHost(): null {
   useEffect(() => {
     const off = window.api.webMenu?.onCommand?.(runWebMenuCommand)
-    return () => off?.()
+    // The app window's text menu asks the page which Plexii rows apply, then
+    // sends the chosen one back; with no surface claiming it, "Ask PlexiiAssist
+    // about this" quotes the passage in the composer like a web page's does.
+    installTextMenuQuery()
+    const offText = window.api.textMenu?.onAction?.((cmd) =>
+      dispatchTextMenuCommand(cmd, (text) => runWebMenuCommand({ command: 'ask-assist', text, pageUrl: '', pageTitle: '' }))
+    )
+    return () => {
+      off?.()
+      offText?.()
+    }
   }, [])
   return null
 }

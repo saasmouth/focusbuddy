@@ -17,7 +17,7 @@ import { localOnlyActive } from './ai/local/providerRouter'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { initLocalAi, registerLocalAiIpc } from './ai/local/localAiService'
-import { attachWebContextMenu, registerWebMenuIpc, setWebMenuDeskSource } from './webContextMenu'
+import { attachAppTextMenu, attachWebContextMenu, registerWebMenuIpc, setWebMenuDeskSource } from './webContextMenu'
 import { listNodes } from './db/nodes'
 import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
 import { setDocTextResolvers } from './workspaceRank'
@@ -501,6 +501,11 @@ function createCommandCenter(): BrowserWindow {
   // before a quit, a sleep or a force-quit is most likely to follow.
   flushOnWindowBackground(win)
 
+  // Right-click on text in the app itself (composers, rename fields, search
+  // boxes, selected text): the native text menu (webContextMenu.ts). Menus the
+  // renderer draws prevent the event, so they never get this one as well.
+  attachAppTextMenu(win.webContents)
+
   win.on('ready-to-show', () => {
     win.show()
     markUiVisible()
@@ -689,7 +694,8 @@ app.on('web-contents-created', (_, contents) => {
     return
   }
 
-  // Only attach to <webview> tag contents — not the main window's React renderer
+  // Only attach to <webview> tag contents — the app window's own renderer has
+  // its text menu from createCommandCenter (attachAppTextMenu)
   if (contents.getType() !== 'webview') return
 
   // Belt and braces for session persistence: session-created should already
