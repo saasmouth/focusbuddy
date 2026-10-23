@@ -9,6 +9,7 @@ import { useRef, useState } from 'react'
 import { Rnd } from 'react-rnd'
 import type { DeckTheme, Slide, SlideElement, SlideTextElement } from '@shared/types'
 import { SLIDE_W, SLIDE_H } from '@shared/slideThemes'
+import type { ElementMarks } from '../design/designFindHighlights'
 import SlideElementView from './SlideElementView'
 import { fillToCss } from '@shared/fills'
 import { elementText } from './slideOps'
@@ -45,6 +46,11 @@ function bestSnap(moving: number[], targets: number[]): { delta: number; line: n
 }
 
 interface Props {
+  /**
+   * Find marks for an element's text, if the host is searching. Absent for
+   * every caller but Design's canvas, so nothing else changes.
+   */
+  marksFor?: (el: SlideElement) => ElementMarks | undefined
   /**
    * A tool is armed in the host (spec §3.2, D4): the empty stage PLACES a new
    * element instead of marquee-selecting. The canvas owns the gesture — click
@@ -118,6 +124,7 @@ const HANDLE_STYLES = {
 }
 
 export default function SlideCanvas({
+  marksFor,
   slide,
   theme,
   width,
@@ -421,7 +428,7 @@ export default function SlideCanvas({
                 />
               ) : (
                 <div data-testid="slide-element" data-eltype={el.type} data-element-id={el.id} style={{ width: '100%', height: '100%', pointerEvents: 'none' }}>
-                  <SlideElementView el={{ ...el, x: 0, y: 0 }} />
+                  <SlideElementView el={{ ...el, x: 0, y: 0 }} marks={marksFor?.(el)} />
                 </div>
               )}
             </Rnd>
