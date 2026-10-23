@@ -6,6 +6,7 @@ import { quickAddAllowed, deepActiveElement, keyEventTarget } from '../lib/quick
 import { deleteKeyAllowed, isDeleteKey } from '../lib/deleteKey'
 import { removeWorkWidgets } from '../lib/widgetRemoval'
 import { useNodeStore } from '../stores/nodes'
+import { useViewStore } from '../stores/view'
 import { contentForIndependentCopy } from '../lib/copyWidgetContent'
 import { useWidgetStore } from '../stores/widgets'
 import { useMessagingStore } from '../stores/messaging'
@@ -551,16 +552,30 @@ export default function Canvas(): JSX.Element {
   // a desk's widgets have loaded, baseline each one's "changed since your last
   // visit" health so the frames reflect what moved while the user was away. Runs
   // once per desk open; the ref guards against re-running on later widget edits.
+  //
+  // Only for the desk the VIEW is on. Canvas remounts on every navigation
+  // (MainPane keys PageEnter on the view, since 5d2d532c), and the new instance
+  // renders one beat before App's effect moves activeTaskId to follow the view:
+  // activeTaskId, layoutHydratedFor and the loaded widgets all still belong to
+  // the desk being LEFT, and the fresh ref is null. Baselining there marked the
+  // leaving desk's changed widgets reviewed on the way out, so the frame was
+  // gone when the user came back to it.
+  // A view that names no desk (the PlexiiDesk segment's Desk app) shows the
+  // active desk, so it has no say here.
+  const viewDeskId = useViewStore((s) =>
+    s.view.kind === 'task' ? s.view.taskId : s.view.kind === 'project-dashboard' ? s.view.projectId : undefined
+  )
   const reviewedWidgetsForRef = useRef<string | null>(null)
   useEffect(() => {
     if (!activeTaskId || layoutHydratedFor !== activeTaskId) return
+    if (viewDeskId !== undefined && viewDeskId !== activeTaskId) return
     if (reviewedWidgetsForRef.current === activeTaskId) return
     reviewedWidgetsForRef.current = activeTaskId
     const ids = widgets
       .filter((w) => !w.archived && w.parentSectionId === null && w.kind !== 'section')
       .map((w) => w.id)
     void useContextHealthStore.getState().reviewWidgets(ids)
-  }, [activeTaskId, layoutHydratedFor, widgets])
+  }, [activeTaskId, layoutHydratedFor, widgets, viewDeskId])
 
   // PLX-APP-010 Phase 1 / UX-032 — persist this user's camera + selection for the
   // active Desk and device class, debounced, on user action. Gated on
