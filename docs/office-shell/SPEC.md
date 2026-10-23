@@ -229,7 +229,7 @@ These thresholds are constants in `office/shell/layout.ts`, so every app shares 
    - Pressing a `tool` arms it, and the cursor changes.
    - Click places the default size; drag sizes it.
    - After placing, the app returns to **Select**, as PowerPoint and Canva do. Double-clicking a tool keeps it armed until Esc or V, as Illustrator's "tool lock" does.
-   - Esc always returns to Select.
+   - Esc returns an armed tool to Select; with Select (or one of Draw's selection tools: Direct, Group selection, Lasso) it clears the selection instead. Draw's earlier Esc meanings come first: finish a path, drop the Place cursor (rails-tabs-41, §3.9).
    - Each app has **one** key handler (its existing one: Draw's keymap, Diagrams' `handleKey`, and a new handler in Deck and Design built the same way). The rail and the bar never handle keys.
    - **Cost of D4, made explicit.** Turning one-shot adds into armed modes changes every e2e spec that clicked a tool and then asserted on the new element: about 29 call sites in 11 specs for Design and Deck, plus the Diagrams shape specs. Each converter updates them in the same PR, through ONE shared helper in `tests/e2e/_helpers.ts`: `placeElement(window, app, tool, at?)` arms `${app}-tool-${tool}`, then clicks the canvas at a default point (or `at`) and returns the new element's id. That's a one-line edit per call site. d2 adds the helper with the first conversion that needs it; the lead's Diagrams conversion uses it too.
 3. **Icons, one per concept:**
@@ -248,6 +248,21 @@ These thresholds are constants in `office/shell/layout.ts`, so every app shares 
    - A command that lived only in a toolbar or inspector gets a menu entry too (e.g. File → Import Word (.docx)).
 7. **One state per control (3e's (b)).** When a control appears in two places (the rail and a tab, or a tab and a menu), both read the SAME host state and call the SAME command. For example, Cells' Filter is pressed in the rail exactly when the Data tab's Filter toggle is on. A unit test per app asserts it.
 8. **House style:** tokens only, the subtle treatment, no new radius values.
+9. **The rail and tab contract (4.3.41-local.2, rails-tabs-41).** Owner: "left side tool menus, and top settings, they should all work the same". Rules 1, 2 and 5 are now data that one test checks across all six apps (`tests/unit/officeRailTabContract.test.tsx`), plus `tests/e2e/officeRailsTabs.spec.ts` in the running app.
+   - **Declared as data.** Every `RailItem` has a `role` (`select` · `navigate` · `hand` | `text` · `shape` · `create` | `image` · `insert` | `app` | `panel` | `ai`) and every permanent `BarTab` a `role` (`home` · `insert` · `arrange`/`layout` · `app`/`view` · `review`). `office/shell/contract.ts` (`railViolations`, `tabViolations`, `controlViolations`) reads roles, never labels. `railGroup(role)` gives the group, so a section can never sort out of place.
+   - **Rail:** Navigate (Select first, Hand after the selection tools) · Create (Text, then the Shapes flyout, then other create tools) · Insert (Image first) · App · bottom: panels, then AI last. A flyout shows the host's `lastUsed`, persisted per app, and a shape armed by its key becomes the last pick. Create tools come from `armedTool()`: click arms, placing returns to Select, double-click locks ("double-click to keep it selected"). Esc follows `escapeIntent()` (rule 2).
+   - **Rail item kinds:** `toggle` (on/off host state with `pressed`, e.g. Cells' Filter, rule 7) and `dialog: true` (a modal opener: `aria-haspopup="dialog"`, never `aria-controls`; Cells' Conditional formatting, Validation, Macros and Query, per §5a.14).
+   - **Tabs:** Home · Insert · Arrange|Layout · app tabs (View among them) · Review; contextual tabs last, never auto-selected (D3). There are no empty tabs: an app without review tools has no Review tab (Cells, Diagrams, Draw).
+   - **Host state, one hook (`useShellChrome`).** Every app opens on **Home** (owner ruling A1): the tab is not restored, so a document never opens on whatever tab the last one was left on (the §5a.12 flake class). Collapse (D5) is remembered per app under the key each app already used (`plexii.<app>.ribbonCollapsed`); Draw keeps its `plexii.draw.shell` store, now without the tab. Design's first-run Start from ▾ (an empty design) now opens itself the first time Layout shows rather than at mount, and never in a narrow desk widget, where it would cover the tabs.
+   - **Control types:** font family is the `FontPicker` (Write, Cells, Deck, Design, Diagrams, Draw); font size is `BarFontSize` (a `BarNumber`, plus the app's preset sizes); colours are `BarColor` (Draw's paints keep their gradient/swatch picker inside BarColor's trigger, via its `popover` slot); alignment is three `BarToggle`s; B/I/U are `BarToggle`s, showing a shortcut only where the key is bound (§9.4). Text controls run in one order: family · size · B · I · U · text colour · align ×3. Controls carry `semantic`, and the contract reads `data-bar-semantic`/`data-bar-kind`.
+   - **Genuine exceptions** (the contract's named allowlist; anything else missing fails):
+
+     | App | Absent | Why |
+     |---|---|---|
+     | Cells | Font size | `SheetCellFormat` has no font size: cells use the sheet default. Adding one is a model, renderer and .xlsx change, not chrome |
+     | Draw | Underline | `DrawTextNode` has no text decoration; the model, the SVG and the PDF export would all need it |
+     | Cells | Macros and Query as bottom panels (§6.6 listed them so) | They are SheetEditor's modals, so they are `dialog` items in the App section. A declared panel needs an opener AND a body (§5a.14); they become panels only when they really are |
+     | Design | ⌘B/⌘I/⌘U hints | Not bound while editing Design text, so no hint is shown (§9.4). Binding them is the keymap owner's call |
 
 ## 4. Testid policy
 
@@ -282,6 +297,7 @@ Before handing a conversion back, every item, with evidence:
 12. **The tab sweep:** for every ribbon testid, every spec touching it selects its tab, even when it is green, because a new document can happen to open on that tab (f0).
 13. **Gates:** `npm run typecheck`, `npm run lint:hooks`, the app's unit tests, `npm run build` with its log read (tsc passing is not proof rollup does), `npx playwright test --list` count after any rebase (a duplicate helper makes every spec silently collect 0), then the app's specs and its `officeShellLayout` rows. Heavy runs go through the shared queue. Four scripts do the mechanical parts: `scripts/pre-handover.mjs` (every typecheck config, lint:hooks, collection — run it last, before quoting a SHA), `scripts/check-converted-app.mjs` (items 7, 10 and 12), `scripts/e2e-pass.mjs` (records rev, spec hash and bundle hash into the log) and `scripts/e2e-baseline-diff.mjs` (item 11, and it refuses a verdict rather than printing a misleading one). Run EVERY typecheck config, not the one covering the code you touched: snippets shipped a TS4076 in `tsconfig.node` because only the web config was run (ec).
 14. **A declared panel has an opener AND a body.** Cells' `CellsPanel` listed six ids and `PANEL_META` described six, while `togglePanel` had exactly ONE caller and `panelBody` returned null for five — six declared panels, one real, and an `officeShellLayout` row naming one of the dead ones waits forever for a panel that cannot appear. Declare an id only in the change that gives it both; leave a tool as its existing modal until it genuinely becomes a panel, and say so where the type is declared (ec).
+15. **Keep the rail and tab contract (§3.9).** A new rail item or tab declares its `role`; a new text control declares its `semantic`. If the contract test fails, fix the placement. Never widen the allowlist without a reason that names a missing capability, recorded in §3.9 and §9.5.
 
 ## 6. Per-app mapping (every toolbar AND inspector control)
 
@@ -295,7 +311,7 @@ Before handing a conversion back, every item, with evidence:
 - **Side pane (§2.5a, `diagram-sidepane`):** the AI (`diagram-ai-pane`, prompt `diagram-ai-prompt`, run `map-ai-run`), formerly a modal. Opened by the rail's `map-ai` (`sidePane` item), Insert › `diagram-insert-ai`, Edit-menu "AI diagram…" and the right-slot `diagram-sidepane-toggle`.
 - **Rail:**
   - Select V `diagram-tool-select` · Hand H `diagram-tool-pan`
-  - | Text T `diagram-tool-text` · Shapes flyout (Process `diagram-tool-process`, Decision, Terminator, Data, Database, Circle, as armed tools with new `-tool-` ids) · Sticky · Table · Image
+  - | Text T `diagram-tool-text` · Shapes flyout (Process `diagram-tool-process`, Decision, Terminator, Data, Database, Circle, as armed tools with new `-tool-` ids; Text locks on a double-click too) · Image · Table · Sticky (Image first, §3.9)
   - The Library panel keeps its one-shot `map-add-*` buttons with their old meaning (click adds at the centre).
   - | bottom: **Library** panel (Shapes/Icons/Images, 430 shapes, pinnable; replaces the left library column) · **Layers** panel · AI `map-ai`
 - **Pin:** `diagram-undo`, `diagram-redo`.
@@ -323,7 +339,8 @@ Before handing a conversion back, every item, with evidence:
 - **Retired:** the right Inspector, the left library column (now a Library panel), and the separate layers popover (now a Layers panel).
 
 ### 6.2 PlexiiDraw (d1)
-- **Rail:** the registry, unchanged. Fill and stroke chips in `footer`. Bottom: **Layers** panel (pinnable); later Swatches, Appearance, Symbols and History panels. Flyouts follow when d1 adopts them.
+- **Rail:** the registry, in the shared order (§3.9): Select · Direct/Group selection · Lasso · **Hand** (H, labelled Hand) | **Type** · Shapes flyout · Pen, Scissors and Pencil flyouts | Image (`draw-rail-image`, File › Place…) | Draw's own sections in toolbox order (transform, paint, artboard) | bottom: **Layers**, Artboards panels · PlexiiAssist (`draw-rail-ai`, the side pane) last. Type and the shapes lock on a double-click; Esc returns any non-selection tool to Select. Fill and stroke chips in `footer`.
+- **Tabs:** Home · **Insert** (`draw-bar-tab-insert`: Place…, Place as template…, Insert snippet…, New Artboard, straight from the command registry) · Object (the Arrange slot, Illustrator's name) · Align · contextual tabs.
 - **Right slot:** zoom `draw-zoom`, fit, grid, snap `draw-snap-toggle`, artboard size, `draw-status`. **The OptionsBar row is removed.**
 - **Home:** Fill `draw-fill`, Stroke `draw-stroke`, width `draw-stroke-width`, dash `draw-stroke-dash`, opacity `draw-object-opacity`, blend `-blend`.
 - **Object:** Transform cluster (or the "Transform…" fallback) · Align · Arrange · Transform Again.
@@ -342,7 +359,7 @@ Before handing a conversion back, every item, with evidence:
 - **Rail:**
   - Select V `design-tool-select` | Text T `design-tool-text` · Shapes flyout (Rect M `design-tool-rect`, Round `design-tool-roundrect`, Ellipse L `design-tool-ellipse`, Triangle `design-tool-triangle`, Line \\ `design-tool-line`; **armed modes**, D4; new `-tool-` ids per §4.1)
   - | Image `design-add-image` · Stock panel `design-stock-btn` · Logo `design-add-logo`
-  - | bottom: Layers panel · AI design `design-ai-btn`
+  - | bottom: Page layout, Paragraph styles, Swatches, Preflight panels · AI design `design-ai-btn` last, which opens the **AI design pane** (`design-generate-pane`) in the side pane beside PlexiiAssist, as Deck's Generate deck does (rails-tabs-41)
 - **Side pane (§2.5a):** PlexiiAssist (`design-ai-panel` content). Opened by `design-ai-toggle` (keep the id on the right-slot side-pane toggle or a rail `sidePane` item); NOT a rail-bottom overlay.
 - **Pin:** `design-undo`, `design-redo`.
 - **Home** (selection-aware):
@@ -396,7 +413,7 @@ Before handing a conversion back, every item, with evidence:
 - **Retired:** SlidesToolbar, ElementInspector (`element-inspector` and its section ids `inspector-table`/`-chart`/`-frame`/`-anim`), the side panel's Slide/Layout tabs (`slides-tab-slide`/`-layout`) and its second notes editor. `tests/unit/deckShellMapping.test.tsx` maps every old control to its new home.
 
 ### 6.5 PlexiiWrite (3e)
-- **Rail** (actions): Image · Table · Link · Divider · Table of contents · Footnote · Work widget · bottom: Find · Ask AI.
+- **Rail** (actions, §3.9): Insert image `doc-rail-image` · Insert table · Link · Divider · Insert work widget | Focus mode | bottom: Styles, Header and footer, Margins, Office files (`doc-rail-office`, a panel) · Ask AI · PlexiiAssist `doc-assistant-toggle` last. (Find stays in the right slot, one copy: DE-1.)
 - **Pin:** Undo, Redo.
 - **Right slot:** "N words".
 - **Home:** Styles `doc-styles-btn` · Font · Size · B/I/U/S · Code · Sub/Sup · Text colour · Highlight · Align ×4 · Line spacing · Lists ×3 · Clear formatting.
@@ -410,8 +427,9 @@ Before handing a conversion back, every item, with evidence:
 
 ### 6.6 PlexiiCells (3e)
 - **Rail** (actions):
-  - Chart flyout (Bar, Line, Area, Pie, Scatter) · Pivot `sheet-pivot-btn` · Sparkline `sheet-insert-sparkline` · Lookup `sheet-lookup-btn` · **Filter** `sheet-filter-btn`
-  - bottom: Macros panel `sheet-macros-btn` · Query panel `sheet-query-btn` · AI fill
+  - Chart flyout (Bar, Line, Area, Pie, Scatter; `sheet-rail-chart-*`, showing the last kind) · Pivot `sheet-rail-pivot` · Sparkline `sheet-rail-sparkline` · Lookup `sheet-rail-lookup`
+  - | **Filter** `sheet-rail-filter` (a toggle, pressed with the Data tab's) · Conditional formatting… · Validation… · Macros… · Query… (dialog items: SheetEditor's modals, §5a.14)
+  - bottom: Import / export panel `sheet-rail-office` · AI fill last
 - **Pin:** Undo, Redo.
 - **Home:** Font · B/I/U · Text colour · Fill colour · Align ×3 · Merge `sheet-merge-btn` · Number format `sheet-number-format` · Clear formatting.
 - **Insert:** Rows and columns (insert and delete) · Chart · Pivot · Sparkline · Lookup · Saved snippet… `sheet-insert-snippet` (the snippet library, sheet snippets, aimed at this spreadsheet; also Insert › Insert snippet…) · Sheet · Named range · Meeting.
@@ -511,6 +529,7 @@ Same labels, icons and shortcut hints as the menu bar for the same action; the i
 - **Absent** when the action cannot apply in this context at all: no document (no `DocumentOps`: a snippet session, a live document; already the rule since office-docops-41), a read-only viewer (no editing items; Copy stays), an app that lacks the capability (§9.6 lists each, with why).
 - **Disabled, with a reason in `hint`** when the action applies here but not right now: nothing selected (Cut / Copy / Delete: "Select something first"), empty clipboard (Paste), at the first undo step (Undo), a locked object.
 - Never a silently dead item: an enabled item always does something; a disabled one always says why.
+- The same rule holds for the rail and the bar (§3.9). The genuinely absent controls (Cells' font size, Draw's underline) and the Cells modal openers kept out of the panel group are listed there with their reasons, and the rail/tab contract test names them.
 
 ### 9.6 The audit matrix (office apps, runtime inventory, cf547781)
 
@@ -562,7 +581,6 @@ Menus as they render (`·` = separator). Generated from `tests/e2e/_menuInventor
 | Cells | Edit › `Duplicate` | a range has nothing "beside itself" to duplicate into; it is copied and pasted to a chosen cell |
 | Cells | Insert › `Work widget from a desk…` | a cell holds a value; Cells has no surface a live widget can sit on |
 | Cells | Arrange | cells do not layer |
-| Design | Edit › `Find…`, `Find and replace…` | Design text lives in threaded rich-text stories; searching them needs the story editor (owner f0) |
 | Draw | the shared File/Edit/Help layout, and the kit for right-click | Illustrator's layout and keys (⌘F/⌘B Paste in Front/Back, ⌥⇧⌘K shortcuts) for its users' muscle memory; the menu bar and right-click menu are built from Draw's command registry (owner d1). E-16 |
 
 **Delivered (4.3.41-local.2, branch `menu-contract-41`):**

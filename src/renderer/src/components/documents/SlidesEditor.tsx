@@ -20,7 +20,7 @@ import SlideTemplateGallery from './slides/SlideTemplateGallery'
 import PresentOverlay from './slides/PresentOverlay'
 import AiSlidePanel from './slides/AiSlidePanel'
 import SlideAssistantPane, { LayoutsAndThemes } from './slides/SlidesSidePanel'
-import { BarButton, BarToggle, ContextBar, OfficeShellLayout, PANEL_SHEET_BELOW, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail } from '../office/shell'
+import { BarButton, BarToggle, ContextBar, OfficeShellLayout, PANEL_SHEET_BELOW, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, useShellChrome } from '../office/shell'
 import { DECK_TABS, deckRailItems, railIdForTool, TOOL_DEFAULT, type DeckCtx, type DeckPanel, type DeckSidePane, type DeckTool } from './slides/ribbon'
 import { useSlideAi } from './slides/useSlideAi'
 import CropDialog from './slides/CropDialog'
@@ -67,8 +67,6 @@ import type { SnippetKind } from '@shared/snippets'
 // edits the selected slide, PlexiiAssist sits in the shared right side pane and
 // speaker notes stay under the canvas. Edits flow to onChange (debounced autosave).
 
-const TAB_KEY = 'plexii.slides.ribbonTab'
-const COLLAPSE_KEY = 'plexii.slides.ribbonCollapsed'
 const PINS_KEY = 'plexii.slides.pinnedPanels'
 const SIDE_KEY = 'plexii.slides.sidePane'
 const readPref = <T,>(k: string, fallback: T): T => {
@@ -145,10 +143,10 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   const snippetScope = useId()
   const [status, setStatus] = useState<string | null>(null)
   const [canvasW, setCanvasW] = useState(720)
-  // Shell state: the active tab, Row 2 collapse (D5), the overlay panels and the
-  // right side pane, each remembered per app.
-  const [tab, setTab] = useState<string>(() => readPref(TAB_KEY, 'home'))
-  const [collapsed, setCollapsed] = useState<boolean>(() => readPref(COLLAPSE_KEY, false))
+  // Shell state: the active tab (opens on Home), Row 2 collapse (D5, remembered)
+  // and the shapes flyout's last pick, the same in every app (SPEC §3.9); then
+  // the overlay panels and the right side pane.
+  const chrome = useShellChrome('slides', { shapes: 'tool-rect' })
   const [openPanels, setOpenPanels] = useState<DeckPanel[]>([])
   // Selection-driven panels (Edit cells) are used WITH a selection, so they
   // start pinned: an unpinned panel closes on the canvas click that is the job.
@@ -174,8 +172,6 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // PowerPoint and Canva do. Double-click a rail tool to lock it; Esc disarms.
   const [tool, setToolState] = useState<DeckTool>('select')
   const [toolLocked, setToolLocked] = useState(false)
-  // The shapes flyout shows the last shape used as the group's visible member (host-owned, SPEC §2.2).
-  const [lastShape, setLastShape] = useState('tool-rect')
   // Pinned overlay panels float over the canvas's left edge (SPEC §2.4); the slide
   // is laid out past them so nothing on it sits under a panel you cannot click through.
   const panelRects = useRef<Record<string, DOMRect | null>>({})
@@ -326,7 +322,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     setToolState(next)
     setToolLocked(lock && next !== 'select')
     if (next !== 'select') setSelectedIds([])
-    if (next !== 'select' && next !== 'text') setLastShape(`tool-${next}`)
+    if (next !== 'select' && next !== 'text') chrome.onFlyoutPick('shapes', `tool-${next}`)
   }
 
   // Measure the canvas column so the slide scales to fit.
@@ -1080,16 +1076,10 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             testid="slides-toolbar"
             tabs={DECK_TABS}
             ctx={ctx}
-            activeTab={tab}
-            onTabChange={(t) => {
-              setTab(t)
-              writePref(TAB_KEY, t)
-            }}
-            collapsed={collapsed}
-            onCollapsedChange={(v) => {
-              setCollapsed(v)
-              writePref(COLLAPSE_KEY, v)
-            }}
+            activeTab={chrome.tab}
+            onTabChange={chrome.setTab}
+            collapsed={chrome.collapsed}
+            onCollapsedChange={chrome.setCollapsed}
             menuBar={
               <SlidesMenuBar
           actions={{
@@ -1155,8 +1145,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             ctx={ctx}
             activeId={railIdForTool(tool)}
             openPanels={[...openPanels, ...(sidePane === 'ai' ? ['ai'] : [])]}
-            lastUsed={{ shapes: lastShape }}
-            onFlyoutPick={(_f, id) => setLastShape(id)}
+            lastUsed={chrome.lastUsed}
+            onFlyoutPick={chrome.onFlyoutPick}
             ariaLabel="Slide tools"
           />
         }

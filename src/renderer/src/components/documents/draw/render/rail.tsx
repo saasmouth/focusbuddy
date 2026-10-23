@@ -6,7 +6,8 @@
 // flyout (`flyout` on the tool) show as one button. The overlay panels sit
 // at the bottom, and the current fill and stroke under everything.
 
-import type { RailItem } from '../../../office/shell'
+import { ARMED_HINT, railGroup, type RailItem, type RailRole } from '../../../office/shell'
+import { commandById } from '../commands/registry'
 import { docPaintToCss } from '@shared/draw/svg'
 import { commandShortcutLabel, toolShortcutLabel } from '../commands/keys'
 import { drawPanels } from '../panels/registry'
@@ -19,7 +20,32 @@ export interface RailCtx {
   s: EditorState
   /** Option/Alt is held (an Alt-click on a flyout button steps through its tools, as in Illustrator). */
   altHeld: () => boolean
+  /** The right side pane's open pane (PlexiiAssist is 'ai'), or null when collapsed. */
+  sidePane?: string | null
+  /** Open or close PlexiiAssist in the right side pane. */
+  toggleAi?: () => void
 }
+
+/** Selection tools other than Select itself: the rail's Navigate section (SPEC §3.1). */
+const NAVIGATE = new Set(['direct', 'groupSelect', 'lasso'])
+
+/**
+ * A tool's place in the shared rail order (SPEC §3.9): Select, the other
+ * selection tools and the Hand; then Type, the Shapes flyout and the path
+ * tools (pen, scissors, pencil); everything else is Draw's own section.
+ */
+export function drawRailRole(t: Pick<DrawTool, 'id' | 'group' | 'flyout'>): RailRole {
+  if (t.id === 'select') return 'select'
+  if (NAVIGATE.has(t.id)) return 'navigate'
+  if (t.id === 'hand') return 'hand'
+  if (t.id === 'text') return 'text'
+  if (t.flyout === 'shapes') return 'shape'
+  if (CREATE.has(t.group)) return 'create'
+  return 'app'
+}
+
+/** Within a section the rail sorts by role first (Select, selection tools, Hand; Type, Shapes, path tools), then by the toolbox order. */
+const ROLE_RANK: Partial<Record<RailRole, number>> = { select: 0, navigate: 1, hand: 2, text: 0, shape: 1, create: 2 }
 
 /**
  * Rail sections in toolbox order: a tool's `group` is its section, and
@@ -55,37 +81,70 @@ export function toolBadge(t: DrawTool, s: Pick<EditorState, 'pen' | 'penTarget' 
 export function drawRailItems(): RailItem<RailCtx>[] {
   const tools = drawTools().filter((t) => !t.hidden)
   const rank = sectionRanks(tools)
-  const items: RailItem<RailCtx>[] = tools.map((t) => ({
-    id: t.id,
-    label: t.label,
-    icon: t.icon,
-    kind: 'tool',
-    group: rank.get(t.group) ?? 99,
-    order: t.order,
-    shortcut: toolShortcutLabel(t.id) ?? undefined,
-    readOnlySafe: t.readOnlySafe,
-    flyout: t.flyout,
-    badge: undefined,
-    onSelect: ({ ctx, altHeld }) => {
-      if (t.flyout && altHeld()) cycleFlyout(ctx, t.flyout)
-      else chooseTool(ctx, t.id)
-    },
-    onOptions: t.onOptions
-      ? ({ ctx }) => {
-          // Illustrator: double-click a tool for its options dialog.
-          chooseTool(ctx, t.id)
-          t.onOptions!(ctx)
-        }
-      : undefined,
-    testid: `draw-tool-${t.id}`
-  }))
+  const items: RailItem<RailCtx>[] = tools.map((t) => {
+    const role = drawRailRole(t)
+    // Type and the shapes lock on a double-click (SPEC §3.2): they stay armed
+    // after placing until Esc or another tool. Tools with their own options
+    // dialog (Rotate, Scale, Smooth…) keep Illustrator's double-click.
+    const lockable = (role === 'text' || role === 'shape') && !t.onOptions
+    return {
+      id: t.id,
+      label: t.label,
+      icon: t.icon,
+      kind: 'tool',
+      role,
+      // Draw's own sections keep their toolbox order and dividers; the shared
+      // sections come first in the shared order.
+      group: role === 'app' ? railGroup('app', rank.get(t.group) ?? 99) : railGroup(role),
+      order: (ROLE_RANK[role] ?? 0) * 1000 + t.order,
+      shortcut: toolShortcutLabel(t.id) ?? undefined,
+      readOnlySafe: t.readOnlySafe,
+      flyout: t.flyout,
+      badge: undefined,
+      onSelect: ({ ctx, altHeld }) => {
+        if (t.flyout && altHeld()) cycleFlyout(ctx, t.flyout)
+        else chooseTool(ctx, t.id)
+      },
+      onOptions: lockable
+        ? ({ ctx }) => {
+            chooseTool(ctx, t.id)
+            ctx.set({ toolLocked: t.id })
+          }
+        : t.onOptions
+          ? ({ ctx }) => {
+              // Illustrator: double-click a tool for its options dialog.
+              chooseTool(ctx, t.id)
+              t.onOptions!(ctx)
+            }
+          : undefined,
+      optionsHint: lockable ? ARMED_HINT : undefined,
+      testid: `draw-tool-${t.id}`
+    }
+  })
+  // Insert: Place… (an image), the same command File › Place… runs, with its label.
+  const place = commandById('file.place')
+  if (place)
+    items.push({
+      id: 'place-image',
+      label: place.label,
+      icon: 'image',
+      kind: 'action',
+      role: 'image',
+      group: railGroup('image'),
+      order: 0,
+      shortcut: commandShortcutLabel(place.id) ?? undefined,
+      disabled: ({ ctx }) => !(place.enabled?.(ctx) ?? true),
+      onSelect: ({ ctx }) => ctx.run(place.id),
+      testid: 'draw-rail-image'
+    })
   for (const p of drawPanels())
     items.push({
       id: p.id,
       label: p.title,
       icon: p.icon,
       kind: 'panel',
-      group: 1000,
+      role: 'panel',
+      group: railGroup('panel'),
       order: p.order,
       pinned: 'bottom',
       shortcut: commandShortcutLabel(p.command) ?? undefined,
@@ -93,6 +152,21 @@ export function drawRailItems(): RailItem<RailCtx>[] {
       onSelect: ({ ctx }) => ctx.run(p.command),
       testid: `draw-rail-${p.id}`
     })
+  // PlexiiAssist, last: the right side pane's AI (the bar's right-slot toggle opens it too).
+  items.push({
+    id: 'ai',
+    label: 'PlexiiAssist',
+    icon: 'auto_awesome',
+    kind: 'panel',
+    role: 'ai',
+    sidePane: true,
+    group: railGroup('ai'),
+    order: 0,
+    pinned: 'bottom',
+    readOnlySafe: true,
+    onSelect: ({ toggleAi }) => toggleAi?.(),
+    testid: 'draw-rail-ai'
+  })
   return items
 }
 

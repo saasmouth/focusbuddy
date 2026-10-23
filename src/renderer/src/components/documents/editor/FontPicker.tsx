@@ -19,15 +19,27 @@ interface Props {
   // Called with the CSS font-family value to store ('' clears to default).
   onChange: (cssValue: string) => void
   compact?: boolean
+  /** Test id for the trigger (default font-picker-btn): a bar control keeps the id it had as a select (design-font-family, diagram-font, draw-text-family). */
+  testid?: string
+  /** Accessible name and tooltip of the trigger (default "Font"). */
+  label?: string
+  /** App families listed first, before the bundled ones (Diagrams' system stacks). */
+  extra?: { label: string; value: string }[]
+  /** The selection mixes families: the trigger says "Mixed". */
+  mixed?: boolean
+  /** Offer "Default" (clear to the app default). Apps whose text always carries a family turn it off. */
+  allowDefault?: boolean
 }
 
-export default function FontPicker({ value, onChange, compact }: Props): JSX.Element {
+// The one font-family control of every office app's bar (SPEC §3.9): Write,
+// Cells, Deck, Design, Diagrams and Draw all use this picker.
+export default function FontPicker({ value, onChange, compact, testid = 'font-picker-btn', label = 'Font', extra, mixed, allowDefault = true }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
-  const current = familyLabel(value)
+  const current = mixed ? 'Mixed' : extra?.find((e) => e.value === value)?.label ?? familyLabel(value)
 
   useEffect(() => {
     if (!open) return
@@ -80,9 +92,13 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
     <div ref={ref} className="relative">
       <button
         type="button"
-        data-testid="font-picker-btn"
+        data-testid={testid}
+        data-bar-kind="font"
+        aria-label={`${label}: ${current}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        title="Font"
+        title={label}
         className={`fb-tile h-7 inline-flex items-center gap-1 px-1.5 text-[11px] text-[var(--ink-70)] ${compact ? 'w-20' : 'w-28'}`}
       >
         <span className="truncate flex-1 min-w-0 text-left" style={{ fontFamily: value || undefined }}>{current}</span>
@@ -93,7 +109,7 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
           ref={panelRef}
           data-testid="font-picker-panel"
           role="dialog"
-          aria-label="Font"
+          aria-label={label}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.stopPropagation()
@@ -111,7 +127,18 @@ export default function FontPicker({ value, onChange, compact }: Props): JSX.Ele
             className="fb-field w-full mb-1 px-2 py-1 text-[12px]"
           />
           <div className="max-h-64 overflow-auto">
-            {GENERIC_FONTS.map((g) => (
+            {extra?.map((g) => (
+              <button
+                key={`x-${g.label}`}
+                onClick={() => { onChange(g.value); setOpen(false) }}
+                className={`w-full text-left px-2 py-1 text-[12.5px] rounded hover:bg-[var(--surface-sunken)] ${value === g.value ? 'bg-accent/10 text-accent' : ''}`}
+                style={{ fontFamily: g.value || undefined }}
+              >
+                {g.label}
+              </button>
+            ))}
+            {extra && extra.length > 0 && <div className="my-1 border-t border-[var(--edge-soft)]" />}
+            {GENERIC_FONTS.filter((g) => allowDefault || g.value).map((g) => (
               <button
                 key={g.label}
                 onClick={() => { onChange(g.value); setOpen(false) }}

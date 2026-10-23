@@ -2,8 +2,10 @@ import type { DeckTheme, Slide, SlideElement, SlideLayout, SlideTransition } fro
 import { BUILTIN_THEMES } from '@shared/slideThemes'
 import { CHART_TYPES, type ChartType } from '@shared/chart'
 import {
+  armedTool,
   BarButton,
   BarColor,
+  BarFontSize,
   BarCustom,
   BarDialogButton,
   BarGroup,
@@ -14,6 +16,7 @@ import {
   BarToggle,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
+  railGroup,
   type BarTab,
   type RailItem
 } from '../../office/shell'
@@ -166,25 +169,19 @@ function TextControls({ c }: { c: DeckCtx }): JSX.Element | null {
   const align = el.paragraphs[0]?.align ?? 'left'
   return (
     <>
-      <BarCustom label="Font" testid="slides-font">
+      <BarCustom label="Font" testid="slides-font" semantic="font-family">
         <FontPicker value={el.fontFamily} onChange={(v) => c.ed.updateEl(el.id, { fontFamily: v })} compact />
       </BarCustom>
-      <BarNumber label="Font size" value={run?.fontSize ?? 24} min={6} max={400} width={52} onChange={(n) => c.ed.styleText(el.id, { fontSize: n })} testid="slides-font-size" />
-      <BarMenu
-        icon="format_size"
-        label="Font size presets"
-        showLabel={false}
-        items={FONT_SIZES.map((s) => ({ label: `${s}`, run: () => c.ed.styleText(el.id, { fontSize: s }), active: run?.fontSize === s }))}
-      />
+      <BarFontSize value={run?.fontSize ?? 24} min={6} max={400} width={52} presets={FONT_SIZES} onChange={(n) => c.ed.styleText(el.id, { fontSize: n })} testid="slides-font-size" />
       <BarSep />
-      <BarToggle icon="format_bold" label="Bold" shortcut="⌘B" pressed={!!run?.bold} onChange={(v) => c.ed.styleText(el.id, { bold: v })} testid="slides-bold" />
-      <BarToggle icon="format_italic" label="Italic" shortcut="⌘I" pressed={!!run?.italic} onChange={(v) => c.ed.styleText(el.id, { italic: v })} testid="slides-italic" />
-      <BarToggle icon="format_underlined" label="Underline" shortcut="⌘U" pressed={!!run?.underline} onChange={(v) => c.ed.styleText(el.id, { underline: v })} testid="slides-underline" />
-      <BarColor icon="format_color_text" label="Text colour" value={run?.color} palette={deckPalette(c.theme)} onChange={(v) => v && c.ed.styleText(el.id, { color: v })} testid="slides-text-color" />
+      <BarToggle icon="format_bold" semantic="bold" label="Bold" shortcut="⌘B" pressed={!!run?.bold} onChange={(v) => c.ed.styleText(el.id, { bold: v })} testid="slides-bold" />
+      <BarToggle icon="format_italic" semantic="italic" label="Italic" shortcut="⌘I" pressed={!!run?.italic} onChange={(v) => c.ed.styleText(el.id, { italic: v })} testid="slides-italic" />
+      <BarToggle icon="format_underlined" semantic="underline" label="Underline" shortcut="⌘U" pressed={!!run?.underline} onChange={(v) => c.ed.styleText(el.id, { underline: v })} testid="slides-underline" />
+      <BarColor icon="format_color_text" semantic="text-color" label="Text colour" value={run?.color} palette={deckPalette(c.theme)} onChange={(v) => v && c.ed.styleText(el.id, { color: v })} testid="slides-text-color" />
       <BarSep />
-      <BarToggle icon="format_align_left" label="Align left" pressed={align === 'left'} onChange={() => c.ed.alignText(el.id, 'left')} testid="slides-align-text-left" />
-      <BarToggle icon="format_align_center" label="Align centre" pressed={align === 'center'} onChange={() => c.ed.alignText(el.id, 'center')} testid="slides-align-text-center" />
-      <BarToggle icon="format_align_right" label="Align right" pressed={align === 'right'} onChange={() => c.ed.alignText(el.id, 'right')} testid="slides-align-text-right" />
+      <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={align === 'left'} onChange={() => c.ed.alignText(el.id, 'left')} testid="slides-align-text-left" />
+      <BarToggle icon="format_align_center" semantic="align-center" label="Align centre" pressed={align === 'center'} onChange={() => c.ed.alignText(el.id, 'center')} testid="slides-align-text-center" />
+      <BarToggle icon="format_align_right" semantic="align-right" label="Align right" pressed={align === 'right'} onChange={() => c.ed.alignText(el.id, 'right')} testid="slides-align-text-right" />
       <BarSep />
       <BarToggle icon="format_list_bulleted" label="Bulleted list" pressed={list === 'bullet'} onChange={(v) => c.ed.setList(el.id, v ? 'bullet' : 'none')} testid="slides-list-bullet" />
       <BarToggle icon="format_list_numbered" label="Numbered list" pressed={list === 'number'} onChange={(v) => c.ed.setList(el.id, v ? 'number' : 'none')} testid="slides-list-number" />
@@ -226,6 +223,7 @@ function FrameControls({ c }: { c: DeckCtx }): JSX.Element | null {
 const homeTab: BarTab<DeckCtx> = {
   id: 'home',
   label: 'Home',
+  role: 'home',
   render: (c) => (
     <>
       {!c.selected.length && (
@@ -258,6 +256,7 @@ const homeTab: BarTab<DeckCtx> = {
 const insertTab: BarTab<DeckCtx> = {
   id: 'insert',
   label: 'Insert',
+  role: 'insert',
   render: (c) => (
     <>
       {/* One-shot inserts at the default position, keeping their meaning (§4.1); the rail's armed tools place where you click. */}
@@ -296,6 +295,7 @@ const insertTab: BarTab<DeckCtx> = {
 const designTab: BarTab<DeckCtx> = {
   id: 'design',
   label: 'Design',
+  role: 'app',
   render: (c) => {
     const layout = (c.slide.layout ?? 'title-content') as SlideLayout
     const bg = c.slide.background
@@ -346,6 +346,7 @@ const designTab: BarTab<DeckCtx> = {
 const arrangeTab: BarTab<DeckCtx> = {
   id: 'arrange',
   label: 'Arrange',
+  role: 'arrange',
   render: (c) => {
     const el = c.el
     const n = c.selected.length
@@ -578,6 +579,7 @@ const chartTab: BarTab<DeckCtx> = {
 const animationsTab: BarTab<DeckCtx> = {
   id: 'animations',
   label: 'Animations',
+  role: 'app',
   render: (c) => {
     const el = c.el
     return (
@@ -613,6 +615,7 @@ const animationsTab: BarTab<DeckCtx> = {
 const reviewTab: BarTab<DeckCtx> = {
   id: 'review',
   label: 'Review',
+  role: 'review',
   render: (c) => (
     <>
       <BarDialogButton icon="accessibility_new" label="Check accessibility" onOpen={c.ed.checkA11y} testid="slides-a11y-btn" />
@@ -622,24 +625,22 @@ const reviewTab: BarTab<DeckCtx> = {
   )
 }
 
-export const DECK_TABS: BarTab<DeckCtx>[] = [homeTab, insertTab, designTab, arrangeTab, animationsTab, reviewTab, shapeTab, lineTab, imageTab, tableTab, chartTab]
+export const DECK_TABS: BarTab<DeckCtx>[] = [homeTab, insertTab, arrangeTab, designTab, animationsTab, reviewTab, shapeTab, lineTab, imageTab, tableTab, chartTab]
 
 // ── Rail ──────────────────────────────────────────────────────────────────────
 
-const armed = (id: Exclude<DeckTool, 'select'>, label: string, icon: string, order: number, shortcut?: string, flyout?: string): RailItem<DeckCtx> => ({
-  id: `tool-${id}`,
-  label,
-  icon,
-  kind: 'tool',
-  group: 1,
-  order,
-  shortcut,
-  flyout,
-  optionsHint: 'double-click to keep it selected',
-  onSelect: (c) => c.setTool(id),
-  onOptions: (c) => c.setTool(id, true),
-  testid: `slides-tool-${id.toLowerCase()}`
-})
+const armed = (id: Exclude<DeckTool, 'select'>, label: string, icon: string, order: number, shortcut?: string, flyout?: string): RailItem<DeckCtx> =>
+  armedTool<DeckCtx>({
+    id: `tool-${id}`,
+    label,
+    icon,
+    role: id === 'text' ? 'text' : 'shape',
+    order,
+    shortcut,
+    flyout,
+    arm: (c, lock) => c.setTool(id, lock),
+    testid: `slides-tool-${id.toLowerCase()}`
+  })
 
 /**
  * The rail in the common order the spec fixes for every app (§3.1): navigate,
@@ -648,19 +649,19 @@ const armed = (id: Exclude<DeckTool, 'select'>, label: string, icon: string, ord
  */
 export function deckRailItems(): RailItem<DeckCtx>[] {
   return [
-    { id: 'select', label: 'Select', icon: 'arrow_selector_tool', kind: 'tool', group: 0, order: 0, shortcut: 'V', readOnlySafe: true, onSelect: (c) => c.setTool('select'), testid: 'slides-tool-select' },
+    { id: 'select', label: 'Select', icon: 'arrow_selector_tool', kind: 'tool', role: 'select', group: railGroup('select'), order: 0, shortcut: 'V', readOnlySafe: true, onSelect: (c) => c.setTool('select'), testid: 'slides-tool-select' },
     armed('text', 'Text box', 'title', 0, 'T'),
     armed('rect', 'Rectangle', 'crop_square', 1, 'M', 'shapes'),
     armed('roundRect', 'Rounded rectangle', 'rounded_corner', 2, undefined, 'shapes'),
     armed('ellipse', 'Ellipse', 'circle', 3, 'L', 'shapes'),
     armed('triangle', 'Triangle', 'change_history', 4, undefined, 'shapes'),
     armed('line', 'Line', 'horizontal_rule', 5, '\\', 'shapes'),
-    { id: 'image', label: 'Image', icon: 'image', kind: 'action', group: 2, order: 0, onSelect: (c) => c.ed.insertImage(), testid: 'slides-rail-image' },
-    { id: 'table', label: 'Table', icon: 'table_chart', kind: 'action', group: 2, order: 1, onSelect: (c) => c.ed.insertTable(), testid: 'slides-rail-table' },
-    { id: 'chart', label: 'Chart', icon: 'bar_chart', kind: 'action', group: 2, order: 2, onSelect: (c) => c.ed.insertChart(), testid: 'slides-rail-chart' },
-    { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', group: 2, order: 3, onSelect: (c) => c.ed.insertWidget(), testid: 'slides-rail-widget' },
-    { id: 'layouts', label: 'Layouts and themes', icon: 'view_quilt', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: (c) => c.togglePanel('layouts'), testid: 'slides-rail-layouts' },
-    { id: 'ai', label: 'PlexiiAssist', icon: 'auto_awesome', kind: 'panel', sidePane: true, group: 9, order: 1, pinned: 'bottom', readOnlySafe: true, onSelect: (c) => c.toggleSidePane('ai'), testid: 'slides-rail-ai' }
+    { id: 'image', label: 'Image', icon: 'image', kind: 'action', role: 'image', group: railGroup('image'), order: 0, onSelect: (c) => c.ed.insertImage(), testid: 'slides-rail-image' },
+    { id: 'table', label: 'Table', icon: 'grid_on', kind: 'action', role: 'insert', group: railGroup('insert'), order: 1, onSelect: (c) => c.ed.insertTable(), testid: 'slides-rail-table' },
+    { id: 'chart', label: 'Chart', icon: 'bar_chart', kind: 'action', role: 'insert', group: railGroup('insert'), order: 2, onSelect: (c) => c.ed.insertChart(), testid: 'slides-rail-chart' },
+    { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', role: 'insert', group: railGroup('insert'), order: 3, onSelect: (c) => c.ed.insertWidget(), testid: 'slides-rail-widget' },
+    { id: 'layouts', label: 'Layouts and themes', icon: 'view_quilt', kind: 'panel', role: 'panel', group: railGroup('panel'), order: 0, pinned: 'bottom', onSelect: (c) => c.togglePanel('layouts'), testid: 'slides-rail-layouts' },
+    { id: 'ai', label: 'PlexiiAssist', icon: 'auto_awesome', kind: 'panel', role: 'ai', sidePane: true, group: railGroup('ai'), order: 1, pinned: 'bottom', readOnlySafe: true, onSelect: (c) => c.toggleSidePane('ai'), testid: 'slides-rail-ai' }
   ]
 }
 

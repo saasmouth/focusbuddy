@@ -716,10 +716,11 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       if (tool === 'text' && !readOnly) {
         const flow = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
         cmd.addShape('note', { center: flow, edit: true })
-        setTool('select')
+        // Back to Select, unless a double-click on the rail locked Text (SPEC §3.2).
+        if (!toolLocked) setTool('select')
       }
     },
-    [tool, rf, cmd, readOnly]
+    [tool, toolLocked, rf, cmd, readOnly, setTool]
   )
 
   const openContext = (e: React.MouseEvent | MouseEvent, target: ContextTarget): void => {

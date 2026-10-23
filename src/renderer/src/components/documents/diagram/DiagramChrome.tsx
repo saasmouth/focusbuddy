@@ -7,7 +7,7 @@ import DrawMenuBar from '../editor/DrawMenuBar'
 import type { DocumentOps } from '../editor/documentOps'
 import type { MenuItem } from '../editor/menuBarKit'
 import Icon from '../../Icon'
-import { BarButton, BarMenu, BarToggle, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail } from '../../office/shell'
+import { BarButton, BarMenu, BarToggle, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, useShellChrome } from '../../office/shell'
 import type { Commands } from './commands'
 import type { Tool } from './DiagramEditor'
 import { ShapeLibrary } from './ShapeLibrary'
@@ -24,8 +24,6 @@ import { hint, menuAction } from '../../../lib/menus/menuAction'
 // inspector (owner ruling D1, as amended). Owns which panels, panes and dialogs
 // are open; the tool and selection live in the editor.
 
-const TAB_KEY = 'plexii.diagram.ribbonTab'
-const COLLAPSE_KEY = 'plexii.diagram.ribbonCollapsed'
 const PINS_KEY = 'plexii.diagram.pinnedPanels'
 const SIDE_KEY = 'plexii.diagram.sidePane'
 
@@ -95,8 +93,15 @@ export function DiagramChrome({
   const [pinned, setPinned] = useState<DiagramPanel[]>(() => readPref<DiagramPanel[]>(PINS_KEY, []))
   const [open, setOpen] = useState<DiagramPanel[]>(() => readPref<DiagramPanel[]>(PINS_KEY, []))
   const [dialog, setDialog] = useState<DiagramDialog | null>(null)
-  const [tab, setTab] = useState<string>(() => readPref(TAB_KEY, 'home'))
-  const [collapsed, setCollapsed] = useState<boolean>(() => readPref(COLLAPSE_KEY, false))
+  // Tab (opens on Home), collapse (remembered) and the shapes flyout's last
+  // pick: the same host state as every office app (SPEC §3.9).
+  const chrome = useShellChrome('diagram', { shapes: 'shape:process' })
+  const { tab, collapsed } = chrome
+  // A shape armed by its key (M, L) is the flyout's last pick too, as in Deck.
+  const pickShape = chrome.onFlyoutPick
+  useEffect(() => {
+    if (tool.startsWith('shape:')) pickShape('shapes', tool)
+  }, [tool, pickShape])
   const [status, setStatusText] = useState<string | null>(null)
   const statusTimer = useRef<number>()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -204,7 +209,6 @@ export function DiagramChrome({
     [cmd, page, sel, settings, readOnly, singlePage, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus]
   )
   const railItems = useMemo(() => diagramRailItems(), [])
-  const [lastShape, setLastShape] = useState<string>('shape:process')
 
   const menus = {
     file: (): MenuItem[] => [
@@ -377,14 +381,8 @@ export function DiagramChrome({
     ]
   }
 
-  const changeTab = useCallback((id: string) => {
-    setTab(id)
-    writePref(TAB_KEY, id)
-  }, [])
-  const changeCollapsed = (v: boolean): void => {
-    setCollapsed(v)
-    writePref(COLLAPSE_KEY, v)
-  }
+  const changeTab = chrome.setTab
+  const changeCollapsed = chrome.setCollapsed
 
   const one = sel.nodes.size === 1 ? page.nodes.find((n) => sel.nodes.has(n.id)) : undefined
   const panelProps = (id: DiagramPanel) => ({
@@ -505,8 +503,8 @@ export function DiagramChrome({
             ctx={ctx}
             activeId={tool}
             openPanels={sidePane ? [...open, sidePane] : open}
-            lastUsed={{ shapes: lastShape }}
-            onFlyoutPick={(_f, id) => setLastShape(id)}
+            lastUsed={chrome.lastUsed}
+            onFlyoutPick={chrome.onFlyoutPick}
             readOnly={readOnly}
             ariaLabel="Diagram tools"
           />

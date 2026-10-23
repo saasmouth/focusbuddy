@@ -5,7 +5,10 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { useViewStore } from '../../stores/view'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
+import type { Editor } from '@tiptap/react'
 import { createDocumentOps } from '../documents/editor/documentOps'
+import { positionText, resolveForEditor } from '../documents/editor/commentPositions'
+import { anchorToPersist } from '../documents/editor/commentWriteBack'
 import DocumentConflictBar from '../documents/DocumentConflictBar'
 import { docTypeForOfficeKind } from '../../lib/officeDocKinds'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
@@ -68,6 +71,37 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
    * typing.
    */
   const [bodyEpoch, setBodyEpoch] = useState(0)
+  /**
+   * The comment threads on this document, so their highlights appear HERE too.
+   *
+   * A comment anchored the new way has no mark in the body — it is drawn from
+   * its stored range as a decoration — so a surface that does not resolve
+   * anchors shows no highlight at all. This widget did not, which meant a
+   * passage visibly commented in the Documents view looked uncommented on a
+   * desk. A highlight that exists in one view and not another is the kind of
+   * thing people report as lost work.
+   *
+   * READ ONLY, deliberately: the highlights appear and are clickable, and there
+   * is no composer and no panel here. Seeing that a passage is commented is the
+   * gap; leaving one from a desk is a feature, and 9d can ask for it.
+   */
+  const [comments, setComments] = useState<{ id: string; parentId: string | null; anchor: string | null; resolved: boolean }[]>([])
+  /** The live editor, for pushing ranges into. DocEditor hands it over. */
+  const [editor, setEditor] = useState<Editor | null>(null)
+  /**
+   * Anchors already written back, as `id:json`.
+   *
+   * Writing one updates `comments`, which re-runs the resolve, which can write
+   * again — so termination rests entirely on anchorToPersist returning null
+   * once the stored anchor matches. It does, because it compares range and
+   * quote against the text it just resolved against. But a WRITE LOOP TO THE
+   * DATABASE is a bad thing to leave one comparison away, and it is cheap to
+   * make impossible: the same anchor is never written twice.
+   *
+   * A test with anchorToPersist stubbed to always answer found this by hanging
+   * for 30 seconds, which is the mock's fault and the guard's justification.
+   */
+  const persisted = useRef<Set<string>>(new Set())
   /** The body version this widget's copy is based on. */
   const baseRev = useRef(0)
   /** The latest edit, kept so a refusal can be resolved without re-typing. */
@@ -107,6 +141,83 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widget.content])
+
+  // Load this document's comment threads. Only documents have comments, so
+  // every other kind skips the call rather than asking and getting nothing.
+  useEffect(() => {
+    const id = widget.content
+    if (!id || docType !== 'doc') {
+      setComments([])
+      return
+    }
+    let cancelled = false
+    // Called optionally, and not out of superstition: a renderer whose preload
+    // does not expose listComments would otherwise throw inside this effect and
+    // take the whole widget down — so a DOCUMENT would fail to render because
+    // its COMMENTS could not be asked for. Three sibling test files caught
+    // exactly that when this effect was added, each mounting the widget with a
+    // documents api that had no listComments.
+    const ask = window.api.documents.listComments?.(id)
+    if (!ask) {
+      setComments([])
+      return
+    }
+    void ask
+      .then((rows) => {
+        if (!cancelled) setComments(rows)
+      })
+      .catch(() => {
+        // No comments is the honest fallback: an empty list shows no
+        // highlights, which is better than a widget that fails to render a
+        // document because its comments could not be read.
+        if (!cancelled) setComments([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [widget.content, docType])
+
+  // Where those threads belong in the document as it now stands, pushed into
+  // the editor as decorations. The same shape as DocumentEditorView: resolved
+  // when the thread list changes or the editor is rebuilt, NOT per keystroke,
+  // because the decorations map through transactions on their own.
+  useEffect(() => {
+    if (!editor) return
+    const threads = comments
+      .filter((c) => !c.parentId && c.anchor != null)
+      .map((c) => ({ id: c.id, anchor: c.anchor, state: c.resolved ? ('resolved' as const) : ('open' as const) }))
+    if (threads.length === 0) {
+      editor.commands.setCommentRanges([])
+      return
+    }
+    const { ranges } = resolveForEditor(editor, threads)
+    editor.commands.setCommentRanges(ranges)
+
+    // Persist an anchor the resolver had to re-find, by the one shared rule —
+    // local anchors only, and only when something actually changed. A desk is a
+    // real reading surface, so an anchor corrected here should not have to be
+    // corrected again by the next surface that opens the document.
+    const docText = positionText(editor.state.doc)
+    for (const r of ranges) {
+      const thread = threads.find((t) => t.id === r.id)
+      if (!thread) continue
+      const write = anchorToPersist(thread, r, docText)
+      if (!write) continue
+      const key = `${r.id}:${write.json}`
+      if (persisted.current.has(key)) continue
+      persisted.current.add(key)
+      void window.api.documents.setCommentAnchor(r.id, write.json).then((ok) => {
+        if (!ok) {
+          // Let it be retried next time rather than silently never again: a
+          // refusal here is usually transient, and the anchor is still stale.
+          persisted.current.delete(key)
+          return
+        }
+        setComments((prev) => prev.map((c) => (c.id === r.id ? { ...c, anchor: write.json } : c)))
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, comments, bodyEpoch])
 
   // Catch up when another editor on this same document saves — and only when
   // there is nothing of this widget's own to lose. Two linked-duplicate widgets
@@ -255,6 +366,7 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
     body = (
       <DocEditor
         key={`${doc.id}:${bodyEpoch}`}
+        onEditorReady={setEditor}
         content={doc.body}
         title={doc.title}
         onChange={saveBody}

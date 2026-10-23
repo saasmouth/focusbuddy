@@ -41,7 +41,8 @@ function load(): ShellPrefs {
     if (v.lastUsed && typeof v.lastUsed === 'object' && !Array.isArray(v.lastUsed))
       for (const [k, id] of Object.entries(v.lastUsed as Record<string, unknown>)) if (isStr(k) && isStr(id)) lastUsed[k] = id
     return {
-      tab: isStr(v.tab) ? v.tab : SHELL_PREF_DEFAULTS.tab,
+      // Every office app opens on Home (SPEC §3.9): the tab is not restored.
+      tab: SHELL_PREF_DEFAULTS.tab,
       collapsed: v.collapsed === true,
       pinned: Array.isArray(v.pinned) ? [...new Set(v.pinned.filter(isStr))] : [],
       lastUsed,

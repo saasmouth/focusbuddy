@@ -123,6 +123,6 @@ function Home({ ctx }: { ctx: EditorCtx }): JSX.Element {
   )
 }
 
-const home: DrawBarTab = { id: 'home', label: 'Home', order: 10, component: Home }
+const home: DrawBarTab = { id: 'home', label: 'Home', role: 'home', order: 10, component: Home }
 
 export default home

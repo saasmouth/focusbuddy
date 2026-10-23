@@ -8,6 +8,10 @@ import { discardPlaceItem } from '../editor/place'
 import { finishCurvature } from '../tools/curvature.tool'
 import { finishPen, popPenAnchor } from '../tools/pen.tool'
 import { nudgeSelection } from '../transform/apply'
+import { escapeIntent } from '../../../office/shell/chrome'
+
+/** Selection tools: Esc deselects with these rather than switching tool. */
+const SELECTION_TOOLS = new Set(['select', 'direct', 'groupSelect', 'lasso'])
 
 const writable = (ctx: EditorCtx): boolean => !ctx.get().readOnly
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
@@ -123,6 +127,9 @@ export const commands: Command[] = [
       if (ctx.get().pen) finishPen(ctx, false)
       else if (ctx.get().curvature) finishCurvature(ctx, false)
       else if (ctx.get().placing) discardPlaceItem(ctx)
+      // An armed tool goes back to Select, as in every office app (SPEC §3.2);
+      // the selection tools are not "armed", so Esc there deselects.
+      else if (escapeIntent(ctx.get().tool, false, (t) => !SELECTION_TOOLS.has(t)) === 'disarm') ctx.setTool('select')
       // Esc leaves isolation mode, as in Illustrator.
       else if (isIsolated(ctx.get())) exitIsolation(ctx)
       else ctx.select([])

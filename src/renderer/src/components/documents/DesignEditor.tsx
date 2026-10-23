@@ -64,7 +64,8 @@ import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
 import { DESIGN_TABS, type DesignCtx, type DesignPanelId } from './design/ribbon'
-import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type RailItem, type SidePane } from '../office/shell'
+import { BarButton, ContextBar, escapeIntent, OfficeShellLayout, PANEL_SHEET_BELOW, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, useShellChrome, type SidePane } from '../office/shell'
+import { designRailIdForTool, designRailItems, type DesignRailCmds } from './design/rail'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
 import DesignRulers from './design/DesignRulers'
@@ -76,6 +77,11 @@ import BrandKitModal from './BrandKitModal'
 import { GOOGLE_FONTS, loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import DesignAiPanel from './DesignAiPanel'
 import DesignMenuBar from './editor/DesignMenuBar'
+import RecordFindReplace from './editor/RecordFindReplace'
+import { applyDesignReplacements, designFindRecords, frameForRecord } from './design/designFind'
+import type { FindRecord, RecordHit } from '../../lib/recordFind'
+import type { FindOptions } from '../../lib/docFind'
+import { marksForElement } from './design/designFindHighlights'
 import type { DocumentOps } from './editor/documentOps'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
@@ -199,6 +205,19 @@ export default function DesignEditor({
 }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // Find… (⌘F) and Find and replace… (⇧⌘H) share one panel; which opened it
+  // decides whether the Replace row shows. Design was the last office app
+  // without them (SPEC §9.6).
+  const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false)
+  // What the panel is searching for, and the hit it is on, so the canvas can
+  // MARK them in the text it draws. A decoration: nothing here is written to
+  // the design, so searching never makes a document dirty and a read-only
+  // design can still be searched.
+  const [findMark, setFindMark] = useState<{ query: string; opts: FindOptions; current: RecordHit | null }>({
+    query: '',
+    opts: {},
+    current: null
+  })
   // A brand-new, empty design: the Start-from menu opens itself once, which is
   // the first-run help the permanent chip grid used to provide.
   const [startEmpty, setStartEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
@@ -207,32 +226,30 @@ export default function DesignEditor({
   // A tool is armed until it places something, then the editor returns to
   // Select — as PowerPoint and Canva do. Double-clicking a tool locks it, as
   // Illustrator's tool lock does, and Esc always returns to Select.
-  // Which ContextBar tab is showing, and whether its row is collapsed (D5).
-  // Host-owned, as the shell requires.
-  // A brand-new empty design opens on Layout, where the Start-from control
-  // lives and opens itself once — the first-run help the permanent chip grid
-  // used to be. Anchoring it to the EDITOR's first render rather than the
-  // control's mount is what stops the menu springing open again every time
-  // someone returns to the Layout tab, and stops a click meant to open it
-  // from toggling it shut.
+  // Which ContextBar tab is showing, whether its row is collapsed (D5,
+  // remembered) and the shapes flyout's last pick: the same host state as
+  // every office app (SPEC §3.9). Design opens on Home like the others; an
+  // empty design's Start-from menu opens itself once, the first time Layout
+  // is shown while the design is still empty (startEmpty, below). Anchoring
+  // that to the EDITOR rather than the control's mount is what stops the menu
+  // springing open again every time someone returns to the Layout tab.
   // Panels you use WITH a selection — swatches, styles, layout, preflight —
   // open PINNED, because an unpinned overlay closes on an outside click and
   // the outside click is the whole job: select a shape, then give it a
   // colour. Unpinned they shut the moment you touched the canvas.
   const [pinnedPanels, setPinnedPanels] = useState<string[]>(['layout', 'styles', 'swatches', 'preflight'])
 
-  const [activeTab, setActiveTab] = useState(() =>
-    normalizeDesignBody(content).elements.length === 0 ? 'layout' : 'home'
-  )
-  const [barCollapsed, setBarCollapsed] = useState(false)
+  const chrome = useShellChrome('design', { shapes: 'tool-rect' })
   const [tool, setTool] = useState<DesignTool>('select')
   const [toolLocked, setToolLocked] = useState(false)
   function armTool(next: DesignTool, lock = false): void {
     setTool(next)
     setToolLocked(lock && next !== 'select')
     if (next !== 'select') setSelectedIds([])
+    // A shape armed by its key is the flyout's last pick too, as in Deck.
+    if (next !== 'select' && next !== 'text') chrome.onFlyoutPick('shapes', `tool-${next}`)
   }
-  const [panel, setPanel] = useState<DesignPanelId | 'none' | 'ai'>(
+  const [panel, setPanel] = useState<DesignPanelId | 'none'>(
     () => 'none'
   )
   const [aiPrompt, setAiPrompt] = useState('')
@@ -474,6 +491,35 @@ export default function DesignEditor({
 
   const pages = design.pages ?? []
   const activePage = design.activePage ?? 0
+
+  // Every searchable piece of text: a threaded story's blocks, and the
+  // paragraphs of frames that carry their own text (designFind.ts says why
+  // those are the two places and why a story's frames are not searched).
+  const findRecords = useMemo(() => designFindRecords(design), [design])
+
+  /** Show a hit: switch to its page, select its frame, bring it on screen. */
+  function goToHit(hit: RecordHit): void {
+    setFindMark((m) => ({ ...m, current: hit }))
+    const key = hit.key
+    const target = frameForRecord(designRef.current, key)
+    if (!target) return
+    // goToPage clears the selection, so select after it rather than before.
+    if (target.pageIndex !== (designRef.current.activePage ?? 0)) goToPage(target.pageIndex)
+    setSelectedIds([target.elementId])
+    // Best effort: the element may not be mounted yet on a page just switched
+    // to, and a hit already on screen needs no scrolling.
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-element-id="${CSS.escape(target.elementId)}"]`)
+        ?.scrollIntoView({ block: 'center', inline: 'center' })
+    })
+  }
+
+  /** Replace-all is ONE undo entry: one body, committed once. */
+  function replaceText(_changes: FindRecord[], hits: RecordHit[], replacement: string): void {
+    if (readOnly || !hits.length) return
+    commit(applyDesignReplacements(designRef.current, hits, replacement))
+  }
 
   function goToPage(i: number): void {
     const d = designRef.current
@@ -742,9 +788,13 @@ export default function DesignEditor({
       // the rail never listens for keys. Plain letters only — a modifier here
       // would collide with Cut, Copy and the rest.
       if (!mod) {
+        // Esc: an armed tool goes back to Select, otherwise the selection is
+        // cleared — the same in every canvas app (SPEC §3.2).
         if (e.key === 'Escape') {
-          e.preventDefault()
-          armTool('select')
+          const intent = escapeIntent(tool, selectedIds.length > 0)
+          if (intent) e.preventDefault()
+          if (intent === 'disarm') armTool('select')
+          else if (intent === 'deselect') setSelectedIds([])
           return
         }
         const armed: Record<string, DesignTool> = {
@@ -792,7 +842,7 @@ export default function DesignEditor({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds])
+  }, [selectedIds, tool])
 
   function addText(): void {
     const el: SlideElement = {
@@ -1426,34 +1476,15 @@ export default function DesignEditor({
   // `design-tool-*` ids — the old `design-add-*` ids meant "adds one now" and
   // keeping them on something that only arms a mode is how a test passes while
   // placing nothing (§4.1).
-  const railItems: RailItem<null>[] = [
-    { id: 'select', label: 'Select', icon: 'arrow_selector_tool', kind: 'tool', group: 0, order: 0, shortcut: 'V', readOnlySafe: true, onSelect: () => armTool('select'), onOptions: () => armTool('select'), testid: 'design-tool-select' },
-    { id: 'tool-text', label: 'Text', icon: 'title', kind: 'tool', group: 1, order: 0, shortcut: 'T', onSelect: () => armTool('text'), onOptions: () => armTool('text', true), testid: 'design-tool-text' },
-    { id: 'tool-rect', label: 'Rectangle', icon: 'crop_square', kind: 'tool', group: 1, order: 1, shortcut: 'M', flyout: 'shapes', onSelect: () => armTool('rect'), onOptions: () => armTool('rect', true), testid: 'design-tool-rect' },
-    { id: 'tool-roundRect', label: 'Rounded rectangle', icon: 'rounded_corner', kind: 'tool', group: 1, order: 2, flyout: 'shapes', onSelect: () => armTool('roundRect'), onOptions: () => armTool('roundRect', true), testid: 'design-tool-roundRect' },
-    { id: 'tool-ellipse', label: 'Ellipse', icon: 'circle', kind: 'tool', group: 1, order: 3, shortcut: 'L', flyout: 'shapes', onSelect: () => armTool('ellipse'), onOptions: () => armTool('ellipse', true), testid: 'design-tool-ellipse' },
-    { id: 'tool-triangle', label: 'Triangle', icon: 'change_history', kind: 'tool', group: 1, order: 4, flyout: 'shapes', onSelect: () => armTool('triangle'), onOptions: () => armTool('triangle', true), testid: 'design-tool-triangle' },
-    { id: 'tool-line', label: 'Line', icon: 'horizontal_rule', kind: 'tool', group: 1, order: 5, shortcut: '\\', flyout: 'shapes', onSelect: () => armTool('line'), onOptions: () => armTool('line', true), testid: 'design-tool-line' },
-    { id: 'image', label: 'Image', icon: 'image', kind: 'action', group: 2, order: 0, onSelect: () => void addImageFromFile(), testid: 'design-add-image' },
-    { id: 'logo', label: 'Logo', icon: 'badge', kind: 'action', group: 2, order: 1, onSelect: () => placeLogo(), testid: 'design-add-logo' },
-    { id: 'widget', label: 'Work widget from a desk', icon: 'widgets', kind: 'action', group: 2, order: 2, onSelect: () => setWidgetPickerOpen(true), testid: 'design-add-widget' },
-    // Bottom group: the overlay panels (SPEC §3.1). The rail holds tools and
-    // tool panels only — PlexiiAssist is content you read and type in, so it
-    // lives in the shared right pane and its toggle is in the bar, like
-    // Write's and Diagrams'. "AI design" stays: it generates a whole layout
-    // from a prompt, which is a tool.
-    //
-    // All five panels belong here, as Deck's do. Until now only AI design was,
-    // and the other four opened from ribbon tabs alone: a layout program's
-    // Page layout panel is used constantly, and reaching it meant a trip to
-    // the Layout tab every time. The ribbon buttons stay — two doors to one
-    // panel, each with its own id.
-    { id: 'panel-layout', label: 'Page layout', icon: 'dashboard', kind: 'panel', group: 9, order: 0, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'layout' ? 'none' : 'layout')), testid: 'design-rail-layout' },
-    { id: 'panel-styles', label: 'Paragraph styles', icon: 'format_paint', kind: 'panel', group: 9, order: 1, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'styles' ? 'none' : 'styles')), testid: 'design-rail-styles' },
-    { id: 'panel-swatches', label: 'Swatches & spot inks', icon: 'invert_colors', kind: 'panel', group: 9, order: 2, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'swatches' ? 'none' : 'swatches')), testid: 'design-rail-swatches' },
-    { id: 'panel-preflight', label: 'Preflight for print', icon: 'rule', kind: 'panel', group: 9, order: 3, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'preflight' ? 'none' : 'preflight')), testid: 'design-rail-preflight' },
-    { id: 'ai-generate', label: 'AI design', icon: 'auto_awesome', kind: 'panel', group: 9, order: 4, pinned: 'bottom', onSelect: () => setPanel((p) => (p === 'ai' ? 'none' : 'ai')), testid: 'design-ai-btn' }
-  ]
+  const railItems = useMemo(() => designRailItems(), [])
+  const railCmds: DesignRailCmds = {
+    armTool,
+    addImage: () => void addImageFromFile(),
+    placeLogo: () => placeLogo(),
+    insertWidget: () => setWidgetPickerOpen(true),
+    togglePanel: (id) => setPanel((p) => (p === id ? 'none' : id)),
+    toggleGenerate: () => changeSidePane(sidePane === 'generate' ? null : 'generate')
+  }
 
   // ── The ContextBar's context ──────────────────────────────────────────────
   // Every property the right-hand inspector used to show, as commands the
@@ -1471,7 +1502,9 @@ export default function DesignEditor({
         size={{ w: design.width, h: design.height }}
         onTemplate={applyTemplate}
         onSize={changeSize}
-        autoOpen={startEmpty}
+        // Never in a narrow desk widget: there the menu would cover the tabs
+        // and the page (Deck's first-run side pane follows the same rule).
+        autoOpen={startEmpty && (design.elements ?? []).length === 0 && wrapBox.w >= PANEL_SHEET_BELOW}
         onAutoOpened={() => setStartEmpty(false)}
       />
     ),
@@ -1602,6 +1635,8 @@ export default function DesignEditor({
             canPaste: clipboard.hasClip,
             duplicateSelection: duplicateSelected,
             selectAll,
+            find: () => setFindOpen('find'),
+            findAndReplace: () => setFindOpen('replace'),
             saveSelectionAsSnippet,
             insertSnippet: () => setSnippetLibraryOpen(true),
             duplicatePage,
@@ -1648,6 +1683,55 @@ export default function DesignEditor({
       )
     }
   ]
+  // AI design: generates a layout (or an image) from a prompt. It is content
+  // you type into, so it is a pane here beside PlexiiAssist, as Deck's
+  // Generate deck and Diagrams' AI diagram are (SPEC §3.9), opened from the
+  // rail's last item.
+  sidePanes.push({
+    id: 'generate',
+    title: 'AI design',
+    icon: 'auto_awesome',
+    testid: 'design-generate-pane',
+    render: () => (
+      <div className="space-y-2 p-3">
+        <div>
+          <div className="text-[11px] text-[var(--ink-50)] mb-1">Describe the design — AI writes on-brand copy and lays it out. Generate variations to pick from a set of on-brand options.</div>
+          <div className="flex gap-1.5">
+            <input
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="e.g. a launch announcement for our new pricing"
+              data-testid="design-ai-prompt"
+              onKeyDown={(e) => e.key === 'Enter' && void generateVariations()}
+              className="fb-field flex-1 px-2.5 py-1.5 text-[12px]"
+            />
+            <button onClick={() => void generateVariations()} disabled={!!busy} data-testid="design-ai-variations" className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50">
+              Variations
+            </button>
+            <button onClick={() => void generateDesign()} disabled={!!busy} data-testid="design-ai-go" className="fb-btn-surface text-[12px] px-3 py-1.5 hover:border-accent disabled:opacity-50">
+              One
+            </button>
+          </div>
+        </div>
+        <div>
+          <div className="text-[11px] text-[var(--ink-50)] mb-1">Generate an image to place on the canvas (OpenAI gpt-image-1).</div>
+          <div className="flex gap-1.5">
+            <input
+              value={imgPrompt}
+              onChange={(e) => setImgPrompt(e.target.value)}
+              placeholder="e.g. a minimal abstract gradient background"
+              data-testid="design-image-prompt"
+              onKeyDown={(e) => e.key === 'Enter' && void generateImage()}
+              className="fb-field flex-1 px-2.5 py-1.5 text-[12px]"
+            />
+            <button onClick={() => void generateImage()} disabled={!!busy} data-testid="design-image-go" className="fb-btn-surface text-[12px] px-3 py-1.5 hover:border-accent disabled:opacity-50">
+              Image
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  })
   if (openStoryId && design.stories?.[openStoryId]) {
     const storyId = openStoryId
     sidePanes.push({
@@ -1674,53 +1758,6 @@ export default function DesignEditor({
 
   const shellPanels = (
     <>
-      {panel === 'ai' && (
-        <ShellPanel
-          id="ai"
-          title="Generate with AI"
-          open
-          onClose={() => setPanel('none')}
-          testid="design-panel-ai"
-        >
-          <div className="space-y-2">
-            <div>
-              <div className="text-[11px] text-[var(--ink-50)] mb-1">Describe the design — AI writes on-brand copy and lays it out. Generate variations to pick from a set of on-brand options.</div>
-              <div className="flex gap-1.5">
-                <input
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="e.g. a launch announcement for our new pricing"
-                  data-testid="design-ai-prompt"
-                  onKeyDown={(e) => e.key === 'Enter' && void generateVariations()}
-                  className="fb-field flex-1 px-2.5 py-1.5 text-[12px]"
-                />
-                <button onClick={() => void generateVariations()} disabled={!!busy} data-testid="design-ai-variations" className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50">
-                  Variations
-                </button>
-                <button onClick={() => void generateDesign()} disabled={!!busy} data-testid="design-ai-go" className="fb-btn-surface text-[12px] px-3 py-1.5 hover:border-accent disabled:opacity-50">
-                  One
-                </button>
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-[var(--ink-50)] mb-1">Generate an image to place on the canvas (OpenAI gpt-image-1).</div>
-              <div className="flex gap-1.5">
-                <input
-                  value={imgPrompt}
-                  onChange={(e) => setImgPrompt(e.target.value)}
-                  placeholder="e.g. a minimal abstract gradient background"
-                  data-testid="design-image-prompt"
-                  onKeyDown={(e) => e.key === 'Enter' && void generateImage()}
-                  className="fb-field flex-1 px-2.5 py-1.5 text-[12px]"
-                />
-                <button onClick={() => void generateImage()} disabled={!!busy} data-testid="design-image-go" className="fb-btn-surface text-[12px] px-3 py-1.5 hover:border-accent disabled:opacity-50">
-                  Image
-                </button>
-              </div>
-            </div>
-          </div>
-        </ShellPanel>
-      )}
       {panel === 'redesign' && (
         <ShellPanel
           id="redesign"
@@ -1887,8 +1924,11 @@ export default function DesignEditor({
             handler does that. */}
         <ToolRail
           items={railItems}
-          ctx={null}
-          activeId={tool === 'select' ? 'select' : `tool-${tool}`}
+          ctx={railCmds}
+          activeId={designRailIdForTool(tool)}
+          openPanels={[...(panel !== 'none' ? [`panel-${panel}`] : []), ...(sidePane === 'generate' ? ['ai-generate'] : [])]}
+          lastUsed={chrome.lastUsed}
+          onFlyoutPick={chrome.onFlyoutPick}
           readOnly={readOnly}
           testid="design-rail"
           ariaLabel="Design tools"
@@ -2017,10 +2057,10 @@ export default function DesignEditor({
         <ContextBar
           tabs={DESIGN_TABS}
           ctx={barCtx}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          collapsed={barCollapsed}
-          onCollapsedChange={setBarCollapsed}
+          activeTab={chrome.tab}
+          onTabChange={chrome.setTab}
+          collapsed={chrome.collapsed}
+          onCollapsedChange={chrome.setCollapsed}
           menuBar={menuBar}
           readOnly={readOnly}
           pinnedStart={
@@ -2103,6 +2143,11 @@ export default function DesignEditor({
                 logicalW={design.width}
                 logicalH={design.height}
                 selectedIds={selectedIds}
+                marksFor={(el) =>
+                  findMark.query && el.type === 'text'
+                    ? marksForElement(designRef.current, el, findMark.query, findMark.opts, findMark.current)
+                    : undefined
+                }
                 underlay={underlay}
                 lockedIds={lockedIds}
                 extraSnapX={snaps.xs}
@@ -2269,6 +2314,23 @@ export default function DesignEditor({
           }
         />
       )}
+      {findOpen && (
+        <RecordFindReplace
+          testid="design-find"
+          scope="Find in this design"
+          replace={findOpen === 'replace'}
+          records={findRecords}
+          onGo={goToHit}
+          onSearch={(query, opts) => setFindMark((m) => ({ ...m, query, opts }))}
+          onReplace={replaceText}
+          onClose={() => {
+            setFindOpen(false)
+            // Marks never outlive the panel.
+            setFindMark({ query: '', opts: {}, current: null })
+          }}
+        />
+      )}
+
       {snippetLibraryOpen && (
         <SnippetLibrary kinds={DESIGN_KINDS} targetId={designSnippetTargetId(snippetScope)} onClose={() => setSnippetLibraryOpen(false)} />
       )}
