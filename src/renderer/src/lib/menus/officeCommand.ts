@@ -1,9 +1,10 @@
-import { MENU, actionKeys, type MenuAction, type MenuActionId } from '@shared/menus/lexicon'
+import { MENU, NEW_DOCUMENT_LABEL, actionKeys, type MenuAction, type MenuActionId } from '@shared/menus/lexicon'
 import { shortcutLabel, type ShortcutKeys } from '@shared/menus/shortcuts'
 import type { MenuItem } from '../../components/documents/editor/menuBarKit'
 import type { CtxMenuItem } from '../../components/CanvasContextMenu'
 import type { EditorCommand } from '../../stores/editorCommands'
 import { menuPlatform } from './menuAction'
+import type { DocumentOps } from '../../components/documents/editor/documentOps'
 
 // One definition per office action (SPEC §9, "no repeats"): label, key, icon,
 // enabled state with its reason, and what it does. The menu bar, the ribbon,
@@ -120,5 +121,35 @@ export function barProps(c: OfficeCommand): { label: string; icon?: string; shor
     ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
     ...(c.enabled ? { disabled: off } : {}),
     ...(reason ? { disabledReason: reason } : {})
+  }
+}
+
+/** File's document actions, each acting on the document its host bound. */
+export interface DocumentCommands {
+  newDocument: OfficeCommand
+  makeCopy: OfficeCommand
+  rename: OfficeCommand
+  versionHistory: OfficeCommand
+  meeting: OfficeCommand
+  moveToTrash: OfficeCommand
+}
+
+/**
+ * File's document actions as commands built FROM the host-bound DocumentOps
+ * (9d ruling): run() calls through the ops, so no document id and no store
+ * `active` ever lives in a registry; the ops carry the binding. With no ops
+ * (a snippet session) there is no document to act on, so there are no
+ * commands, and the menus leave the rows out (absent, SPEC §9.5; 9d option A).
+ * Ids are PlexiiDraw's existing ones, shared by every app.
+ */
+export function documentCommands(ops: DocumentOps | undefined, docType: string): DocumentCommands | null {
+  if (!ops) return null
+  return {
+    newDocument: { id: 'file.new', label: NEW_DOCUMENT_LABEL[docType] ?? 'New', icon: 'note_add', run: () => void ops.newDocument() },
+    makeCopy: sharedCommand('file.copy', 'makeCopy', () => void ops.makeCopy(), { icon: 'file_copy' }),
+    rename: sharedCommand('file.rename', 'rename', () => void ops.rename(), { icon: 'edit' }),
+    versionHistory: sharedCommand('file.history', 'versionHistory', () => ops.openHistory(), { icon: 'history' }),
+    meeting: sharedCommand('document.meeting', 'meeting', () => ops.startMeeting(), { icon: 'videocam' }),
+    moveToTrash: sharedCommand('file.trash', 'moveToTrash', () => void ops.moveToTrash())
   }
 }

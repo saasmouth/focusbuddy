@@ -1,7 +1,7 @@
 // One definition per office action (SPEC §9): the adapters render the same
 // label, hint and off-state reason on every surface, by construction.
 import { describe, expect, it, vi } from 'vitest'
-import { barProps, commandHint, ctxRow, menuItemOf, paletteEntries, paletteEntry, sharedCommand, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
+import { barProps, commandHint, ctxRow, documentCommands, menuItemOf, paletteEntries, paletteEntry, sharedCommand, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
 
 vi.stubGlobal('window', Object.assign(globalThis.window ?? {}, { api: { platform: 'darwin' } }))
 
@@ -45,5 +45,53 @@ describe('OfficeCommand adapters', () => {
     expect(d).toMatchObject({ label: 'Duplicate', icon: 'control_point_duplicate' })
     expect(commandHint(d, 'darwin')).toBe('⌘D')
     expect(commandHint(sharedCommand('t', 'pasteAsPlainText', run), 'win32')).toBe('Ctrl+Shift+V')
+  })
+})
+
+describe('documentCommands: File acts on the document its host bound', () => {
+  const opsFor = (id: string) => ({
+    id,
+    title: () => id,
+    newDocument: vi.fn().mockResolvedValue(undefined),
+    makeCopy: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
+    openHistory: vi.fn(),
+    startMeeting: vi.fn(),
+    moveToTrash: vi.fn().mockResolvedValue(undefined)
+  })
+
+  it('two hosts, two documents: each command reaches only its own document', () => {
+    const a = opsFor('A')
+    const b = opsFor('B')
+    const ca = documentCommands(a, 'doc')!
+    const cb = documentCommands(b, 'sheet')!
+    // B built last, A used: a registry that kept "the current document" would hit B.
+    for (const k of ['newDocument', 'makeCopy', 'rename', 'versionHistory', 'meeting', 'moveToTrash'] as const) ca[k].run()
+    expect(a.moveToTrash).toHaveBeenCalledTimes(1)
+    expect(a.makeCopy).toHaveBeenCalledTimes(1)
+    expect(a.rename).toHaveBeenCalledTimes(1)
+    expect(a.openHistory).toHaveBeenCalledTimes(1)
+    expect(a.startMeeting).toHaveBeenCalledTimes(1)
+    expect(a.newDocument).toHaveBeenCalledTimes(1)
+    for (const f of [b.moveToTrash, b.makeCopy, b.rename, b.openHistory, b.startMeeting, b.newDocument]) expect(f).not.toHaveBeenCalled()
+    cb.moveToTrash.run()
+    expect(b.moveToTrash).toHaveBeenCalledTimes(1)
+    expect(a.moveToTrash).toHaveBeenCalledTimes(1)
+  })
+
+  it('labels come from the lexicon and the app type', () => {
+    const c = documentCommands(opsFor('A'), 'slides')!
+    expect([c.newDocument.label, c.makeCopy.label, c.rename.label, c.versionHistory.label, c.meeting.label, c.moveToTrash.label]).toEqual([
+      'New presentation',
+      'Make a copy',
+      'Rename',
+      'Version history',
+      'Meeting',
+      'Move to Trash'
+    ])
+  })
+
+  it('no ops (a snippet session): no document commands, so the rows are absent', () => {
+    expect(documentCommands(undefined, 'doc')).toBeNull()
   })
 })
