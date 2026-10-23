@@ -83,6 +83,10 @@ import MissedTriagePrompt from './components/MissedTriagePrompt'
 import { PromptDialogHost, confirmDialog } from './components/plexi/PromptDialog'
 import { DocHistoryPanelHost } from './components/documents/DocHistoryPanel'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
+import { FilesDockSlot, FilesFlyout, reservedWidth } from './components/files/FilesDock'
+import FilesFloat from './components/files/FilesFloat'
+import { useFilesPanelStore, isFilesFullScreen } from './stores/filesPanel'
+import { isFilesPanelChord, filesPanelChordLabel } from './lib/filesPanelChord'
 import SourcePeekModal from './components/SourcePeekModal'
 import CaptureConsole from './components/CaptureConsole'
 import AttentionBadge from './components/AttentionBadge'
@@ -152,6 +156,9 @@ export default function App(): JSX.Element {
   }, [])
 
   const shareView = isShareRecipient()
+  const filesOpen = useFilesPanelStore((s) => s.open)
+  // The panel's toggle steps aside while Files itself fills the screen.
+  const filesFullScreen = isFilesFullScreen(currentView)
 
   // A share window opens on the desk it was sent, not on the dashboard of a
   // workspace the visitor does not have.
@@ -483,6 +490,30 @@ export default function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Files beside your work follows the person: their own saved panel (pinned,
+  // width, flyout or float, list or grid), and the copy on their other devices.
+  useEffect(() => {
+    useFilesPanelStore.getState().switchAccount(account?.id ?? null, sessionToken ?? null)
+  }, [account?.id, sessionToken])
+
+  // ⌥⌘F (Ctrl+Alt+F): open or close Files beside your work, from anywhere.
+  // CAPTURE phase so it runs before any editor's own key handling, matched on
+  // `code` (Option turns F into ƒ), never with Shift (Draw's ⌥⇧⌘F) or AltGr.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if (!isFilesPanelChord(e)) return
+      if (isShareRecipient()) return
+      e.preventDefault()
+      e.stopPropagation()
+      const st = useFilesPanelStore.getState()
+      if (st.open) st.close()
+      else if (st.mode === 'float') st.openFloating()
+      else st.openBeside()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+
   // Cmd+/ opens the global shortcuts reference. The document editors bind the
   // same key for their own editor-scoped panel and preventDefault when they
   // handle it, so we only act on unclaimed presses.
@@ -503,6 +534,9 @@ export default function App(): JSX.Element {
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      // Files (full view or the panel beside) already took this press for its
+      // own undo stack (lib/filesUndoScope): one ⌘Z, one undo.
+      if (e.defaultPrevented) return
       const el = document.activeElement as HTMLElement | null
       const tag = (el?.tagName ?? '').toLowerCase()
       if (tag === 'input' || tag === 'textarea' || el?.isContentEditable) return
@@ -700,6 +734,26 @@ export default function App(): JSX.Element {
           </Tooltip>
           <TeamPresenceButton />
           <AttentionBadge />
+          {!filesFullScreen && (
+            <Tooltip content={`Files beside your work (${filesPanelChordLabel(window.api?.platform)})`} placement="bottom">
+              <button
+                onClick={() => {
+                  const st = useFilesPanelStore.getState()
+                  if (st.open) st.close()
+                  else if (st.mode === 'float') st.openFloating()
+                  else st.openBeside()
+                }}
+                className={`icon-btn ${filesOpen ? '!text-accent' : ''}`}
+                aria-label="Files beside your work"
+                aria-pressed={filesOpen}
+                aria-controls="files-panel"
+                data-testid="files-panel-toggle"
+                data-files-panel-control=""
+              >
+                <Icon name="folder_open" size={16} filled={filesOpen} />
+              </button>
+            </Tooltip>
+          )}
           <Tooltip content="Search and commands (⌘K)" placement="bottom">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('fb:open-command-palette'))}
@@ -756,6 +810,9 @@ export default function App(): JSX.Element {
           {!shareView && (
             <SidebarDock collapsed={sidebarMinimized} onToggle={toggleSidebar} fullBleed={canvasFullBleed} />
           )}
+          {/* Files beside your work docks right of the side menu; pinned, it
+              reserves its width here (components/files/FilesDock). */}
+          {!shareView && <FilesDockSlot overCanvas={canvasFullBleed} />}
           {/* The assistant no longer lives in a desk-only split here — it is a
               global overlay (AssistantOverlay, mounted below) so it exists on
               every screen. Sidebar mode reserves its width via mainPad above. */}
@@ -827,6 +884,9 @@ export default function App(): JSX.Element {
         {/* DEC-075 — yesterday's never-completed blocks greet the launch once. */}
         <MissedTriagePrompt />
         <CaptureConsole />
+        {/* Files beside your work: the flyout from the side menu, or floating. */}
+        <FilesFlyout />
+        <FilesFloat />
         <PromptDialogHost />
         <DocHistoryPanelHost />
         {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
@@ -905,6 +965,10 @@ function SidebarDock({
 }): JSX.Element {
   const { width, onResizeStart, nudge, resizing } = useSidebarWidth()
   const dockRef = useRef<HTMLDivElement>(null)
+  // A PINNED Files panel docks right of this menu; on the full-bleed desk it
+  // floats over the canvas like the menu, so the canvas's visible left edge
+  // (and Columns, the Workcentre, the edge-pan zone) moves past it too.
+  const filesReserved = useFilesPanelStore((s) => reservedWidth(s))
   // Publish the dock's live width as --fb-dock-inset while the canvas runs
   // beneath it, so left-anchored and centred canvas chrome (breadcrumb, zoom,
   // hint pills) and the edge-pan zone can treat the dock's right edge as the
@@ -919,7 +983,7 @@ function SidebarDock({
     }
     const el = dockRef.current
     const publish = (): void => {
-      const px = Math.round(el.offsetWidth)
+      const px = Math.round(el.offsetWidth) + filesReserved
       root.style.setProperty('--fb-dock-inset', `${px}px`)
       useWidgetStore.getState().setDockInset(px)
     }
@@ -931,7 +995,7 @@ function SidebarDock({
       root.style.setProperty('--fb-dock-inset', '0px')
       useWidgetStore.getState().setDockInset(0)
     }
-  }, [fullBleed])
+  }, [fullBleed, filesReserved])
   return (
     <div
       ref={dockRef}

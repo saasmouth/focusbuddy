@@ -7,8 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FileEntry } from '@shared/fields'
-import type { DocType, WidgetFileDesk } from '@shared/types'
-import { setDocDrag } from '../../lib/docMetaCache'
+import type { WidgetFileDesk } from '@shared/types'
 import { useFileManagerStore, sortEntries, type FileSortKey, type FileViewMode } from '../../stores/fileManager'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
@@ -29,43 +28,59 @@ import {
   typeFilterOptions,
   widgetFileDeskLine
 } from '../../lib/fileEntryType'
-import { writeWidgetFileDrag } from '../../lib/widgetFileDrag'
+import {
+  ENTRY_DRAG_MIME,
+  FILES_DRAG_MIME,
+  readFilesDrag,
+  refsForDragStart,
+  setFilesDragImage,
+  writeFilesDrag,
+  type FileDragRef
+} from '../../lib/filesDrag'
+import { moveFilesInto } from '../../lib/filesDrop'
+import { nextSelection } from '../../lib/filesSelection'
 import { confirmTrashWidgetFile } from '../../lib/widgetRemoval'
 import type { FileTypeFilter } from '../../stores/fileManager'
+import { filesUndoAction } from '../../lib/filesUndoScope'
 
-const ENTRY_MIME = 'application/fb-entry-id'
+const ENTRY_MIME = ENTRY_DRAG_MIME
 
-// Lazily-fetched QuickLook thumbnails, cached across renders/remounts so
-// scrolling and re-sorting never re-thumbnail the same file.
-const thumbCache = new Map<string, string | null>()
-
-function previewable(entry: FileEntry): boolean {
-  if (entry.kind !== 'file') return false
-  const m = entry.mimeType ?? ''
-  return m.startsWith('image/') || m === 'application/pdf' || m.startsWith('video/')
+/** A Files drag (ours, the legacy entry id, or a Finder drag) is over a folder target. */
+function folderAccepts(dt: DataTransfer): boolean {
+  const t = dt.types
+  return t.includes(FILES_DRAG_MIME) || t.includes(ENTRY_MIME) || t.includes('Files')
 }
 
-function useThumbnail(entry: FileEntry, want: boolean): string | null {
-  const key = entry.id
-  const [url, setUrl] = useState<string | null>(() => thumbCache.get(key) ?? null)
-  useEffect(() => {
-    if (!want || !previewable(entry)) return
-    if (thumbCache.has(key)) {
-      setUrl(thumbCache.get(key) ?? null)
-      return
-    }
-    let alive = true
-    void window.api.files.thumbnail(entry.id, { size: 256 }).then((res) => {
-      const value = res ? `data:${res.mimeType};base64,${res.base64}` : null
-      thumbCache.set(key, value)
-      if (alive) setUrl(value)
-    })
-    return () => {
-      alive = false
-    }
-  }, [entry, key, want])
-  return url
+/**
+ * Drop on a folder target: a Files drag moves (all of it, one undo), the legacy
+ * entry id moves one, Finder files are imported. Returns whether it was handled.
+ */
+function dropOnFolder(
+  e: React.DragEvent,
+  folderId: string | null,
+  h: { onMoveRefs: (refs: FileDragRef[], target: string | null) => void; onMove: (id: string, target: string | null) => void; onDropOsFiles?: (files: FileList, folderId: string) => void }
+): boolean {
+  const files = readFilesDrag(e.dataTransfer)
+  if (files.ok) {
+    e.preventDefault()
+    h.onMoveRefs(files.payload.refs, folderId)
+    return true
+  }
+  const dragged = e.dataTransfer.getData(ENTRY_MIME)
+  if (dragged) {
+    e.preventDefault()
+    h.onMove(dragged, folderId)
+    return true
+  }
+  if (folderId && e.dataTransfer.files.length && h.onDropOsFiles) {
+    e.preventDefault()
+    h.onDropOsFiles(e.dataTransfer.files, folderId)
+    return true
+  }
+  return false
 }
+
+import { useThumbnail } from '../../lib/fileThumbnail'
 
 // Type icons and labels live in lib/fileEntryType, shared with the sort and
 // the type filter, so a widget file reads as "Table" everywhere.
@@ -119,15 +134,16 @@ export default function FilesView(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Undo/redo for file operations while the manager is open. Ignored while
-  // typing in an input (rename) so text editing keeps its own undo.
+  // Undo/redo for file operations while the manager is open, scoped by
+  // lib/filesUndoScope: never while focus edits text (rename, any editor),
+  // only when focus is inside Files or nowhere in particular.
+  const rootRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
-      const tag = (document.activeElement?.tagName ?? '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea') return
+      const action = filesUndoAction(e, { root: rootRef.current, active: document.activeElement, fullScreen: true })
+      if (!action) return
       e.preventDefault()
-      if (e.shiftKey) void redo()
+      if (action === 'redo') void redo()
       else void undo()
     }
     document.addEventListener('keydown', onKey)
@@ -172,6 +188,20 @@ export default function FilesView(): JSX.Element {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widgetDocKey])
+
+  // ⌘-click toggles, ⇧-click selects the range from the last click, a plain
+  // click selects one (lib/filesSelection, shared with the panel).
+  function selectWith(id: string, mods?: { meta?: boolean; shift?: boolean }): void {
+    const next = nextSelection(sorted.map((e) => e.id), store.selectedIds, store.selectedId, id, mods ?? {})
+    store.setSelection(next.ids, next.focus)
+  }
+  // A drag from a selected row carries the whole selection.
+  function dragRefs(entry: FileEntry): FileDragRef[] {
+    return refsForDragStart(entry, store.selectedIds, (id) => store.entries.find((x) => x.id === id), activeOrgId)
+  }
+  function moveRefs(refs: FileDragRef[], target: string | null): void {
+    void moveFilesInto(refs, target)
+  }
 
   function openEntry(entry: FileEntry): void {
     if (entry.kind === 'folder') void store.openFolder(entry.id)
@@ -287,6 +317,7 @@ export default function FilesView(): JSX.Element {
 
   return (
     <div
+      ref={rootRef}
       data-testid="files-view"
       className="h-full flex flex-col bg-[var(--surface-raised)]"
       onDragOver={(e) => {
@@ -308,7 +339,7 @@ export default function FilesView(): JSX.Element {
     >
       <Toolbar onNewFolder={() => void store.createFolder('New folder').then(() => undefined)} onAddFiles={() => void store.importFiles()} onImportFolder={() => void store.importFolder()} onAddDoc={() => void openDocPicker()} />
 
-      <Breadcrumbs crumbs={store.crumbs} onOpen={(id) => void store.openFolder(id)} onMove={(id, target) => void store.move(id, target)} />
+      <Breadcrumbs crumbs={store.crumbs} onOpen={(id) => void store.openFolder(id)} onMove={(id, target) => void store.move(id, target)} onMoveRefs={moveRefs} />
 
       <div className={`flex-1 overflow-auto px-4 py-3 relative ${dropActive ? 'ring-2 ring-accent ring-inset' : ''}`}>
         {store.loading ? (
@@ -333,8 +364,11 @@ export default function FilesView(): JSX.Element {
             sortDir={store.sortDir}
             onSort={store.setSort}
             selectedId={store.selectedId}
+            selectedIds={store.selectedIds}
             renaming={renaming}
-            onSelect={store.select}
+            onSelect={selectWith}
+            dragRefs={dragRefs}
+            onMoveRefs={moveRefs}
             onOpen={openEntry}
             onRenameStart={setRenaming}
             onRenameCommit={(id, name) => {
@@ -355,8 +389,11 @@ export default function FilesView(): JSX.Element {
             desks={deskMap}
             mode={store.viewMode}
             selectedId={store.selectedId}
+            selectedIds={store.selectedIds}
             renaming={renaming}
-            onSelect={store.select}
+            onSelect={selectWith}
+            dragRefs={dragRefs}
+            onMoveRefs={moveRefs}
             onOpen={openEntry}
             onRenameCommit={(id, name) => {
               void store.rename(id, name)
@@ -495,25 +532,23 @@ function TypeFilter(): JSX.Element {
 function Breadcrumbs({
   crumbs,
   onOpen,
-  onMove
+  onMove,
+  onMoveRefs
 }: {
   crumbs: Array<{ id: string; name: string }>
   onOpen: (id: string | null) => void
   onMove: (id: string, target: string | null) => void
+  onMoveRefs: (refs: FileDragRef[], target: string | null) => void
 }): JSX.Element {
   const crumb = (label: string, id: string | null, testid?: string): JSX.Element => (
     <button
       data-testid={testid}
       onClick={() => onOpen(id)}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(ENTRY_MIME)) e.preventDefault()
+        if (e.dataTransfer.types.includes(ENTRY_MIME) || e.dataTransfer.types.includes(FILES_DRAG_MIME)) e.preventDefault()
       }}
       onDrop={(e) => {
-        const dragged = e.dataTransfer.getData(ENTRY_MIME)
-        if (dragged) {
-          e.preventDefault()
-          onMove(dragged, id)
-        }
+        dropOnFolder(e, id, { onMove, onMoveRefs })
       }}
       className="px-1.5 py-0.5 rounded text-[12px] text-[var(--ink-50)] hover:text-accent hover:bg-[var(--surface-sunken)]"
     >
@@ -546,8 +581,12 @@ interface RowHandlers {
   /** Work widget file id → the desks it sits on (absent while loading). */
   desks: Record<string, WidgetFileDesk[]>
   selectedId: string | null
+  selectedIds: string[]
   renaming: string | null
-  onSelect: (id: string) => void
+  onSelect: (id: string, mods?: { meta?: boolean; shift?: boolean }) => void
+  /** What a drag that starts on this entry carries (the selection when it is in it). */
+  dragRefs: (entry: FileEntry) => FileDragRef[]
+  onMoveRefs: (refs: FileDragRef[], target: string | null) => void
   onOpen: (e: FileEntry) => void
   onRenameCommit: (id: string, name: string) => void
   onRenameCancel: () => void
@@ -613,7 +652,7 @@ function ListView(
 
 function ListRow({ entry, ...h }: { entry: FileEntry } & RowHandlers & { onRenameStart: (id: string) => void }): JSX.Element {
   const thumb = useThumbnail(entry, true)
-  const selected = h.selectedId === entry.id
+  const selected = h.selectedIds.includes(entry.id) || h.selectedId === entry.id
   const [over, setOver] = useState(false)
   const isFolder = entry.kind === 'folder'
   return (
@@ -624,22 +663,15 @@ function ListRow({ entry, ...h }: { entry: FileEntry } & RowHandlers & { onRenam
       data-widget-kind={entry.widgetKind}
       draggable={h.renaming !== entry.id}
       onDragStart={(e) => {
-        e.dataTransfer.setData(ENTRY_MIME, entry.id)
-        // An office document entry also carries the doc drag payload, so it can
-        // be dropped into a table cell (doc-ref) or a doc embed elsewhere.
-        if (isWidgetFileEntry(entry) && entry.docId) {
-          // A widget file dropped on a desk becomes a LINKED instance of it.
-          writeWidgetFileDrag(e.dataTransfer, { id: entry.docId, title: entry.name })
-        } else if (entry.kind === 'doc' && entry.docId) {
-          setDocDrag(e, {
-            id: entry.docId,
-            docType: (entry.docType ?? 'doc') as DocType,
-            title: entry.name
-          })
-        }
+        // One payload for every target (lib/filesDrag): the Files MIME, plus the
+        // entry id, the document drag and the work widget file drag for one item,
+        // so a doc-ref cell, the tray and the desk all keep taking it.
+        const refs = h.dragRefs(entry)
+        writeFilesDrag(e.dataTransfer, refs, 'files-view')
+        setFilesDragImage(e.dataTransfer, refs)
       }}
       onDragOver={(e) => {
-        if (isFolder && (e.dataTransfer.types.includes(ENTRY_MIME) || e.dataTransfer.types.includes('Files'))) {
+        if (isFolder && folderAccepts(e.dataTransfer)) {
           e.preventDefault()
           setOver(true)
         }
@@ -647,17 +679,10 @@ function ListRow({ entry, ...h }: { entry: FileEntry } & RowHandlers & { onRenam
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         if (!isFolder) return
-        const dragged = e.dataTransfer.getData(ENTRY_MIME)
-        if (dragged) {
-          e.preventDefault()
-          h.onMove(dragged, entry.id)
-        } else if (e.dataTransfer.files.length) {
-          e.preventDefault()
-          h.onDropOsFiles(e.dataTransfer.files, entry.id)
-        }
+        dropOnFolder(e, entry.id, h)
         setOver(false)
       }}
-      onClick={() => h.onSelect(entry.id)}
+      onClick={(e) => h.onSelect(entry.id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
       onDoubleClick={() => h.onOpen(entry)}
       onContextMenu={(e) => h.onContext(e, entry)}
       className={`border-b border-[var(--edge-soft)] cursor-default ${
@@ -727,7 +752,7 @@ function GridView(
 
 function GridTile({ entry, mode, ...h }: { entry: FileEntry; mode: FileViewMode } & Omit<RowHandlers, 'onRenameStart'>): JSX.Element {
   const thumb = useThumbnail(entry, mode !== 'small')
-  const selected = h.selectedId === entry.id
+  const selected = h.selectedIds.includes(entry.id) || h.selectedId === entry.id
   const [over, setOver] = useState(false)
   const isFolder = entry.kind === 'folder'
   const previewH = mode === 'preview' ? 150 : mode === 'large' ? 92 : 56
@@ -740,13 +765,12 @@ function GridTile({ entry, mode, ...h }: { entry: FileEntry; mode: FileViewMode 
       data-widget-kind={entry.widgetKind}
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData(ENTRY_MIME, entry.id)
-        if (isWidgetFileEntry(entry) && entry.docId) {
-          writeWidgetFileDrag(e.dataTransfer, { id: entry.docId, title: entry.name })
-        }
+        const refs = h.dragRefs(entry)
+        writeFilesDrag(e.dataTransfer, refs, 'files-view')
+        setFilesDragImage(e.dataTransfer, refs)
       }}
       onDragOver={(e) => {
-        if (isFolder && (e.dataTransfer.types.includes(ENTRY_MIME) || e.dataTransfer.types.includes('Files'))) {
+        if (isFolder && folderAccepts(e.dataTransfer)) {
           e.preventDefault()
           setOver(true)
         }
@@ -754,17 +778,10 @@ function GridTile({ entry, mode, ...h }: { entry: FileEntry; mode: FileViewMode 
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         if (!isFolder) return
-        const dragged = e.dataTransfer.getData(ENTRY_MIME)
-        if (dragged) {
-          e.preventDefault()
-          h.onMove(dragged, entry.id)
-        } else if (e.dataTransfer.files.length) {
-          e.preventDefault()
-          h.onDropOsFiles(e.dataTransfer.files, entry.id)
-        }
+        dropOnFolder(e, entry.id, h)
         setOver(false)
       }}
-      onClick={() => h.onSelect(entry.id)}
+      onClick={(e) => h.onSelect(entry.id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey })}
       onDoubleClick={() => h.onOpen(entry)}
       onContextMenu={(e) => h.onContext(e, entry)}
       className={`flex flex-col items-stretch rounded-lg border p-1.5 text-left transition ${

@@ -64,3 +64,64 @@ test('title-bar controls are not covered by a drag region', async () => {
     await dispose()
   }
 })
+
+// Files beside your work adds controls in three places: the header toggle (in
+// the existing no-drag group), the flyout below the header, and the floating
+// panel (portalled last, clamped below the header). None may sit under a drag
+// region, in any arrangement, and each must be the element hit at its centre.
+test('Files panel controls are never under a drag region (flyout, pinned, float at the top)', async () => {
+  test.setTimeout(90_000)
+  const { window, dispose } = await launchApp({})
+  try {
+    await waitForReady(window)
+    await openNewDesk(window, 'Drag Region Files')
+    const probe = (): Promise<string[]> =>
+      window.evaluate(() => {
+        const regionOf = (el: Element): string => {
+          const cs = getComputedStyle(el)
+          return (cs.getPropertyValue('-webkit-app-region') || cs.getPropertyValue('app-region') || 'none').trim()
+        }
+        const all = Array.from(document.querySelectorAll('*')).filter((el) => {
+          const r = regionOf(el)
+          return r === 'drag' || r === 'no-drag'
+        })
+        const bad: string[] = []
+        const controls = Array.from(document.querySelectorAll('[data-files-panel-control]')).filter((el) => {
+          const r = (el as HTMLElement).getBoundingClientRect()
+          return r.width > 0 && r.height > 0
+        })
+        if (!controls.length) return ['no [data-files-panel-control] found']
+        for (const c of controls) {
+          const r = (c as HTMLElement).getBoundingClientRect()
+          const x = r.left + r.width / 2
+          const y = r.top + r.height / 2
+          let last: Element | null = null
+          for (const el of all) {
+            const b = (el as HTMLElement).getBoundingClientRect()
+            if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) last = el
+          }
+          const name = c.getAttribute('data-testid') || c.getAttribute('aria-label') || c.tagName
+          if (last && regionOf(last) === 'drag') bad.push(`${name} under a drag region`)
+          const hit = document.elementFromPoint(x, y)
+          if (!hit || (hit !== c && !c.contains(hit))) bad.push(`${name} not hit at its centre (got ${hit?.getAttribute('data-testid') ?? hit?.tagName})`)
+        }
+        return bad
+      })
+    const toggle = window.locator('[data-testid="files-panel-toggle"]')
+    await toggle.click()
+    await expect(window.locator('[data-testid="files-flyout"]')).toBeVisible()
+    expect(await probe(), 'flyout').toEqual([])
+    await window.locator('[data-testid="files-panel-pin"]').click()
+    await expect(window.locator('[data-testid="files-flyout"]')).toHaveAttribute('data-pinned', 'true')
+    expect(await probe(), 'pinned').toEqual([])
+    await window.locator('[data-testid="files-panel-float"]').click()
+    const h = (await window.locator('[data-testid="files-float-header"]').boundingBox())!
+    await window.mouse.move(h.x + 40, h.y + h.height / 2)
+    await window.mouse.down()
+    await window.mouse.move(h.x + 40, 0, { steps: 6 })
+    await window.mouse.up()
+    expect(await probe(), 'float dragged to the top').toEqual([])
+  } finally {
+    await dispose()
+  }
+})

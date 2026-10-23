@@ -108,7 +108,8 @@ export function DiagramChrome({
     const k = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+      // Not with Option/Alt: ⌥⌘F is Files beside (Ctrl+Alt+F on Windows).
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setDialog('find')
       }

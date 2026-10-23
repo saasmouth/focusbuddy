@@ -41,7 +41,10 @@ async function goFiles(window: Awaited<ReturnType<typeof launchApp>>['window']):
     .locator('button')
     .filter({ has: window.locator('span', { hasText: /^Files$/ }) })
     .first()
-  await sidebarBtn.click()
+  // A plain click flies Files out beside the menu (owner, Q1); the full view
+  // is "Open full screen" on the same tile's right-click menu.
+  await sidebarBtn.click({ button: 'right' })
+  await window.locator('[data-testid="files-open-fullscreen"]').click()
   await expect(window.locator('[data-testid="files-view"]')).toBeVisible({ timeout: 8_000 })
 }
 

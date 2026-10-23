@@ -68,9 +68,12 @@ test('LF-2 — Files view: "Collaborate live" item exists in the folder right-cl
   try {
     await waitForReady(window)
 
-    // Navigate to Files view via the sidebar.
-    const filesBtn = window.getByRole('button', { name: /^Files$/i })
-    await filesBtn.click()
+    // Navigate to the full Files view via the sidebar. A plain click on Files
+    // now flies the panel out beside the menu; full screen is on its
+    // right-click menu ("Open full screen").
+    const filesBtn = window.getByRole('button', { name: /^Files$/i }).first()
+    await filesBtn.click({ button: 'right' })
+    await window.locator('[data-testid="files-open-fullscreen"]').click()
     await expect(window.locator('[data-testid="files-view"]')).toBeVisible({ timeout: 8_000 })
 
     // Create a folder so we have something to right-click.

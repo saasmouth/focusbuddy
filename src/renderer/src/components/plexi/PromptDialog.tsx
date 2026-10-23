@@ -32,7 +32,16 @@ export interface PromptRequest {
   danger?: boolean
   /** List-picker mode: render these as option buttons; clicking one resolves its
    * value (no text field, no confirm button). Cancel/Escape still resolve null. */
-  choices?: Array<{ label: string; value: string; hint?: string; danger?: boolean }>
+  choices?: Array<PromptChoice>
+}
+
+/** One option of a choice dialog. `disabled` shows it greyed with `hint` as the reason; it can never be picked. */
+export interface PromptChoice {
+  label: string
+  value: string
+  hint?: string
+  danger?: boolean
+  disabled?: boolean
 }
 
 interface PromptState {
@@ -103,7 +112,7 @@ export function promptChoice(req: {
   title: string
   body?: string
   /** `danger` marks a destructive choice (red label), as `danger` does a confirm. */
-  choices: Array<{ label: string; value: string; hint?: string; danger?: boolean }>
+  choices: Array<PromptChoice>
 }): Promise<string | null> {
   return promptText({ title: req.title, label: req.body, choices: req.choices })
 }
@@ -204,8 +213,12 @@ export function PromptDialogHost(): JSX.Element | null {
             {req.choices.map((c) => (
               <button
                 key={c.value}
-                onClick={() => settle(c.value)}
-                className="fb-btn-surface w-full text-left px-3 py-2 hover:bg-[var(--surface-sunken)]"
+                onClick={() => {
+                  if (!c.disabled) settle(c.value)
+                }}
+                disabled={c.disabled}
+                aria-disabled={c.disabled || undefined}
+                className={`fb-btn-surface w-full text-left px-3 py-2 ${c.disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-[var(--surface-sunken)]'}`}
                 data-testid={`prompt-choice-${c.value}`}
               >
                 <div
@@ -242,6 +255,7 @@ export function PromptDialogHost(): JSX.Element | null {
             <button
               onClick={cancel}
               className="px-3 py-1.5 rounded-lg text-[13px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+              data-testid="prompt-dialog-cancel"
             >
               Cancel
             </button>
