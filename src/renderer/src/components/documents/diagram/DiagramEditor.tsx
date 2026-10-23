@@ -39,6 +39,7 @@ import { acceptsWidgetDrag, widgetIdFromDrop } from '../../../lib/widgetDropInse
 import { DiagramCtx, type DiagramCtxValue, type QuickDir } from './DiagramContext'
 import { ShapeNode, SELECT_COLOR } from './ShapeNode'
 import { DiagramEdge } from './DiagramEdge'
+import { MINIMAP_MARGIN, useMinimapPillLift } from './pillClearance'
 import { useDiagramCommands, type Commands } from './commands'
 import { DiagramChrome } from './DiagramChrome'
 import { QuickShapeMenu } from './QuickShapeMenu'
@@ -250,6 +251,8 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // Stable when the body has no settings: a fresh {} each render rebuilt the
   // command object every render (losing its state and re-rendering every node).
   const settings: MapSettings = body.settings ?? NO_SETTINGS
+  // Lift the minimap clear of the PlexiiAssist pill that floats over the corner.
+  const miniLift = useMinimapPillLift(wrapRef, settings.minimap !== false)
   const themeId = settings.theme ?? 'plexii'
   const theme = getTheme(themeId)
   const hiddenLayers = useMemo(() => ops.hiddenLayerIds(page), [page])
@@ -851,7 +854,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
               <Background variant={BackgroundVariant.Dots} gap={settings.gridSize ?? 16} size={1.4} color={theme.grid} />
             )}
             {settings.minimap !== false && (
-              <MiniMap pannable zoomable className="!bg-[var(--surface-sunken)] !rounded-md" nodeColor={(n) => (nodesById.get(n.id)?.color ?? '#94a3b8')} maskColor="rgba(120,120,140,0.12)" />
+              <MiniMap pannable zoomable style={miniLift ? { marginBottom: MINIMAP_MARGIN + miniLift } : undefined} className="!bg-[var(--surface-sunken)] !rounded-md" nodeColor={(n) => (nodesById.get(n.id)?.color ?? '#94a3b8')} maskColor="rgba(120,120,140,0.12)" />
             )}
             <ViewportPortal>
               {guides.map((g, i) =>

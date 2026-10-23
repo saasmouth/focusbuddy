@@ -8,7 +8,7 @@
 // =SUM(A1:A3).
 
 import type { SheetCellFormat, SheetTab } from '@shared/types'
-import { colLabel, fmtKey, parseFmtKey } from '../../../lib/sheetBody'
+import { colLabel, fmtKey, parseFmtKey, reletterColumns } from '../../../lib/sheetBody'
 import { parseTsv as parseTsvShared } from '@shared/gridClipboard'
 
 // Re-exported from the shared clipboard module so the sheet and the table parse
@@ -119,8 +119,12 @@ export function deleteRowAt(tab: SheetTab, index: number): SheetTab {
 }
 
 export function insertColAt(tab: SheetTab, index: number): SheetTab {
-  const columns = [...tab.columns]
-  columns.splice(index, 0, colLabel(tab.columns.length))
+  // The new column is unnamed (its own letter); the ones it pushes right keep
+  // their names, and a default name follows its column's new letter.
+  const columns = reletterColumns(
+    tab.columns,
+    Array.from({ length: tab.columns.length + 1 }, (_, i) => (i === index ? -1 : i < index ? i : i - 1))
+  )
   const rows = tab.rows.map((row) => {
     const r = [...row]
     r.splice(index, 0, '')
@@ -139,7 +143,10 @@ export function deleteColAt(tab: SheetTab, index: number): SheetTab {
   if (tab.columns.length <= 1) return tab
   return {
     ...tab,
-    columns: tab.columns.filter((_, i) => i !== index),
+    columns: reletterColumns(
+      tab.columns,
+      Array.from({ length: tab.columns.length - 1 }, (_, i) => (i < index ? i : i + 1))
+    ),
     rows: tab.rows.map((row) => row.filter((_, i) => i !== index)),
     formats: shiftFormats(tab.formats, 'col', index, -1),
     colWidths: shiftWidths(tab.colWidths, index, -1)
@@ -197,7 +204,7 @@ export function reorderColumns(tab: SheetTab, order: number[]): SheetTab {
     : tab.colWidths
   return {
     ...tab,
-    columns: order.map((oi) => tab.columns[oi] ?? colLabel(oi)),
+    columns: reletterColumns(tab.columns, order),
     rows: tab.rows.map((row) => order.map((oi) => row[oi] ?? '')),
     formats: reorderFormats(tab.formats, order, 'col'),
     colWidths: widths

@@ -69,6 +69,30 @@ export function colLabel(n: number): string {
   return s
 }
 
+/**
+ * A column's own name, for its heading. Every column starts out named after its
+ * letter (emptyTab, addColumn), and that default is not a name the user gave
+ * it, so it reads as none: the heading already shows the letter, and showing it
+ * twice made every new sheet read "A A", "B B" (rails-tabs-41 shots).
+ */
+export function columnName(name: string, c: number): string {
+  return name === colLabel(c) ? '' : name
+}
+
+/**
+ * Column names after columns move: a column still on its default name (its old
+ * letter) takes the letter of its new place, so a default never goes stale and
+ * shows up as a name ("B" sitting in column C). A name the user gave travels.
+ * `from[newIndex]` is the old index, or -1 for a column that is new.
+ */
+export function reletterColumns(columns: string[], from: number[]): string[] {
+  return from.map((old, i) => {
+    if (old < 0) return colLabel(i)
+    const name = columns[old] ?? colLabel(old)
+    return name === colLabel(old) ? colLabel(i) : name
+  })
+}
+
 function clampIndex(i: number, len: number): number {
   if (!Number.isFinite(i)) return 0
   return Math.max(0, Math.min(len - 1, Math.floor(i)))
