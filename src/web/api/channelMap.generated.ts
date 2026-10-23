@@ -638,7 +638,6 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'auth.onIncomingToken': 'auth:incoming-token',
   'bodyDoubleBus.onMessage': 'fb:body-double-bus',
   'browserAgent.onEvent': 'browserAgent:event',
-  'contextMenu.onAction': 'context-menu:action',
   'contextMenu.onWebviewContextMenu': 'webview:context-menu',
   'deskPopups.onClosed': 'deskPopup:closed',
   'deskPopups.onOpened': 'deskPopup:opened',

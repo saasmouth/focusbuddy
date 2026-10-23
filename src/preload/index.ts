@@ -23,7 +23,6 @@ import type {
   ConnectedApp,
   ConnectedAppDraft,
   ConnectedAppPatch,
-  ContextMenuPayload,
   EnergyLevel,
   EnergyLogEntry,
   TimeBlock,
@@ -1248,11 +1247,6 @@ const api = {
     }
   },
   contextMenu: {
-    onAction: (cb: (payload: ContextMenuPayload) => void): (() => void) => {
-      const handler = (_: unknown, payload: ContextMenuPayload): void => cb(payload)
-      ipcRenderer.on('context-menu:action', handler)
-      return () => ipcRenderer.removeListener('context-menu:action', handler)
-    },
     // Fired when a NON-editable right-click happens inside a browser widget. The
     // renderer opens the unified PlexiDesk menu for the classified target.
     onWebviewContextMenu: (
