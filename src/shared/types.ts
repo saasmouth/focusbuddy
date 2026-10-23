@@ -3403,6 +3403,26 @@ export interface FbDocument {
   // a real org id for an org-shared doc. Drives whether opening it routes into the
   // CRDT co-editing path (org-shared) instead of the last-write-wins editor.
   orgId: string | null
+  /**
+   * The body's local version, bumped by every write that replaces the body.
+   *
+   * It exists so a save can say WHICH body it is replacing. One document can be
+   * open in two editors at once — two linked-duplicate widgets share a document
+   * id, and a widget holds its body in local state — and each one used to write
+   * its whole body over the other's, silently, with no merge and no warning.
+   *
+   * DEVICE-LOCAL, and deliberately not synced: it is in workspaceSync's
+   * SYNC_COLS, so it never rides in a sync body and a remote row never sets it.
+   * Two devices counting their own saves would otherwise hand each other
+   * matching numbers for different bodies, and a compare-and-set that passes
+   * against the wrong body is worse than none at all. Cross-device conflict is
+   * already the cloud rev's job (pushCloudDoc).
+   *
+   * Named bodyRev, not rev, because this row already has sync_rev for workspace
+   * sync and the cloud has a doc rev of its own. Three different revisions, and
+   * confusing them would be a data-loss bug rather than a naming nit.
+   */
+  bodyRev: number
 }
 
 // List row — everything except the (potentially large) body.
@@ -3430,7 +3450,26 @@ export interface DocumentPatch {
   title?: string
   body?: DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody | WidgetFileBody
   archived?: boolean
+  /**
+   * Replace the body only if it is still at this version — the bodyRev the
+   * caller last read. Omitted means an unconditional write, which is correct
+   * for a caller that is not holding an older copy of the body in its hand
+   * (an import, a snapshot restore, an AI edit that reads immediately before
+   * writing) and wrong for an editor.
+   *
+   * On a mismatch nothing is written and the result says so, carrying the body
+   * that is actually stored, so the caller can offer a real choice instead of
+   * destroying someone's work.
+   */
+  expectedBodyRev?: number
 }
+
+/** What a body write did, when the caller asked for a conditional one. */
+export type DocumentWriteResult =
+  | { ok: true; doc: FbDocument }
+  /** Nothing was written: the body had moved on. `current` is what is stored. */
+  | { ok: false; reason: 'stale'; current: FbDocument }
+  | { ok: false; reason: 'missing' }
 
 // ── Focus Mode: split view + clusters (ported from Caleb's handoff) ──────────
 // Session-local split geometry + persisted per-desk clusters. See splitGeometry.ts

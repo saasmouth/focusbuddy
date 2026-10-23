@@ -188,7 +188,42 @@ export { rootsToPrune } from '@shared/sharedDesks'
 // Columns we never round-trip through the server body (local-only sync bookkeeping,
 // plus team_id which travels as its own scope field, and the __team_id alias the
 // widget/row joins use to carry the parent's team).
-const SYNC_COLS = new Set(['sync_rev', 'needs_sync', 'team_id', '__team_id', 'shared_root_id', '__shared_root_id'])
+// Columns that never travel: sync bookkeeping, the team/shared scoping that is
+// re-derived on arrival — and documents.body_rev, which is DEVICE-LOCAL by
+// design. It counts this device's body writes so an editor can say which body
+// it is replacing. Two devices counting their own saves would hand each other
+// matching numbers for different bodies, and a compare-and-set that passed
+// against the wrong body is worse than no guard at all. Cross-device conflict
+// is the cloud rev's job (pushCloudDoc), not this column's.
+//
+// One set covers both directions: it picks the columns of an outgoing body and
+// the columns of an incoming one.
+const SYNC_COLS = new Set([
+  'sync_rev',
+  'needs_sync',
+  'team_id',
+  '__team_id',
+  'shared_root_id',
+  '__shared_root_id',
+  'body_rev'
+])
+
+/**
+ * The extra SET clause that moves a document's local body version on when a
+ * REMOTE body replaces the local one, and nothing at all otherwise.
+ *
+ * Needed precisely because body_rev does not travel: nothing else would set it
+ * on an incoming write, so an editor holding the previous version would pass
+ * its conditional save and write straight over the body that just arrived —
+ * the same silent loss as two editors on one device, only across devices.
+ *
+ * Not applied on INSERT: a row this device has never seen starts at the column
+ * default, and no editor can be holding a version of it.
+ */
+function bodyRevBump(cols: readonly string[], writing: readonly string[]): string {
+  if (!cols.includes('body_rev') || !writing.includes('body')) return ''
+  return ', body_rev = COALESCE(body_rev, 0) + 1'
+}
 
 function tableCols(table: SyncTable): string[] {
   const db = getDb()
@@ -758,7 +793,9 @@ export function applyRemote(items: RemoteItem[]): { applied: number; failed: num
       const allCols = [...present, 'sync_rev', 'needs_sync']
       const insertList = allCols.join(', ')
       const valueList = allCols.map((c) => `@${c}`).join(', ')
-      const updateList = allCols.filter((c) => c !== 'id').map((c) => `${c} = @${c}`).join(', ')
+      const updateList =
+        allCols.filter((c) => c !== 'id').map((c) => `${c} = @${c}`).join(', ') +
+        bodyRevBump(cols, allCols)
       try {
         db.prepare(
           `INSERT INTO ${table} (${insertList}) VALUES (${valueList}) ON CONFLICT(id) DO UPDATE SET ${updateList}`
@@ -932,7 +969,9 @@ export function applyRemoteOrg(items: RemoteItem[], orgId: string): { applied: n
       allCols.push('sync_rev', 'needs_sync')
       const insertList = allCols.join(', ')
       const valueList = allCols.map((c) => `@${c}`).join(', ')
-      const updateList = allCols.filter((c) => c !== 'id').map((c) => `${c} = @${c}`).join(', ')
+      const updateList =
+        allCols.filter((c) => c !== 'id').map((c) => `${c} = @${c}`).join(', ') +
+        bodyRevBump(cols, allCols)
       try {
         db.prepare(
           `INSERT INTO ${table} (${insertList}) VALUES (${valueList}) ON CONFLICT(id) DO UPDATE SET ${updateList}`
@@ -1053,7 +1092,9 @@ export function applyRemoteShared(
       allCols.push('sync_rev', 'needs_sync')
       const insertList = allCols.join(', ')
       const valueList = allCols.map((c) => `@${c}`).join(', ')
-      const updateList = allCols.filter((c) => c !== 'id').map((c) => `${c} = @${c}`).join(', ')
+      const updateList =
+        allCols.filter((c) => c !== 'id').map((c) => `${c} = @${c}`).join(', ') +
+        bodyRevBump(cols, allCols)
       try {
         db.prepare(
           `INSERT INTO ${table} (${insertList}) VALUES (${valueList}) ON CONFLICT(id) DO UPDATE SET ${updateList}`

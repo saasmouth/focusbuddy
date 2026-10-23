@@ -492,6 +492,20 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   // restores it or deletes it forever. Editors' "Move to trash" lands here, so
   // the menu label is finally truthful (it used to hard-DELETE the row).
   ensureColumn(db, 'documents', 'trashed_at', 'INTEGER')
+  // A document's body version, for the editors' conditional saves — two
+  // linked-duplicate widgets share a document id, and each used to write its
+  // whole body over the other's silently.
+  //
+  // Here with the other documents columns, AFTER the table exists: placed with
+  // the fb_files block above it threw "no such table: documents" at every
+  // startup, because the documents DDL runs later in this same function.
+  //
+  // In migrations rather than SCHEMA so the cloud runtime gets it too, and in
+  // workspaceSync's SYNC_COLS so it never rides in a sync body: two devices
+  // counting their own saves would hand each other matching numbers for
+  // different bodies, and a compare-and-set that passes against the wrong body
+  // is worse than no guard at all.
+  ensureColumn(db, 'documents', 'body_rev', 'INTEGER NOT NULL DEFAULT 0')
   // Document version history, the same pattern as canvas_snapshots for desks:
   // periodic full-body snapshots per document, pruned to a per-doc cap, with
   // restore capturing a "Before restore" snapshot first so it is reversible.

@@ -8,6 +8,7 @@ import type {
   DocumentMeta,
   DocumentPatch,
   FbDocument,
+  DocumentWriteResult,
   SlidesBody
 } from '@shared/types'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
@@ -33,6 +34,7 @@ interface DocumentRow {
   created_at: number
   updated_at: number
   org_id: string | null
+  body_rev: number | null
 }
 
 // The widget kind of a widget file, read from its body in SQL so a listing never
@@ -138,6 +140,12 @@ function rowToDoc(row: DocumentRow): FbDocument {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     orgId: row.org_id ?? null
+    ,
+    // Null on a row written before the column existed; 0 is the same thing as
+    // "never versioned", and a caller comparing against 0 will simply be told
+    // its copy is stale on the first conflicting write, which is the safe way
+    // round.
+    bodyRev: row.body_rev ?? 0
   }
 }
 
@@ -260,8 +268,58 @@ export function updateDocument(id: string, patch: DocumentPatch): FbDocument | n
     sets.push('archived = @archived')
     params.archived = patch.archived ? 1 : 0
   }
-  db.prepare(`UPDATE documents SET ${sets.join(', ')} WHERE id = @id`).run(params)
+  // A body write bumps the body's version, so a second editor holding the
+  // previous one can be told rather than silently overwritten.
+  const writesBody = patch.body !== undefined && !refuseBody
+  if (writesBody) sets.push('body_rev = COALESCE(body_rev, 0) + 1')
+
+  // THE GUARD GOES IN THE WHERE, not in a read-then-write pre-check. Between a
+  // SELECT and an UPDATE another writer can land, and a pre-check would wave it
+  // through — the same reason src/main/db/snippets.ts compares in SQL.
+  const conditional = writesBody && patch.expectedBodyRev !== undefined
+  if (conditional) params.expectedBodyRev = patch.expectedBodyRev
+
+  const info = db
+    .prepare(
+      `UPDATE documents SET ${sets.join(', ')} WHERE id = @id` +
+        (conditional ? ' AND COALESCE(body_rev, 0) = @expectedBodyRev' : '')
+    )
+    .run(params)
+
+  // Nothing matched, and the row exists (checked at the top), so the body had
+  // moved on. Returning null here would read as "no such document" and the
+  // caller would have no idea its work was refused.
+  if (conditional && info.changes === 0) return null
   return getDocument(id)
+}
+
+/**
+ * Replace a document's body only if it is still at `expectedBodyRev`.
+ *
+ * The editor path, and the reason this file has a version column at all. On a
+ * mismatch nothing is written and the body that IS stored comes back, so the
+ * caller can offer the choice — take theirs, keep mine, or save mine as a copy
+ * — instead of destroying whichever edit happened to be slower.
+ *
+ * Callers that are not holding an older copy of the body (an import, a snapshot
+ * restore, an AI edit that reads and writes in one step) should keep using
+ * updateDocument without expectedBodyRev: an unconditional write is correct
+ * there, and pretending otherwise would add a conflict path nobody can resolve.
+ */
+export function updateDocumentBody(
+  id: string,
+  body: FbDocument['body'],
+  expectedBodyRev: number
+): DocumentWriteResult {
+  const before = getDocument(id)
+  if (!before) return { ok: false, reason: 'missing' }
+  const doc = updateDocument(id, { body, expectedBodyRev })
+  if (doc) return { ok: true, doc }
+  // Re-read rather than reuse `before`: the point of the refusal is to show the
+  // caller what is actually there now.
+  const current = getDocument(id)
+  if (!current) return { ok: false, reason: 'missing' }
+  return { ok: false, reason: 'stale', current }
 }
 
 // Insert-or-replace by an explicit id. Used by cloud-document sync to land a
@@ -283,8 +341,12 @@ export function upsertDocument(input: {
   const archived = input.archived ? 1 : 0
   if (existing) {
     db.prepare(
+      // body_rev moves here too: this replaces the body, so any editor holding
+      // the previous one must fail its next conditional save rather than write
+      // over what just arrived.
       `UPDATE documents SET doc_type = @docType, title = @title, body = @body,
-         archived = @archived, updated_at = @now WHERE id = @id`
+         archived = @archived, updated_at = @now, body_rev = COALESCE(body_rev, 0) + 1
+       WHERE id = @id`
     ).run({ id: input.id, docType: input.docType, title: input.title, body: bodyStr, archived, now })
   } else {
     db.prepare(
