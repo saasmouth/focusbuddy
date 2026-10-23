@@ -223,3 +223,68 @@ describe('commands whose `enabled` was wrong', () => {
     expect(c.disabledReason!(h.ed.ctx)).toBe(READ_ONLY_REASON)
   })
 })
+
+// The anchor commands (Object › Path and the Anchor points tab) counted every
+// selected anchor, those on locked art included: with the layer locked after
+// picking anchors they stayed on, and did nothing.
+describe('anchor commands are off for anchors on locked art, saying so', () => {
+  const LOCKED = 'Those anchor points are on a locked or hidden path.'
+  const line = (id: string, x: number): Record<string, unknown> => ({
+    id,
+    type: 'path',
+    shapeKind: 'path',
+    path: { subpaths: [{ closed: false, nodes: [{ x, y: 10 }, { x: x + 50, y: 60 }] }] },
+    stroke: { paint: { type: 'solid', color: '#000000' }, width: 2 }
+  })
+  const ANCHOR_COMMANDS = [
+    'path.average',
+    'path.averageApply',
+    'path.removeAnchors',
+    'path.cutAtAnchors',
+    'path.convertCorner',
+    'path.convertSmooth',
+    'path.alignAnchors.left',
+    'path.alignAnchors.hcenter',
+    'path.alignAnchors.right',
+    'path.alignAnchors.top',
+    'path.alignAnchors.vcenter',
+    'path.alignAnchors.bottom',
+    'path.cornerRadius'
+  ]
+
+  it.each(ANCHOR_COMMANDS)('%s: on with anchors picked, off with their layer locked', (id) => {
+    const h = harness(blank(TWO()))
+    selectAnchors(h.ed.ctx, [
+      { id: 'a', si: 0, ni: 0 },
+      { id: 'a', si: 0, ni: 1 }
+    ])
+    const c = commandById(id)!
+    expect(c.enabled!(h.ed.ctx)).toBe(true)
+    h.run('layer.patch', { id: h.doc().layers[0].id, patch: { locked: true } })
+    expect(c.enabled!(h.ed.ctx)).toBe(false)
+    expect(c.disabledReason!(h.ed.ctx)).toBe(LOCKED)
+  })
+
+  it('a locked path alone (its layer unlocked) is excluded the same way', () => {
+    const h = harness(blank([rect('a', 10, 10, 50, 50, { locked: true }), rect('b', 100, 10, 50, 50)]))
+    selectAnchors(h.ed.ctx, [
+      { id: 'a', si: 0, ni: 0 },
+      { id: 'a', si: 0, ni: 2 }
+    ])
+    expect(commandById('path.average')!.enabled!(h.ed.ctx)).toBe(false)
+    expect(commandById('path.average')!.disabledReason!(h.ed.ctx)).toBe(LOCKED)
+  })
+
+  it.each(['path.join', 'path.averageJoin'])('%s with two picked end points: on, then off with their layer locked', (id) => {
+    const h = harness(blank([line('l1', 10), line('l2', 200)]))
+    selectAnchors(h.ed.ctx, [
+      { id: 'l1', si: 0, ni: 1 },
+      { id: 'l2', si: 0, ni: 0 }
+    ])
+    const c = commandById(id)!
+    expect(c.enabled!(h.ed.ctx)).toBe(true)
+    h.run('layer.patch', { id: h.doc().layers[0].id, patch: { locked: true } })
+    expect(c.enabled!(h.ed.ctx)).toBe(false)
+    expect(c.disabledReason!(h.ed.ctx)).toBe(LOCKED)
+  })
+})
