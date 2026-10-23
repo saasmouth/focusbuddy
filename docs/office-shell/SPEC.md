@@ -441,7 +441,135 @@ For each app, at the **default size**, then the **floating menu at 480px**, then
 8. **Baselines are keyed by test title, never file:line** (`office-shell-crossapp.mjs diff base.json head.json` over Playwright JSON reports).
 6. All rects for one assertion are read in ONE `evaluate` (a desk widget can still be settling), and the narrow widget sits outside the desk's 80px hover edge-pan zone.
 
-## 9. Delivery and estimate (re-estimated for D1 and D4)
+## 9. Menu contract (4.3.41-local.2): menu bars and right-click, system wide
+
+Owner: "fill any gaps or inconsistencies between menus in office apps, right-click context menus system wide. They should share functionality and layout for familiarity across the system." This section is the contract every menu is held to. It was written FROM THE MAJORITY: the office half from a runtime inventory of all six office apps (`tests/e2e/_menuInventory.spec.ts`: every menu-bar item and right-click menu as a person sees it, on a fresh build of cf547781), the rest from 2e's audit of every other right-click surface (`docs/context-menus/AUDIT.md`, 76a7a0f9). Where the majority is clear it rules; true ties are listed in §9.7 for 9d.
+
+### 9.1 One primitive per kind of menu. No bespoke menus.
+
+| Menu | The primitive (the only one allowed) | Owner |
+|---|---|---|
+| A menu bar (File, Edit, …) | `documents/editor/menuBarKit.tsx` (`MenuBarShell`, `MenuItem`) | d8 |
+| Any right-click menu in the renderer | `components/CanvasContextMenu.tsx` (`CtxMenuItem`), "the context-menu kit" | d8 |
+| Right-click on web content (webviews, browser, pop-ups) | native, `main/webContextMenu.ts` `buildWebMenu()` (stays native: it works over a webview and is fully accessible; E-8 below) | 2e |
+| Labels, shortcuts, canonical groups | `lib/menus/` (new): `lexicon.ts` (every shared label), `shortcuts.ts` (one platform-aware hint formatter), `officeContextMenu.ts` (the office right-click builder), `editableFieldMenu.ts` (text fields) | d8 |
+
+The kit gains, before anyone migrates: `danger` (destructive styling; the field exists and is ignored today), a checked state (`menuitemcheckbox` / `menuitemradio`, never text in the shortcut slot), focus return to the invoker on close, a portal (so a menu opened inside the zoomed canvas is not scaled or clipped), and `hint` (why an item is off, as menuBarKit already shows). Bespoke menus (Diagrams' `diagram/ContextMenu.tsx`, Draw's `draw/render/CanvasContextMenu.tsx`, Cells' column-header menu, and 2e's list: IndexContextMenu, table header, speed-deck, tray tab) move onto the kit; a guard (§9.8) fails on a new one.
+
+### 9.2 Menu bars: order, contents, names (all six office apps)
+
+**Order:** File · Edit · View · Insert · Format · ‹app menus› (Slide, Data, Arrange, Layout, Object, Layer, Document) · Tools · Window · Help. A menu an app genuinely has no items for is absent (Cells and Design have no View today: see §9.6).
+
+**File** (same names, order and separators in every app; items an app cannot do are absent):
+`New ‹document type›` · `Make a copy` | `Rename` · `Version history` | `Import…` (if the app imports) · `Download ▸` · `Print…` (if the app prints) | `Move to Trash`
+- `Download ▸` is the export submenu everywhere (4 of 6 call it Download; Diagrams' `Export ▸` and Draw's three `Export … …` rows are renamed/grouped).
+- The meeting item lives in **Insert** as `Meeting` (4 of 6), not File (Diagrams' "Start a meeting").
+- Document items come from the host's `DocumentOps` and are ABSENT without one (§9.5).
+- Draw keeps Illustrator's file conventions as app items between `Make a copy` and `Rename` (Open SVG…, Save, Place…, New from preset ▸); its `Export …` rows become `Download ▸`.
+
+**Edit:**
+`Undo` ⌘Z · `Redo` ⇧⌘Z | `Cut` ⌘X · `Copy` ⌘C · `Paste` ⌘V · `Paste in place` (where position means something) · `Duplicate` ⌘D · `Delete` ⌫ | `Select all` ⌘A | `Find and replace…` | `Save selection as snippet…`
+- `Duplicate` (3 of 4) not "Duplicate selection"; `Delete` (right-click majority, and shorter) not "Delete selection".
+- `Save selection as snippet…` belongs to Edit (5 of 6), with the ellipsis (it opens a dialog).
+- Every app that can select has `Select all` (Cells, Deck, Design lack it today).
+- App extras go after the shared block, behind a separator (Diagrams' Copy style / Paste style; Draw's Paste in Front / Back / on All Artboards, Copy As ▸, Deselect).
+
+**Insert:** ‹app objects› | `Insert snippet…` · `Work widget from a desk…` | `Meeting`
+- `Insert snippet…` (4 of 6), not Write's "Saved snippet".
+
+**Format, app menus, Tools, Window:** app-specific, but a shared action keeps the shared name and shortcut (Group ⌘G, Ungroup ⇧⌘G, Bring to front ⇧⌘], Send to back ⇧⌘[, Align ▸, Clear formatting ⌘\, Check accessibility).
+
+**Help:** `Keyboard shortcuts` ⌘/ (4 of 6), then app help (Diagrams' "How to diagram", Draw's "How PlexiiDraw works"). Draw's second shortcuts entry in Edit (⌥⇧⌘K) goes; Diagrams' `?` becomes ⌘/ (with `?` still bound).
+
+### 9.3 Right-click: one structure everywhere
+
+Groups in this order, one separator between non-empty groups, the destructive group always last behind its own separator (last on 12 of 12 surfaces in 2e's audit):
+
+1. **Object actions** for what was clicked (Edit text, Open, Configure…, kind rows). `Add to Focus…` is first on objects that have it (operator ruling CR-09 D-A) unless 9d rules otherwise (E-1).
+2. **Clipboard:** `Cut` · `Copy` · `Paste` · `Paste as plain text` (text only) · `Duplicate`
+3. **Arrange** (layered objects only): `Bring to front` ⇧⌘] · `Send to back` ⇧⌘[ (plus Group / Ungroup where the app groups)
+4. **Plexii:** `Save selection as snippet…` · `Ask PlexiiAssist` (`… about this` on a selection) · `Add to Focus…` (when not already in group 1)
+5. **More actions ▸** for anything beyond the first four groups (this is how the eight-item ceiling is kept, E-6)
+6. **Destructive** (danger): `Delete` ⌫ in an editor's content; `Move to Trash` for a file or document; `Remove from ‹container›` for a placement
+
+Three standard shapes:
+- **On an object** (a shape, an element, a node, a cell, a widget): all six groups as they apply.
+- **On empty canvas / page:** `Paste` · `Insert snippet…` | ‹create here› (Add text here, Add a box here, New artboard) | `Select all` ⌘A | view items (Fit, Zoom to selection).
+- **On text** (Write's page, a Cells cell being edited, a text box being edited, any text field in the app): `Cut` · `Copy` · `Paste` · `Paste as plain text` | `Select all` | `Ask PlexiiAssist about this` · `Save selection as snippet…` (built by `editableFieldMenu.ts`; today the main window shows nothing at all on text, 2e §IMPACT-1).
+
+Same labels, icons and shortcut hints as the menu bar for the same action; the icon set is the kit's (content_cut, content_copy, content_paste, control_point_duplicate, flip_to_front, flip_to_back, bookmark_add, bookmarks, delete).
+
+### 9.4 Lexicon and format
+
+- **Sentence case** (≈95% today). **"…"** (U+2026, never "...") when the item opens a dialog or picker (29 vs 6).
+- **Move to Trash** (a named place in the app; 5 surfaces) for soft deletes of files and documents, everywhere, including all six File menus; **Delete** only for removing content inside an editor (a shape, a row, a slide); **Remove from ‹container›** for a placement; **Archive** bare.
+- **Copy** (not "Copy text"); **Rename** (bare verb); **Duplicate** (independent copy) / **Duplicate, keep synced**; **Add to this desk**; **Add to Focus…**; **Share…**; **Ask PlexiiAssist**; **Make this a desk…**; **Copy link** (E-10).
+- **Shortcut hints** come from `lib/menus/shortcuts.ts` only: Apple modifier order ⌃⌥⇧⌘ with glyphs on macOS (`⇧⌘Z`, never `⌘⇧Z`), `Ctrl+Shift+Z` elsewhere. A hint is shown only for a key that is actually bound (2e found ⌘C/X/V/D hints on the speed-deck with no binding).
+
+### 9.5 Absent or disabled-with-reason
+
+- **Absent** when the action cannot apply in this context at all: no document (no `DocumentOps`: a snippet session, a live document; already the rule since office-docops-41), a read-only viewer (no editing items; Copy stays), an app that lacks the capability (§9.6 lists each, with why).
+- **Disabled, with a reason in `hint`** when the action applies here but not right now: nothing selected (Cut / Copy / Delete: "Select something first"), empty clipboard (Paste), at the first undo step (Undo), a locked object.
+- Never a silently dead item: an enabled item always does something; a disabled one always says why.
+
+### 9.6 The audit matrix (office apps, runtime inventory, cf547781)
+
+Menus as they render (`·` = separator). Generated from `tests/e2e/_menuInventory.spec.ts` output, not typed by hand.
+
+| Menu | Write | Cells | Deck | Diagrams | Design | Draw |
+|---|---|---|---|---|---|---|
+| File | New document, Make a copy, ·, Rename, Version history, Download ▸, Print (PDF) ⌘P, ·, Move to trash | New spreadsheet, Make a copy, ·, Rename, Version history, Import (.xlsx / .csv), Download ▸, ·, Move to trash | New presentation, Make a copy, ·, Rename, Version history, Import (.pptx), Download ▸, ·, Move to trash | New diagram, Make a copy, ·, Rename, Version history, ·, Import ▸, Export ▸, ·, Start a meeting, Move to trash | New design, Make a copy, ·, Rename, Version history, Download ▸, ·, Move to trash | New artwork ⌘N, Open SVG… ⌘O, Save ⌘S, Make a copy ⌥⌘S, ·, New from preset ▸, Place… ⇧⌘P, Place as template…, Import SVG…, Replace image…, ·, Export PNG…, Export SVG…, Export PDF…, ·, Rename, Version history, Move to trash |
+| Edit | Undo ⌘Z, Redo ⌘Y, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, ·, Select all ⌘A, Find and replace ⌘⇧H | Undo ⌘Z, Redo ⌘Y, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, ·, Save selection as snippet… | Undo ⌘Z, Redo ⌘Y, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, Duplicate selection ⌘D, Delete selection ⌫, ·, Save selection as snippet… | Undo ⌘Z, Redo ⇧⌘Z, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, Duplicate ⌘D, Save selection as snippet…, Delete ⌫, ·, Select all ⌘A, Find and replace ⌘F, ·, Copy style ⌥⌘C, Paste style ⌥⌘V | Undo ⌘Z, Redo ⌘⇧Z, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, Duplicate ⌘D, ·, Delete selection ⌫, ·, Save selection as snippet… | Undo ⌘Z, Redo ⇧⌘Z, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, Paste in Front ⌘F, Paste in Back ⌘B, Paste in Place ⇧⌘V, Paste on All Artboards ⌥⇧⌘V, Copy As ▸, Duplicate, Delete ⌫, ·, Select all ⌘A, Deselect ⇧⌘A, Select all on active artboard ⌥⌘A, ·, Save selection as snippet…, Insert snippet…, ·, Keyboard shortcuts… ⌥⇧⌘K |
+| View | Page view, Continuous view, ·, Show outline, Show comments, ·, Focus mode | **absent** | Present ▶, Check accessibility | Fit to view ⇧1, Zoom to selection ⇧2, Zoom in ⌘+, Zoom out ⌘−, Actual size ⌘0, ·, Shape library, Layers, Ribbon, ·, Grid, Snap to grid, Smart guides, Line jumps, Minimap | **absent** | Fit Artboard in Window ⌘0, Fit All in Window ⌥⌘0, Zoom to Selection, Zoom to 100% ⌘1, Next Artboard, Previous Artboard, Hide Artboards ⇧⌘H, ·, Grid ⌘', Snap to edges ⌘U |
+| Insert | Image, Table, Table of contents, Footnote, Work widget from a desk, Saved snippet, Link ⌘K, Horizontal line, ·, Meeting | Row above, Row below, Column left, Column right, ·, Chart ▸, Pivot table, Sparkline, ·, Sheet, Named range, ·, Insert snippet…, ·, Meeting | Text box, Image, Shape ▸, Line, Chart, Table, Work widget from a desk, Insert snippet…, ·, Meeting | Process, Decision, Start / End, Data (I/O), Database, Circle, ·, Basic shapes ▸, Flowchart shapes ▸, Arrows shapes ▸, Containers shapes ▸, Callouts shapes ▸, Sticky notes shapes ▸, Tables shapes ▸, UML shapes ▸, ERD shapes ▸, BPMN shapes ▸, Network shapes ▸, Cloud shapes ▸, Org chart shapes ▸, Mind map shapes ▸, Wireframe shapes ▸, Plexii shapes ▸, ·, Text T, Table, Sticky note, Swimlane, Image…, ·, From a Plexii table…, Work widget from a desk…, Template…, Mermaid…, Insert snippet…, AI diagram…, ·, New page | Text, Image, Shape ▸, Line, Work widget from a desk, Insert snippet…, ·, Add page, Page-number frame, ·, Meeting | **absent** |
+| Format | Text ▸, Paragraph styles ▸, Align ▸, Bullets & numbering ▸, ·, Clear formatting ⌘\ | Text ▸, Number ▸, Alignment ▸, ·, Conditional formatting, Clear formatting ⌘\ | Align ▸, ·, Group ⌘G, Ungroup ⌘⇧G | **absent** | **absent** | **absent** |
+| Tools | Word count ⌘⇧C, Check accessibility, ·, Save selection as snippet | AI fill | **absent** | **absent** | Remove image background, ·, Preflight for print…, Print PDF (bleed + crop marks) | **absent** |
+| Help | Keyboard shortcuts ⌘/ | Keyboard shortcuts ⌘/ | Keyboard shortcuts ⌘/ | Keyboard shortcuts ?, How to diagram | Keyboard shortcuts ⌘/ | How PlexiiDraw works F1 |
+| Data | **absent** | Sort sheet A → Z, Sort sheet Z → A, ·, Create a filter, Data validation, Named ranges | **absent** | **absent** | **absent** | **absent** |
+| Slide | **absent** | **absent** | New slide, Duplicate slide, Delete slide, ·, Move slide up, Move slide down | **absent** | **absent** | **absent** |
+| Arrange | **absent** | **absent** | **absent** | Bring to front ⇧⌘], Bring forward ⌘], Send backward ⌘[, Send to back ⇧⌘[, ·, Group ⌘G, Ungroup ⇧⌘G, Lock / unlock ⇧⌘L, Hide, Show all hidden, ·, Align ▸, Distribute ▸, Rotate & flip ▸, ·, Tidy connections, Auto layout ▸ | **absent** | **absent** |
+| Layout | **absent** | **absent** | **absent** | **absent** | Margins, columns & layers…, Paragraph styles…, Swatches & spot inks…, Show layout guides, Facing pages, ·, Master pages ▸, ·, ·, Add page, Duplicate this page, ·, Link text frames into one story, Unlink frame from its story | **absent** |
+| Object | **absent** | **absent** | **absent** | **absent** | **absent** | Transform ▸, ·, Pathfinder ▸, Arrange ▸, Align ▸, Path ▸, ·, Group ⌘G, Ungroup ⇧⌘G, ·, Lock ▸, Unlock all ⌥⌘2, Hide ▸, Show all ⌥⌘3, ·, Clipping Mask ▸, Compound Path ▸, ·, Isolate selected group, Exit isolation mode, ·, Artboards ▸ |
+| Layer | **absent** | **absent** | **absent** | **absent** | **absent** | New vector layer ⌘L, New paint layer |
+| Document | **absent** | **absent** | **absent** | **absent** | **absent** | Artboard size… ⌥⌘P, Background ▸, ·, Meeting |
+| Window | **absent** | **absent** | **absent** | **absent** | **absent** | Layers F7, Artboards, ·, Move focus: canvas, top bar, tools ⌥F6, Next tool in group |
+| Right-click: surface / cell | **no menu** | **no menu** | **no menu** | Paste ⌘V, Insert snippet…, Add text here, Add a box here, Select all ⌘A, Tidy connections, Fit page ⇧1 | **no menu** | Undo ⌘Z, Redo ⇧⌘Z, ·, Cut ⌘X, Copy ⌘C, Paste ⌘V, Paste in Place ⇧⌘V, Copy As SVG Code, ·, Save selection as snippet…, Insert snippet…, ·, Group ⌘G, Ungroup ⇧⌘G, Bring to front ⇧⌘], Send to back ⇧⌘[, ·, New Artboard, Fit to Artwork Bounds, ·, Duplicate, Delete ⌫, ·, Select all ⌘A, Deselect ⇧⌘A |
+| Right-click: object / header | **no menu** | Insert column left, Insert column right, ·, Freeze up to this column, ·, Group selected columns, ·, Delete column | **no menu** | Edit text Enter, Cut ⌘X, Copy ⌘C, Duplicate ⌘D, Save selection as snippet…, Delete ⌫, Copy style ⌥⌘C, Paste style ⌥⌘V, Bring to front ⇧⌘], Send to back ⇧⌘[, Zoom to shape ⇧2, Lock ⇧⌘L, Hide shape, Tidy these connections | (not probed) | (not probed) |
+
+**Gaps and inconsistencies found (the office half; 2e's AUDIT.md has the rest):**
+
+| # | Finding | Apps | Contract |
+|---|---|---|---|
+| G1 | **No right-click menu at all** on content | Write (text), Cells (cells), Deck (slide and elements), Design | §9.3 shapes, on the kit |
+| G2 | Right-click menus are bespoke, without the kit's roles and keyboard | Diagrams (`diagram-context-menu`), Cells' column/row header menus (`sheet-col-menu`, `sheet-row-menu`: no clipboard group), Draw (its own menu) | move to the kit |
+| G3 | Redo shortcut differs | ⌘Y: Write, Cells, Deck · ⇧⌘Z: Diagrams, Draw, Design (as ⌘⇧Z) | E-13 |
+| G4 | Modifier order differs (⌘⇧ vs ⇧⌘) | Write (⌘⇧H, ⌘⇧C), Deck (⌘⇧G), Design (⌘⇧Z) | ⇧⌘ via `shortcuts.ts` |
+| G5 | `Duplicate selection` / `Delete selection` vs `Duplicate` / `Delete` | Deck, Design | `Duplicate`, `Delete` |
+| G6 | No `Duplicate` / `Delete` / `Select all` in Edit | Write (no Duplicate/Delete: text uses keys), Cells (none), Deck (no Select all), Design (no Select all) | add where the app selects objects; Write's text keeps its key behaviour (absent with reason, §9.6 exceptions) |
+| G7 | Snippet items placed and named differently | Write: Tools › "Save selection as snippet" (no …), Insert › "Saved snippet" | Edit › `Save selection as snippet…`, Insert › `Insert snippet…` |
+| G8 | Export named three ways | Download ▸ (4), Export ▸ (Diagrams), Export PNG/SVG/PDF… (Draw) | `Download ▸` |
+| G9 | Meeting in File in one app | Diagrams (File › Start a meeting) | Insert › `Meeting` |
+| G10 | Find shortcut | Write ⌘⇧H, Diagrams ⌘F | E-14 |
+| G11 | Two Keyboard shortcuts entries / non-⌘/ | Draw (Edit ⌥⇧⌘K + Help F1), Diagrams (`?`) | Help › `Keyboard shortcuts` ⌘/ |
+| G12 | "Move to trash" (6 menu bars) vs "Move to Trash" (5 right-click surfaces) | all | `Move to Trash` (E-15 if 9d prefers otherwise) |
+| G13 | No View menu | Cells, Design | add View with the shared zoom items where the app zooms; otherwise absent with reason |
+
+**Genuine exceptions (absent, with the reason):** Write's text has no `Duplicate`/`Delete` menu items (text editing uses keys; the right-click text shape still has Cut/Copy/Paste); Cells has no Arrange (cells do not layer); Draw keeps Illustrator's extra Edit/Object items and ⌘F/⌘B for Paste in Front/Back (its users' muscle memory; Find is not offered in Draw).
+
+### 9.7 Calls for 9d (true ties, each with a recommendation)
+
+- **E-13 Redo:** ⌘Y (3) vs ⇧⌘Z (3). Recommend **⇧⌘Z shown**, ⌘Y also bound everywhere (macOS standard shown; the Windows/Google key still works).
+- **E-14 Find and replace:** ⌘F (Diagrams) vs ⇧⌘H (Write). Recommend **⌘F = Find** and **⇧⌘H = Find and replace** wherever both exist; Draw excepted (⌘F is Paste in Front).
+- **E-15 "Move to Trash" capital T** (recommended: Trash is a named place, like Focus) vs sentence-case "Move to trash".
+- From 2e's audit (E-1 … E-12), with my recommendation: E-1 Add to Focus first (the ruling stands); E-2 three explicit rows (Archive · Remove from this desk · Move to Trash) over the chooser; E-3 bare verbs (Open, Rename, Archive); E-4 `Share…` plus `Copy link` as rows, the rest under `Share ▸`; E-5 clipboard as group 2 everywhere, the Shift-bypass dropped once text fields have the §9.3 text menu; E-6 keep the eight-item ceiling via `More actions ▸`; E-7 drop the duplicate "Duplicate into another Room / Desk…"; E-8 web stays native; E-9 browser wording ("Close other tabs", "Close all tabs", "Pin tab"); E-10 `Copy link`; E-11 a standard menu with Rename first; E-12 one AI set of 8 everywhere.
+
+### 9.8 Guards
+
+- `tests/unit/menuContract.test.ts`: every office menu bar's shared items exist with the contract's label, order, separators and shortcut (from the built menu definitions); no menu bar or right-click label outside `lexicon.ts` for a shared action; no `...`; every shortcut hint formatted by `shortcuts.ts`.
+- `tests/e2e/officeMenus.spec.ts`: real-click sample per app: the menu bar's File/Edit and the right-click on an object and on text, asserting the §9.3 group order and labels as rendered.
+- A source guard: no renderer file renders `role="menu"` or a context-menu container outside the kit.
+
+## 10. Delivery and estimate (re-estimated for D1 and D4)
 
 **Lead (d8):**
 - **Shell** (ToolRail, flyouts, ContextBar with tabs/contextual/collapse/readOnly, ShellPanel, OfficeShellLayout with Row 1 folding, the narrow rules, primitives), plus unit tests (including "no document listener" and "one state per control"): **about 1 day**. The branch is announced when it lands, and converters start then.
@@ -452,7 +580,7 @@ For each app, at the **default size**, then the **floating menu at 480px**, then
 - d2 (Design plus Deck): about 3–4 days. These have the largest inspectors and both gain armed modes and a key handler.
 - 3e (Write plus Cells): about 1.5 days (no inspectors; mostly toolbar mapping and Row 1 folding).
 
-## 10. Review log
+## 11. Review log
 
 - **d1 (Draw), round 1:** §2.1, §2.2 and §2.4 fit. Added: bar `readOnly` and per-primitive disabled/reason/readOnlySafe; host-overridable `focusCycleKey`; no document listeners; the Draw contexts (Artboard, Path, Group/Isolation, Image, Object with Arrange and Transform Again); BarCustom density; bar shortcut tooltips. The right-dock request was superseded by owner D1, and those panels are now overlay ShellPanels.
 - **d1, round 2:** ShellPanel `onRectChange` (pinned inset for Fit and zoom) and `returnFocus` on Esc; toggle chords stay the host's.
