@@ -52,7 +52,7 @@ test('Insert › Link asks for the URL and links the selected words', async () =
     s.addRange(r)
   })
   await selectBarTab(w, 'doc-toolbar', 'insert')
-  await ribbonButton(w, 'Link').click()
+  await ribbonButton(w, 'Insert link').click()
   const dialog = w.locator('[data-testid="prompt-dialog"]')
   await expect(dialog, 'the Link button asks for a URL').toBeVisible()
   await expect(dialog).toContainText('Link URL')

@@ -132,6 +132,8 @@ export default function SheetMenuBar({
           // Download reads the body in memory. Both are correct with no
           // document at all, so neither is gated on ops — Import is gated on
           // view-only access instead, because it writes.
+          // What will print, before the thing that prints it.
+          item('sheet-page-setup'),
           item('sheet-import'),
           {
             kind: 'submenu',

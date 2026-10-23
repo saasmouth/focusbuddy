@@ -15,6 +15,7 @@ import type { Editor } from '@tiptap/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BarButton, BarDialogButton, BarMenu, BarToggle, barText, ContextBar } from '../../src/renderer/src/components/office/shell'
 import { WRITE_TABS, type WCtx } from '../../src/renderer/src/components/documents/editor/writeRibbon'
+import { writeCommandsFor } from './_writeCommands'
 import { caretFontSize } from '../../src/renderer/src/components/documents/editor/fontSize'
 import { DOC_SURFACE_CLASS } from '../../src/renderer/src/components/documents/editor/surface'
 
@@ -59,8 +60,9 @@ function faceText(el: Element): string {
   return (c.textContent ?? '').trim()
 }
 
+// Write's ribbon renders its command registry (writeCommands, SPEC §9.9): the real one on this editor.
 const writeCtx = (editor: Editor): WCtx =>
-  anyFn<WCtx>({ editor, readOnly: false, pageView: false, styleLabel: 'Normal', sidePane: null, isPanelOpen: () => false, hasTracked: false })
+  anyFn<WCtx>({ editor, readOnly: false, pageView: false, styleLabel: 'Normal', sidePane: null, isPanelOpen: () => false, hasTracked: false, commands: writeCommandsFor(editor) })
 
 function mountHome(editor: Editor): void {
   act(() => root.render(<ContextBar testid="doc-toolbar" tabs={WRITE_TABS} ctx={writeCtx(editor)} activeTab="home" onTabChange={noop} menuBar={null} />))

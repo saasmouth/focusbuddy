@@ -90,3 +90,23 @@ export async function unpinWindow(app: ElectronApplication): Promise<void> {
     for (const w of BrowserWindow.getAllWindows()) w.setAlwaysOnTop(false)
   })
 }
+
+/** A real right-click (secondary button down and up) at a screen point. */
+export function postRightClick(at: ScreenPoint): void {
+  jxa(`
+    ObjC.import('CoreGraphics')
+    var src = $.CGEventSourceCreate($.kCGEventSourceStateHIDSystemState)
+    var p = $.CGPointMake(${at.x}, ${at.y})
+    var mv = $.CGEventCreateMouseEvent(src, $.kCGEventMouseMoved, p, $.kCGMouseButtonRight)
+    $.CGEventPost($.kCGHIDEventTap, mv)
+    delay(0.05)
+    var d = $.CGEventCreateMouseEvent(src, $.kCGEventRightMouseDown, p, $.kCGMouseButtonRight)
+    $.CGEventSetIntegerValueField(d, $.kCGMouseEventClickState, 1)
+    $.CGEventPost($.kCGHIDEventTap, d)
+    delay(0.03)
+    var u = $.CGEventCreateMouseEvent(src, $.kCGEventRightMouseUp, p, $.kCGMouseButtonRight)
+    $.CGEventSetIntegerValueField(u, $.kCGMouseEventClickState, 1)
+    $.CGEventPost($.kCGHIDEventTap, u)
+    'ok'
+  `)
+}

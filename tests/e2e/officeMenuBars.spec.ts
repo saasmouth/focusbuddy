@@ -92,7 +92,7 @@ test('SHEET-MB — menu bar renders all 7 buttons, Insert dropdown opens, Row ab
     await expect(insertList.locator('span.truncate', { hasText: 'Row above' })).toBeVisible()
     await expect(insertList.locator('span.truncate', { hasText: 'Row below' })).toBeVisible()
     await expect(insertList.locator('span.truncate', { hasText: 'Sheet' })).toBeVisible()
-    await expect(insertList.locator('span.truncate', { hasText: 'Named range' })).toBeVisible()
+    // Named ranges lives once, in Data (one action, one place; ec, SPEC §9.9).
 
     // Screenshot the dropdown
     const shot = path.join(SHOTS_DIR, 'sheet-menubar-insert.png')

@@ -41,20 +41,17 @@ import ShortcutsModal from './editor/ShortcutsModal'
 import { buildWriteCommands, type WriteCommands } from './editor/writeCommands'
 import { runCommandKey } from '../../lib/menus/commandKeys'
 
-// The registry ids whose keys Write binds itself, in match order (see
-// handleKeyDown). Everything else with a key is bound by TipTap's own keymap.
-//
-// Three of these overlap with MenuBarShell's own window listeners, and the
-// overlap resolves cleanly rather than firing twice:
-//   ⌘F / ⇧⌘H — MenuBarShell listens on BUBBLE and returns early on
-//     `e.defaultPrevented`, so this handler wins and MenuBarShell stands down.
-//   ⌘/ — MenuBarShell listens on CAPTURE and stopPropagation()s, so IT wins and
-//     this is the fallback for when its Help row is missing or its hint differs
-//     (its `run` requires the row on screen with a matching shortcut).
-// Either way exactly one of the two fires. Print is NOT in this list and must
-// not be: MenuBarShell does not bind ⌘P at all, so the only thing binding it is
-// the document commands the host passes to the matcher below.
-const KEY_BOUND_HERE = ['doc-find-replace', 'doc-find', 'doc-clear-format', 'doc-shortcuts']
+// The registry ids whose keys Write binds itself. Everything else with a key is
+// bound by somebody else, and the registry now says who:
+//   - TipTap's own keymap: ⌘B / ⌘I / ⌘U, ⌘Z, ⌘A and the clipboard chains, plus
+//     handlePaste's careful work, which this must not take over.
+//   - keyOwner 'menubar': Find ⌘F, Find and replace ⇧⌘H, Print ⌘P and Keyboard
+//     shortcuts ⌘/ are MenuBarShell's window listeners, and matchCommand skips
+//     them so one press cannot fire twice.
+//   - keyOwner 'clipboard': Cut, Copy, Paste are the platform's own events.
+// Which leaves exactly one key for this handler, and ⌘\ is the one PlexiiWrite
+// advertised in its Format menu and bound nowhere.
+const KEY_BOUND_HERE = ['doc-clear-format']
 import { documentCommands, paletteEntries, type OfficeCommand } from '../../lib/menus/officeCommand'
 import { docSidePanes, type DocSidePanelTab, type PanelCommentThread } from './editor/DocSidePanel'
 import { useDocAi } from './editor/useDocAi'
@@ -496,24 +493,27 @@ export default function DocEditor({
         return true
       },
       handleKeyDown(_view, event) {
-        // The keys the registry binds, from the same `keys` its menu hints are
-        // formatted from — so Write cannot advertise a key it does not bind.
-        // Clear formatting ⌘\ and Keyboard shortcuts ⌘/ were both advertised
-        // and bound nowhere until this.
+        // The keys the registry leaves to this editor, matched against the same
+        // `keys` its menu hints are formatted from — so Write cannot advertise a
+        // key it does not bind. Today that is Clear formatting ⌘\, which the
+        // Format menu advertised and nothing bound.
         //
-        // Only these four: TipTap's own keymap already binds ⌘B / ⌘I / ⌘U,
-        // ⌘Z, ⌘A and the clipboard keys, and handlePaste above is doing work
-        // this must not take over.
+        // Everything else with a key belongs to somebody else, and the registry
+        // says who: TipTap's keymap (⌘B / ⌘I / ⌘U, ⌘Z, ⌘A, and handlePaste's
+        // careful work above), keyOwner 'menubar' (Find ⌘F, Find and replace
+        // ⇧⌘H, Print ⌘P, Keyboard shortcuts ⌘/) or keyOwner 'clipboard'. The
+        // owned ones are skipped here so one press cannot fire twice.
         //
-        // Through the ref, so the live registry answers — the editor captures
-        // these props once, and a stale copy would decide a viewer's keys from
+        // The document commands join in, which is what binds ⌘P where the host
+        // can print — and they go through the ref because the editor captures
+        // these props once: a stale copy would decide a viewer's keys from
         // whatever readOnly was at mount.
         //
-        // ⌥ is excluded by construction now, not by hand: modifiers have to
-        // match exactly, so ⌥⌘F (which opens Files beside, and on Windows is
-        // Ctrl+Alt+F) no longer also opens Find. ⇧⌘H reaches Find and replace
-        // ahead of TipTap Highlight's unadvertised default for the same key;
-        // Highlight stays on the toolbar.
+        // ⌥ is excluded by construction, not by hand: modifiers must match
+        // exactly, so ⌥⌘F (Files beside, Ctrl+Alt+F on Windows) cannot also
+        // reach a ⌘F command. Note that leaving ⇧⌘H to the menu bar removed the
+        // accidental shield this handler used to give it — see
+        // tests/unit/writeAdvertisedKeysWin.test.ts and the Highlight extension.
         const live = commandsRef.current
         const bound = [
           ...(live ? KEY_BOUND_HERE.map((id) => live[id]).filter(Boolean) : []),
