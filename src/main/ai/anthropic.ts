@@ -2732,49 +2732,6 @@ export async function sendChatStream(
   }
 }
 
-// Raw single-turn completion for the AI command bar's intent router. Unlike
-// sendChat, this does NOT impose the workspace-build system prompt and does NOT
-// run the {reply, proposals} envelope parser over the result — both of which
-// would discard the caller's router prompt and mangle the small intent JSON the
-// router is meant to return. The caller supplies its own system prompt and gets
-// the model's text back verbatim to parse. Kept deliberately narrow: a system
-// string plus one user turn, used by the command bar to classify intent.
-export async function routeCommandBar(input: {
-  system: string
-  text: string
-}): Promise<{ ok: boolean; text?: string; needsApiKey?: boolean; error?: string }> {
-  const c = getClient()
-  if (!c) {
-    return {
-      ok: false,
-      needsApiKey: true,
-      error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.'
-    }
-  }
-  const text = input.text.trim()
-  if (!text) return { ok: false, error: 'Prompt is empty.' }
-  try {
-    const resp = await c.messages.create({
-      model: resolveModel('command_route'),
-      max_tokens: 1024,
-      system: input.system,
-      messages: [{ role: 'user', content: text }]
-    })
-    if ((resp.stop_reason as string) === 'refusal') {
-      return { ok: false, error: 'Claude declined this request. Try rephrasing.' }
-    }
-    const out = resp.content
-      .filter((b) => b.type === 'text')
-      .map((b) => ('text' in b ? b.text : ''))
-      .join('\n')
-      .trim()
-    if (!out) return { ok: false, error: 'Empty response from model.' }
-    return { ok: true, text: out }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
-  }
-}
-
 export async function generateProactiveWelcome(taskId: string): Promise<ChatResponse> {
   const c = getClient()
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
