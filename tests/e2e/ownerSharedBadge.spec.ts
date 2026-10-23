@@ -18,8 +18,26 @@
  *   7. Negative: neither folder shows the recipient-side [data-testid="shared-badge"].
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+
+/**
+ * Open the All Rooms index, where these badges live now.
+ *
+ * 24a61f93d removed the sidebar's inline trees; the rows this spec probed as
+ * [role="treeitem"] are cards in RoomsView. Each card carries the node's id as
+ * a testid built from its node id (index-card-<id>), so the shared and
+ * unshared ones are told apart by identity rather than by text — stricter
+ * than the old filter({ hasText }). The `id` PROP on GalleryCard is not the
+ * DOM id; it only feeds that testid, which cost me a run to find out.
+ */
+async function openRoomsIndex(window: Page): Promise<void> {
+  await window.evaluate(() => {
+    const w = window as unknown as { __fbView?: { getState: () => { goRooms: () => void } } }
+    w.__fbView?.getState().goRooms()
+  })
+  await expect(window.locator('[data-testid="rooms-index-view"]')).toBeVisible({ timeout: 8_000 })
+}
 
 let launched: LaunchedApp | null = null
 
@@ -81,33 +99,10 @@ test('owner shared-out badge appears on shared folder and not on unshared folder
   await window.reload()
   await waitForReady(window)
 
-  // Step 5: Wait for both folder rows to be visible in the Projects tree.
-  // Top-level folders always appear in the sidebar without expanding a parent.
-  // The sidebar renders rows as role="treeitem" divs; we wait for the text
-  // content to appear anywhere in the tree.
-  await window.waitForFunction(
-    ({ sharedTitle, unsharedTitle }: { sharedTitle: string; unsharedTitle: string }) => {
-      const rows = Array.from(document.querySelectorAll('[role="treeitem"]'))
-      const titles = rows.map((r) => r.textContent ?? '')
-      return (
-        titles.some((t) => t.includes(sharedTitle)) &&
-        titles.some((t) => t.includes(unsharedTitle))
-      )
-    },
-    { sharedTitle: 'My Shared Desk', unsharedTitle: 'My Private Desk' },
-    { timeout: 10_000 }
-  )
-
-  // Also wait for the shares store to finish loading (the badge renders only
-  // after outgoing shares are populated from the DB).
-  await window.waitForFunction(
-    () => {
-      // The badge renders once sharedOutIds is non-empty for at least one node.
-      // We probe for the element directly so the wait self-resolves.
-      return document.querySelector('[data-testid="shared-out-badge"]') !== null
-    },
-    { timeout: 8_000 }
-  )
+  // Step 5: both rooms are cards on the All Rooms index.
+  await openRoomsIndex(window)
+  await expect(window.locator(`[data-testid="index-card-${sharedFolderId}"]`)).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator(`[data-testid="index-card-${unsharedFolderId}"]`)).toBeVisible()
 
   // Step 5 assertion: shared-out-badge is visible and has correct tooltip.
   const badge = window.locator('[data-testid="shared-out-badge"]')
@@ -120,18 +115,13 @@ test('owner shared-out badge appears on shared folder and not on unshared folder
   // have no id attribute we assert the total count is exactly 1.
   await expect(badge).toHaveCount(1)
 
-  // Also confirm the badge is inside a row whose text includes the shared
-  // folder title — not the unshared one.
-  const sharedRow = window
-    .locator('[role="treeitem"]')
-    .filter({ hasText: 'My Shared Desk' })
-  await expect(sharedRow.locator('[data-testid="shared-out-badge"]')).toBeVisible()
-
-  const unsharedRow = window
-    .locator('[role="treeitem"]')
-    .filter({ hasText: 'My Private Desk' })
+  // And it is on the shared room's card, not the other one — by id, so this
+  // cannot pass on a title that happens to appear somewhere else.
   await expect(
-    unsharedRow.locator('[data-testid="shared-out-badge"]')
+    window.locator(`[data-testid="index-card-${sharedFolderId}"] [data-testid="shared-out-badge"]`)
+  ).toBeVisible()
+  await expect(
+    window.locator(`[data-testid="index-card-${unsharedFolderId}"] [data-testid="shared-out-badge"]`)
   ).toHaveCount(0)
 
   // Step 7 (regression): neither folder was accepted from someone else, so
@@ -179,11 +169,10 @@ test('revoking the share link removes the shared-out badge', async () => {
   await window.reload()
   await waitForReady(window)
 
-  await window.waitForFunction(
-    () => document.querySelector('[data-testid="shared-out-badge"]') !== null,
-    { timeout: 8_000 }
-  )
-  await expect(window.locator('[data-testid="shared-out-badge"]')).toBeVisible()
+  await openRoomsIndex(window)
+  await expect(window.locator(`[data-testid="index-card-${folderId}"] [data-testid="shared-out-badge"]`)).toBeVisible({
+    timeout: 8_000
+  })
 
   // Now revoke the share link.
   await window.evaluate(
@@ -198,15 +187,10 @@ test('revoking the share link removes the shared-out badge', async () => {
   await window.reload()
   await waitForReady(window)
 
-  // Wait for the folder row to be present (shares store loaded).
-  // The row is role="treeitem" with the folder title as its text content.
-  await window.waitForFunction(
-    () => {
-      const rows = Array.from(document.querySelectorAll('[role="treeitem"]'))
-      return rows.some((r) => r.textContent?.includes('Soon Revoked Desk'))
-    },
-    { timeout: 8_000 }
-  )
+  // The card must be on screen before an absence means anything — otherwise
+  // "no badge" is just as true of a page that never rendered the room.
+  await openRoomsIndex(window)
+  await expect(window.locator(`[data-testid="index-card-${folderId}"]`)).toBeVisible({ timeout: 8_000 })
 
   // Badge must be gone after revocation.
   const badge = window.locator('[data-testid="shared-out-badge"]')

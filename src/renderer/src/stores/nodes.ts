@@ -18,15 +18,29 @@ import { promptUpgrade } from './upgradePrompt'
 import { useMessagingStore } from './messaging'
 import { useContextHealthStore } from './contextHealth'
 
-// A "desk" (marketing) / "project" (sidebar) is a top-level folder. The
-// multiple_desks capability caps how many a tier may have. Thrown by
+// The multiple_desks capability caps how many DESKS a tier may have. Thrown by
 // create() when a free user would exceed it — callers that don't catch it
 // simply have the creation prevented (the throw happens before the IPC
 // create call, so nothing is persisted).
 export const DESK_LIMIT_ERROR = 'DESK_LIMIT_REACHED'
 
-function isTopLevelDesk(draft: NodeDraft): boolean {
-  return draft.parentId === null && draft.kind === 'folder'
+// A DESK is a top-level TASK. A top-level FOLDER is a ROOM, and rooms are not
+// capped (owner, 2026-10-24).
+//
+// This read `kind === 'folder'` and was right when it was written: a "desk"
+// used to be the top-level folder the sidebar called a project. The Rooms/Desks
+// rename moved the words under it — see archiveObjectChannel below, which
+// sends `kind === 'folder' ? 'room' : 'desk'` — while Sidebar.requestCreateDesk
+// creates kind: 'task'. So the cap stopped firing on the only path people use
+// to make a desk, and started refusing a fourth ROOM with a message about
+// desks. Exported because a paid boundary should fail loudly in a test rather
+// than quietly in production.
+export function isTopLevelDesk(draft: Pick<NodeDraft, 'parentId' | 'kind'>): boolean {
+  return draft.parentId === null && draft.kind === 'task'
+}
+
+export function countTopLevelDesks(nodes: ReadonlyArray<Pick<FbNode, 'parentId' | 'kind'>>): number {
+  return nodes.filter((n) => n.parentId === null && n.kind === 'task').length
 }
 
 interface NodeStore {
@@ -91,14 +105,17 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     }
   },
   create: async (draft) => {
-    // Hard backstop for the desk limit — catches EVERY create path (sidebar,
-    // dashboard, AI command bar). The sidebar additionally gates the trigger
-    // for nicer UX, but this is what actually prevents a 4th free desk.
+    // THE desk limit — this is the only place it is enforced. The comment here
+    // used to say the sidebar additionally gated its own trigger "for nicer
+    // UX"; it does not (no multiple_desks check anywhere in Sidebar.tsx), so
+    // every create path reaches this and nothing pre-empts it.
+    //
+    // Only CREATION is gated. Someone who is already over the limit keeps
+    // every desk they have and can still open them; they simply cannot make
+    // another (owner's ruling, 2026-10-24).
     if (isTopLevelDesk(draft)) {
       const caps = useCapabilityStore.getState().capabilities
-      const deskCount = get().nodes.filter(
-        (n) => n.parentId === null && n.kind === 'folder'
-      ).length
+      const deskCount = countTopLevelDesks(get().nodes)
       if (!canCreateMore(caps, 'multiple_desks', deskCount)) {
         const limit = limitFor(caps, 'multiple_desks')
         promptUpgrade(
