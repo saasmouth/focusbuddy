@@ -8,6 +8,7 @@ import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { createDocumentOps } from '../documents/editor/documentOps'
+import DocumentConflictBar from '../documents/DocumentConflictBar'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import { PlexiiDocIcon } from '../PlexiiIcon'
@@ -48,6 +49,8 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
   const rename = useDocumentsStore((s) => s.rename)
   const goDocuments = useViewStore((s) => s.goDocuments)
   const goDocument = useViewStore((s) => s.goDocument)
+  const conflict = useDocumentsStore((s) => s.conflict)
+  const resolveConflict = useDocumentsStore((s) => s.resolveConflict)
   const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   const goDesign = useViewStore((s) => s.goDesign)
   // The signed-in user's name greets them in the AI Assistant panel. Omitted when
@@ -301,6 +304,19 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           <DrawStudio key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} />
         )}
       </div>
+      {/* Below the surface, not over it: the text being decided about has to
+          stay visible while the decision is made. Only shown for THIS document
+          — the store holds one conflict, keyed by id, because a save refused
+          for a document the user has since navigated away from is not something
+          to interrupt them about here. */}
+      {conflict && conflict.id === active.id && (
+        <DocumentConflictBar
+          theirs={conflict.theirs}
+          onTheirs={() => void resolveConflict('theirs')}
+          onMine={() => void resolveConflict('mine')}
+          onCopy={() => void resolveConflict('copy')}
+        />
+      )}
       {shareOpen && (
         <ShareDialog
           kind="document"

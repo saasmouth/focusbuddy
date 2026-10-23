@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
+import { notifyDocumentChanged } from '../documentEvents'
 import { getActiveOrgId } from './activeOrg'
 import { deriveTitle, isUntitled } from '@shared/titles'
 import { deleteEmbedding } from './embeddings'
@@ -290,7 +291,13 @@ export function updateDocument(id: string, patch: DocumentPatch): FbDocument | n
   // moved on. Returning null here would read as "no such document" and the
   // caller would have no idea its work was refused.
   if (conditional && info.changes === 0) return null
-  return getDocument(id)
+  const after = getDocument(id)
+  // Announce only a write that actually replaced the body, and only after it is
+  // committed: a listener that refetched on an announcement of a write that was
+  // refused would pull the body it already has, and one that refetched before
+  // the commit would pull the body being replaced.
+  if (after && writesBody) notifyDocumentChanged(id, after.bodyRev)
+  return after
 }
 
 /**
@@ -354,7 +361,9 @@ export function upsertDocument(input: {
        VALUES (@id, @docType, @title, @body, @archived, @now, @now, @orgId)`
     ).run({ id: input.id, docType: input.docType, title: input.title, body: bodyStr, archived, orgId: getActiveOrgId(), now })
   }
-  return getDocument(input.id) as FbDocument
+  const landed = getDocument(input.id) as FbDocument
+  notifyDocumentChanged(landed.id, landed.bodyRev)
+  return landed
 }
 
 // Soft-delete: the document moves to the Documents Trash and disappears from

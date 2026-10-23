@@ -50,6 +50,10 @@ export const MODULE_SWAPS: Record<string, string> = {
   'src/main/settingsStore.ts': 'src/web/worker/main/settingsStore.ts',
   // Row-change fan-out: postMessage rather than webContents.send.
   'src/main/tableEvents.ts': 'src/web/worker/main/tableEvents.ts',
+  // Document-change fan-out, for the same reason: one document can be open in
+  // two editors at once, and a copy that never hears about the other's save
+  // ages silently until its own save is refused.
+  'src/main/documentEvents.ts': 'src/web/worker/main/documentEvents.ts',
   // Drive file bytes live on OPFS rather than on a disk. Only the byte store is
   // swapped -- db/files.ts itself, all 900 lines of folders, tags, smart
   // folders, trash and search, is the same code on both runtimes.

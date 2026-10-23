@@ -60,6 +60,7 @@ import type {
   DocumentMeta,
   DocSnapshotMeta,
   DocumentPatch,
+  DocumentWriteResult,
   FbDocument,
   ModelMode,
   NodeDraft,
@@ -2408,6 +2409,31 @@ const api = {
       ipcRenderer.invoke('documents:create', draft),
     update: (id: string, patch: DocumentPatch, snapshotLabel?: string): Promise<FbDocument | null> =>
       ipcRenderer.invoke('documents:update', id, patch, snapshotLabel),
+    /**
+     * Someone replaced a document's body — another editor on the same document,
+     * another window, a snapshot restore, or a body that arrived from sync.
+     *
+     * `bodyRev` is the version the body is now at, so a listener can ignore the
+     * echo of its own save rather than refetching for nothing.
+     */
+    onChanged: (cb: (id: string, bodyRev: number) => void): (() => void) => {
+      const listener = (_e: unknown, id: string, bodyRev: number): void => cb(id, bodyRev)
+      ipcRenderer.on('documents:changed', listener)
+      return () => ipcRenderer.removeListener('documents:changed', listener)
+    },
+    /**
+     * Replace the body only if it is still at `expectedBodyRev` — the editors'
+     * save. On a refusal nothing is written and the result carries the body
+     * that IS stored, so the caller can offer the choice rather than destroying
+     * whichever edit was slower. `update` above is the unconditional path.
+     */
+    updateBody: (
+      id: string,
+      body: NonNullable<DocumentPatch['body']>,
+      expectedBodyRev: number,
+      snapshotLabel?: string
+    ): Promise<DocumentWriteResult> =>
+      ipcRenderer.invoke('documents:updateBody', id, body, expectedBodyRev, snapshotLabel),
     // Soft-delete into the Documents Trash (restorable); purge is the only
     // permanent removal, from the Trash view's "Delete forever".
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('documents:delete', id),
