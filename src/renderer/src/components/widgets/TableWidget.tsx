@@ -39,9 +39,11 @@ import { parseTsv } from '@shared/gridClipboard'
 import Icon from '../Icon'
 import { ListView, CardsView, KanbanView, CalendarView, GanttView } from './TableViews'
 import UnifiedConnectedMenu from '../contextMenu/UnifiedConnectedMenu'
+import CanvasContextMenu from '../CanvasContextMenu'
+import { isTextContextTarget, tableHeaderMenuItems } from './bodyMenus'
 import TableFilterBar from './TableFilterBar'
 import { useTableWidgetSnippets } from './useWidgetSnippets'
-import { applyFilters, groupRows } from '../../lib/tableFilter'
+import { applyFilters, groupRows, isGroupableColumn } from '../../lib/tableFilter'
 import type { RowGroup } from '../../lib/tableFilter'
 
 // All available views with the icon + label that drive the switcher pill.
@@ -62,6 +64,12 @@ const ROW_HANDLE_WIDTH = 32
 const ADD_COL_WIDTH = 64 // the add-column "+" and the AI button sit side by side
 const DEFAULT_COL_WIDTH = 160
 const MIN_COL_WIDTH = 64
+
+// A cell is being edited when focus is in its text input (or a selection is).
+function cellIsBeingEdited(td: Element): boolean {
+  const active = document.activeElement
+  return !!active && td.contains(active) && isTextContextTarget(active)
+}
 
 interface Props {
   widget: Widget
@@ -256,6 +264,14 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     columnId: string
     index: number
   } | null>(null)
+  // "Edit column…" in that menu opens the column's own popover (the one its
+  // title opens on click). A counter, so asking twice for the same column
+  // opens it again after it was dismissed.
+  const [editColumnReq, setEditColumnReq] = useState<{ columnId: string; n: number } | null>(null)
+  // Whether the right-clicked cell was being edited when the button went down
+  // (read in the capture phase, before the press moves focus). null when no
+  // press preceded the menu (the keyboard's menu key).
+  const cellEditingAtRightDown = useRef<boolean | null>(null)
   // Drag-to-reorder columns and rows via grip handles. The controller tracks
   // the dragged id + the index under the cursor so we can paint a drop marker.
   const colReorder = usePointerReorder('data-col-index', 'x', (id, target) => moveColumn(id, target))
@@ -881,7 +897,17 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
             : ''
         }`}
       >
-        <td className="w-8 px-0.5 py-1 border-r border-[var(--edge-soft)] align-middle">
+        <td
+          className="w-8 px-0.5 py-1 border-r border-[var(--edge-soft)] align-middle"
+          data-testid={`table-row-handle-${idx}`}
+          // The row's handle is the one part of a row that is never text, so
+          // the row actions (Duplicate row, Delete row) stay a right-click away
+          // when every cell is an input that takes the text menu.
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setCellCtxMenu({ x: e.clientX, y: e.clientY, columnLabel: '', cellText: '', rowId: row.id })
+          }}
+        >
           <div className="flex flex-col items-center gap-0.5">
             {rowsReorderable && (
               <span
@@ -913,13 +939,28 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                 : ''
             }`}
             style={{ minWidth: 140 }}
+            onMouseDownCapture={(e) => {
+              // Was this cell being edited BEFORE the right-click? The press
+              // itself focuses the cell's input, so that must be read now. A
+              // cell that was not being edited stays that way: the press does
+              // not move focus into it (the cell menu opens instead).
+              if (e.button !== 2) return
+              cellEditingAtRightDown.current = cellIsBeingEdited(e.currentTarget)
+              if (!cellEditingAtRightDown.current) e.preventDefault()
+            }}
             onMouseDown={(e) => onCellSelDown(idx, ci, e.shiftKey)}
             onMouseEnter={() => onCellSelEnter(idx, ci)}
             onDragOver={(e) => cellAcceptsDoc(e, col)}
             onDrop={(e) => onCellDocDrop(e, row.id, col)}
             onContextMenu={(e) => {
-              // Shift bypasses our menu and gives the OS clipboard menu.
-              if (e.shiftKey) return
+              // As in PlexiiCells (SPEC §9.3): a cell being edited is text, so
+              // its right-click is the text menu's; a cell that is not being
+              // edited is an object, and gets the cell menu. Every cell is an
+              // input, so "being edited" means it had focus before the press
+              // (or has it now, for the keyboard's menu key).
+              const editing = cellEditingAtRightDown.current ?? cellIsBeingEdited(e.currentTarget)
+              cellEditingAtRightDown.current = null
+              if (editing && isTextContextTarget(e.target)) return
               e.preventDefault()
               const rawCell = row.cells[col.id]
               const cellStr =
@@ -1138,7 +1179,11 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                   onRemove={() => removeColumn(col.id)}
                   onSetConfig={(c) => setColumnConfig(col.id, c)}
                   onSetType={(t) => setColumnType(col.id, t)}
+                  openRequest={editColumnReq?.columnId === col.id ? editColumnReq.n : 0}
                   onContextMenu={(e) => {
+                    // The rename field in the column's popover is text: the
+                    // text menu's, not the column's.
+                    if (isTextContextTarget(e.target)) return
                     e.preventDefault()
                     setHeaderMenu({ x: e.clientX, y: e.clientY, columnId: col.id, index })
                   }}
@@ -1489,22 +1534,44 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           onClose={() => setCellCtxMenu(null)}
         />
       )}
-      {headerMenu && (
-        <HeaderContextMenu
-          x={headerMenu.x}
-          y={headerMenu.y}
-          canDelete={table.schema.columns.length > 1}
-          onInsert={(side, type) => {
-            addColumnAt(side === 'left' ? headerMenu.index : headerMenu.index + 1, type)
-            setHeaderMenu(null)
-          }}
-          onDelete={() => {
-            removeColumn(headerMenu.columnId)
-            setHeaderMenu(null)
-          }}
-          onClose={() => setHeaderMenu(null)}
-        />
-      )}
+      {headerMenu && (() => {
+        // The column-header menu, on the kit (it portals, so it is never
+        // scaled or clipped by the zoomed canvas, and it has the kit's keys and
+        // focus return). Built in bodyMenus.ts so the guard checks this menu.
+        const col = table.schema.columns.find((c) => c.id === headerMenu.columnId)
+        if (!col) return null
+        const index = table.schema.columns.indexOf(col)
+        const groupedByThis = viewConfig.group?.columnId === col.id
+        return (
+          <CanvasContextMenu
+            x={headerMenu.x}
+            y={headerMenu.y}
+            onClose={() => setHeaderMenu(null)}
+            items={tableHeaderMenuItems(
+              {
+                columnLabel: col.label,
+                index,
+                columnCount: table.schema.columns.length,
+                groupable: isGroupableColumn(col),
+                groupedByThis
+              },
+              {
+                insert: (side, type) => addColumnAt(side === 'left' ? index : index + 1, type),
+                move: (dir) => moveColumn(col.id, dir < 0 ? index - 1 : index + 2),
+                edit: () => setEditColumnReq((r) => ({ columnId: col.id, n: (r?.n ?? 0) + 1 })),
+                toggleGroup: () =>
+                  setViewConfig({
+                    ...viewConfig,
+                    group: groupedByThis
+                      ? undefined
+                      : { columnId: col.id, collapsed: [], direction: viewConfig.group?.direction ?? 'asc' }
+                  }),
+                remove: () => removeColumn(col.id)
+              }
+            )}
+          />
+        )
+      })()}
     </div>
   )
 
@@ -1540,8 +1607,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           label: aiOpen ? 'Hide the AI assistant' : 'Generate columns and rows with AI…',
           icon: 'auto_awesome',
           onClick: () => setAiOpen((v) => !v)
-        },
-        { separator: true }
+        }
       ]}
     >
       {body}
@@ -1610,7 +1676,8 @@ function ColumnHeader({
   onSetType,
   onContextMenu,
   onResizeStart,
-  onReorderDown
+  onReorderDown,
+  openRequest = 0
 }: {
   col: FieldDefinition
   index: number
@@ -1624,9 +1691,15 @@ function ColumnHeader({
   onContextMenu: (e: React.MouseEvent) => void
   onResizeStart: (e: React.MouseEvent) => void
   onReorderDown: (e: React.MouseEvent) => void
+  /** Bumped by the header menu's "Edit column…": opens this column's popover. */
+  openRequest?: number
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLTableCellElement | null>(null)
+  const titleRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (openRequest > 0) setOpen(true)
+  }, [openRequest])
   useEffect(() => {
     if (!open) return
     function onDown(e: MouseEvent): void {
@@ -1639,7 +1712,12 @@ function ColumnHeader({
     <th
       ref={ref}
       data-col-index={index}
-      onContextMenu={onContextMenu}
+      onContextMenu={(e) => {
+        // The column's title button is the menu's invoker: focus it first, so
+        // the kit hands focus back to it when the menu closes (§9.1).
+        if (!isTextContextTarget(e.target)) titleRef.current?.focus({ preventScroll: true })
+        onContextMenu(e)
+      }}
       className={`text-left px-2 py-1 font-medium text-[11px] text-[var(--ink-70)] relative ${
         isDragging ? 'opacity-40' : ''
       } ${isDragOver ? 'border-l-2 border-l-accent' : ''}`}
@@ -1655,7 +1733,22 @@ function ColumnHeader({
           <Icon name="drag_indicator" size={12} />
         </span>
         <button
+          ref={titleRef}
           onClick={() => setOpen((v) => !v)}
+          onKeyDown={(e) => {
+            // The keyboard's right-click (the Menu key, or Shift+F10) opens the
+            // same column menu, under the title.
+            if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+              e.preventDefault()
+              e.stopPropagation()
+              const r = e.currentTarget.getBoundingClientRect()
+              e.currentTarget.dispatchEvent(
+                new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left, clientY: r.bottom + 2 })
+              )
+            }
+          }}
+          aria-haspopup="menu"
+          data-testid={`table-col-title-${index}`}
           className="inline-flex items-center gap-1 hover:bg-[var(--surface-sunken)] rounded px-1 py-0.5 flex-1 min-w-0 text-left"
           title="Click to edit · right-click for more"
         >
@@ -1830,108 +1923,6 @@ function ColumnAdder({ onAdd }: { onAdd: (t: FieldType) => void }): JSX.Element 
             </button>
           ))}
         </div>
-      )}
-    </div>
-  )
-}
-
-// ── Header right-click menu — insert left / right + delete ───────────────────
-// A two-level menu: the main view offers insert-left, insert-right and delete;
-// choosing an insert side switches to a field-type picker so the user picks the
-// new column's type at creation time (column type can't be changed afterwards).
-function HeaderContextMenu({
-  x,
-  y,
-  canDelete,
-  onInsert,
-  onDelete,
-  onClose
-}: {
-  x: number
-  y: number
-  canDelete: boolean
-  onInsert: (side: 'left' | 'right', type: FieldType) => void
-  onDelete: () => void
-  onClose: () => void
-}): JSX.Element {
-  const ref = useRef<HTMLDivElement | null>(null)
-  const [mode, setMode] = useState<'main' | 'left' | 'right'>('main')
-  useEffect(() => {
-    function onDown(e: MouseEvent): void {
-      if (!ref.current?.contains(e.target as Node)) onClose()
-    }
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose])
-  // Keep the menu on-screen by clamping its top-left away from the viewport
-  // edges. Width is fixed at 208px (w-52).
-  const left = Math.min(x, window.innerWidth - 216)
-  const top = Math.min(y, window.innerHeight - 320)
-  return (
-    <div
-      ref={ref}
-      className="fb-glass-panel rounded-[var(--radius-row)] fb-pop-in fixed z-[100] w-52 py-1 text-[var(--ink-70)]"
-      style={{ left, top }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {mode === 'main' ? (
-        <>
-          <button
-            onClick={() => setMode('left')}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-sunken)] text-left"
-          >
-            <Icon name="keyboard_tab_rtl" size={13} className="text-[var(--ink-40)]" />
-            <span className="flex-1">Insert column left</span>
-            <Icon name="chevron_right" size={13} className="text-[var(--ink-40)]" />
-          </button>
-          <button
-            onClick={() => setMode('right')}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-sunken)] text-left"
-          >
-            <Icon name="keyboard_tab" size={13} className="text-[var(--ink-40)]" />
-            <span className="flex-1">Insert column right</span>
-            <Icon name="chevron_right" size={13} className="text-[var(--ink-40)]" />
-          </button>
-          <div className="my-1 border-t border-[var(--edge-soft)]" />
-          <button
-            onClick={onDelete}
-            disabled={!canDelete}
-            title={canDelete ? undefined : 'A table needs at least one column'}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-rose-500 hover:bg-rose-500/10 text-left disabled:opacity-40 disabled:hover:bg-transparent"
-          >
-            <Icon name="delete" size={13} />
-            <span>Delete column</span>
-          </button>
-        </>
-      ) : (
-        <>
-          <button
-            onClick={() => setMode('main')}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider text-[var(--ink-40)] hover:bg-[var(--surface-sunken)] text-left"
-          >
-            <Icon name="chevron_left" size={13} />
-            <span>Insert {mode === 'left' ? 'left' : 'right'} — pick type</span>
-          </button>
-          <div className="border-t border-[var(--edge-soft)] max-h-64 overflow-auto">
-            {(Object.keys(FIELD_TYPE_LABELS) as FieldType[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => onInsert(mode === 'left' ? 'left' : 'right', t)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-sunken)] text-left font-normal"
-              >
-                <Icon name={FIELD_TYPE_ICONS[t]} size={12} className="text-[var(--ink-40)]" />
-                <span>{FIELD_TYPE_LABELS[t]}</span>
-              </button>
-            ))}
-          </div>
-        </>
       )}
     </div>
   )

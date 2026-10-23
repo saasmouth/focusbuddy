@@ -77,14 +77,11 @@ test('right-click on a sticky → Create + Connect → new tool and persisted li
   await window.getByRole('button', { name: 'Right-click test' }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
 
-  // Enter edit mode (the sticky's context menu lives on the textarea), then
-  // right-click it to open the unified menu.
+  // Right-click the sticky being read to open its unified menu (the editing
+  // textarea is text, and text gets the text menu: SPEC §9.3, E-5).
   const sourceFrame = window.locator(`[data-widget-id="${seeded.stickyId}"]`)
   await expect(sourceFrame).toBeVisible({ timeout: 5_000 })
-  await sourceFrame.locator('.fb-sticky-rendered').click()
-  const textarea = sourceFrame.locator('textarea').first()
-  await expect(textarea).toBeVisible({ timeout: 4_000 })
-  await textarea.click({ button: 'right' })
+  await sourceFrame.locator('.fb-sticky-rendered').click({ button: 'right' })
 
   // The unified menu nests the spawn offerings under Create, labelled "Create &
   // link" since DEC-041 (e846113e: every entry spawns a widget AND links it).

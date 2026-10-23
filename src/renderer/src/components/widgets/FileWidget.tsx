@@ -11,6 +11,7 @@ import { useFilesStore } from '../../stores/files'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { isTextContextTarget } from './bodyMenus'
 import { fileSrc } from '../../lib/fileUrl'
 import { useSiteIcon } from '../../lib/siteIcon'
 import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
@@ -58,11 +59,7 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
   // A failed pick used to be invisible: the click handler dropped the rejection
   // with `void`, so a refusing channel and a cancelled dialog looked identical.
   const [pickError, setPickError] = useState<string | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<{
-    x: number
-    y: number
-    selectionText?: string
-  } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     if (fileId) void ensureLoaded(fileId)
@@ -224,13 +221,10 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
         type="button"
         onClick={() => void openExternal(url)}
         onContextMenu={(e) => {
-          if (e.shiftKey) return
           e.preventDefault()
-          setCtxMenu({
-            x: e.clientX,
-            y: e.clientY,
-            selectionText: (widget.title || url).slice(0, 200)
-          })
+          // No selection: the link's title / URL is the widget's content, not
+          // text the person selected (Open / Copy link carry the URL).
+          setCtxMenu({ x: e.clientX, y: e.clientY })
         }}
         className="h-full w-full bg-[var(--surface-sunken)] hover:bg-[var(--surface-sunken)] transition-colors flex flex-col items-center justify-center gap-3 p-4 text-center group"
         data-testid="file-open-url"
@@ -245,25 +239,32 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
           <Icon name="open_in_new" size={12} />
           Open in browser
         </div>
+      </button>
+    )
+    // The menu sits BESIDE the link card, not inside it: the kit portals to
+    // the body, but React events still bubble up the component tree, so a
+    // click on a menu row inside the card's <button> also opened the link.
+    const withMenu = (
+      <>
+        {body}
         {ctxMenu && (
           <ConnectedToolMenu
             sourceWidgetId={widget.id}
             x={ctxMenu.x}
             y={ctxMenu.y}
-            selectionContext={{ selectionText: ctxMenu.selectionText }}
             onClose={() => setCtxMenu(null)}
           />
         )}
-      </button>
+      </>
     )
-    if (inline) return body
+    if (inline) return withMenu
     return (
       <WidgetFrame
         widget={widget}
         headerLabel={widget.title || host}
         headerAccent="bg-stone-300/60 dark:bg-white/[0.09]"
       >
-        {body}
+        {withMenu}
       </WidgetFrame>
     )
   }
@@ -277,10 +278,12 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
     <div
       className="relative h-full w-full bg-[var(--surface-sunken)] overflow-hidden"
       onContextMenu={(e) => {
-        if (e.shiftKey) return
+        // Text in the preview (a selection in a text file) is the text menu's.
+        if (isTextContextTarget(e.target)) return
         e.preventDefault()
-        const seed = (file?.originalName || widget.title || '').slice(0, 200)
-        setCtxMenu({ x: e.clientX, y: e.clientY, selectionText: seed })
+        // No selection: the file's name is its title, not text the person
+        // selected.
+        setCtxMenu({ x: e.clientX, y: e.clientY })
       }}
     >
       {file && exceedsSyncLimit(file.sizeBytes) && (
@@ -307,7 +310,6 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
           sourceWidgetId={widget.id}
           x={ctxMenu.x}
           y={ctxMenu.y}
-          selectionContext={{ selectionText: ctxMenu.selectionText }}
           onClose={() => setCtxMenu(null)}
         />
       )}

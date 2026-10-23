@@ -221,11 +221,11 @@ test('CTX-REG-3 — unified menu on a note body has canonical sections', async (
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 6_000 })
   await window.waitForTimeout(200)
 
-  // Note body right-click must go through the textarea, same as contextMenuUnified.spec.ts
+  // Note body right-click on the note being read, same as contextMenuUnified.spec.ts
   await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { timeout: 8_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`)
-  await window.waitForSelector(`[data-widget-id="${widgetId}"] textarea`, { timeout: 4_000 })
-  await window.click(`[data-widget-id="${widgetId}"] textarea`, { button: 'right' })
+  // A right-click on the note being read opens its work widget menu; the
+  // editing textarea is text, and text gets the text menu (SPEC §9.3, E-5).
+  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
   const menuText = await window.evaluate(() => {

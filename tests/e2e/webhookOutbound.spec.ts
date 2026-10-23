@@ -315,12 +315,10 @@ test('(a2) "Send to a URL" is offered from the side menu and the right-click cre
   await expect(webhookTile).toContainText('Send to a URL')
 
   // Right-click create-and-connect menu, driven as a real UI gesture on the
-  // sticky's textarea (click to enter edit mode, then right-click it).
+  // sticky's body: its padding, not the textarea (text gets the text menu,
+  // SPEC §9.3, E-5).
   const stickyBody = window.locator('[data-fb-sticky-body]').first()
-  await stickyBody.click()
-  const textarea = window.locator('textarea.fb-sticky-textarea').first()
-  await expect(textarea).toBeVisible({ timeout: 3_000 })
-  await textarea.click({ button: 'right' })
+  await stickyBody.click({ button: 'right', position: { x: 4, y: 4 } })
   // The unified right-click menu nests the create-and-connect list under a
   // "Create" submenu (opens on hover), rather than a flat list.
   await window.getByRole('menuitem', { name: 'Create' }).hover()

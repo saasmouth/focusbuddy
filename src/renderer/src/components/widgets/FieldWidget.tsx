@@ -13,6 +13,7 @@ import RelationConfigEditor from '../fields/RelationConfigEditor'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { isTextContextTarget } from './bodyMenus'
 
 interface Props {
   widget: Widget
@@ -138,10 +139,9 @@ export default function FieldWidget({ widget, inline = false }: Props): JSX.Elem
     <div
       className="min-h-full w-full bg-[var(--surface-raised)] p-3 flex flex-col gap-2.5"
       onContextMenu={(e) => {
-        // Right-click anywhere on the field body opens the "Create +
-        // connect" menu. Shift bypass restores the native menu on
-        // inputs/selects for cut/copy/paste.
-        if (e.shiftKey) return
+        // The field's inputs are text: the text menu's (§9.3). The rest of
+        // the body opens the work widget's menu.
+        if (isTextContextTarget(e.target)) return
         e.preventDefault()
         setCtxMenu({ x: e.clientX, y: e.clientY })
       }}

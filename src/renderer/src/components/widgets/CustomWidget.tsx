@@ -4,6 +4,7 @@ import type { Widget, CustomWidgetContent, SavedCustomWidget } from '@shared/typ
 import { CUSTOM_WIDGET_HISTORY_LIMIT, CUSTOM_WIDGET_MAX_STATE_BYTES } from '@shared/types'
 import { parseBridgeMessage, SANDBOX_ATTR } from '@shared/customWidgetSandbox'
 import WidgetFrame from './WidgetFrame'
+import { customWidgetMenuExtras } from './bodyMenus'
 import Icon from '../Icon'
 import CustomWidgetWizard from './CustomWidgetWizard'
 import { judgeWidgetAction, describeWidgetAction } from '@shared/customWidgetActions'
@@ -508,57 +509,43 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
     []
   )
 
-  const menuExtras = useMemo(() => {
-    const items: Array<{ label: string; icon?: string; onClick: () => void }> = []
-    if (data.code) {
-      items.push({ label: 'Change this work widget…', icon: 'auto_fix_high', onClick: () => void onRefine() })
-      items.push({ label: 'Save to my work widgets…', icon: 'bookmark_add', onClick: () => void onSave() })
-      if ((data.history ?? []).length > 0) {
-        items.push({ label: 'Revert to previous version', icon: 'undo', onClick: () => void onRevert() })
-      }
-      items.push({
-        label: showSource ? 'Hide source' : 'View source',
-        icon: 'code',
-        onClick: () => setShowSource((v) => !v)
-      })
-      items.push({
-        label: data.net ? 'Internet access: on' : 'Internet access: off',
-        icon: data.net ? 'public' : 'public_off',
-        onClick: () => void onToggleNet()
-      })
-      items.push({
-        label: data.acts ? 'Can make changes: on' : 'Can make changes: off',
-        icon: data.acts ? 'bolt' : 'lock',
-        onClick: () => void onToggleActs()
-      })
-      items.push({
-        label: 'Start over',
-        icon: 'restart_alt',
-        onClick: () => {
-          void confirmDialog({
-            title: 'Start over?',
-            body: 'The built work widget and anything saved inside it are discarded.'
-          }).then((ok) => {
-            if (!ok) return
-            stateRef.current = {}
-            autoSized.current = false
-            void update(widget.id, { content: JSON.stringify({ spec: '', code: '' }) })
-          })
+  // The custom work widget's rows in its menu, built in bodyMenus.ts so the
+  // guard checks them: the two ways to change it inline (structured first; the
+  // free-text refine is the escape hatch), the rest under More actions.
+  const menuExtras = useMemo(
+    () =>
+      customWidgetMenuExtras(
+        {
+          built: !!data.code,
+          hasHistory: (data.history ?? []).length > 0,
+          showSource,
+          net: !!data.net,
+          acts: !!data.acts
+        },
+        {
+          changeWhatItDoes: () => setWizard('edit'),
+          refine: () => void onRefine(),
+          save: () => void onSave(),
+          revert: () => void onRevert(),
+          toggleSource: () => setShowSource((v) => !v),
+          toggleNet: () => void onToggleNet(),
+          toggleActs: () => void onToggleActs(),
+          startOver: () => {
+            void confirmDialog({
+              title: 'Start over?',
+              body: 'The built work widget and anything saved inside it are discarded.'
+            }).then((ok) => {
+              if (!ok) return
+              stateRef.current = {}
+              autoSized.current = false
+              void update(widget.id, { content: JSON.stringify({ spec: '', code: '' }) })
+            })
+          },
+          library: () => void openLibrary()
         }
-      })
-    }
-    if (data.code) {
-      // Structured editing, listed FIRST: the free-text refine below is the
-      // escape hatch, not the main way to change what a widget does.
-      items.unshift({
-        label: 'Change what it does…',
-        icon: 'tune',
-        onClick: () => setWizard('edit')
-      })
-    }
-    items.push({ label: 'My work widgets…', icon: 'grid_view', onClick: () => void openLibrary() })
-    return items
-  }, [data.acts, data.code, data.history, data.net, onRefine, onRevert, onSave, onToggleActs, onToggleNet, openLibrary, showSource, update, widget.id])
+      ),
+    [data.acts, data.code, data.history, data.net, onRefine, onRevert, onSave, onToggleActs, onToggleNet, openLibrary, showSource, update, widget.id]
+  )
 
   // ── render ────────────────────────────────────────────────────────────────
   let body: JSX.Element
