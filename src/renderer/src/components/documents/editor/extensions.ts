@@ -106,7 +106,15 @@ export function buildDocExtensions(opts: BuildOptions = {}): AnyExt[] {
     FontFamily,
     FontSize,
     LineHeight,
-    Highlight.configure({ multicolor: true }),
+    // Highlight WITHOUT its keyboard shortcut. It binds Mod-Shift-h by default
+    // and advertises it nowhere, while PlexiiWrite's Edit menu advertises ⇧⌘H
+    // for Find and replace (E-14) — so the unadvertised default was shadowing
+    // an advertised binding. It only looked fine because DocEditor used to
+    // intercept ⇧⌘H by hand and prosemirror checks editorProps BEFORE plugin
+    // keymaps; once the key moved to the menu bar (keyOwner), Highlight started
+    // winning and ⇧⌘H highlighted instead of opening Find and replace.
+    // Highlight itself stays, as the toolbar action it always was.
+    Highlight.extend({ addKeyboardShortcuts: () => ({}) }).configure({ multicolor: true }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     Subscript,
     Superscript,

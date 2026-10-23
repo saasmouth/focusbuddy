@@ -107,8 +107,14 @@ describe('PlexiiCells', () => {
   it('shows nothing it cannot deliver: every listed key really matches', async () => {
     // The dialog and the keymap read the same `keys`, so each row's hint can be
     // turned back into a press that finds the same command.
+    //
+    // Except the ones bound somewhere else: Cut, Copy, Paste are the platform's
+    // clipboard events and Find / Find and replace / Print / Keyboard shortcuts
+    // are MenuBarShell's (keyOwner), so matchCommand skips them on purpose —
+    // they are still listed, because their keys genuinely work.
     const c = cellsCommandsFor()
-    const bound = Object.values(c).filter((k) => k.keys)
+    await show(c)
+    const bound = Object.values(c).filter((k) => k.keys && !k.keyOwner)
     expect(bound.length).toBeGreaterThan(5)
     for (const k of bound) {
       const keys = k.keys!
@@ -121,6 +127,11 @@ describe('PlexiiCells', () => {
       }
       expect(matchCommand(bound, press, 'darwin')?.id, `${k.label} is reachable by its own hint`).toBe(k.id)
     }
+    // The owned ones are still listed in the dialog, which is the honest part:
+    // the key works, just not through this matcher.
+    const owned = Object.values(c).filter((k) => k.keyOwner)
+    expect(owned.length, 'there are owned keys to check').toBeGreaterThan(3)
+    expect(rows()).toContain('Cut ⌘X')
   })
 })
 

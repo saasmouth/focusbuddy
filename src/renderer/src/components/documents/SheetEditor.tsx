@@ -46,6 +46,16 @@ import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
 import { buildCellsCommands } from './sheet/cellsCommands'
 import type { OfficeCommand } from '../../lib/menus/officeCommand'
+import {
+  pageSetupOf,
+  rangeToA1,
+  remapTabPageSetup,
+  rowsToA1,
+  setPrintArea,
+  setRepeatRows,
+  setShowGridlines
+} from '../../lib/sheetPageSetup'
+import PageSetupDialog from './sheet/PageSetupDialog'
 import { runCommandKey } from '../../lib/menus/commandKeys'
 import ShortcutsModal from './editor/ShortcutsModal'
 import { documentCommands, paletteEntries } from '../../lib/menus/officeCommand'
@@ -195,9 +205,18 @@ function fixFormulas(
   mapRow: (r: number) => number | null,
   mapCol: (c: number) => number | null
 ): SheetTab {
+  // The PAGE SETUP moves with the data too, through the very same maps: a print
+  // area and a repeat-rows range have to follow their rows and columns, and be
+  // cleared rather than silently repointed when every line in them is deleted —
+  // otherwise inserting one row above a print area prints the wrong block, and
+  // deleting the area prints the rows that slid into its place.
+  //
+  // Done HERE, not at the six wrappers and drag-reorder paths that call this,
+  // so none of them can be written without it.
+  const base = remapTabPageSetup(t, mapRow, mapCol)
   return {
-    ...t,
-    rows: t.rows.map((row) =>
+    ...base,
+    rows: base.rows.map((row) =>
       row.map((cell) => (cell.trim().startsWith('=') ? remapFormulaRefs(cell, mapRow, mapCol) : cell))
     )
   }
@@ -272,6 +291,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   // Declared up here so onGridKeyDown, defined above where `doc` is built, can
   // close over a stable ref rather than a value that does not exist yet.
   const docRef = useRef<OfficeCommand[]>([])
+  const [pageSetupOpen, setPageSetupOpen] = useState(false)
   // The right-side AI Assistant panel is shown by default and is collapsible.
   const [aiPanelOpen, setAiPanelOpen] = useState(true)
   const [liveWidth, setLiveWidth] = useState<{ c: number; w: number } | null>(null)
@@ -1722,6 +1742,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     macros: () => setMacrosOpen(true),
     query: () => setQueryOpen(true),
     shortcuts: () => setShortcutsOpen(true),
+    pageSetup: () => setPageSetupOpen(true),
     // Read structurally, as `print` is: the export engine adds the op, and
     // Download ▸ PDF is ABSENT rather than dead where it is missing.
     exportPdf:
@@ -2329,6 +2350,22 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
         )}
 
         {shortcutsOpen && <ShortcutsModal commands={commands} onClose={() => setShortcutsOpen(false)} />}
+
+        {pageSetupOpen && (
+          <PageSetupDialog
+            // Read straight off the tab, so the dialog cannot disagree with what
+            // will print — including after a structural edit moved the ranges.
+            {...pageSetupOf(tab)}
+            selectionA1={rangeToA1({ r1: selection.r0, c1: selection.c0, r2: selection.r1, c2: selection.c1 })}
+            selectionRowsA1={rowsToA1({ r1: selection.r0, r2: selection.r1 })}
+            // Through `commit`, so each change is undoable and a view-only sheet
+            // writes nothing even if the dialog were somehow reached.
+            onSetPrintArea={(a1) => commit(setPrintArea(body, idx, a1))}
+            onSetRepeatRows={(a1) => commit(setRepeatRows(body, idx, a1))}
+            onSetShowGridlines={(show) => commit(setShowGridlines(body, idx, show))}
+            onClose={() => setPageSetupOpen(false)}
+          />
+        )}
 
         {lookupOpen && (
           <LookupDialog

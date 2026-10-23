@@ -8,7 +8,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { matchCommand, runCommandKey, type KeyLikeEvent } from '../../src/renderer/src/lib/menus/commandKeys'
-import { sharedCommand, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
+import { commandHint, sharedCommand, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
 
 const press = (key: string, mods: Partial<KeyLikeEvent> = {}): KeyLikeEvent => ({ key, ...mods })
 const cmd = (over: Partial<OfficeCommand> = {}): OfficeCommand => ({
@@ -36,31 +36,32 @@ describe('matchCommand', () => {
     expect(matchCommand([bold], press('b'), 'darwin')).toBeNull()
   })
 
-  it('excludes ⌥⌘F from ⌘F by construction, which Write had to hand-code', () => {
+  it('excludes ⌥ from a plain mod combination, which Write had to hand-code', () => {
     // ⌥⌘F opens Files beside, and on Windows Ctrl+Alt+F must not also open
     // Find. Write carried an explicit `!event.altKey` in both of its branches;
-    // exact modifier matching is what replaces it.
-    const find = sharedCommand('find', 'find', vi.fn())
-    expect(matchCommand([find], press('f', { metaKey: true }), 'darwin')).toBe(find)
-    expect(matchCommand([find], press('f', { metaKey: true, altKey: true }), 'darwin')).toBeNull()
-    expect(matchCommand([find], press('f', { ctrlKey: true, altKey: true }), 'win32')).toBeNull()
-  })
-
-  it('matches the shared lexicon combinations', () => {
-    const replace = sharedCommand('replace', 'findAndReplace', vi.fn())
-    expect(matchCommand([replace], press('h', { metaKey: true, shiftKey: true }), 'darwin')).toBe(replace)
-    expect(matchCommand([replace], press('h', { metaKey: true }), 'darwin')).toBeNull()
-
+    // exact modifier matching is what replaces it. Shown on a command the menu
+    // bar does NOT own, so this is about the modifiers and not about ownership
+    // (Find itself is keyOwner 'menubar' — see the ownership tests below).
     const clear = sharedCommand('clear', 'clearFormatting', vi.fn())
     expect(matchCommand([clear], press('\\', { metaKey: true }), 'darwin')).toBe(clear)
+    expect(matchCommand([clear], press('\\', { metaKey: true, altKey: true }), 'darwin')).toBeNull()
+    expect(matchCommand([clear], press('\\', { ctrlKey: true, altKey: true }), 'win32')).toBeNull()
+  })
 
-    const shortcuts = sharedCommand('help', 'keyboardShortcuts', vi.fn())
-    expect(matchCommand([shortcuts], press('/', { metaKey: true }), 'darwin')).toBe(shortcuts)
+  it('matches a shared lexicon combination it owns, and needs every modifier', () => {
+    const group = sharedCommand('group', 'group', vi.fn())
+    expect(matchCommand([group], press('g', { metaKey: true }), 'darwin')).toBe(group)
+    const ungroup = sharedCommand('ungroup', 'ungroup', vi.fn())
+    expect(matchCommand([ungroup], press('g', { metaKey: true, shiftKey: true }), 'darwin')).toBe(ungroup)
+    // ⌘G is not ⇧⌘G: the two are different actions.
+    expect(matchCommand([ungroup], press('g', { metaKey: true }), 'darwin')).toBeNull()
+    expect(matchCommand([group], press('g', { metaKey: true, shiftKey: true }), 'darwin')).toBeNull()
   })
 
   it('uses the platform key where the two differ', () => {
-    // Paste as plain text is ⌥⇧⌘V on macOS and Ctrl+Shift+V in Chromium.
-    const plain = sharedCommand('plain', 'pasteAsPlainText', vi.fn())
+    // Hand-built: the lexicon action with two platform keys (Paste as plain
+    // text) is clipboard-owned, so the matcher skips it by design.
+    const plain = cmd({ id: 'plain', keys: ['alt', 'shift', 'mod', 'v'], otherKeys: ['shift', 'mod', 'v'] })
     expect(matchCommand([plain], press('v', { metaKey: true, shiftKey: true, altKey: true }), 'darwin')).toBe(plain)
     expect(matchCommand([plain], press('v', { ctrlKey: true, shiftKey: true }), 'win32')).toBe(plain)
     // Each platform's combination is not the other's.
@@ -85,6 +86,46 @@ describe('matchCommand', () => {
     const b = cmd({ id: 'b', keys: ['mod', 'k'] })
     expect(matchCommand([a, b], press('k', { metaKey: true }), 'darwin')).toBe(a)
     expect(matchCommand([b, a], press('k', { metaKey: true }), 'darwin')).toBe(b)
+  })
+})
+
+describe('a key owned somewhere else', () => {
+  // d8's keyOwner, added when ⌘P reached the menu bar: a command whose key is
+  // bound by MenuBarShell or by the platform's clipboard events must not ALSO
+  // be matched here, or one press fires twice — two print jobs, two pastes.
+  it('is skipped, so one press cannot fire twice', () => {
+    for (const action of ['find', 'findAndReplace', 'print', 'keyboardShortcuts'] as const) {
+      const c = sharedCommand(action, action, vi.fn())
+      expect(c.keyOwner, `${action} is the menu bar's`).toBe('menubar')
+      const keys = c.keys!
+      const hit = matchCommand(
+        [c],
+        press(String(keys[keys.length - 1]), { metaKey: true, shiftKey: keys.includes('shift') }),
+        'darwin'
+      )
+      expect(hit, `${action} is not matched here`).toBeNull()
+      expect(c.run).not.toHaveBeenCalled()
+    }
+    for (const action of ['cut', 'copy', 'paste'] as const) {
+      const c = sharedCommand(action, action, vi.fn())
+      expect(c.keyOwner, `${action} is the platform's`).toBe('clipboard')
+      expect(matchCommand([c], press(String(c.keys![c.keys!.length - 1]), { metaKey: true }), 'darwin')).toBeNull()
+    }
+  })
+
+  it('still shows its hint, because the key really is bound — elsewhere', () => {
+    // The point of keyOwner is that the hint stays honest: the row advertises a
+    // key that works, it is simply not this matcher that runs it.
+    expect(commandHint(sharedCommand('file.print', 'print', vi.fn()), 'darwin')).toBe('⌘P')
+    expect(commandHint(sharedCommand('find', 'find', vi.fn()), 'darwin')).toBe('⌘F')
+  })
+
+  it('does not shadow an unowned command sharing its key', () => {
+    // Skipped with `continue`, so the search goes on — unlike a DISABLED match,
+    // which stops it so nothing else can claim a viewer's key.
+    const owned = sharedCommand('find', 'find', vi.fn())
+    const mine = cmd({ id: 'mine', keys: ['mod', 'f'] })
+    expect(matchCommand([owned, mine], press('f', { metaKey: true }), 'darwin')).toBe(mine)
   })
 })
 
