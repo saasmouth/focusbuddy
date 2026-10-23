@@ -77,7 +77,7 @@ function textBlock(text: string, rect: { x: number; y: number; w: number; h: num
 const r = (n: number): string => (Math.round(n * 100) / 100).toString()
 
 function paths(n: MapNode, st: ResolvedNodeStyle, w: number, h: number): string {
-  const g = getShape(n.shape).draw(w, h)
+  const g = getShape(n.shape).draw(w, h, n)
   const sw = st.strokeDash === 'none' ? 0 : st.strokeWidth
   const dash = dashArray(st.strokeDash, sw)
   const stroke = sw > 0 && st.stroke !== 'none' ? st.stroke : 'none'
@@ -111,7 +111,7 @@ function nodeSvg(n: MapNode, themeId: string | undefined): string {
   const def = getShape(n.shape)
   const { w, h } = nodeSize(n)
   const st = resolveNodeStyle(n, themeId)
-  const g = def.draw(w, h)
+  const g = def.draw(w, h, n)
   const rot = n.rotation ? ` rotate(${n.rotation} ${r(w / 2)} ${r(h / 2)})` : ''
   const flip = n.flipX || n.flipY ? `<g transform="translate(${n.flipX ? w : 0} ${n.flipY ? h : 0}) scale(${n.flipX ? -1 : 1} ${n.flipY ? -1 : 1})">` : '<g>'
   let inner = ''
