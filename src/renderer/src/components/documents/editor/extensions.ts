@@ -38,6 +38,7 @@ import { SearchHighlight } from './searchHighlight'
 import { FocusBlock } from './focusBlock'
 import { PagePagination } from './pagination'
 import { CommentMark } from './CommentMark'
+import { CommentDecorations } from './CommentDecorations'
 import { TrackChanges, InsertionMark, DeletionMark } from './TrackChanges'
 import { TableOfContents } from './TableOfContents'
 import { Footnote } from './Footnote'
@@ -122,9 +123,24 @@ export function buildDocExtensions(opts: BuildOptions = {}): AnyExt[] {
     // html:true keeps formatting (colour, alignment, tables) when AI/imported
     // HTML is pasted or inserted, instead of flattening to plain markdown.
     Markdown.configure({ html: true, transformPastedText: true, transformCopiedText: false }) as AnyExt,
-    // Comment anchors. Always present so a doc carrying comment marks renders the
-    // highlight; the thread bodies live on the server.
+    // Comment anchors, the OLD way: a mark in the document. Still present, and
+    // still read, so a document carrying comment marks renders its highlights;
+    // the thread bodies live on the server.
+    //
+    // New comments stop applying it, because applying a mark is a DOCUMENT
+    // WRITE — which is why a viewer could never comment: in a live document it
+    // mutates the shared Y.Doc and the server refuses it, and locally the write
+    // is swallowed by DocEditor's readOnly guard so the highlight survives
+    // until reload and then vanishes. Stripping old marks from stored bodies is
+    // a later, separate step, once no old client is in the field.
     CommentMark as AnyExt,
+    // Comment anchors, the NEW way: a decoration drawn from the thread's stored
+    // range. A decoration is a view-level overlay, so showing a highlight
+    // carries no document change at all and a viewer can comment without
+    // writing. Inert until a host pushes ranges, and it renders the same
+    // `fb-comment` class the mark does, so old marks and new ranges look alike
+    // through the transition.
+    CommentDecorations as AnyExt,
     // Track Changes (suggesting mode): the insertion/deletion marks are always
     // present so a doc carrying suggestions renders them, and .docx/HTML round
     // trips keep them; the capture plugin is inert until suggesting is toggled on.

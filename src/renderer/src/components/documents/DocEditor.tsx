@@ -21,6 +21,7 @@ import {
 } from './editor/headingStyles'
 import DocMenuBar from './editor/DocMenuBar'
 import type { DocumentOps } from './editor/documentOps'
+import { commentIdAt } from './editor/CommentDecorations'
 import WriteChrome from './WriteChrome'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
@@ -452,8 +453,14 @@ export default function DocEditor({
       },
       handleClick(view, pos) {
         if (!onCommentClick) return false
+        // The MARK first, then the decoration. Both have to work at once during
+        // the transition: existing threads are anchored by a mark in the stored
+        // body, new ones by a range the host resolves and pushes as decorations
+        // (CommentDecorations.ts). A click has to find the thread either way,
+        // or opening an old comment would quietly stop working the day new ones
+        // start being made.
         const mark = view.state.doc.resolve(pos).marks().find((m) => m.type.name === 'comment')
-        const id = mark?.attrs.commentId
+        const id = mark?.attrs.commentId ?? commentIdAt(view.state, pos)
         if (typeof id === 'string') onCommentClick(id)
         return false
       }
