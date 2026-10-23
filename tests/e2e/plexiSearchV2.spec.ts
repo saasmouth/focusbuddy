@@ -8,6 +8,13 @@ import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
+// The first search of a fresh profile loads the bundled search model (nomic,
+// on-device) to embed the query: ~0.6-0.8 s idle, several seconds on a loaded
+// machine, which overran the old 4 s wait (plexiSearchV2 "plain Enter with a
+// focused result…", red on one run in three). Later searches take ~10 ms. The
+// assertion is unchanged; only the wait for the first results is longer.
+const FIRST_RESULTS_MS = 15_000
+
 test.afterEach(async () => {
   if (launched) {
     await launched.dispose()
@@ -17,7 +24,9 @@ test.afterEach(async () => {
 
 // helper: open PlexiSearch and wait for the view.
 async function openPlexiSearch(window: LaunchedApp['window']): Promise<void> {
-  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
+  // PlexiiBrain › Search in the sidebar. The first "PlexiiSearch" button on a
+  // fresh profile is the suite launcher's tile, which opens the product page.
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 }
 
@@ -66,7 +75,7 @@ test('table-by-name: table with matching title appears as a result row', async (
   await window.waitForTimeout(600)
 
   const hitRow = window.locator(`[data-testid="plexisearch-hit-${tableId}"]`)
-  await expect(hitRow, 'table hit row must be visible in PlexiiSearch').toBeVisible({ timeout: 4_000 })
+  await expect(hitRow, 'table hit row must be visible in PlexiiSearch').toBeVisible({ timeout: FIRST_RESULTS_MS })
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -98,7 +107,7 @@ test('ArrowDown/Up move the active row highlight in the result list', async () =
 
   // After results arrive, the first result must be auto-focused (accent bg).
   const allHits = window.locator('[data-testid^="plexisearch-hit-"]')
-  await expect(allHits.first()).toBeVisible({ timeout: 4_000 })
+  await expect(allHits.first()).toBeVisible({ timeout: FIRST_RESULTS_MS })
   const count = await allHits.count()
   expect(count, 'need at least 2 results for arrow-key test').toBeGreaterThanOrEqual(2)
 
@@ -163,7 +172,7 @@ test('plain Enter opens the focused result and does not trigger the answer card'
 
   // The entry hit row must be present and auto-focused (it will be the first result).
   const hitRow = window.locator(`[data-testid="plexisearch-hit-${entryId}"]`)
-  await expect(hitRow).toBeVisible({ timeout: 4_000 })
+  await expect(hitRow).toBeVisible({ timeout: FIRST_RESULTS_MS })
 
   // Press plain Enter — must open the focused hit, NOT run Ask.
   await input.press('Enter')
@@ -200,7 +209,7 @@ test('Cmd+Enter shows the answer card (not the focused-result navigation)', asyn
   await window.waitForTimeout(600)
 
   // Confirm results arrived so focusIdx is set.
-  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: 4_000 })
+  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: FIRST_RESULTS_MS })
 
   // Press Cmd+Enter — this must call runAsk, NOT openHit.
   await input.press('Meta+Enter')
@@ -235,7 +244,7 @@ test('Ask button shows the answer card regardless of keyboard focus state', asyn
   await input.fill(token)
   await window.waitForTimeout(600)
 
-  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: 4_000 })
+  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: FIRST_RESULTS_MS })
 
   await window.locator('[data-testid="plexisearch-ask"]').click()
 
@@ -270,7 +279,7 @@ test('plain Enter with a focused result does not show the answer card', async ()
   await window.waitForTimeout(600)
 
   // Confirm at least one hit arrived.
-  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: 4_000 })
+  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: FIRST_RESULTS_MS })
 
   // Press plain Enter.
   await input.press('Enter')

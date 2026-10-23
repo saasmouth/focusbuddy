@@ -10,6 +10,13 @@ import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
+// The first search of a fresh profile loads the bundled search model (nomic,
+// on-device) to embed the query: ~0.6-0.8 s idle, several seconds on a loaded
+// machine, which overran the old 4 s wait (plexiSearchV2 "plain Enter with a
+// focused result…", red on one run in three). Later searches take ~10 ms. The
+// assertion is unchanged; only the wait for the first results is longer.
+const FIRST_RESULTS_MS = 15_000
+
 test.afterEach(async () => {
   if (launched) {
     await launched.dispose()
@@ -26,8 +33,10 @@ test('sidebar PlexiSearch NavRow renders plexisearch-view', async () => {
   const { window } = launched
   await waitForReady(window)
 
-  const btn = window.locator('button').filter({ hasText: 'PlexiiSearch' }).first()
-  await btn.click()
+  // The sidebar row is PlexiiBrain › Search (the "PlexiiSearch" button a
+  // fresh profile shows first is the suite launcher's tile, which opens the
+  // product page — test 7).
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
   await expect(window.locator('[data-testid="plexisearch-input"]')).toBeVisible()
   await expect(window.locator('[data-testid="plexisearch-ask"]')).toBeVisible()
@@ -51,7 +60,7 @@ test('typing a matching query shows plexisearch-hit-* rows for a seeded task', a
   }, token)
 
   // Open PlexiSearch.
-  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   // Type the token into the search input.
@@ -64,7 +73,7 @@ test('typing a matching query shows plexisearch-hit-* rows for a seeded task', a
 
   // At least one plexisearch-hit-* row must appear.
   const hits = window.locator('[data-testid^="plexisearch-hit-"]')
-  await expect(hits.first()).toBeVisible({ timeout: 4_000 })
+  await expect(hits.first()).toBeVisible({ timeout: FIRST_RESULTS_MS })
   const count = await hits.count()
   expect(count, 'at least one result row').toBeGreaterThan(0)
 })
@@ -89,7 +98,7 @@ test('clicking a task result row navigates to the task canvas', async () => {
   }, token)
 
   // Open PlexiSearch and type the token.
-  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -99,28 +108,20 @@ test('clicking a task result row navigates to the task canvas', async () => {
 
   // Click the hit row for this specific task.
   const hitRow = window.locator(`[data-testid="plexisearch-hit-${taskId}"]`)
-  await expect(hitRow).toBeVisible({ timeout: 4_000 })
+  await expect(hitRow).toBeVisible({ timeout: FIRST_RESULTS_MS })
   await hitRow.click()
   await window.waitForTimeout(600)
 
-  // openHit calls goTask which sets view.kind = 'task'. The plexisearch-view
-  // must no longer be the visible surface. Canvas mounts and either shows the
-  // canvas surface (if nodes are loaded) or the "desk is clear" empty state
-  // (if the IPC-created task isn't in the renderer node store yet). Both confirm
-  // navigation succeeded; we check that plexisearch-view is gone.
+  // openHit calls goTask: the search view goes and THAT desk opens. The task
+  // was created over IPC, so this window's desk tree does not hold it yet —
+  // exactly a desk found by search that another window, the MCP server or sync
+  // made. It used to land on "No desks yet" (DeskGallery) beside a desk that
+  // exists; the canvas reloads the tree for an unknown id now.
   await expect(window.locator('[data-testid="plexisearch-view"]')).not.toBeVisible({ timeout: 6_000 })
-
-  // Confirm the canvas component mounted in either state.
-  // "Your desk is clear" renders a desk icon; canvas surface renders when a task
-  // is active. Either is evidence the view.kind flipped to 'task'.
-  const canvasMounted = await window.evaluate(() => {
-    const hasSurface = document.querySelector('[data-canvas-surface="true"]') !== null
-    const hasDeskClear = Array.from(document.querySelectorAll('h2')).some(
-      (h) => h.textContent?.includes('desk is clear')
-    )
-    return hasSurface || hasDeskClear
-  })
-  expect(canvasMounted, 'Canvas component must have mounted after goTask navigation').toBe(true)
+  await expect(window.locator('[data-canvas-surface="true"]')).toBeVisible({ timeout: 6_000 })
+  await expect(window.getByText('No desks yet')).toHaveCount(0)
+  // The desk's own work widget is on it (its title span is hover-revealed, so attached, not visible).
+  await expect(window.locator('[data-testid^="widget-title-"]', { hasText: 'anchor' })).toBeAttached({ timeout: 6_000 })
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -141,7 +142,7 @@ test('clicking a knowledge result row navigates to plexibrain-view', async () =>
   }, token)
 
   // Open PlexiSearch and search.
-  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -150,7 +151,7 @@ test('clicking a knowledge result row navigates to plexibrain-view', async () =>
   await window.waitForTimeout(600)
 
   const hitRow = window.locator(`[data-testid="plexisearch-hit-${entryId}"]`)
-  await expect(hitRow).toBeVisible({ timeout: 4_000 })
+  await expect(hitRow).toBeVisible({ timeout: FIRST_RESULTS_MS })
   await hitRow.click()
 
   // PlexiBrain view must appear.
@@ -180,7 +181,7 @@ test('Cmd+Enter on a query renders plexisearch-answer (real answer or honest nok
   }, token)
 
   // Open PlexiSearch.
-  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -189,7 +190,7 @@ test('Cmd+Enter on a query renders plexisearch-answer (real answer or honest nok
   await window.waitForTimeout(400)
 
   // Wait for results to arrive so focusIdx is set, then press Cmd+Enter to Ask.
-  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: 4_000 })
+  await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: FIRST_RESULTS_MS })
   await input.press('Meta+Enter')
 
   // Answer card must appear.
@@ -227,7 +228,7 @@ test('clicking the Ask button renders plexisearch-answer', async () => {
     await api.knowledge.create({ title: `Budget overview ${t}`, body: 'Annual spend plan', tags: [] })
   }, token)
 
-  await window.locator('button').filter({ hasText: 'PlexiiSearch' }).first().click()
+  await window.locator('[data-testid="nav-plexibrain-search"]').click()
   await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 6_000 })
 
   const input = window.locator('[data-testid="plexisearch-input"]')
@@ -253,9 +254,8 @@ test('PlexiSuite launcher opens PlexiSearch product home and launch button navig
   const { window } = launched
   await waitForReady(window)
 
-  // Open PlexiSuite home.
-  const suiteBtn = window.locator('button').filter({ hasText: 'PlexiiSuite' }).first()
-  await suiteBtn.click()
+  // A fresh profile lands on the PlexiiSuite launcher (view.ts defaults to
+  // { kind: 'suite' }); there is no "PlexiiSuite" button on the launcher itself.
   await window.waitForSelector('[data-testid="plexisuite-home"]', { timeout: 8_000 })
 
   // PlexiSearch tile must be visible and NOT carry a "planned" or "coming soon" badge.

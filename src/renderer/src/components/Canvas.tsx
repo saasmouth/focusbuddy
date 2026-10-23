@@ -461,6 +461,18 @@ export default function Canvas(): JSX.Element {
 
   const activeTask = activeTaskId ? nodes.find((n) => n.id === activeTaskId) ?? null : null
 
+  // A desk opened by id that this window's tree does not hold yet — found by
+  // PlexiiSearch or PlexiiAssist in the database, made by the MCP server, the
+  // API or another window — used to land on "No desks yet" beside a desk that
+  // exists. Reload the tree once for that id; if the desk is really gone, the
+  // gallery stays, which is then the truth.
+  const resolvingDeskRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!activeTaskId || activeTask || resolvingDeskRef.current === activeTaskId) return
+    resolvingDeskRef.current = activeTaskId
+    void useNodeStore.getState().refresh()
+  }, [activeTaskId, activeTask])
+
   // This desk is a snippet destination while it is open, so a saved work
   // widget can be placed on it from the library.
   useDeskSnippetTarget(activeTaskId, activeTask?.title ?? '')
