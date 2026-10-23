@@ -29,7 +29,21 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 // higher-priority item.
 
 /** The desk chrome that lives in the bottom-right corner. */
-export const CORNER_CHROME_SELECTOR = '[data-testid="assistant-pill"], [data-minimap-fab], [data-automations-fab]'
+export const CORNER_CHROME_SELECTOR =
+  '[data-floating-menu], [data-testid="assistant-pill"], [data-minimap-fab], [data-automations-fab]'
+
+/**
+ * How near an edge a control has to be to count as docked to it.
+ *
+ * Enumerated from the running app rather than guessed: the right edge holds
+ * the floating toolbar (40x56, mid-height), the automations button, the
+ * minimap and the Plexii pill; the bottom-left holds the zoom pill; and the
+ * sidebar's resize strip is 10x935, which is why the arithmetic below cannot
+ * simply take the tallest thing it finds.
+ */
+const EDGE_PX = 90
+/** Below this much of the window's height, a control is bottom-docked. */
+const BOTTOM_ZONE_PX = 160
 
 export interface Box {
   left: number
@@ -90,12 +104,16 @@ export interface StackItem {
   priority: number
   /** Measured height in client px. */
   height: number
+  /** Measured width in client px, for the column the stack occupies. */
+  width?: number
 }
 
 export interface Placement {
   id: string
   /** Offset from the window's bottom edge, in client px. */
   bottom: number
+  /** Offset from the window's right edge: clears any right-edge rail. */
+  right: number
   /** False when there was no room: the item renders nothing and waits. */
   visible: boolean
 }
@@ -106,17 +124,63 @@ export const STACK_GAP = 12
 export const TOP_MARGIN = 56
 
 /**
- * How high the stack must start to clear the desk's fixed chrome.
+ * Is this obstacle docked to the BOTTOM, or is it a rail down the right edge?
+ *
+ * The two want different things, which is the whole reason this is split. A
+ * short wide control in the corner is cleared by the stack sitting ABOVE it.
+ * A tall narrow rail partway up the right edge cannot be: clearing the
+ * floating toolbar vertically would start the stack 480px up the window. The
+ * stack slides LEFT past that instead, and stays where people look for it.
+ */
+export function isBottomDocked(c: Box, windowHeight: number, zone = BOTTOM_ZONE_PX): boolean {
+  return windowHeight - c.bottom <= zone
+}
+
+/**
+ * How far in from the right the stack's column must start.
+ *
+ * Only right-edge obstacles that are NOT bottom-docked count: those are rails
+ * the stack goes around rather than over.
+ */
+export function stackInsetRight(
+  chrome: readonly Box[],
+  windowWidth: number,
+  windowHeight: number,
+  floor: number,
+  gap = STACK_GAP
+): number {
+  let inset = floor
+  for (const c of chrome) {
+    if (c.right <= c.left || c.bottom <= c.top) continue // hidden, not laid out
+    if (windowWidth - c.right > EDGE_PX) continue // not on the right edge
+    if (isBottomDocked(c, windowHeight)) continue // cleared vertically instead
+    inset = Math.max(inset, windowWidth - c.left + gap)
+  }
+  return Math.ceil(inset)
+}
+
+/**
+ * How high the stack must start to clear the chrome beneath it.
  *
  * One base for every item rather than one each: they are a stack, so they line
- * up. All of this chrome is right-docked and so is every item, so the
- * horizontal test that liftOverCornerChrome does per-overlay would be true in
- * every case anyway.
+ * up, and `column` is the widest item's span so the base is a superset.
+ *
+ * THE HORIZONTAL TEST IS NOT OPTIONAL, which I learned by enumerating the
+ * edges instead of assuming them: the sidebar's resize strip is 10px wide and
+ * 935 tall, so a base that took the tallest thing it found regardless of where
+ * it was would push the entire stack off the top of the window.
  */
-export function stackBase(chrome: readonly Box[], windowHeight: number, floor: number, gap = STACK_GAP): number {
+export function stackBase(
+  chrome: readonly Box[],
+  column: Pick<Box, 'left' | 'right'>,
+  windowHeight: number,
+  floor: number,
+  gap = STACK_GAP
+): number {
   let base = floor
   for (const c of chrome) {
     if (c.right <= c.left || c.bottom <= c.top) continue // hidden, not laid out
+    if (c.left >= column.right || c.right <= column.left) continue // beside the stack
     base = Math.max(base, windowHeight - c.top + gap)
   }
   return Math.ceil(base)
@@ -133,7 +197,8 @@ export function placeCornerStack(
   items: readonly StackItem[],
   base: number,
   available: number,
-  gap = STACK_GAP
+  gap = STACK_GAP,
+  right = 0
 ): Placement[] {
   const ordered = [...items].sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
   const out: Placement[] = []
@@ -143,10 +208,10 @@ export function placeCornerStack(
     // hiding it, or it would never render and so never get a height.
     const h = Math.max(0, item.height)
     if (cursor + h > available) {
-      out.push({ id: item.id, bottom: cursor, visible: false })
+      out.push({ id: item.id, bottom: cursor, right, visible: false })
       continue
     }
-    out.push({ id: item.id, bottom: cursor, visible: true })
+    out.push({ id: item.id, bottom: cursor, right, visible: true })
     cursor += h + gap
   }
   return out
@@ -167,15 +232,22 @@ const listeners = new Set<() => void>()
 function recompute(): void {
   const chrome = [...document.querySelectorAll(CORNER_CHROME_SELECTOR)].map(footprint)
   const live = [...entries.values()].filter((e) => e.enabled)
-  const base = stackBase(chrome, window.innerHeight, 0)
-  const next = placeCornerStack(live, base, window.innerHeight - TOP_MARGIN)
+  const W = window.innerWidth
+  const H = window.innerHeight
+  // Slide left past any right-edge rail first: the column the stack occupies
+  // depends on that, and the base depends on the column.
+  const right = stackInsetRight(chrome, W, H, BASE_RIGHT_PX)
+  const widest = live.reduce((m, e) => Math.max(m, e.width ?? 0), 0)
+  const column = { left: W - right - widest, right: W - right }
+  const base = stackBase(chrome, column, H, 0)
+  const next = placeCornerStack(live, base, H - TOP_MARGIN, STACK_GAP, right)
   // Same answer, same array: re-rendering every item on every measure would
   // make the ResizeObservers fire again and never settle.
   const same =
     next.length === placements.length &&
     next.every((p, i) => {
       const q = placements[i]!
-      return p.id === q.id && p.bottom === q.bottom && p.visible === q.visible
+      return p.id === q.id && p.bottom === q.bottom && p.right === q.right && p.visible === q.visible
     })
   if (same) return
   placements = next
@@ -192,7 +264,10 @@ function placementOf(id: string): Placement | null {
   return placements.find((p) => p.id === id) ?? null
 }
 
-const QUEUED: Placement = { id: '', bottom: 0, visible: false }
+const QUEUED: Placement = { id: '', bottom: 0, right: 0, visible: false }
+
+/** The stack's resting inset from the right edge — the old `right-5`. */
+export const BASE_RIGHT_PX = 20
 
 /**
  * Register a bottom-right overlay in the corner stack.
@@ -206,20 +281,21 @@ export function useCornerSlot(
   priority: number,
   enabled: boolean,
   ref: React.RefObject<HTMLElement | null>
-): { bottom: number; visible: boolean } {
+): { bottom: number; right: number; visible: boolean } {
   const placement = useSyncExternalStore(
     subscribe,
     useCallback(() => placementOf(id), [id]),
     useCallback(() => null, [])
   )
   const heightRef = useRef(0)
+  const widthRef = useRef(0)
 
   useEffect(() => {
     if (!enabled) {
       if (entries.delete(id)) recompute()
       return
     }
-    entries.set(id, { id, priority, height: heightRef.current, enabled: true })
+    entries.set(id, { id, priority, height: heightRef.current, width: widthRef.current, enabled: true })
     recompute()
     return () => {
       entries.delete(id)
@@ -231,12 +307,16 @@ export function useCornerSlot(
     const el = ref.current
     if (!enabled || !el) return
     const measure = (): void => {
-      const h = Math.ceil(el.getBoundingClientRect().height)
-      if (h === heightRef.current) return
+      const r = el.getBoundingClientRect()
+      const h = Math.ceil(r.height)
+      const w = Math.ceil(r.width)
+      if (h === heightRef.current && w === widthRef.current) return
       heightRef.current = h
+      widthRef.current = w
       const e = entries.get(id)
       if (e) {
         e.height = h
+        e.width = w
         recompute()
       }
     }
@@ -269,5 +349,5 @@ export function useCornerSlot(
   const p = placement ?? (enabled ? null : QUEUED)
   // Not placed yet (first render, before the effect runs): render it at the
   // base so it is measurable. It is corrected on the next frame.
-  return { bottom: p?.bottom ?? 0, visible: p ? p.visible : enabled }
+  return { bottom: p?.bottom ?? 0, right: p?.right ?? BASE_RIGHT_PX, visible: p ? p.visible : enabled }
 }

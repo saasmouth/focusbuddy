@@ -51,9 +51,9 @@ export default function CompletionToast(): JSX.Element | null {
   return (
     <div
       ref={cornerRef}
-      style={{ bottom: corner.bottom }}
+      style={{ bottom: corner.bottom, right: corner.right }}
       data-testid="completion-toast"
-      className="fixed right-5 z-50 flex items-center gap-3 rounded-xl border border-[var(--edge-firm)] bg-[var(--surface-raised)] shadow-lg pl-3.5 pr-2 py-2.5 max-w-[380px]"
+      className="fixed z-50 flex items-center gap-3 rounded-xl border border-[var(--edge-firm)] bg-[var(--surface-raised)] shadow-lg pl-3.5 pr-2 py-2.5 max-w-[380px]"
     >
       <Icon name="task_alt" size={17} className="shrink-0 text-emerald-500" />
       <div className="min-w-0 flex-1">

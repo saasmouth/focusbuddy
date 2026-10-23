@@ -424,9 +424,9 @@ export default function LocalAiPrompts(): JSX.Element | null {
       {notice && noticeCorner.visible && (
         <div
           ref={noticeRef}
-          style={{ bottom: noticeCorner.bottom }}
+          style={{ bottom: noticeCorner.bottom, right: noticeCorner.right }}
           role="status"
-          className="fixed right-4 z-[9997] max-w-xs fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug flex gap-2 items-start"
+          className="fixed z-[9997] max-w-xs fb-card rounded-[var(--radius-field)] px-3 py-2 shadow-lg fb-t-caption text-[var(--ink-80)] leading-snug flex gap-2 items-start"
           data-testid="local-ai-notice"
         >
           <span className="flex-1">
