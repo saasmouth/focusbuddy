@@ -77,6 +77,7 @@ import { GOOGLE_FONTS, loadGoogleFont, familyLabel } from '../../lib/googleFonts
 import DesignAiPanel from './DesignAiPanel'
 import DesignMenuBar from './editor/DesignMenuBar'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
@@ -1172,6 +1173,10 @@ export default function DesignEditor({
     })
     update({ elements: els, brandApplied: true })
   }
+
+  // Print… prints what Download ▸ PDF saves: the same design, every page at its
+  // own size (main renders both through designPrintRender).
+  usePrintSource(documentOps, () => ({ app: 'design', title: title || 'design', design }))
 
   async function exportAs(format: 'png' | 'pdf', printMarks = false): Promise<void> {
     setBusy(printMarks ? 'Exporting print PDF…' : `Exporting ${format.toUpperCase()}…`)

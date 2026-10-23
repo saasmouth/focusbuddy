@@ -9,6 +9,7 @@ import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import SlideFace from './slides/SlideFace'
 import type { DocumentOps } from './editor/documentOps'
+import { usePrintSource } from './editor/printSource'
 import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import SlidesMenuBar from './editor/SlidesMenuBar'
@@ -708,6 +709,10 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     setSidePane('ai')
     setSelectedIds([])
   }
+
+  // Print… prints what Download ▸ PDF saves: the same deck (main renders both
+  // through slidesPrintRender), one slide per page.
+  usePrintSource(documentOps, () => ({ app: 'deck', title, body }))
 
   // ── Import / export ───────────────────────────────────────────────────────
   async function exportFile(format: 'pptx' | 'pdf'): Promise<void> {

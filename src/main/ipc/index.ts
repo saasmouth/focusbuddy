@@ -718,6 +718,8 @@ import {
 } from '../ai/anthropic'
 import type { DesignBrief } from '@shared/designAdvicePrompt'
 import { importDocx, exportDocx, exportPdf, pickImage, type PageSetupInput } from '../officeDocx'
+import { printDocument, exportSheetPdf } from '../printDocument'
+import type { PrintRequest, SheetPdfRequest } from '@shared/printJob'
 import { importSheet, exportSheet } from '../sheetIo'
 import { readXlsxSheetForDrop } from '../sheetXlsxRead'
 import { runSheetMacro } from '../sheetMacro'
@@ -2030,6 +2032,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('office:exportDocx', (_e, input: { html: string; title: string; page?: PageSetupInput }) => exportDocx(input))
   ipcMain.handle('office:exportPdf', (_e, input: { html: string; title: string; page?: PageSetupInput }) => exportPdf(input))
   ipcMain.handle('office:pickImage', () => pickImage())
+
+  // ── Print… (Write, Cells, Deck, Design, Diagrams) ─────────────────────────
+  // The app's own Download ▸ PDF render, sent to the printer through the
+  // system dialog (printDocument.ts / printRender.ts). Desktop only: the
+  // browser runtime has no printer, so its handler says so and the renderer
+  // leaves Print… out there (SPEC §9.5).
+  ipcMain.handle('print:document', (_e, input: PrintRequest) => printDocument(input))
+  // Cells' Download ▸ PDF, from the same render its print uses.
+  ipcMain.handle('print:sheetPdf', (_e, input: SheetPdfRequest) => exportSheetPdf(input))
 
   // ── Spreadsheet interop + AI fill ─────────────────────────────────────────
   ipcMain.handle('sheet:import', () => importSheet())

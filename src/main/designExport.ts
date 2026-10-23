@@ -7,6 +7,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'fs/promises'
 import { designToHtml, designToHtmlAllPages, designPrintHtml, designPrintSize, type DesignBody } from '@shared/design'
 import { pdfPageSize } from './pdfPageSize'
+import { renderToPdf, withRenderWindow, type PrintRender } from './printRender'
 
 export interface DesignExportResult {
   ok: boolean
@@ -31,50 +32,59 @@ export async function exportDesign(input: {
   })
   if (res.canceled || !res.filePath) return { ok: false }
 
-  // Print export uses the larger bleed+marks page; a multi-page PDF stacks every
-  // page with page breaks; screen/PNG export is the active trim page.
-  const print = designPrintSize(design, { cropMarks: printMarks })
-  const usePrint = !!printMarks && (print.bleed > 0 || print.markMargin > 0)
-  const multiPage = !printMarks && format === 'pdf' && (design.pages?.length ?? 1) > 1
-  const pageW = usePrint ? print.pageWidth : design.width
-  const pageH = usePrint ? print.pageHeight : design.height
-  const html = usePrint ? designPrintHtml(design, { cropMarks: true }) : multiPage ? designToHtmlAllPages(design) : designToHtml(design)
-  const win = new BrowserWindow({
-    show: false,
-    width: Math.min(Math.max(pageW, 16), 8000),
-    height: Math.min(Math.max(pageH, 16), 8000),
-    useContentSize: true,
-    webPreferences: { offscreen: true }
-  })
+  const render = designPrintRender(design, { format, printMarks })
+  const pageW = render.window!.width
+  const pageH = render.window!.height
   try {
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    // Give embedded images and web fonts a beat to paint before capture.
-    await new Promise((r) => setTimeout(r, 350))
     if (format === 'png') {
-      let img = await win.webContents.capturePage()
-      // capturePage follows the DISPLAY's scale factor, so the same document
-      // exported 400x300 on one machine and 800x600 on a Retina one. The
-      // document declares its pixel size, so the export is normalised to it —
-      // downscaling a hi-dpi capture, which also antialiases nicely.
-      const shot = img.getSize()
-      if (shot.width !== pageW || shot.height !== pageH) {
-        img = img.resize({ width: pageW, height: pageH, quality: 'best' })
-      }
-      await writeFile(res.filePath, img.toPNG())
-    } else {
-      const pdf = await win.webContents.printToPDF({
-        printBackground: true,
-        pageSize: pdfPageSize(pageW, pageH),
-        // Electron 44 dropped `marginType`: explicit numbers ARE the custom
-        // case now, so the zero margins below mean exactly what they did before.
-        margins: { top: 0, right: 0, bottom: 0, left: 0 }
+      await withRenderWindow(render, async (win) => {
+        let img = await win.webContents.capturePage()
+        // capturePage follows the DISPLAY's scale factor, so the same document
+        // exported 400x300 on one machine and 800x600 on a Retina one. The
+        // document declares its pixel size, so the export is normalised to it —
+        // downscaling a hi-dpi capture, which also antialiases nicely.
+        const shot = img.getSize()
+        if (shot.width !== pageW || shot.height !== pageH) {
+          img = img.resize({ width: pageW, height: pageH, quality: 'best' })
+        }
+        await writeFile(res.filePath!, img.toPNG())
       })
-      await writeFile(res.filePath, pdf)
+    } else {
+      await writeFile(res.filePath, await renderToPdf(render))
     }
     return { ok: true, path: res.filePath }
   } catch (e) {
     return { ok: false, error: `Could not export: ${(e as Error).message}` }
-  } finally {
-    win.destroy()
+  }
+}
+
+/**
+ * Design's print-ready render. Print export uses the larger bleed+marks page; a
+ * multi-page PDF stacks every page with page breaks; screen/PNG export is the
+ * active trim page. Download ▸ PDF printToPDF()s it; Print… print()s the PDF
+ * form of it (printRender.ts), so the paper holds the PDF's pages at their size.
+ */
+export function designPrintRender(design: DesignBody, opts: { format?: 'png' | 'pdf'; printMarks?: boolean } = {}): PrintRender {
+  const format = opts.format ?? 'pdf'
+  const printMarks = !!opts.printMarks
+  const print = designPrintSize(design, { cropMarks: printMarks })
+  const usePrint = printMarks && (print.bleed > 0 || print.markMargin > 0)
+  const multiPage = !printMarks && format === 'pdf' && (design.pages?.length ?? 1) > 1
+  const pageW = usePrint ? print.pageWidth : design.width
+  const pageH = usePrint ? print.pageHeight : design.height
+  const html = usePrint ? designPrintHtml(design, { cropMarks: true }) : multiPage ? designToHtmlAllPages(design) : designToHtml(design)
+  return {
+    // The page size as CSS too: print() takes the page from @page (printRender.ts).
+    html: html.replace('</head>', `<style>@page{size:${pageW}px ${pageH}px;margin:0}</style></head>`),
+    window: { width: pageW, height: pageH },
+    // Give embedded images and web fonts a beat to paint before capture.
+    settle: { ms: 350 },
+    pdf: {
+      printBackground: true,
+      pageSize: pdfPageSize(pageW, pageH),
+      // Electron 44 dropped `marginType`: explicit numbers ARE the custom
+      // case now, so the zero margins below mean exactly what they did before.
+      margins: { top: 0, right: 0, bottom: 0, left: 0 }
+    }
   }
 }
