@@ -1040,14 +1040,23 @@ export default function WidgetFrame({
             zoomToWidget(widget.id)
           }
         }}
+        // A shift-click is the selection gesture, handled whole on mousedown
+        // above, so its click is swallowed here in CAPTURE too. Swallowing it
+        // in the bubble-phase onClick below was too late for anything inside
+        // the frame: a header control's own onClick (the AI button, rename,
+        // the bell) runs at the target first, so a shift-click landing on one
+        // both toggled the selection AND ran the control. The AI button opens
+        // a full-screen setup modal, which then ate the next shift-click and
+        // made multi-select impossible on a narrow widget, where the header
+        // controls reach the title's left edge.
+        onClickCapture={(e) => {
+          if (e.shiftKey && !isChildOfSection && !isPinned) {
+            e.stopPropagation()
+            e.preventDefault()
+          }
+        }}
         onClick={(e) => {
           e.stopPropagation()
-          // Shift handled on mousedown above — just swallow the click so it
-          // doesn't fall through to centre/zoom.
-          if (e.shiftKey && !isChildOfSection && !isPinned) {
-            e.preventDefault()
-            return
-          }
           // Cmd/⌘-click while zoomed out (< 80%) → dive into this widget: jump
           // to 100% with it centred. A fast way to go from an overview to one
           // thing without reaching for the zoom controls.
