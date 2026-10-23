@@ -7,6 +7,7 @@ import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
+import { createDocumentOps } from '../documents/editor/documentOps'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import { PlexiiDocIcon } from '../PlexiiIcon'
@@ -46,6 +47,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
   const saveBody = useDocumentsStore((s) => s.saveBody)
   const rename = useDocumentsStore((s) => s.rename)
   const goDocuments = useViewStore((s) => s.goDocuments)
+  const goDocument = useViewStore((s) => s.goDocument)
   const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   const goDesign = useViewStore((s) => s.goDesign)
   // The signed-in user's name greets them in the AI Assistant panel. Omitted when
@@ -149,6 +151,30 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
     )
   }
 
+  // What this view's File menus act on. Built after the guard above, so it is
+  // bound to the document actually open here. In THIS view that happens to be
+  // the store's active document, but it is passed explicitly all the same,
+  // because the same editors are mounted on desks and in snippet sessions where
+  // it is not — which was the bug.
+  //
+  // One object serves every editor below: this view shows exactly one document,
+  // so its id and type are the right binding for all of them.
+  //
+  // Not memoised and not a hook: createDocumentOps is a plain factory that
+  // closes over its inputs, it sits after an early return where hooks are not
+  // allowed, and rebuilding it per render costs nothing.
+  const documentOps = createDocumentOps({
+    id: documentId,
+    docType: active.docType,
+    // Read at call time from the store, so a rename between renders cannot
+    // leave a prompt or a copy name showing a stale title.
+    title: () => useDocumentsStore.getState().active?.title ?? '',
+    onOpen: (id) => goDocument(id),
+    onTrashed: () => goDocuments()
+    // No onRenamed: the title rendered here comes from the store, which
+    // renameById has already updated by the time it resolves.
+  })
+
   const typeLabel =
     active.docType === 'doc'
       ? 'Document'
@@ -250,10 +276,17 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
             onJumpComment={jumpToComment}
             mentionHandles={mentionHandles}
             myHandle={userName}
+            documentOps={documentOps}
           />
         )}
         {active.docType === 'sheet' && (
-          <SheetEditor key={active.id} body={active.body as SheetBody} title={active.title} onChange={(b) => saveBody(b)} />
+          <SheetEditor
+            key={active.id}
+            body={active.body as SheetBody}
+            title={active.title}
+            onChange={(b) => saveBody(b)}
+            documentOps={documentOps}
+          />
         )}
         {active.docType === 'slides' && (
           <SlidesEditor key={active.id} body={active.body as SlidesBody} title={active.title} onChange={(b) => saveBody(b)} />

@@ -4,6 +4,8 @@ import type { DocType, FbDocument } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
+import { createDocumentOps } from '../documents/editor/documentOps'
+import { useViewStore } from '../../stores/view'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
 
 // A document / spreadsheet / slide deck living on the canvas as a native widget.
@@ -42,6 +44,10 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   const updateWidget = useWidgetStore((s) => s.update)
   const [doc, setDoc] = useState<FbDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Trashed from this widget's own File menu. Its own state rather than `error`,
+  // because it is something the user did on purpose, not a failure.
+  const [trashed, setTrashed] = useState(false)
+  const goDocument = useViewStore((s) => s.goDocument)
   const provisioned = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -85,9 +91,43 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
     }, 500)
   }
 
+  // THE FIX THIS FILE EXISTS IN. The editors' File menus used to act on the
+  // documents store's `active` document, and this widget never puts its document
+  // there — it holds it in local state — so a widget's Move to trash trashed
+  // whatever the Documents view last had open, and Make a copy produced a copy
+  // titled from this widget and bodied from that other file. Both silently.
+  // Bound here to the document this widget is actually showing.
+  const documentOps = doc
+    ? createDocumentOps({
+        id: doc.id,
+        docType,
+        title: () => doc.title,
+        // New and Make a copy open the new document in the Documents view. That
+        // leaves the desk, which is the honest reading of the menu item: the
+        // alternative — silently repointing this widget at the new document —
+        // would replace what the user was looking at without being asked.
+        onOpen: (id) => goDocument(id),
+        onTrashed: () => setTrashed(true),
+        // The header label and the editors read the title from this local copy,
+        // so it has to be told; nothing else would update it.
+        onRenamed: (title) => setDoc((d) => (d ? { ...d, title } : d))
+      })
+    : undefined
+
   const meta = TYPE_META[docType]
   let body: JSX.Element
-  if (error) {
+  if (trashed) {
+    body = (
+      <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center">
+        <span className="text-[11px] text-[var(--ink-70)]">
+          Moved to the trash.
+        </span>
+        <span className="text-[10px] text-[var(--ink-50)]">
+          Restore it from Documents to use this work widget again.
+        </span>
+      </div>
+    )
+  } else if (error) {
     body = <div className="h-full w-full flex items-center justify-center text-[11px] text-red-500">{error}</div>
   } else if (!doc) {
     body = (
@@ -96,9 +136,25 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
       </div>
     )
   } else if (docType === 'doc') {
-    body = <DocEditor key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
+    body = (
+      <DocEditor
+        key={doc.id}
+        content={doc.body}
+        title={doc.title}
+        onChange={saveBody}
+        documentOps={documentOps}
+      />
+    )
   } else if (docType === 'sheet') {
-    body = <SheetEditor key={doc.id} body={doc.body as SheetBody} title={doc.title} onChange={saveBody} />
+    body = (
+      <SheetEditor
+        key={doc.id}
+        body={doc.body as SheetBody}
+        title={doc.title}
+        onChange={saveBody}
+        documentOps={documentOps}
+      />
+    )
   } else if (docType === 'slides') {
     body = <SlidesEditor key={doc.id} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} />
   } else if (docType === 'design') {

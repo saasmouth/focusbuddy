@@ -20,6 +20,7 @@ import {
   type PageHeaderFooter
 } from './editor/headingStyles'
 import DocMenuBar from './editor/DocMenuBar'
+import type { DocumentOps } from './editor/documentOps'
 import WriteChrome from './WriteChrome'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
@@ -231,6 +232,16 @@ interface Props {
   // The name to greet the writer with in the AI Assistant tab. Omit when the user
   // is not signed in; the panel falls back to a neutral greeting.
   userName?: string | null
+  /**
+   * The document this editor is editing, bound by the HOST to its id — what the
+   * File menu's New / Make a copy / Rename / Version history / Move to trash and
+   * Insert's Meeting act on. Omitted where there is no document (a snippet
+   * session), and those items are then not shown at all.
+   *
+   * The editor itself still has no document id and persists nothing: it only
+   * hands this through to the menu bar.
+   */
+  documentOps?: DocumentOps
 }
 
 const REWRITE_ACTIONS = [
@@ -258,7 +269,8 @@ export default function DocEditor({
   onJumpComment,
   mentionHandles,
   myHandle,
-  userName
+  userName,
+  documentOps
 }: Props): JSX.Element {
   const [findOpen, setFindOpen] = useState(false)
   // `@` in the document body. The query the extension reports, and a handler
@@ -953,6 +965,7 @@ export default function DocEditor({
             <DocMenuBar
               editor={editor}
               title={title}
+              documentOps={documentOps}
               onInsertImage={() => void insertImage()}
               onInsertWidget={() => setWidgetPickerOpen(true)}
               onInsertSnippet={() => setSnippetLibraryOpen(true)}

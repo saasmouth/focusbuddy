@@ -607,6 +607,29 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
 
       {/* Surface + comments panel */}
       <div className="flex-1 min-h-0 flex">
+        {/*
+          NO `documentOps` ON ANY EDITOR BELOW, and that is a decision rather
+          than an omission — leave it this way unless the premise changes.
+
+          Every member of DocumentOps is a LOCAL document operation: makeCopy
+          reads window.api.documents.get(id), rename goes through the store's
+          renameById, moveToTrash through remove(id), openHistory through
+          documents.listSnapshots(id). A live document has no local row at all —
+          `meta` is a LiveDocFull fetched from the signal server (docCollab) and
+          its id is not an fb_documents id. Binding ops here would put five
+          items in the File menu that silently did nothing, which is worse than
+          not offering them.
+
+          Without ops those items are absent, and that is already a strict
+          improvement: they used to act on the DOCUMENTS STORE's active
+          document, which in this view is whatever the Documents view last had
+          open — so Move to trash here could trash an unrelated local file.
+
+          To offer them properly, a live document needs server-side equivalents
+          (copy, rename, trash, history) reached through the signal API, gated on
+          `isOwner` above for the destructive ones. That is a feature, not a
+          wiring change, and it does not belong in a bug fix.
+        */}
         <div className="flex-1 overflow-auto min-h-0" ref={surfaceRef}>
         {meta.docType === 'doc' &&
           (collabReady && collabRef.current ? (

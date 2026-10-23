@@ -41,6 +41,7 @@ import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
+import type { DocumentOps } from './editor/documentOps'
 import SheetTabStrip from './sheet/SheetTabStrip'
 import SheetChart from './sheet/SheetChart'
 import SheetPivot from './sheet/SheetPivot'
@@ -88,6 +89,12 @@ interface Props {
   body: SheetBody
   title: string
   onChange: (body: SheetBody) => void
+  /**
+   * The spreadsheet this editor is editing, bound by the HOST to its id — what
+   * the File menu's document items and Insert's Meeting act on. Omitted where
+   * there is no document (a snippet session): those items are then not shown.
+   */
+  documentOps?: DocumentOps
 }
 
 interface Cell {
@@ -202,7 +209,7 @@ function computeFuncMenu(value: string): FuncMenu | null {
   return { items, tokenStart, query }
 }
 
-export default function SheetEditor({ body: rawBody, title, onChange }: Props): JSX.Element {
+export default function SheetEditor({ body: rawBody, title, onChange, documentOps }: Props): JSX.Element {
   const [body, setBody] = useState<SheetBodyV2>(() => normalizeBody(rawBody))
   // Accept live external updates (co-editing): when the body prop changes to a
   // new version, fold it into the grid. We deliberately do NOT touch the active
@@ -1449,7 +1456,8 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
     exportFile: (f) => void exportFile(f),
     aiFill: () => setAiOpen((v) => !v),
     saveSnippet: saveSelectionAsSnippet,
-    insertSnippet: () => setSnippetLibraryOpen(true)
+    insertSnippet: () => setSnippetLibraryOpen(true),
+    documentOps
   }
 
   return (
