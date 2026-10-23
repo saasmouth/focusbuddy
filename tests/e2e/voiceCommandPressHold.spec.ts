@@ -14,7 +14,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { _electron as electron } from '@playwright/test'
+import { launchGuarded } from './_netGuard'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -26,7 +26,7 @@ async function launchWithFakeMic() {
   const cleanEnv: NodeJS.ProcessEnv = { ...process.env }
   delete cleanEnv.ELECTRON_RUN_AS_NODE
 
-  const app = await electron.launch({
+  const { app } = await launchGuarded({
     args: [
       '.',
       '--use-fake-device-for-media-stream',

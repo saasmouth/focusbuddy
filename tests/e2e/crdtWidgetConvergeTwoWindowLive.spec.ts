@@ -29,7 +29,8 @@
  * safe first partition; shared-desk partitions come later). The fb.sync.crdt.widgets
  * flag is turned on in each window's localStorage before the app boots its sync.
  */
-import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
+import { launchGuarded } from './_netGuard'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -57,7 +58,7 @@ async function launchWithCertBypass(label: string): Promise<Launched> {
   delete cleanEnv.ANTHROPIC_API_KEY
   delete cleanEnv.OPENAI_API_KEY
 
-  const app = await electron.launch({
+  const { app } = await launchGuarded({
     args: ['--ignore-certificate-errors', '.'],
     cwd: process.cwd(),
     env: { ...cleanEnv, FB_TEST_USER_DATA: userDataDir, NODE_ENV: 'test' },

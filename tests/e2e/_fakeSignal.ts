@@ -1,15 +1,34 @@
 import { expect, type Page } from '@playwright/test'
 import { ACTIVE } from '../../src/shared/productDomains'
 
-// A signed-in PlexiiChat session for e2e, with NOTHING reaching the real server.
+// A signed-in PlexiiChat session for e2e, answered locally.
 //
 // The built app talks to the production signal server (shared/productDomains
-// ACTIVE). A spec that seeds a session token and lets the renderer use it would
-// send that token to production: conversation refreshes, the realtime socket,
-// attachment uploads. So every renderer request to the signal origin is answered
-// here, from the conversations and messages the spec seeds, and the socket is
-// accepted locally and kept silent. Unmatched paths get an honest empty
-// `{ ok: true }` and are recorded, so a spec can see what the app asked for.
+// ACTIVE). A spec that seeds a session token lets the renderer use it, so every
+// renderer request to the signal origin is answered here, from the
+// conversations and messages the spec seeds, and the realtime socket is
+// accepted locally and kept silent (or played by `onSocket`). Unmatched paths
+// get an honest empty `{ ok: true }` and are recorded, so a spec can see what
+// the app asked for.
+//
+// WHAT IS GUARANTEED, AND BY WHAT. Until e2e-hermetic-41 this header said
+// "NOTHING reaching the real server", and it was false: `window.routeWebSocket`
+// only reaches documents created after it, so the app's first socket went to
+// wss://api.plexiidesk.com/ws carrying the fake token. Now:
+//
+//  - launchApp holds the first window until the net guard (_netGuard.ts) has
+//    put context.route + context.routeWebSocket in place, so Playwright's
+//    WebSocket mock is in the page from its first document. The page routes
+//    below are added BEFORE the session is seeded, so the first socket the
+//    seeded session opens is already theirs. No reload is needed.
+//  - Anything that still reaches for a production host — a socket opened before
+//    a route, a path this file does not answer that falls through to the
+//    network, main-process traffic — is aborted by the guard's session and Node
+//    layers and FAILS the spec, naming the URL.
+//
+// That is proven, not asserted: tests/e2e/netGuard.spec.ts (NG-6 signs in
+// through this helper and checks the socket was answered here and nothing
+// reached production), and the guard's mutation proofs in that spec's header.
 //
 // The session is seeded into the RENDERER's stores only (__fbAccount and
 // __fbMessaging, thin handles to the real stores). The main process never
@@ -57,10 +76,10 @@ export async function signInWithFakeSignal(
     name?: FakeName
     /**
      * Play the server's part on the realtime socket (a spec that needs the
-     * live-document room, say). Default: accepted and silent. NOTE the route
-     * only takes effect for a socket the page opens after a navigation that
-     * follows this call (Playwright installs it with the page's init script),
-     * so a spec that needs it reloads and signs in again.
+     * live-document room, say). Default: accepted and silent. It takes effect
+     * for the first socket the seeded session opens: launchApp's net guard has
+     * Playwright's WebSocket mock in the page from its first document, so a
+     * page route added here applies without a reload.
      */
     onSocket?: Parameters<Page['routeWebSocket']>[1]
   }

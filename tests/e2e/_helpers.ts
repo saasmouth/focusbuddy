@@ -1,5 +1,4 @@
 import {
-  _electron as electron,
   expect,
   type ElectronApplication,
   type Locator,
@@ -8,6 +7,7 @@ import {
 import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { launchGuarded, type NetGuard } from './_netGuard'
 
 /**
  * Boot the built Electron app with an isolated userData directory so each test
@@ -21,6 +21,8 @@ export interface LaunchedApp {
   window: Page
   userDataDir: string
   dispose: () => Promise<void>
+  /** The e2e net guard for this launch (_netGuard.ts): what it refused. */
+  netGuard: NetGuard
 }
 
 export async function launchApp(opts?: {
@@ -41,6 +43,8 @@ export async function launchApp(opts?: {
   // such as `-r <module>` there (Playwright strips NODE_OPTIONS), which is how
   // _networkInventory.spec.ts preloads its main-process socket recorder.
   preArgs?: string[]
+  // netGuard.spec.ts only — see launchGuarded's selfTest.
+  netGuardSelfTest?: boolean
 }): Promise<LaunchedApp> {
   const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'plexii-e2e-'))
   const ownsDir = !opts?.userDataDir
@@ -60,7 +64,10 @@ export async function launchApp(opts?: {
   delete cleanEnv.ANTHROPIC_API_KEY
   delete cleanEnv.OPENAI_API_KEY
 
-  const app = await electron.launch({
+  // launchGuarded holds the first window until the net guard's routes are in
+  // place, so no request or socket from this app reaches a production host
+  // (see _netGuard.ts).
+  const { app, guard: netGuard } = await launchGuarded({
     args: [...(opts?.preArgs ?? []), '.', ...(opts?.extraArgs ?? [])],
     cwd: process.cwd(),
     env: {
@@ -77,7 +84,7 @@ export async function launchApp(opts?: {
       ...(opts?.env ?? {})
     },
     timeout: 20_000
-  })
+  }, { selfTest: opts?.netGuardSelfTest })
   // Forward main-process stdout/stderr to test stdout so debugging "page
   // closed" failures actually shows the real Electron error.
   app.process().stdout?.on('data', (b) => process.stdout.write(`[main] ${b}`))
@@ -138,8 +145,15 @@ export async function launchApp(opts?: {
         // Best effort
       }
     }
+    // Fails the spec if it reached for production and the failure was not
+    // already reported to the running test.
+    try {
+      netGuard.assertClean()
+    } finally {
+      netGuard.finish()
+    }
   }
-  return { app, window, userDataDir, dispose }
+  return { app, window, userDataDir, dispose, netGuard }
 }
 
 /**
