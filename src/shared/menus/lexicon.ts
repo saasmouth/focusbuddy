@@ -52,10 +52,21 @@ export const MENU = {
   keyboardShortcuts: { label: 'Keyboard shortcuts', keys: ['mod', '/'] },
   // Links and sharing
   copyLink: { label: 'Copy link' },
-  share: { label: 'Share…' }
+  share: { label: 'Share…' },
+  // Desk, room and work widget objects (2e's surfaces; AUDIT.md §4.2, SPEC §9.4)
+  open: { label: 'Open' }, // E-3 (bare verb recommended)
+  archive: { label: 'Archive' },
+  addToThisDesk: { label: 'Add to this desk' },
+  makeThisADesk: { label: 'Make this a desk…' },
+  duplicateKeepSynced: { label: 'Duplicate, keep synced' }
 } as const satisfies Record<string, MenuAction>
 
 export type MenuActionId = keyof typeof MENU
+
+/** "Remove from ‹container›" (SPEC §9.4): taking a placement out, never deleting the object. */
+export function removeFromLabel(container: 'desk' | 'room' | 'section' | 'focus' | 'tray'): string {
+  return container === 'focus' ? 'Remove from Focus' : `Remove from this ${container}`
+}
 
 /** "New ‹type›" for each office document type (File's first item). */
 export const NEW_DOCUMENT_LABEL: Record<string, string> = {
