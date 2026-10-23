@@ -259,6 +259,7 @@ import { exportDesign } from '../designExport'
 import { exportDraw } from '../drawExport'
 import { pickDrawImportFiles, renderDrawPdfPage } from '../drawImport'
 import { readDrawClipboard, writeDrawClipboard } from '../drawClipboard'
+import { readAppClipboard } from '../appClipboard'
 import { exportMap } from '../mapExport'
 import { importVsdx } from '../mapImport'
 import { searchStockPhotos, fetchImageDataUrl, removeBackground } from '../stockMedia'
@@ -1755,6 +1756,8 @@ export function registerIpcHandlers(): void {
     return { ok: true }
   })
   ipcMain.handle('snippets:fork', (_e, id: string) => forkSnippet(id, accountEmail()))
+  // Every flavour a cross-app paste can use (⌘V and right-click › Paste in the office apps).
+  ipcMain.handle('snippets:readClipboard', () => readAppClipboard())
 
   ipcMain.handle('chat:send', (_e, req: ChatRequest) => {
     recordAiCall()

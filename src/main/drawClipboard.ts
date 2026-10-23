@@ -32,9 +32,9 @@ import { clipboard, ClipboardItem, nativeImage } from 'electron'
 import { fileURLToPath } from 'url'
 import { pngWithDpi } from './drawExport'
 import { readPicked } from './drawImport'
+import { DRAW_CLIPBOARD_NATIVE, jpegTypeIn, svgTypeIn } from '../shared/draw/clipboardFormat'
 
-/** The native PlexiiDraw format: a web custom format, so the browser build can read it too. */
-export const DRAW_CLIPBOARD_NATIVE = 'web application/vnd.plexii.draw+json'
+export { DRAW_CLIPBOARD_NATIVE, jpegTypeIn, svgTypeIn }
 
 /** Raw (OS-level) clipboard flavour name for SVG on this platform. */
 export function svgFlavour(platform: NodeJS.Platform = process.platform): string {
@@ -42,16 +42,6 @@ export function svgFlavour(platform: NodeJS.Platform = process.platform): string
 }
 
 const raw = (flavour: string): string => `electron application/osclipboard;format="${flavour}"`
-
-/** A raw type in a read item's list that carries SVG, whatever the platform calls it. */
-export function svgTypeIn(types: string[]): string | undefined {
-  return types.find((t) => /^electron application\/osclipboard;format="(public\.svg-image|image\/svg\+xml|CorePasteboardFlavorType 0x73766720)"$/i.test(t))
-}
-
-/** A raw type carrying JPEG bytes, so a pasted photo keeps its own (smaller) encoding. */
-export function jpegTypeIn(types: string[]): string | undefined {
-  return types.find((t) => /^electron application\/osclipboard;format="(public\.jpeg|image\/jpeg|JFIF|CorePasteboardFlavorType 0x4A504547)"$/i.test(t))
-}
 
 /** Upper bounds on what one paste will carry across IPC. */
 export const CLIPBOARD_LIMITS = { native: 64 * 1024 * 1024, svg: 32 * 1024 * 1024, text: 4 * 1024 * 1024, image: 48 * 1024 * 1024 }

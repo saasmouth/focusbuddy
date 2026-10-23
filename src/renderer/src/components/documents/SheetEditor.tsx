@@ -60,6 +60,7 @@ import { useSheetAi } from './sheet/useSheetAi'
 import Icon from '../Icon'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
+import { markCellsCopy } from '../../lib/clipboardForms'
 import type { SheetSnippetBody, Snippet, SnippetInsertResult, SnippetKind } from '@shared/snippets'
 import {
   cellsSnippetTargetId,
@@ -837,6 +838,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
       const text = rangeToTsv(tab, selection)
       await navigator.clipboard.writeText(text).catch(() => {})
       clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
+      markCellsCopy(text, { r: selection.r0, c: selection.c0 })
       return
     }
     if (mod && e.key.toLowerCase() === 'x') {
@@ -844,6 +846,7 @@ export default function SheetEditor({ body: rawBody, title, onChange }: Props): 
       const text = rangeToTsv(tab, selection)
       await navigator.clipboard.writeText(text).catch(() => {})
       clipboardCopy.current = { text, r: selection.r0, c: selection.c0 }
+      markCellsCopy(text, { r: selection.r0, c: selection.c0 })
       mutateTab((t) => {
         let next = t
         for (let rr = selection.r0; rr <= selection.r1; rr++)
