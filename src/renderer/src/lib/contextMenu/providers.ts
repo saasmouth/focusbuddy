@@ -305,7 +305,7 @@ registerWidgetContextActions('webview', 'browser-target', (ctx) => {
       id: 'webview/open-link',
       group: 'object',
       priority: 0,
-      label: 'Open link in new browser',
+      label: 'Open link as a new browser work widget',
       icon: 'open_in_new',
       onSelect: () => void createConnectedTool({ sourceWidgetId: w.id, kind: 'webview', content: linkURL })
     })

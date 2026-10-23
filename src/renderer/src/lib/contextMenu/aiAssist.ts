@@ -10,43 +10,18 @@
 import type { MenuContribution, MenuContext } from './types'
 import { runAiAssist, hasWorkableText } from './actions'
 import {
-  AI_DIRECT_ACTIONS,
-  AI_READ_ACTIONS,
   AI_LANGUAGES,
+  AI_MENU_LABELS,
+  AI_TEXT_ACTIONS,
   AI_TONES,
   CUSTOM_LANGUAGE_INSTRUCTION,
   CUSTOM_TONE_INSTRUCTION,
   toneInstruction,
   translateInstruction,
-  type AiTextAction
 } from '@shared/aiTextActions'
-
-// TODO(WP3 aiTextActions, ctx-wp3-41 0e6b703b): import AI_TEXT_ACTIONS and
-// AI_MENU_LABELS from @shared/aiTextActions once that branch is merged, and
-// delete these two copies. They are the same list and the same words; WP3's
-// labels are already sentence case, so sentenceCase() below becomes a no-op.
-const AI_TEXT_ACTIONS: readonly AiTextAction[] = [...AI_DIRECT_ACTIONS, ...AI_READ_ACTIONS]
-const AI_MENU_LABELS = {
-  aiAssist: 'AI Assist',
-  changeTone: 'Change tone',
-  translate: 'Translate',
-  customTone: 'Custom tone…',
-  customLanguage: 'Custom language…',
-  customPrompt: 'Custom prompt…'
-} as const
 
 /** The eight, in menu order. Exported so the guard can hold the set to its source. */
 export const AI_ACTION_SET = AI_TEXT_ACTIONS
-
-/**
- * Sentence case for a label read from the shared set (§9.4): "Fix Grammar" →
- * "Fix grammar". Only needed until WP3's sentence-case labels are merged;
- * idempotent, so harmless after.
- */
-export function sentenceCase(label: string): string {
-  const [first, ...rest] = label.split(' ')
-  return [first, ...rest.map((w) => (/^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w))].join(' ')
-}
 
 // Returns null when there is no text to work on, so the row is absent rather
 // than dead.
@@ -56,8 +31,8 @@ export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | 
   const direct: MenuContribution[] = AI_ACTION_SET.map((a, i) => ({
     id: `core/ai/${a.id}`,
     priority: i,
-    label: sentenceCase(a.label),
-    onSelect: (c) => runAiAssist(c, sentenceCase(a.label), a.instruction)
+    label: a.label,
+    onSelect: (c) => runAiAssist(c, a.label, a.instruction)
   }))
 
   const changeTone: MenuContribution = {

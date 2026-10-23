@@ -62,7 +62,7 @@ function allLabels(items: CtxMenuItem[]): string[] {
 describe('browser-target provider — actions per right-click target', () => {
   it('offers open-link and copy-link for a link target', () => {
     const labels = allLabels(resolveMenu(browserCtx({ linkURL: 'https://news.example.com' })))
-    expect(labels).toContain('Open link in new browser')
+    expect(labels).toContain('Open link as a new browser work widget')
     expect(labels).toContain('Copy link')
   })
 
@@ -88,7 +88,7 @@ describe('browser-target provider — actions per right-click target', () => {
 
   it('shows no target-specific rows when right-clicking empty page space', () => {
     const labels = allLabels(resolveMenu(browserCtx({})))
-    expect(labels).not.toContain('Open link in new browser')
+    expect(labels).not.toContain('Open link as a new browser work widget')
     expect(labels).not.toContain('Add image to this desk')
     // Still a usable menu (Create at least).
     expect(labels).toContain('Create & link')
