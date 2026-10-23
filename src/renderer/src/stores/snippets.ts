@@ -96,6 +96,11 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
       snippets: s.snippets.map((x) => (x.id === res.snippet!.id ? res.snippet! : x)),
       error: null
     }))
+    // Every live instance of this snippet, in every open host, re-resolves now.
+    // Without this an edit would reach only instances mounted after it, so a
+    // second copy in the same document — or the same document in another pane —
+    // would sit there showing the old text while claiming to be live.
+    notifySnippetChanged(res.snippet.id)
     return res.snippet
   },
 
@@ -187,4 +192,53 @@ export const useSnippetsStore = create<SnippetsState>((set, get) => ({
 export function registerSnippetTarget(target: SnippetTarget): () => void {
   useSnippetsStore.getState().registerTarget(target)
   return () => useSnippetsStore.getState().unregisterTarget(target.id)
+}
+
+
+// ── Live-instance invalidation ───────────────────────────────────────────────
+//
+// A live instance resolves its master when it mounts. That is enough for a host
+// opened AFTER an edit, and not enough for one already on screen: the owner's
+// feature edits the master from inside a placed instance, so the instance beside
+// it must change too, immediately, or "changes appear everywhere it's used" is
+// a claim the UI does not honour.
+//
+// Deliberately a tiny id-keyed registry rather than the store's `snippets` list:
+// that list holds only what the library last loaded, and an embedded master is
+// very often not in it. Listeners re-resolve through the IPC, so the DB stays
+// the single source of truth and no copy of the body lives here.
+
+const changeListeners = new Map<string, Set<() => void>>()
+
+/** Re-run `onChange` whenever this snippet's master is edited. Returns an unsubscribe. */
+export function onSnippetChanged(id: string, onChange: () => void): () => void {
+  let set = changeListeners.get(id)
+  if (!set) {
+    set = new Set()
+    changeListeners.set(id, set)
+  }
+  set.add(onChange)
+  return () => {
+    const current = changeListeners.get(id)
+    if (!current) return
+    current.delete(onChange)
+    if (current.size === 0) changeListeners.delete(id)
+  }
+}
+
+/** Tell every live instance of this snippet to resolve again. */
+export function notifySnippetChanged(id: string): void {
+  for (const cb of changeListeners.get(id) ?? []) cb()
+}
+
+// The authoritative source of these notifications is the MAIN process, which
+// announces every successful write wherever it came from — the store, a direct
+// window.api call, or workspace sync once it carries snippets. Subscribing once
+// here and fanning out locally means an instance needs no IPC listener of its
+// own, and no writer has to remember to tell anyone.
+//
+// Guarded because the renderer store is also loaded by unit tests, where there
+// is no preload bridge; the local notify path still works there.
+if (typeof window !== 'undefined' && window.api?.snippets?.onChanged) {
+  window.api.snippets.onChanged((id) => notifySnippetChanged(id))
 }

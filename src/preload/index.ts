@@ -1196,6 +1196,15 @@ const api = {
   // like documents, so `list` returns the workspace the user is currently in.
   snippets: {
     list: (query?: SnippetQuery): Promise<Snippet[]> => ipcRenderer.invoke('snippets:list', query),
+    /**
+     * Fires with a snippet's id whenever its master is edited or deleted, from
+     * any writer. Live instances re-resolve on it; see main/snippetEvents.ts.
+     */
+    onChanged: (cb: (id: string) => void): (() => void) => {
+      const listener = (_e: unknown, id: string): void => cb(id)
+      ipcRenderer.on('snippets:changed', listener)
+      return () => ipcRenderer.removeListener('snippets:changed', listener)
+    },
     /** By id, unscoped — this is how a live instance resolves its master. */
     get: (id: string): Promise<Snippet | null> => ipcRenderer.invoke('snippets:get', id),
     create: (draft: SnippetDraft): Promise<{ ok: boolean; snippet?: Snippet; error?: string }> =>

@@ -357,3 +357,75 @@ test('SN-7 — the frame can be pinned per instance, and the pin survives a reop
     await dispose()
   }
 })
+
+test('SN-8 — editing the master updates every live instance already on screen, with no reopen', async () => {
+  const { window, dispose } = await launchApp()
+  try {
+    await waitForReady(window)
+    await chooseCloudAiSource(window)
+    await openDocumentsHub(window)
+    await startBlankDoc(window)
+
+    await typeAndSelectAll(window, 'Original shared wording.')
+    await saveSelectionAsSnippet(window, 'Shared clause')
+
+    // Keep the paragraph: the insert replaces the selection otherwise.
+    await window
+      .locator('[data-testid="doc-editor-surface"]')
+      .getByText('Original shared wording.')
+      .click({ timeout: 5_000 })
+    await window.keyboard.press('End')
+
+    // TWO live instances of the same snippet in one document. One instance could
+    // pass by luck — the second is what proves a fan-out rather than a refresh
+    // of whichever happened to be focused.
+    for (const i of [0, 1]) {
+      await openSnippetLibrary(window)
+      await rowFor(window, 'Shared clause').locator('[data-testid="snippet-insert-live"]').click()
+      await expect(window.locator('[data-testid="snippet-library"]')).toBeHidden({ timeout: 5_000 })
+      if (i === 0) {
+        // Step past the node just inserted and open a fresh paragraph. The
+        // inserted node is left SELECTED, and insertion replaces the selection
+        // like a paste — so without this the second insert replaces the first
+        // and the test silently has one instance instead of two.
+        await window.locator('[data-testid="snippet-embed"]').first().click()
+        await window.keyboard.press('ArrowRight')
+        await window.keyboard.press('Enter')
+      }
+    }
+    const embeds = window.locator('[data-testid="snippet-embed"]')
+    await expect(embeds).toHaveCount(2, { timeout: 8_000 })
+    await expect(embeds.nth(0)).toContainText('Original shared wording', { timeout: 8_000 })
+    await expect(embeds.nth(1)).toContainText('Original shared wording')
+
+    // Edit the master through the RAW IPC, deliberately bypassing the renderer
+    // store. That is the case a renderer-side notification would miss, and the
+    // reason the broadcast comes from the main process: every writer announces
+    // itself, including workspace sync later.
+    const updated = await window.evaluate(async () => {
+      const api = (window as unknown as { api: { snippets: {
+        list: () => Promise<{ id: string; name: string }[]>
+        update: (id: string, patch: unknown) => Promise<{ ok: boolean }>
+      } } }).api
+      const all = await api.snippets.list()
+      const target = all.find((s) => s.name === 'Shared clause')
+      if (!target) return false
+      const res = await api.snippets.update(target.id, {
+        body: {
+          kind: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Revised shared wording.' }] }],
+          text: 'Revised shared wording.'
+        }
+      })
+      return res.ok
+    })
+    expect(updated, 'the master was updated').toBe(true)
+
+    // No reopen, no reload: both instances follow where they stand.
+    await expect(embeds.nth(0)).toContainText('Revised shared wording', { timeout: 8_000 })
+    await expect(embeds.nth(1)).toContainText('Revised shared wording', { timeout: 8_000 })
+    await expect(embeds.nth(0)).not.toContainText('Original shared wording')
+  } finally {
+    await dispose()
+  }
+})

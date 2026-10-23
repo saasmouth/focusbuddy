@@ -386,6 +386,7 @@ import {
   recordSnippetUse,
   updateSnippet
 } from '../db/snippets'
+import { notifySnippetChanged } from '../snippetEvents'
 import type { SnippetDraft, SnippetPatch, SnippetQuery } from '@shared/snippets'
 import { getRecentHistory, recordVisit } from '../db/browsing'
 import {
@@ -1749,8 +1750,20 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('snippets:list', (_e, query?: SnippetQuery) => listSnippets(query ?? {}))
   ipcMain.handle('snippets:get', (_e, id: string) => getSnippet(id))
   ipcMain.handle('snippets:create', (_e, draft: SnippetDraft) => createSnippet(draft, accountEmail()))
-  ipcMain.handle('snippets:update', (_e, id: string, patch: SnippetPatch) => updateSnippet(id, patch))
-  ipcMain.handle('snippets:delete', (_e, id: string) => deleteSnippet(id))
+  ipcMain.handle('snippets:update', (_e, id: string, patch: SnippetPatch) => {
+    const res = updateSnippet(id, patch)
+    // Only on a real write. A refused update (empty body, missing snippet)
+    // must not make every live instance re-resolve for nothing.
+    if (res.ok) notifySnippetChanged(id)
+    return res
+  })
+  ipcMain.handle('snippets:delete', (_e, id: string) => {
+    const res = deleteSnippet(id)
+    // A delete matters as much as an edit: live instances must switch to their
+    // missing state rather than keep showing content that is gone.
+    if (res.ok) notifySnippetChanged(id)
+    return res
+  })
   ipcMain.handle('snippets:recordUse', (_e, id: string) => {
     recordSnippetUse(id)
     return { ok: true }
