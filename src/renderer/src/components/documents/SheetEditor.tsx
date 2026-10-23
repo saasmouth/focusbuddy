@@ -1,3 +1,6 @@
+import { dragCarriesFiles } from '../../lib/filesDrag'
+import { filesDropRefs, runContentDrop } from '../../lib/filesContentDrop'
+import { widgetFileGroupId } from '@shared/widgetFiles'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { SheetBody, SheetBodyV2, SheetCellFormat, SheetChartSpec, SheetNumberFormat, SheetTab } from '@shared/types'
 import { SHEET_FUNCTIONS } from '../../lib/sheetFormula'
@@ -1425,9 +1428,12 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   // takes it back; the landed range becomes the selection, and every formula
   // recalculates on the render that follows. A refusal names its reason, on
   // the status line and, verbatim, in the library.
-  function insertSnippetHere(snippet: Snippet): SnippetInsertResult {
+  // `at` (optional, additive): land at that cell instead of the selection,
+  // for a drop from Files at the cell under the pointer.
+  const lastLanding = useRef<{ r0: number; c0: number; r1: number; c1: number } | null>(null)
+  function insertSnippetHere(snippet: Snippet, at?: { r: number; c: number }): SnippetInsertResult {
     const landing = insertSheetSnippet(tab, snippet, {
-      at: { r: selection.r0, c: selection.c0 },
+      at: at ?? { r: selection.r0, c: selection.c0 },
       readOnly,
       newId: newValidationId
     })
@@ -1436,6 +1442,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
       return { ok: false, reason: landing.declined }
     }
     setEditing(null)
+    lastLanding.current = landing.range
     mutateTab(() => landing.tab)
     // The landed range is the selection, with its top-left the active cell,
     // as after an Excel paste.
@@ -1703,11 +1710,45 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
           className="flex-1 min-h-0 relative"
           data-testid="sheet-grid-wrap"
           onDragOver={(e) => {
+            if (dragCarriesFiles(e.dataTransfer)) {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'copy'
+              return
+            }
             if (!acceptsWidgetDrag(e.dataTransfer)) return
             e.preventDefault()
             e.dataTransfer.dropEffect = 'copy'
           }}
           onDrop={(e) => {
+            // From Files: the content lands AT THE CELL under the pointer through
+            // Cells' own converted paste (values, never pictures); a work widget
+            // file anchors to that cell as its own drag does. Several items stack
+            // down from it. Checked first: one item also carries the widget drag.
+            if (dragCarriesFiles(e.dataTransfer)) {
+              e.preventDefault()
+              e.stopPropagation()
+              const refs = filesDropRefs(e.dataTransfer)
+              if (!refs?.length) return
+              const box = e.currentTarget.getBoundingClientRect()
+              const cell = cellAtOffset(e.clientX - box.left + e.currentTarget.scrollLeft, e.clientY - box.top + e.currentTarget.scrollTop) ?? { r: selection.r0, c: selection.c0 }
+              let next = cell
+              void runContentDrop(refs, { target: 'sheet', alt: e.altKey, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
+                if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !e.altKey) {
+                  const at = next
+                  mutateTab((t) => ({
+                    ...t,
+                    widgets: [...(t.widgets ?? []), { id: `sw-${Date.now().toString(36)}-${ref.docId!.slice(0, 6)}`, widgetId: widgetFileGroupId(ref.docId!), mode: 'cell' as const, r: at.r, c: at.c, w: 320, h: 220 }]
+                  }))
+                  next = { r: at.r + 10, c: at.c }
+                  return true
+                }
+                lastLanding.current = null
+                const out = await pasteConverted('sheet', (body) => insertSnippetHere(pastedSnippet(body), next), { read })
+                if (lastLanding.current) next = { r: (lastLanding.current as { r1: number }).r1 + 2, c: cell.c }
+                return out
+              })
+              return
+            }
             if (!acceptsWidgetDrag(e.dataTransfer)) return
             e.preventDefault()
             // WHICH MODE A DROP MAKES. Dropped onto a cell it anchors to

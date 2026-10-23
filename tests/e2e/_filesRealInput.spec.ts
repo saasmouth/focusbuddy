@@ -170,3 +170,79 @@ test('REAL-6: a row dragged out of a narrow sheet lands on the content beneath i
   await expect.poll(() => fileWidgets(window, taskId, pdf), { timeout: 6_000 }).toBe(before + 1)
   await expect(window.locator('[data-testid="files-flyout"]')).toHaveCSS('opacity', '1')
 })
+
+// ── Phase 3: content drops, for real (plan §7 Phase 4 cases 2 and 3) ─────────
+
+async function bootContent(): Promise<{ window: Page; app: ElectronApplication; taskId: string; csv: string; docId: string; deskDoc: string }> {
+  launched = await launchApp()
+  const { window, app } = launched
+  await waitForReady(window)
+  const seed = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const csv = await api.files.ingestBuffer({ buffer: new TextEncoder().encode('name,score\nAda,9\nGrace,8\n').buffer, originalName: 'scores.csv', mimeType: 'text/csv', parentId: null })
+    const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Drop below.' }] }] }
+    const doc = (await api.documents.create({ docType: 'doc', title: 'Real target', body } as never)) as { id: string }
+    const deskDoc = (await api.documents.create({ docType: 'doc', title: 'Desk doc', body } as never)) as { id: string }
+    const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Real embed desk' })
+    await api.widgets.create({ taskId: task.id, kind: 'doc', content: deskDoc.id, x: 40, y: 40, width: 620, height: 460 } as never)
+    return { csv: csv.id, docId: doc.id, deskDoc: deskDoc.id, taskId: task.id }
+  })
+  await suppressFeatureSpotlights(window)
+  await window.reload()
+  await waitForReady(window)
+  await chooseCloudAiSource(window)
+  await pin(app)
+  return { window, app, ...seed }
+}
+
+const savedBody = (window: Page, id: string): Promise<string> =>
+  window.evaluate(async (i: string) => JSON.stringify((await (window as unknown as { api: typeof window.api }).api.documents.get(i))?.body ?? null), id)
+
+async function pinnedPanel(app: ElectronApplication, window: Page): Promise<void> {
+  if (!(await window.locator('[data-testid="files-flyout"]').isVisible().catch(() => false))) await realClick(app, window, '[data-testid="files-panel-toggle"]')
+  if ((await window.locator('[data-testid="files-panel-pin"]').getAttribute('aria-pressed')) !== 'true') await realClick(app, window, '[data-testid="files-panel-pin"]')
+  await expect(window.locator('[data-testid="files-flyout"]')).toHaveAttribute('data-pinned', 'true')
+}
+
+test('REAL-2: a .csv dragged for real from the flyout into a full-pane PlexiiWrite document becomes a table', async () => {
+  test.setTimeout(180_000)
+  const { window, app, csv, docId } = await bootContent()
+  await window.evaluate((i: string) => (window as unknown as { __fbView: { getState: () => { goDocument: (x: string) => void } } }).__fbView.getState().goDocument(i), docId)
+  await window.waitForSelector('[data-testid="doc-editor-surface"]')
+  await pinnedPanel(app, window)
+  await window.waitForTimeout(600)
+  const row = await centre(window, `[data-testid="files-panel-entry-${csv}"]`)
+  const pm = (await window.locator('[data-testid="doc-editor-surface"]').boundingBox())!
+  await realDrag(app, window, row, { x: Math.round(pm.x + 80), y: Math.round(pm.y + 14) })
+  await expect.poll(() => savedBody(window, docId), { timeout: 8_000 }).toContain('"Grace"')
+  expect(await savedBody(window, docId)).toContain('"table"')
+  expect(await savedBody(window, docId)).not.toContain('scores.csv')
+  await window.screenshot({ path: join(SHOTS, 'real-drop-write.png') })
+})
+
+// REAL-3 is also the regression for the desk's edge-pan guard (lib/useEdgePan
+// entryGuard): every drag out of the panel crosses the desk's left edge zone,
+// and before the guard the desk panned away under it, so this drop landed on
+// the bare desk as a new file widget instead. Without the guard it fails.
+test('REAL-3: dragged for real into a Write document ON A DESK, it lands once (the document, no desk widget)', async () => {
+  test.setTimeout(180_000)
+  const { window, app, csv, deskDoc, taskId } = await bootContent()
+  await window.evaluate((i: string) => (window as unknown as { __fbView: { getState: () => { goTask: (x: string) => void } } }).__fbView.getState().goTask(i), taskId)
+  await window.waitForSelector('[data-canvas-surface="true"] .ProseMirror', { timeout: 20_000 })
+  await pinnedPanel(app, window)
+  await window.waitForTimeout(800)
+  const count = (): Promise<number> => window.evaluate(async (t: string) => (await (window as unknown as { api: typeof window.api }).api.widgets.listByTask(t)).filter((w) => !w.archived).length, taskId)
+  const before = await count()
+  const row = await centre(window, `[data-testid="files-panel-entry-${csv}"]`)
+  const pm = (await window.locator('[data-canvas-surface="true"] .ProseMirror').first().boundingBox())!
+  await window.evaluate(() => {
+    const w = window as unknown as { __dl: string[] }
+    w.__dl = []
+    for (const t of ['dragenter', 'drop', 'dragend']) window.addEventListener(t, (e) => w.__dl.push(`${t}@${(e.target as HTMLElement)?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? (e.target as HTMLElement)?.className?.toString().slice(0, 40)}`), true)
+  })
+  await realDrag(app, window, row, { x: Math.round(pm.x + 60), y: Math.round(pm.y + 12) })
+  await expect.poll(() => savedBody(window, deskDoc), { timeout: 8_000 }).toContain('"Grace"')
+  await window.waitForTimeout(1000)
+  expect(await count(), 'the desk ALSO placed a widget for the same drop').toBe(before)
+  await window.screenshot({ path: join(SHOTS, 'real-drop-desk-write.png') })
+})

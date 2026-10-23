@@ -297,8 +297,10 @@ function makeCommands(d: Deps) {
     },
     // Insert a saved fragment like a paste: fresh ids, centred in view, one
     // undo step, selected afterwards. False when there was nothing to place.
-    insertSnippetBody(body: DiagramSnippetBody): boolean {
-      const placed = placeDiagramSnippet(page(), body, viewportCenter(), grid())
+    // `at` (optional, additive): the flow point to centre it on, for a drop
+    // from Files. Absent: centred in view, as before.
+    insertSnippetBody(body: DiagramSnippetBody, at?: { x: number; y: number }): boolean {
+      const placed = placeDiagramSnippet(page(), body, at ?? viewportCenter(), grid())
       if (!placed) return false
       d.update(() => placed.graph)
       d.setSel(placed.sel)

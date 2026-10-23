@@ -19,7 +19,9 @@ import { walkNodes } from '@shared/draw/tree'
 import { createDrawEditor, type DrawEditor } from './draw/editor/editor'
 import { clipboardEventInfo, handleClipboardEvent, type ClipboardEventKind } from './draw/editor/menuClipboard'
 import { createDomServices } from './draw/editor/domServices'
-import { dragHasFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
+import { dragHasFiles, dropFromFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
+import { dragCarriesFiles } from '../../lib/filesDrag'
+import { filesDropRefs } from '../../lib/filesContentDrop'
 import type { DrawSession, KeyInput, ToolPointer } from './draw/editor/types'
 import type { DocumentOps } from './editor/documentOps'
 import { dialogById } from './draw/dialogs/registry'
@@ -690,6 +692,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         editor.keyDown(keyInput(e.nativeEvent))
       }}
       onDragOver={(e) => {
+        // From the Files panel (lib/filesDrag): placed or converted at the drop point.
+        if (dragCarriesFiles(e.dataTransfer)) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = state.readOnly ? 'none' : 'copy'
+          return
+        }
         // Files from the desktop are placed where they are dropped (WP-IMPORT).
         if (dragHasFiles(e.dataTransfer)) {
           e.preventDefault()
@@ -701,6 +709,26 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         e.dataTransfer.dropEffect = 'copy'
       }}
       onDrop={(e) => {
+        if (dragCarriesFiles(e.dataTransfer)) {
+          e.preventDefault()
+          e.stopPropagation()
+          const refs = filesDropRefs(e.dataTransfer)
+          if (!refs?.length) return
+          const at = toolPointer(e).p
+          void dropFromFiles(ctx, refs, at, {
+            alt: e.altKey,
+            ownDocumentId: documentOps?.id ?? null,
+            addWidget: (widgetId) => {
+              // The same widget object a work widget's own drag places.
+              const d = ctx.doc()
+              const b = primaryArtboard(d)
+              const obj: DrawWidgetNode = { id: drawId('obj'), type: 'widget', widgetId, x: Math.round(at.x), y: Math.round(at.y), w: Math.round(b.w * 0.4), h: Math.round(b.w * 0.28) }
+              ctx.history.commit(addObject(d, obj, targetLayerId(d)), 'Place work widget')
+              ctx.select([obj.id])
+            }
+          })
+          return
+        }
         if (dragHasFiles(e.dataTransfer) && e.dataTransfer.files.length) {
           e.preventDefault()
           const at = toolPointer(e).p

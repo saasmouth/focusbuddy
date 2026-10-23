@@ -1,3 +1,5 @@
+import { openPlexiiHref } from '../MentionText'
+import { dragCarriesFiles } from '../../lib/filesDrag'
 import { useEffect, useRef, useState } from 'react'
 import MentionTextarea from '../MentionTextarea'
 import { EditorContent, useEditor } from '@tiptap/react'
@@ -128,6 +130,21 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
         // ⌘V of what the editor cannot read itself (a picture, a drawing, a
         // grid of cells) goes through the snippet conversion; text and HTML keep
         // the editor's own paste.
+        // Something dragged out of Files is the work widget frame's to land
+        // (WidgetFrame → this widget's dropForms); never ProseMirror's own
+        // drop, which would type the dragged names in as text.
+        handleDrop(_view, event) {
+          return dragCarriesFiles((event as DragEvent).dataTransfer)
+        },
+        // A plexii:// link (a document, folder or file dropped in from Files)
+        // opens what it names on a click; web links keep the editor's own handling.
+        handleClick(_view, _pos, event) {
+          const a = (event.target as HTMLElement | null)?.closest?.('a')
+          const href = a?.getAttribute('href') ?? ''
+          if (!href.startsWith('plexii://')) return false
+          event.preventDefault()
+          return openPlexiiHref(href)
+        },
         handlePaste(_view, event) {
           return pasteRef.current(event)
         },

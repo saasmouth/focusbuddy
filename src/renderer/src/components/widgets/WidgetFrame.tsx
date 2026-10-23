@@ -1,3 +1,6 @@
+import { dragCarriesFiles } from '../../lib/filesDrag'
+import { filesDropRefs, runContentDrop } from '../../lib/filesContentDrop'
+import type { ContentTarget } from '@shared/fileForms'
 import { WIDGET_CATALOG } from '../../lib/widgetCatalog'
 import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../snippets/SnippetLibrary'
@@ -119,6 +122,16 @@ interface Props {
   }
 }
 
+/** Work widget kinds that take content dropped from Files, as content targets (shared/fileForms). */
+const FILES_TARGETS: Partial<Record<string, ContentTarget>> = {
+  page: 'page',
+  markdown: 'markdown',
+  sticky: 'sticky',
+  note: 'note',
+  table: 'table',
+  image: 'image'
+}
+
 export default function WidgetFrame({
   widget,
   children,
@@ -130,6 +143,8 @@ export default function WidgetFrame({
   onAi,
   snippets
 }: Props): JSX.Element {
+  // The content target this work widget is for a drop from Files (null: none, the desk places it beside).
+  const filesTarget = FILES_TARGETS[widget.kind] ?? null
   // Pull from the prop first (escape hatch for callers that want to drive
   // position explicitly), then fall back to the PinLayoutContext provided
   // by Canvas's pinned-layer. The context approach avoids prop-drilling
@@ -1160,6 +1175,25 @@ export default function WidgetFrame({
       <div
         data-widget-id={widget.id}
         data-widget-kind={widget.kind}
+        // Something dragged out of Files lands IN this work widget through its
+        // own dropForms (the same land as paste and insert), at the drop
+        // point, with one line for the whole drop. Work widgets that take no
+        // content leave it to the desk, which places it beside them.
+        onDragOver={(e) => {
+          if (!filesTarget || !snippets?.dropForms || !dragCarriesFiles(e.dataTransfer)) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }}
+        onDrop={(e) => {
+          if (!filesTarget || !snippets?.dropForms || !dragCarriesFiles(e.dataTransfer)) return
+          e.preventDefault()
+          e.stopPropagation()
+          const refs = filesDropRefs(e.dataTransfer)
+          if (!refs?.length) return
+          const drop = snippets.dropForms
+          const at = { clientX: e.clientX, clientY: e.clientY }
+          void runContentDrop(refs, { target: filesTarget, alt: e.altKey }, (read) => drop(read, at))
+        }}
         // Shift-select is handled on mousedown (CAPTURE phase) — not onClick —
         // because the header IS react-rnd's drag handle: react-draggable's
         // bubble-phase mousedown consumes the gesture and onClick never fires on

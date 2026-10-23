@@ -33,7 +33,7 @@ import { addObject, editableIds, findLayer, getObjects, nodesBounds, primaryArtb
 import { drawDocToSvg } from '@shared/draw/svg'
 import { findNode, vectorLayersOf } from '@shared/draw/tree'
 import type { EditorCtx } from './types'
-import { readClipboardForms } from '../../../../lib/clipboardForms'
+import { readClipboardForms, type ClipboardForms } from '../../../../lib/clipboardForms'
 import { convertClipboard, fromAnotherApp } from '../../../../lib/clipboardPaste'
 import { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION, type DrawClipboardPayload } from '@shared/draw/clipboardFormat'
 
@@ -911,4 +911,32 @@ export async function cutSelection(ctx: EditorCtx, remove: (doc: DrawDoc, ids: s
 /** Rename the newest undo step (a streamed gesture whose meaning was only known at its end). */
 export function relabelLastStep(ctx: EditorCtx, label: string): void {
   ctx.set((s) => (s.past.length ? { past: [...s.past.slice(0, -1), { ...s.past[s.past.length - 1], label }] } : {}))
+}
+
+/**
+ * Content dropped from Files (already read as forms, verb 'drop'), converted
+ * to Draw objects exactly as another app's paste is (convertClipboard) and
+ * landed CENTRED ON THE DROP POINT, as one undo step. Pictures, SVG and PDFs
+ * do not come here: they go through Place (fileDrop.ts), which keeps their
+ * actual size and makes SVG editable. Returns the conversion's line, or why
+ * nothing landed.
+ */
+export function landConvertedAt(ctx: EditorCtx, read: ClipboardForms, at: Pt): { ok: true; notice: string | null } | { ok: false; reason: string } {
+  if (ctx.get().readOnly) return { ok: false, reason: 'This document is read-only, so nothing can be added to it.' }
+  const conv = convertClipboard(read, 'draw')
+  if (!conv) return { ok: false, reason: 'There is nothing in what was dropped to add.' }
+  if (!conv.ok) return conv
+  if (conv.body.kind !== 'draw') return { ok: false, reason: 'Nothing that was dropped can go into a drawing.' }
+  const parsed = parseClipboardValue({ kind: DRAW_CLIPBOARD_KIND, nodes: conv.body.objects, assets: conv.body.assets ?? {}, swatches: conv.body.swatches ?? [] })
+  if (!parsed || !parsed.nodes.length) return { ok: false, reason: 'Nothing that was dropped can go into a drawing.' }
+  const landed = landPayload(ctx.doc(), parsed)
+  const d = centreDelta(nodesBounds(landed.nodes), at)
+  const nodes = translateAll(landed.nodes, d.dx, d.dy)
+  const doc = insertInLayer(landed.doc, targetLayerId(landed.doc), nodes, 'top')
+  const st = ctx.get()
+  const why = pasteStorageObstacle(ctx.doc(), doc, st.storedSchema, st.v2Writes)
+  if (why) return { ok: false, reason: `This drawing is saved in the older format, which can't hold ${why} (${v2BlockedReason(st)}).` }
+  ctx.history.commit(doc, 'Drop')
+  ctx.select(nodes.map((n) => n.id))
+  return { ok: true, notice: conv.notice }
 }

@@ -1,3 +1,7 @@
+import { dragCarriesFiles } from '../../lib/filesDrag'
+import { filesDropRefs, pagePointFromDrop, runContentDrop } from '../../lib/filesContentDrop'
+import { pasteConverted } from '../../lib/clipboardPaste'
+import { widgetFileGroupId } from '@shared/widgetFiles'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideTextElement } from '@shared/types'
 import SlideCanvas from './slides/SlideCanvas'
@@ -646,8 +650,10 @@ export default function DesignEditor({
   // read-only state today, so the only refusals are the snippet's own (another
   // kind, nothing drawable, threaded text aimed at a master page), and each
   // says why on the status line.
-  function insertSnippetHere(snippet: Snippet): boolean {
-    const landing = insertDesignSnippet(designRef.current, snippet, { newId: elementId, readOnly: false, brand })
+  // `centre` (optional, additive): where the block goes, in page coordinates,
+  // for a drop from Files. Absent: centred, as before.
+  function insertSnippetHere(snippet: Snippet, centre?: { x: number; y: number }): boolean {
+    const landing = insertDesignSnippet(designRef.current, snippet, { newId: elementId, readOnly: false, brand, ...(centre ? { centre } : {}) })
     if ('declined' in landing) {
       setStatus(landing.declined)
       return false
@@ -1916,11 +1922,35 @@ export default function DesignEditor({
       className="flex flex-col h-full"
       data-testid="design-editor"
       onDragOver={(e) => {
+        if (dragCarriesFiles(e.dataTransfer)) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          return
+        }
         if (!acceptsWidgetDrag(e.dataTransfer)) return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'copy'
       }}
       onDrop={(e) => {
+        // From Files: Design's own converted paste with our read, landing
+        // where it was dropped. A work widget file stays a live widget.
+        if (dragCarriesFiles(e.dataTransfer)) {
+          e.preventDefault()
+          e.stopPropagation()
+          const refs = filesDropRefs(e.dataTransfer)
+          if (!refs?.length) return
+          const d = designRef.current
+          const at = pagePointFromDrop(e.currentTarget, e.clientX, e.clientY, { w: d.width, h: d.height }) ?? undefined
+          const alt = e.altKey
+          void runContentDrop(refs, { target: 'design', alt, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
+            if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !alt) {
+              addWidget(widgetFileGroupId(ref.docId))
+              return true
+            }
+            return pasteConverted('design', (b) => insertSnippetHere(pastedSnippet(b), at), { read })
+          })
+          return
+        }
         if (!acceptsWidgetDrag(e.dataTransfer)) return
         e.preventDefault()
         void widgetIdFromDrop(e.dataTransfer).then((id) => {

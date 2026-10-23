@@ -225,6 +225,12 @@ export interface DesignSnippetPlacement {
   readOnly: boolean
   /** The brand kit, for the default palette a document with none starts from. */
   brand?: OrgBrandKit
+  /**
+   * Where the block's centre goes, in page coordinates (a drop from Files lands
+   * where it was dropped). Absent: centred on the page, as before. Additive
+   * (Files beside, Phase 3); the block is kept on the page.
+   */
+  centre?: { x: number; y: number }
 }
 
 export type DesignSnippetLanding = { body: DesignBody; ids: string[] } | { declined: string }
@@ -283,8 +289,10 @@ export function insertDesignSnippet(design: DesignBody, snippet: Snippet, at: De
   const h = Math.max(...clip.elements.map((e) => e.y + e.h)) - minY
   // Centred: the body carries no position of its own, so the destination
   // decides, and the middle of the page is where a person is looking.
-  const dx = Math.round((design.width - w) / 2) - minX
-  const dy = Math.round((design.height - h) / 2) - minY
+  const left = at.centre ? Math.max(0, Math.min(design.width - w, Math.round(at.centre.x - w / 2))) : Math.round((design.width - w) / 2)
+  const top = at.centre ? Math.max(0, Math.min(design.height - h, Math.round(at.centre.y - h / 2))) : Math.round((design.height - h) / 2)
+  const dx = left - minX
+  const dy = top - minY
   const centred = { ...clip, elements: clip.elements.map((e) => translate(e, dx, dy)) }
   const pasted = pasteElements(centred, { canvas: { w: design.width, h: design.height }, topZ, newId: at.newId, offset: 0 }).map((e, i) => {
     const src = centred.elements[i]
