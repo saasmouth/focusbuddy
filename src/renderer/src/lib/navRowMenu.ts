@@ -11,7 +11,7 @@ import { objectMenu } from './objectMenu'
 
 /** A place row or a connected-app tile: the one thing it does. */
 export function navRowMenuItems(open: () => void): CtxMenuItem[] {
-  return objectMenu({ object: [{ label: MENU.open.label, icon: 'chevron_right', testid: 'nav-menu-open', onClick: open }] })
+  return objectMenu({ object: [{ label: MENU.open.label, icon: 'open_in_new', testid: 'nav-menu-open', onClick: open }] })
 }
 
 export interface AppTileMenuInput {
@@ -31,7 +31,7 @@ export function appTileMenuItems(m: AppTileMenuInput): CtxMenuItem[] {
       { label: 'Open full screen', icon: 'open_in_full', testid: 'files-open-fullscreen', onClick: m.files.fullScreen }
     )
   } else if (m.open) {
-    object.push({ label: MENU.open.label, icon: 'chevron_right', testid: 'nav-menu-open', onClick: m.open })
+    object.push({ label: MENU.open.label, icon: 'open_in_new', testid: 'nav-menu-open', onClick: m.open })
   }
   if (m.addToDesk) {
     object.push(

@@ -152,7 +152,7 @@ export function deskMenuItems(node: FbNode, host: NodeMenuHost): CtxMenuItem[] {
 
   const object: CtxMenuItem[] = [
     ...leadRows(
-      { label: MENU.open.label, icon: 'chevron_right', testid: id('open'), onClick: () => openNode(node) },
+      { label: MENU.open.label, icon: 'open_in_new', testid: id('open'), onClick: () => openNode(node) },
       { label: MENU.addToFocus.label, icon: 'notifications', testid: id('focus'), onClick: () => addNodeToFocus(node) }
     ),
     { label: MENU.rename.label, icon: 'edit', testid: id('rename'), onClick: () => void renameNode(node) }
