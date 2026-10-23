@@ -175,6 +175,14 @@ export interface CreateSnippetResult {
   ok: boolean
   snippet?: Snippet
   error?: string
+  /**
+   * Set when the write was refused because the master had moved on. Carries what
+   * is stored NOW, so the caller can offer Reload (take this) or Overwrite
+   * (re-save against this revision) without a second round trip — and can show
+   * the user what they would be replacing rather than asking them to choose
+   * blind.
+   */
+  conflictWith?: Snippet
 }
 
 /**
@@ -264,15 +272,30 @@ export function updateSnippet(id: string, patch: SnippetPatch): CreateSnippetRes
   const scope: SnippetScope =
     patch.scope === undefined || current.orgId === PERSONAL_ORG_ID ? current.scope : patch.scope
 
+  // Compare-and-set. The early return gives a useful message and the snapshot to
+  // reload from; the WHERE clause below is what makes it SAFE, because a
+  // read-then-write would leave a window in which two writers both pass this
+  // check and the second silently wins.
+  const expected = patch.expectedRevision
+  if (expected !== undefined && current.revision !== expected) {
+    return {
+      ok: false,
+      error: 'This snippet was changed somewhere else while you were editing it.',
+      conflictWith: current
+    }
+  }
+
   const now = Date.now()
-  getDb()
+  const info = getDb()
     .prepare(
       `UPDATE fb_snippets
           SET name = @name, description = @description, body_json = @body, tags_json = @tags,
               scope = @scope, revision = @revision, updated_at = @now
-        WHERE id = @id`
+        WHERE id = @id
+          AND (@expected IS NULL OR revision = @expected)`
     )
     .run({
+      expected: expected ?? null,
       id,
       name,
       description: patch.description === undefined ? current.description : patch.description.trim(),
@@ -284,6 +307,16 @@ export function updateSnippet(id: string, patch: SnippetPatch): CreateSnippetRes
       revision,
       now
     })
+  if (info.changes === 0) {
+    // The row moved between the check above and this write. Rare, and exactly
+    // what the WHERE clause is for.
+    const latest = getSnippet(id)
+    return {
+      ok: false,
+      error: 'This snippet was changed somewhere else while you were editing it.',
+      conflictWith: latest ?? undefined
+    }
+  }
   const next = getSnippet(id)
   return next ? { ok: true, snippet: next } : { ok: false, error: 'The snippet could not be read back.' }
 }

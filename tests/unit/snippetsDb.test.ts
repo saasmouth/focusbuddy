@@ -259,3 +259,69 @@ describe('searching in SQL-backed listing', () => {
     expect(listSnippets({ kinds: ['widget'] }).map((s) => s.name)).toEqual(['W'])
   })
 })
+
+describe('compare-and-set, so two editors cannot silently overwrite each other', () => {
+  const docBody2 = (text: string) => ({
+    kind: 'doc' as const,
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+    text
+  })
+
+  it('writes when the revision is still what the editor loaded', () => {
+    const made = createSnippet({ kind: 'doc', name: 'T', body: docBody2('v1') }).snippet!
+    const res = updateSnippet(made.id, { body: docBody2('v2'), expectedRevision: made.revision })
+    expect(res.ok).toBe(true)
+    expect(res.snippet!.revision).toBe(made.revision + 1)
+  })
+
+  it('REFUSES a stale write, and does not touch the stored body', () => {
+    const made = createSnippet({ kind: 'doc', name: 'T', body: docBody2('v1') }).snippet!
+    // Somebody else saves first.
+    updateSnippet(made.id, { body: docBody2('theirs') })
+    // Our editor still thinks it holds the original revision.
+    const res = updateSnippet(made.id, { body: docBody2('ours'), expectedRevision: made.revision })
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/changed somewhere else/i)
+    // The loser's text never landed: last-write-wins is exactly what this prevents.
+    expect((getSnippet(made.id)!.body as { text: string }).text).toBe('theirs')
+  })
+
+  it('hands back what is stored now, so the user can be shown what they would replace', () => {
+    const made = createSnippet({ kind: 'doc', name: 'T', body: docBody2('v1') }).snippet!
+    updateSnippet(made.id, { body: docBody2('theirs') })
+    const res = updateSnippet(made.id, { body: docBody2('ours'), expectedRevision: made.revision })
+    // Reload and Overwrite both need this, and without it the UI would have to
+    // make a second round trip to find out what it lost to.
+    expect(res.conflictWith).toBeDefined()
+    expect((res.conflictWith!.body as { text: string }).text).toBe('theirs')
+    expect(res.conflictWith!.revision).toBe(made.revision + 1)
+  })
+
+  it('an explicit Overwrite succeeds once it targets the revision it just saw', () => {
+    const made = createSnippet({ kind: 'doc', name: 'T', body: docBody2('v1') }).snippet!
+    updateSnippet(made.id, { body: docBody2('theirs') })
+    const conflict = updateSnippet(made.id, { body: docBody2('ours'), expectedRevision: made.revision })
+    const res = updateSnippet(made.id, {
+      body: docBody2('ours'),
+      expectedRevision: conflict.conflictWith!.revision
+    })
+    expect(res.ok).toBe(true)
+    expect((getSnippet(made.id)!.body as { text: string }).text).toBe('ours')
+  })
+
+  it('a write that omits expectedRevision is unchanged, so existing callers keep working', () => {
+    const made = createSnippet({ kind: 'doc', name: 'T', body: docBody2('v1') }).snippet!
+    updateSnippet(made.id, { body: docBody2('theirs') })
+    const res = updateSnippet(made.id, { body: docBody2('no guard') })
+    expect(res.ok).toBe(true)
+  })
+
+  it('a rename passes the guard, because a rename does not bump the revision', () => {
+    // Otherwise renaming from the library would spuriously conflict with an
+    // open session that had changed nothing.
+    const made = createSnippet({ kind: 'doc', name: 'T', body: docBody2('v1') }).snippet!
+    const res = updateSnippet(made.id, { name: 'Renamed', expectedRevision: made.revision })
+    expect(res.ok).toBe(true)
+    expect(res.snippet!.revision).toBe(made.revision)
+  })
+})

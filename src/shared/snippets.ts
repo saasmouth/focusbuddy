@@ -209,6 +209,16 @@ export interface SnippetPatch {
   body?: SnippetBody
   tags?: string[]
   scope?: SnippetScope
+  /**
+   * The revision the editor loaded. When given, the write only lands if the
+   * stored revision still matches — a compare-and-set, so two people editing one
+   * master cannot silently last-write-win.
+   *
+   * Omit it for a write that is not replacing someone's work (a rename, a tag,
+   * the library's own edit of a snippet nobody else has open) or to overwrite
+   * deliberately after the user has been shown the conflict.
+   */
+  expectedRevision?: number
 }
 
 export interface SnippetQuery {
