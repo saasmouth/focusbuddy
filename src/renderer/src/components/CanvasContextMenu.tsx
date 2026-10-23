@@ -18,6 +18,12 @@ export interface CtxMenuItem {
   children?: CtxMenuItem[]
   /** A data-testid for the item's button. */
   testid?: string
+  /** Destructive (Move to Trash, Delete, Remove from…): drawn in the danger colour. SPEC §9.3 puts it last, behind a separator. */
+  danger?: boolean
+  /** A toggle: rendered as menuitemcheckbox with a check mark, never as text in the shortcut slot. */
+  checked?: boolean
+  /** Why the item is off (SPEC §9.5: disabled items say why), shown under the label. */
+  hint?: string
 }
 
 interface Props {
@@ -41,6 +47,18 @@ export default function CanvasContextMenu({ x, y, items, onClose }: Props): JSX.
   // menu on top of the old one instead of replacing it.
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  // Give focus back to whatever had it when the menu opened (SPEC §9.1): a
+  // keyboard user who opens a menu and closes it lands where they were.
+  // Captured during the FIRST RENDER: the panel's own autofocus effect (a
+  // child) runs before any effect of this component, so reading activeElement
+  // in an effect would record the menu itself.
+  const openerRef = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null))
+  useEffect(() => {
+    const opener = openerRef.current
+    return () => {
+      if (opener && opener !== document.body && document.contains(opener)) opener.focus({ preventScroll: true })
+    }
+  }, [])
   useEffect(() => {
     function onMouseDown(e: MouseEvent): void {
       // Ignore the right button: a right-click elsewhere is about to open/move a
@@ -285,7 +303,9 @@ function MenuPanel({
             }}
           >
             <button
-              role="menuitem"
+              role={item.checked !== undefined ? 'menuitemcheckbox' : 'menuitem'}
+              aria-checked={item.checked !== undefined ? item.checked : undefined}
+              title={item.disabled && item.hint ? item.hint : undefined}
               data-testid={item.testid}
               aria-haspopup={hasChildren || undefined}
               aria-expanded={hasChildren ? openIndex === i : undefined}
@@ -303,17 +323,22 @@ function MenuPanel({
               className={`w-full text-left px-3 py-1.5 flex items-center gap-2 ${
                 item.disabled
                   ? 'text-[var(--ink-40)] cursor-not-allowed'
-                  : `text-[var(--ink-90)] ${active === i ? 'bg-[var(--surface-sunken)]' : 'hover:bg-[var(--surface-sunken)]'}`
+                  : `${item.danger ? 'text-red-600 dark:text-red-400' : 'text-[var(--ink-90)]'} ${active === i ? 'bg-[var(--surface-sunken)]' : 'hover:bg-[var(--surface-sunken)]'}`
               }`}
             >
-              {item.entity ? (
+              {item.checked !== undefined ? (
+                <span className="w-3.5 shrink-0">{item.checked ? <Icon name="check" size={14} className="text-[var(--ink-70)]" /> : null}</span>
+              ) : item.entity ? (
                 <PlexiiIcon kind={item.entity.kind} id={item.entity.id} size={16} fallback={item.icon} fallbackClassName="text-[var(--ink-50)]" />
               ) : item.icon ? (
                 <Icon name={item.icon} size={14} className="text-[var(--ink-50)]" />
               ) : (
                 <span className="w-3.5" />
               )}
-              <span className="flex-1 min-w-0 truncate">{item.label}</span>
+              <span className="flex-1 min-w-0 truncate">
+                {item.label}
+                {item.disabled && item.hint && <span className="block text-[11px] text-[var(--ink-40)] truncate">{item.hint}</span>}
+              </span>
               {item.shortcut && (
                 <span className="text-[11px] text-[var(--ink-50)] font-mono">{item.shortcut}</span>
               )}
