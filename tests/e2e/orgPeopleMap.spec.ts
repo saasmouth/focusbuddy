@@ -27,6 +27,7 @@
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { signInWithFakeSignal } from './_fakeSignal'
 
 let launched: LaunchedApp | null = null
 
@@ -51,6 +52,67 @@ test.afterEach(async () => {
  * MOUNTS and renders its sections without throwing, which only happens on a
  * tier entitled to open it.
  */
+const ORG_ID = 'org-e2e-1'
+
+/**
+ * A signed-in account that belongs to an organisation it administers.
+ *
+ * OrgAdminView's working-hours and offices sections live inside `detail`
+ * (OrgAdminView:284), and detail comes from GET /orgs/:id with a session
+ * token, with canAdmin requiring role owner|admin (OrgAdminView:169). With no
+ * account and no org the view mounts and those two sections simply are not in
+ * the tree — which is why "mounts without JS errors" passes while the other
+ * two cannot.
+ *
+ * The routes are registered AFTER signInWithFakeSignal, because Playwright
+ * tries the most recently added route first and that helper installs a
+ * catch-all for the whole signal origin.
+ */
+async function signInWithOrg(window: LaunchedApp['window']): Promise<void> {
+  await signInWithFakeSignal(window, { name: { firstName: 'Dana', lastName: 'Reed' } })
+
+  const membership = {
+    id: ORG_ID,
+    name: 'E2E Org',
+    slug: 'e2e-org',
+    personal: false,
+    role: 'owner',
+    memberCount: 1,
+    createdAt: Date.now()
+  }
+  await window.route('**/orgs', async (route) => {
+    if (route.request().method() !== 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, orgs: [membership] })
+    })
+  })
+  await window.route(`**/orgs/${ORG_ID}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        org: { id: ORG_ID, name: 'E2E Org', personal: false },
+        role: 'owner',
+        members: [{ accountId: 'acc_e2e', handle: 'e2e', firstName: 'Dana', lastName: 'Reed', role: 'owner' }],
+        invites: []
+      })
+    })
+  })
+  // Everything else under the org (offices, hours, invite policy, audit, SSO,
+  // SCIM) answers empty rather than erroring, so refreshAux completes and the
+  // sections render their own empty states.
+  await window.route(`**/orgs/${ORG_ID}/**`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, offices: [], events: [], config: null, status: 'off', baseUrl: null, start: 9, end: 17, policy: 'admins' })
+    })
+  })
+}
+
 async function grantOrgEntitlement(window: LaunchedApp['window']): Promise<void> {
   await window.evaluate(() => {
     const w = window as unknown as {
@@ -111,6 +173,9 @@ test('OrgAdminView: company working-hours inputs render', async () => {
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
   await waitForReady(window)
+  // These two need an ORG, not just an account: their sections are inside
+  // `detail`. See signInWithOrg.
+  await signInWithOrg(window)
   await openOrgView(window)
 
   await expect(window.locator('[data-testid="org-admin"]')).toBeVisible({ timeout: 8_000 })
@@ -149,6 +214,9 @@ test('OrgAdminView: offices section with add-input and add-button render', async
   window.on('pageerror', (err) => pageErrors.push(err.message))
 
   await waitForReady(window)
+  // These two need an ORG, not just an account: their sections are inside
+  // `detail`. See signInWithOrg.
+  await signInWithOrg(window)
   await openOrgView(window)
 
   await expect(window.locator('[data-testid="org-admin"]')).toBeVisible({ timeout: 8_000 })
