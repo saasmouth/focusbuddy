@@ -643,6 +643,7 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'localAi.onAnswered': 'localAi:answered',
   'localAi.onChanged': 'localAi:changed',
   'localAi.onConsentRequest': 'localAi:consentRequest',
+  'localAi.onCoverageChanged': 'brain:coverageChanged',
   'localAi.onEngine': 'localAi:engine',
   'localAi.onGrounding': 'localAi:grounding',
   'localAi.onNotice': 'localAi:notice',
