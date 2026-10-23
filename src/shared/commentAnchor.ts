@@ -124,8 +124,22 @@ export function quoteFor(docText: string, from: number, to: number): AnchorQuote
  * older client writes no anchor at all, so absent is ordinary rather than an
  * error. A malformed anchor is treated as absent: a comment with half a range
  * would otherwise highlight an arbitrary span of someone's document.
+ *
+ * A STRING is parsed, because the two boundaries disagree: SQLite holds the
+ * anchor in a TEXT column and hands back JSON, while the signal server's JSON
+ * body arrives as an object. Parsing here rather than in each caller is the
+ * whole point of a boundary function — and a caller that wrapped it in its own
+ * try/catch would be the second place to get it wrong.
  */
-export function readCommentAnchor(raw: unknown): CommentAnchor | null {
+export function readCommentAnchor(input: unknown): CommentAnchor | null {
+  let raw = input
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
   if (!isObj(raw)) return null
   const quote = readQuote(raw.quote)
   if (raw.kind === 'local') {

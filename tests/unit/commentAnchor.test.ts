@@ -77,6 +77,31 @@ describe('readCommentAnchor: everything has been through a database', () => {
   it('normalises an inverted range, which is a caller’s slip rather than corruption', () => {
     expect(readCommentAnchor({ kind: 'local', from: 9, to: 3 })).toEqual({ kind: 'local', from: 3, to: 9 })
   })
+
+  // The two boundaries disagree about what an anchor is: SQLite holds it in a
+  // TEXT column and hands back JSON, the signal server hands back an object.
+  // Both arrive here so neither host needs its own try/catch — and a host that
+  // wrote one would be the second place to get it wrong.
+  it('parses the JSON string a database column hands back', () => {
+    const quote = { text: 'the committee resolved' }
+    expect(readCommentAnchor(JSON.stringify({ kind: 'local', from: 4, to: 26, quote }))).toEqual({
+      kind: 'local',
+      from: 4,
+      to: 26,
+      quote
+    })
+    expect(readCommentAnchor(JSON.stringify({ kind: 'yjs', start: { a: 1 }, end: { b: 2 } }))?.kind).toBe('yjs')
+  })
+
+  it('treats unparseable or non-anchor JSON as absent, never as a throw', () => {
+    // A column half-written by a crash, and a column holding something else.
+    expect(readCommentAnchor('{"kind":"local","from":')).toBeNull()
+    expect(readCommentAnchor('not json at all')).toBeNull()
+    expect(readCommentAnchor('"a bare string"')).toBeNull()
+    expect(readCommentAnchor('[1,2]')).toBeNull()
+    expect(readCommentAnchor('null')).toBeNull()
+    expect(readCommentAnchor('')).toBeNull()
+  })
 })
 
 describe('rebaseLocalAnchor: the editor that made the edit', () => {
