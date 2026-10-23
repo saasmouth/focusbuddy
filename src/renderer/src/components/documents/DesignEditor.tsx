@@ -64,7 +64,7 @@ import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
 import { DESIGN_TABS, type DesignCtx, type DesignPanelId } from './design/ribbon'
-import { BarButton, ContextBar, escapeIntent, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, useShellChrome, type SidePane } from '../office/shell'
+import { BarButton, ContextBar, escapeIntent, OfficeShellLayout, PANEL_SHEET_BELOW, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, useShellChrome, type SidePane } from '../office/shell'
 import { designRailIdForTool, designRailItems, type DesignRailCmds } from './design/rail'
 import SwatchesPanel from './design/SwatchesPanel'
 import { preflight, preflightSummary } from '@shared/designPreflight'
@@ -1455,7 +1455,9 @@ export default function DesignEditor({
         size={{ w: design.width, h: design.height }}
         onTemplate={applyTemplate}
         onSize={changeSize}
-        autoOpen={startEmpty && (design.elements ?? []).length === 0}
+        // Never in a narrow desk widget: there the menu would cover the tabs
+        // and the page (Deck's first-run side pane follows the same rule).
+        autoOpen={startEmpty && (design.elements ?? []).length === 0 && wrapBox.w >= PANEL_SHEET_BELOW}
         onAutoOpened={() => setStartEmpty(false)}
       />
     ),

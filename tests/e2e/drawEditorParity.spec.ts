@@ -102,7 +102,7 @@ test('EP-1 the rail offers every tool, in the shared rail order, with its live s
     return items
   }
   // Every tool of the toolbox, in its order: the flyouts hold the ones not on show.
-  expect(await flyout('direct')).toEqual(['draw-tool-groupSelect-flyout=Group selection', 'draw-tool-direct-flyout=Direct Selection (A)'])
+  expect(await flyout('direct')).toEqual(['draw-tool-direct-flyout=Direct Selection (A)', 'draw-tool-groupSelect-flyout=Group selection'])
   expect(await flyout('pen')).toEqual([
     'draw-tool-pen-flyout=Pen (P)',
     'draw-tool-curvature-flyout=Curvature (⇧`)',
