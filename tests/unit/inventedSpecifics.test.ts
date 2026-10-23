@@ -366,3 +366,69 @@ describe('GROUNDING_RULE_SMALL', () => {
     expect(GROUNDING_RULE_SMALL.length).toBeLessThan(400)
   })
 })
+
+// The chat context opens with the clock ("Current date/time ... 2026-10-23T15:15Z").
+// Matching a span's digits as a substring of every digit in the context run
+// together let that clock ground "$15" for 113 minutes of every day, which is
+// why answerGroundingCloud "PlexiiAssist (streamed)" failed only some of the time.
+describe('grounding is by whole numbers and real dates, never by the clock', () => {
+  const clock = (iso: string): string => `Current date/time (to the minute, UTC): ${iso}`
+  const spans = (out: string, ctx: string): string[] => checkInventedSpecifics(out, ctx).flagged.map((f) => f.span)
+  const pad = (n: number): string => String(n).padStart(2, '0')
+
+  it('no minute of the day grounds an invented price, percentage, quantity or date', () => {
+    const out = 'Support costs $15 an hour, 15% of tickets wait 15 minutes, and it moved on March 15.'
+    const missed: string[] = []
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m++) {
+        const at = `2026-10-23T${pad(h)}:${pad(m)}Z`
+        const got = spans(out, clock(at))
+        for (const want of ['$15', '15%', '15 minutes', 'March 15']) if (!got.includes(want)) missed.push(`${at} ${want}`)
+      }
+    }
+    expect(missed).toEqual([])
+  })
+
+  it('no day of the year does either', () => {
+    const missed: string[] = []
+    for (let mo = 1; mo <= 12; mo++) {
+      for (let d = 1; d <= 28; d++) {
+        const at = `2026-${pad(mo)}-${pad(d)}T15:15Z`
+        if (!spans('Support costs $15 an hour.', clock(at)).includes('$15')) missed.push(at)
+      }
+    }
+    expect(missed).toEqual([])
+  })
+
+  it('the clock still grounds today, this year, this quarter and the time itself', () => {
+    const ctx = clock('2026-10-23T15:15Z')
+    expect(spans('Today is October 23, 2026; it is 15:15 and we are in Q4 2026.', ctx)).toEqual([])
+    expect(spans('Today is 23 October.', ctx)).toEqual([])
+    // ...but only the day it names.
+    expect(spans('Today is October 15.', ctx)).toEqual(['October 15'])
+    expect(spans('It is 5:15 now.', ctx)).toEqual(['5:15'])
+  })
+
+  it('never joins the digits of two numbers', () => {
+    expect(spans('Support costs $15 an hour.', 'Ticket 1 is 5 days old.')).toEqual(['$15'])
+    expect(spans('It answers in 24 hours.', 'Ticket 2470 was closed.')).toEqual(['24 hours'])
+  })
+
+  it('never takes a number from a longer one', () => {
+    expect(spans('Support costs $15 an hour.', 'The plan is $150 a month.')).toEqual(['$15'])
+    expect(spans('Support costs $15 an hour.', 'The plan is $15.50 a month.')).toEqual(['$15'])
+    expect(spans('Churn is 1.5%.', 'Churn is 15%.')).toEqual(['1.5%'])
+  })
+
+  it('still matches the same number however it is written', () => {
+    expect(spans('Revenue reached $1,200.', 'Revenue was 1200.00 dollars.')).toEqual([])
+    expect(spans('Revenue reached $1,200.', 'Revenue was $1,200.50.')).toEqual(['$1,200'])
+    expect(spans('Support costs $15 an hour.', 'Support is billed at 15 dollars an hour.')).toEqual([])
+  })
+
+  it('reports one finding per region, keeping an inner one that outranks it', () => {
+    expect(spans('Support answers 24 hours a day.', 'Write an FAQ.')).toEqual(['24 hours a day'])
+    const r = checkInventedSpecifics('As the memo said, "we will refund $40 to every customer".', 'Summarise.')
+    expect(r.flagged.map((f) => f.span)).toEqual(['we will refund $40 to every customer'])
+  })
+})

@@ -2391,7 +2391,10 @@ export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
       void maybeExtractChatMemory(req, grounded)
       return grounded
     }
-    return withFitNotice(unparseableChatResponse(text, resp.stop_reason as string, citedSources, mentionReport), fitNotice)
+    // Prose the model wrote outside the envelope is still an answer, and is
+    // checked like one: an invented price must not escape by skipping the JSON.
+    const prose = unparseableChatResponse(text, resp.stop_reason as string, citedSources, mentionReport)
+    return withFitNotice(groundChatResponse(prose, groundingSupplied, String(resp.model ?? '')), fitNotice)
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }
@@ -2707,14 +2710,24 @@ export async function sendChatStream(
       }
     }
 
+    // The grounding check always runs here, once, on the complete reply of
+    // record — never on a streamed delta, where a specific could be split
+    // across two chunks. A Stop leaves no final message to name the model, so
+    // the engine the call was routed to stands in: an on-device reply cut
+    // short is still repaired, not merely highlighted.
+    const groundingModel = answeredModel || String(resolveModel('chat'))
     const built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
     if (built) {
-      const grounded = withFitNotice(groundChatResponse(built, prepared.groundingSupplied, answeredModel), prepared.fitNotice)
+      const grounded = withFitNotice(groundChatResponse(built, prepared.groundingSupplied, groundingModel), prepared.fitNotice)
       cb.onComplete(grounded)
       void maybeExtractChatMemory(req, grounded)
       return
     }
-    const fallback = withFitNotice(unparseableChatResponse(text, stopReason, prepared.sources, prepared.mentions), prepared.fitNotice)
+    // Prose outside the envelope (or salvaged after a Stop) is checked too.
+    const fallback = withFitNotice(
+      groundChatResponse(unparseableChatResponse(text, stopReason, prepared.sources, prepared.mentions), prepared.groundingSupplied, groundingModel),
+      prepared.fitNotice
+    )
     if (fallback.ok) cb.onComplete(fallback)
     else cb.onError({ ok: false, error: fallback.error ?? 'Something went wrong.' })
   } catch (e) {

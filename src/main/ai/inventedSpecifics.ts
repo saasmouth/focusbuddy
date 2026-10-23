@@ -160,6 +160,141 @@ function digits(s: string): string {
 }
 
 /**
+ * One number as written, with what does not change its value removed:
+ * thousands separators, leading zeros and a zero fraction. "1,200", "1200",
+ * "$1,200.00" and "01200" all key as "1200"; "1.5" stays "1.5", so a decimal
+ * is never mistaken for the integer its digits spell.
+ */
+function numberKey(raw: string): string {
+  const [int, frac = ''] = raw.replace(/,/g, '').split('.')
+  const i = int.replace(/^0+(?=\d)/, '')
+  const f = frac.replace(/0+$/, '')
+  return f ? `${i}.${f}` : i
+}
+
+/** Every number written in `s`, as numberKey keys it. A comma counts only as a thousands separator. */
+function numbersIn(s: string): string[] {
+  return [...s.matchAll(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g)].map((m) => numberKey(m[0]))
+}
+
+const MONTH = String.raw`jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?`
+
+/**
+ * A date or a clock time written in the supplied context: ISO dates and
+ * timestamps, "15:15", "October 23, 2026", "23 October". Its numbers are the
+ * parts of a date or a time, not figures, and are kept apart (see NumberIndex).
+ */
+const CALENDAR_IN_CONTEXT = new RegExp(
+  [
+    String.raw`\b\d{4}-\d{2}-\d{2}(?:[T ]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?(?:Z|[+-]\d{2}:?\d{2})?`,
+    String.raw`\b\d{1,2}:\d{2}(?::\d{2})?\b`,
+    String.raw`\b(?:${MONTH})\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s*\d{4})?\b`,
+    String.raw`\b\d{1,2}(?:st|nd|rd|th)?\s+(?:${MONTH})\b(?:\s+\d{4})?`
+  ].join('|'),
+  'gi'
+)
+
+/** Month number (1-12) of a month name or its abbreviation; 0 when it is not one. */
+function monthOf(word: string): number {
+  return ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(word.slice(0, 3).toLowerCase()) + 1
+}
+
+interface DateParts {
+  y?: number
+  m?: number
+  d?: number
+  q?: number
+}
+
+/** The calendar parts of one date as written; null when it names no date (a clock time alone). */
+function dateParts(s: string): DateParts | null {
+  let m: RegExpMatchArray | null
+  if ((m = /\b(\d{4})-(\d{2})-(\d{2})(?!\d)/.exec(s))) return { y: +m[1], m: +m[2], d: +m[3] }
+  if ((m = new RegExp(String.raw`\b(${MONTH})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?\b`, 'i').exec(s)))
+    return { m: monthOf(m[1]), d: +m[2], ...(m[3] ? { y: +m[3] } : {}) }
+  if ((m = new RegExp(String.raw`\b(\d{1,2})(?:st|nd|rd|th)?\s+(${MONTH})\b(?:\s+(\d{4}))?`, 'i').exec(s)))
+    return { m: monthOf(m[2]), d: +m[1], ...(m[3] ? { y: +m[3] } : {}) }
+  if ((m = /\bQ([1-4])(?:\s+(\d{4}))?\b/.exec(s))) return { q: +m[1], ...(m[2] ? { y: +m[2] } : {}) }
+  if ((m = /^\s*((?:19|20)\d{2})\s*$/.exec(s))) return { y: +m[1] }
+  return null
+}
+
+/**
+ * The numbers the supplied context states, each one whole, and the dates it
+ * states, as dates.
+ *
+ * This replaced matching a span's digits as a SUBSTRING of every digit in the
+ * context run together, which grounded far more than anyone supplied, and did
+ * it by the clock. The chat context opens with the current time
+ * ("2026-10-23T15:15Z"), so "$15" counted as supplied whenever the hour or the
+ * minute was 15, on the 15th, and at 1:50-1:59, 11:50-11:59 and 21:50-21:59,
+ * where the hour's last digit and the minute's first ran together into "15":
+ * 113 minutes of every day in which an invented price escaped being marked
+ * (the intermittent answerGroundingCloud failure). So:
+ *
+ *  figures   numbers stated as numbers. A numeric span is grounded only by a
+ *            number EQUAL to one of its own, never by digits that happen to
+ *            neighbour each other across two numbers;
+ *  dates     what a written date or timestamp says, kept as a date. It grounds
+ *            a DATE that names the same day, year or quarter ("today is
+ *            October 23", "in 2026", "this Q4") and nothing else: the clock's
+ *            minute is not a price, a percentage, "15 minutes" or "March 15".
+ *            A clock time grounds times only, through isTimeSupplied.
+ */
+interface NumberIndex {
+  figures: Set<string>
+  /** "m-d" for each day named, "y" for each year, "Qn" and "Qn y" for each quarter. */
+  dates: Set<string>
+}
+
+function indexNumbers(context: string): NumberIndex {
+  const dates = new Set<string>()
+  const rest = context.replace(CALENDAR_IN_CONTEXT, (w) => {
+    const p = dateParts(w)
+    if (p?.y) dates.add(String(p.y))
+    if (p?.m && p.d) {
+      dates.add(`${p.m}-${p.d}`)
+      const q = Math.ceil(p.m / 3)
+      dates.add(`Q${q}`)
+      if (p.y) dates.add(`Q${q} ${p.y}`)
+    }
+    return '\0'.repeat(w.length)
+  })
+  return { figures: new Set(numbersIn(rest)), dates }
+}
+
+/** True when a date the context states names the day, year or quarter this date span names. */
+function isDateSupplied(span: string, dates: Set<string>): boolean {
+  const p = dateParts(span)
+  if (!p) return false
+  if (p.y && !dates.has(String(p.y))) return false
+  if (p.m && p.d) return dates.has(`${p.m}-${p.d}`)
+  if (p.q) return dates.has(p.y ? `Q${p.q} ${p.y}` : `Q${p.q}`)
+  return !!p.y
+}
+
+/**
+ * `needle` occurs in `hay` as a whole run: nothing in `word` runs on at either
+ * end, and neither does a decimal or a thousands group ("$15" is not in
+ * "$15.50", "5:15" is not in "15:15").
+ */
+function includesWhole(hay: string, needle: string, word: RegExp = /[a-z0-9]/): boolean {
+  if (!needle) return false
+  const digit = /\d/
+  for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + 1)) {
+    const end = at + needle.length
+    const before = at > 0 ? hay[at - 1] : ''
+    const after = hay[end] ?? ''
+    const runsIn = (word.test(needle[0]) && word.test(before)) || (digit.test(needle[0]) && /[.,:]/.test(before) && digit.test(hay[at - 2] ?? ''))
+    const runsOn =
+      (word.test(needle[needle.length - 1]) && word.test(after)) ||
+      (digit.test(needle[needle.length - 1]) && /[.,:]/.test(after) && digit.test(hay[end + 1] ?? ''))
+    if (!runsIn && !runsOn) return true
+  }
+  return false
+}
+
+/**
  * Remove the regions where a specific is not a factual assertion:
  *
  *  - fenced and inline code, and spreadsheet formulas, where digits are syntax;
@@ -213,24 +348,32 @@ function canonTime(s: string): string {
  * in its run of numbers, which a page of figures easily does.
  */
 function isTimeSupplied(span: string, contextCanon: string): boolean {
-  return contextCanon.includes(canonTime(span))
+  // Whole times only. canonTime glues words together, so only a DIGIT running
+  // on breaks a match: "5:15" is not in the clock's "15:15", nor "9am" in "19am".
+  return includesWhole(contextCanon, canonTime(span), /\d/)
 }
 
 /** True when the supplied context grounds this span. */
-function isSupplied(span: string, haystack: string, haystackDigits: string): boolean {
+function isSupplied(span: string, kind: SpecificKind, haystack: string, numbers: NumberIndex): boolean {
+  // Whole runs only: "$15" is not supplied by "$150", nor "2015" by "20150".
   const n = norm(span)
-  if (n && haystack.includes(n)) return true
+  if (n && includesWhole(haystack, n)) return true
 
-  // A numeric span is grounded by its digits appearing anywhere in context: a
-  // brief that says "1,200 seats" grounds "1200 seats" and "$1,200".
+  // A numeric span is grounded when every number in it is a number the context
+  // states: a brief that says "1,200 seats" grounds "1200 seats" and "$1,200".
+  // A date may also rest on a date the context states (NumberIndex).
   const d = digits(span)
-  if (d && d.length >= 2 && haystackDigits.includes(d)) return true
+  if (d && d.length >= 2) {
+    const nums = numbersIn(span)
+    if (nums.length > 0 && nums.every((x) => numbers.figures.has(x))) return true
+  }
+  if (kind === 'date' && isDateSupplied(span, numbers.dates)) return true
 
   // A spelled-out number is grounded by its numeral, and vice versa.
   const words = n.split(' ')
   for (const w of words) {
     const asDigit = NUMBER_WORDS[w]
-    if (asDigit && haystackDigits.includes(asDigit)) {
+    if (asDigit && numbers.figures.has(asDigit)) {
       const rest = words.filter((x) => x !== w).join(' ')
       if (!rest || haystack.includes(rest)) return true
     }
@@ -428,7 +571,7 @@ export function checkInventedSpecifics(
 
   const context = (Array.isArray(supplied) ? supplied : [supplied]).filter(Boolean).join('\n')
   const haystack = norm(context)
-  const haystackDigits = digits(context)
+  const numbers = indexNumbers(context)
   const contextTimes = canonTime(context)
 
   const masked = maskNonAssertions(text)
@@ -443,7 +586,7 @@ export function checkInventedSpecifics(
     // cannot be matched or repaired by text.
     const span = text.slice(c.index, c.index + c.len)
     if (!span.trim()) continue
-    if (c.kind === 'time' ? isTimeSupplied(span, contextTimes) : isSupplied(span, haystack, haystackDigits)) continue
+    if (c.kind === 'time' ? isTimeSupplied(span, contextTimes) : isSupplied(span, c.kind, haystack, numbers)) continue
     const key = `${c.kind}:${norm(span)}`
     if (seen.has(key)) continue
     seen.add(key)
@@ -455,6 +598,24 @@ export function checkInventedSpecifics(
       index: c.index
     })
   }
+
+  // One region, one finding. "24 hours a day" also matches the quantity
+  // detector as "24 hours", and "Q3 2025" the year detector as "2025"; the
+  // highlight and the repair already take the longest span and skip what it
+  // covers (checkThis.splitCheck, groundingCheck), so reporting the inner one
+  // too only inflates the count of things to check. Never at the cost of
+  // confidence: an inner finding the outer one outranks is kept, because the
+  // local repair acts on high confidence alone.
+  const rank = (f: InventedSpecific): number => CONFIDENCE_ORDER.indexOf(f.confidence)
+  const inside = (a: InventedSpecific, b: InventedSpecific): boolean =>
+    a !== b &&
+    b.span.length > a.span.length &&
+    rank(b) <= rank(a) &&
+    a.index >= b.index &&
+    a.index + a.span.length <= b.index + b.span.length
+  const outermost = flagged.filter((f) => !flagged.some((g) => inside(f, g)))
+  flagged.length = 0
+  flagged.push(...outermost)
 
   flagged.sort((a, b) => {
     const conf = CONFIDENCE_ORDER.indexOf(a.confidence) - CONFIDENCE_ORDER.indexOf(b.confidence)
