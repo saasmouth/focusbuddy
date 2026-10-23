@@ -36,7 +36,7 @@ const cmdStub = stub<Parameters<typeof buildDiagramCommands>[0]['cmd']>({ hasSty
 const APPS: Record<string, OfficeCommand[]> = {
   Deck: Object.values(buildDeckCommands(stub({ readOnly: false, selected: 3, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))),
   Design: Object.values(buildDesignCommands(stub({ readOnly: false, selected: 3, grouped: true, canPaste: true, textMarks: {} }))),
-  Diagrams: Object.values(buildDiagramCommands({ cmd: cmdStub, readOnly: false, nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined })),
+  Diagrams: Object.values(buildDiagramCommands({ cmd: cmdStub, readOnly: false, nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined, canUndo: true, canRedo: true })),
   File: Object.values(documentCommands(stub({ id: 'doc-1', print: () => undefined }), 'doc')!).filter(Boolean) as OfficeCommand[],
   // PlexiiDraw keeps its command registry; the adapter shows it as OfficeCommands.
   Draw: drawOfficeCommands(withDocument(harness(blank())).ed.ctx),

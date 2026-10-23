@@ -1506,7 +1506,35 @@ export default function DesignEditor({
     insertSnippet: () => setSnippetLibraryOpen(true),
     toggleMark: (m) => barCtx.cmd.patchText({ [m]: !firstText?.paragraphs[0]?.runs[0]?.[m] }),
     removeBackground: () => void removeBgSelected(),
-    addPage
+    addPage,
+    addText,
+    addImage: () => void addImageFromFile(),
+    addShape,
+    addLine,
+    insertPageNumber: insertPageNumberFrame,
+    addWidget: () => setWidgetPickerOpen(true),
+    openLayout: () => setPanel('layout'),
+    openStyles: () => setPanel('styles'),
+    openSwatches: () => setPanel('swatches'),
+    guidesVisible: showLayoutAids,
+    toggleGuides: () => setShowLayoutAids((v) => !v),
+    facing: design.facing === true,
+    toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
+    masters: (design.masters ?? []).map((m) => ({ id: m.id, name: m.name })),
+    editingMasterId,
+    addMaster,
+    editMaster,
+    duplicatePage: () => duplicatePage(design.activePage ?? 0),
+    canLink: selectedTextFrames.length >= 2,
+    canUnlink: selectedTextFrames.some((f) => !!f.storyId),
+    linkFrames: linkSelectedFrames,
+    unlinkFrame: unlinkSelected,
+    find: () => setFindOpen('find'),
+    findAndReplace: () => setFindOpen('replace'),
+    checkA11y: () => {
+      const issues = checkDesignA11y(designRef.current)
+      setStatus(issues.length ? `Accessibility: ${issues[0].message}` : 'Accessibility: no issues found.')
+    }
   })
   dcmdsRef.current = dcmds
   const barCtx: DesignCtx = {
@@ -1607,7 +1635,6 @@ export default function DesignEditor({
       removeBackground: () => void removeBgSelected(),
       addPage,
       duplicatePage: () => duplicatePage(design.activePage ?? 0),
-      toggleGuides: () => setShowLayoutAids((v) => !v),
       toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
       // Clamped as the retired control clamped it: 0-100 logical px, whole
       // numbers. designPrintSize reads design.bleed, and with no way to set it
@@ -1618,11 +1645,7 @@ export default function DesignEditor({
       openBrandKit: () => setBrandOpen(true),
       openPanel: (id) => setPanel(id),
       exportAs: (f) => void exportAs(f),
-      exportPrint: () => void exportAs('pdf', true),
-      checkA11y: () => {
-        const issues = checkDesignA11y(designRef.current)
-        setStatus(issues.length ? `Accessibility: ${issues[0].message}` : 'Accessibility: no issues found.')
-      }
+      exportPrint: () => void exportAs('pdf', true)
     }
   }
 
@@ -1634,48 +1657,14 @@ export default function DesignEditor({
           actions={{
             title,
             cmds: dcmds,
-            undo,
-            redo,
-            deleteSelected,
-            addText,
-            addShape,
-            addLine,
-            addImageFromFile: () => void addImageFromFile(),
-            addWidget: () => setWidgetPickerOpen(true),
-            removeBgSelected: () => void removeBgSelected(),
             exportAs: (f) => void exportAs(f),
-            openLayout: () => setPanel('layout'),
             openPreflight: () => setPanel('preflight'),
-            openStyles: () => setPanel('styles'),
-            openSwatches: () => setPanel('swatches'),
-            copySelection: clipboard.copy,
-            cutSelection: clipboard.cut,
-            pasteClipboard: clipboard.paste,
-            canPaste: clipboard.hasClip,
-            duplicateSelection: duplicateSelected,
-            selectAll,
-            find: () => setFindOpen('find'),
-            findAndReplace: () => setFindOpen('replace'),
             saveSelectionAsSnippet,
-            insertSnippet: () => setSnippetLibraryOpen(true),
-            duplicatePage,
             hasSelection: selectedIds.length > 0,
-            activePage: design.activePage ?? 0,
             preflightHint,
-            addPage,
-            toggleFacing: () => patchLayout({ facing: !designRef.current.facing }),
-            facing: design.facing === true,
-            addMaster,
             editMaster,
             masters: (design.masters ?? []).map((m) => ({ id: m.id, name: m.name })),
             editingMasterId,
-            linkFrames: linkSelectedFrames,
-            unlinkFrame: unlinkSelected,
-            canLink: selectedTextFrames.length >= 2,
-            canUnlink: selectedTextFrames.some((f) => !!f.storyId),
-            insertPageNumber: insertPageNumberFrame,
-            toggleAids: () => setShowLayoutAids((v) => !v),
-            aidsVisible: showLayoutAids,
             exportPrint: () => void exportAs('pdf', true)
           }}
         />

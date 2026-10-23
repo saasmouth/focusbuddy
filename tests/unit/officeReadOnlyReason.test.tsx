@@ -49,7 +49,9 @@ const rec = vi.hoisted(() => ({
   /** The registry's read-only answer for each command a bar control rendered from (barProps). */
   answer: new Map<string, boolean>(),
   /** Each registry-backed bar control as rendered: its command and the readOnlySafe it was given. */
-  safe: [] as Array<{ cmd: string; label: string; readOnlySafe: boolean }>
+  safe: [] as Array<{ cmd: string; label: string; readOnlySafe: boolean }>,
+  /** Every command a menu row rendered from, by id: the row's own command, to ask readOnlySafeOf. */
+  cmds: new Map<string, unknown>()
 }))
 
 // Tag what the registry adapters produce with the command they came from, so
@@ -64,8 +66,8 @@ vi.mock('../../src/renderer/src/lib/menus/officeCommand', async (importOriginal)
       // Tagged so the primitive it lands on can say which command it renders.
       return { ...real.barProps(c), __cmd: c.id }
     },
-    menuItemOf: (c: Parameters<typeof real.menuItemOf>[0], extra?: Parameters<typeof real.menuItemOf>[1]) => ({ ...real.menuItemOf(c, extra), cmdId: c.id }),
-    menuRow: (c: Parameters<typeof real.menuRow>[0], extra?: Parameters<typeof real.menuRow>[1]) => ({ ...real.menuRow(c, extra), cmdId: c.id })
+    menuItemOf: (c: Parameters<typeof real.menuItemOf>[0], extra?: Parameters<typeof real.menuItemOf>[1]) => (rec.cmds.set(c.id, c), { ...real.menuItemOf(c, extra), cmdId: c.id }),
+    menuRow: (c: Parameters<typeof real.menuRow>[0], extra?: Parameters<typeof real.menuRow>[1]) => (rec.cmds.set(c.id, c), { ...real.menuRow(c, extra), cmdId: c.id })
   }
 })
 
@@ -114,7 +116,7 @@ vi.mock('../../src/renderer/src/components/documents/draw/bar/controls', async (
 
 import { ContextBar, READ_ONLY_REASON, ToolRail, type BarTab, type RailItem } from '../../src/renderer/src/components/office/shell'
 import type { MenuDef, MenuItem } from '../../src/renderer/src/components/documents/editor/menuBarKit'
-import { ctxRow, documentCommands, menuItemOf, readOnlySafeOf, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
+import { ctxRow, documentCommands, readOnlySafeOf, type OfficeCommand } from '../../src/renderer/src/lib/menus/officeCommand'
 import { WRITE_TABS, writeRailItems, type WCtx } from '../../src/renderer/src/components/documents/editor/writeRibbon'
 import { CELLS_TABS, cellsRailItems, type CCtx } from '../../src/renderer/src/components/documents/sheet/cellsRibbon'
 import { DECK_TABS, deckRailItems, type DeckCtx } from '../../src/renderer/src/components/documents/slides/ribbon'
@@ -132,6 +134,8 @@ import DocMenuBar from '../../src/renderer/src/components/documents/editor/DocMe
 import SheetMenuBar from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 import SlidesMenuBar from '../../src/renderer/src/components/documents/editor/SlidesMenuBar'
 import DesignMenuBar from '../../src/renderer/src/components/documents/editor/DesignMenuBar'
+import DrawMenuBar from '../../src/renderer/src/components/documents/editor/DrawMenuBar'
+import { diagramMenus } from '../../src/renderer/src/components/documents/diagram/diagramMenus'
 import { normalizeDesignBody } from '../../src/shared/design'
 import { resolveTheme } from '../../src/shared/slideThemes'
 import type { MapEdge, MapNode, Slide, SlideElement } from '../../src/shared/types'
@@ -301,6 +305,8 @@ interface Verdict {
   wrong: string[]
   /** Bar controls tied to a command, with the document state they were rendered in. */
   pairs: Array<{ cmd: string; label?: string; tip: string; off: boolean; state: number }>
+  /** Controls LIVE in the read-only render: where, what it shows, and the registry command it renders from, if any. */
+  live: Array<{ where: string; tip: string; cmd?: string }>
 }
 
 /**
@@ -315,7 +321,11 @@ function judge(where: string, state: number, ro: Control[], own: Control[], out:
   ro.forEach((c, i) => {
     const o = own[i]!
     if (c.cmd) out.pairs.push({ cmd: c.cmd, ...(c.label ? { label: c.label } : {}), tip: c.tip, off: c.off, state })
-    if (!c.off) return // read-only safe: live in a read-only document, nothing to say
+    if (!c.off) {
+      // Read-only safe: live in a read-only document. Which ones is checked below.
+      out.live.push({ where, tip: c.tip, ...(c.cmd ? { cmd: c.cmd } : {}) })
+      return
+    }
     out.checked++
     const r = reasonOf(c.tip)
     // Rule 1: the only read-only sentence is THE sentence.
@@ -376,11 +386,29 @@ function captured(testid: string, el: JSX.Element): Array<MenuItem & { kind: 'it
   return menus!.flatMap((m) => flat(m.build()))
 }
 
-// Diagrams builds its menus inside DiagramChrome (React Flow, not mountable
-// here; tests/e2e/officeMenus.spec.ts walks them by real clicks). Its registry
-// rows are `menuItemOf(c.<name>)` over the same `cmds` the ribbon renders, so
-// the rows are rebuilt from those very commands, for the names its source uses.
-const DIAGRAM_MENU_NAMES = [...readFileSync(join(__dirname, '../../src/renderer/src/components/documents/diagram/DiagramChrome.tsx'), 'utf8').matchAll(/menu(?:ItemOf|Row)\(c\.(\w+)/g)].map((m) => m[1]!)
+// Diagrams' chrome (React Flow) does not mount here, but its menu rows are
+// built by diagramMenus from the same `cmds` the ribbon renders, and handed to
+// the real DrawMenuBar, which adds File's document rows: the whole bar, every
+// row, as a viewer gets it (tests/e2e/officeReadOnlyMenus.spec.ts clicks it).
+const diagramMenuRows = (ctx: DCtx): Array<MenuItem & { kind: 'item'; cmdId?: string }> => {
+  const menus = diagramMenus({
+    c: ctx.cmds,
+    cmd: ctx.cmd,
+    singlePage: false,
+    hasSel: true,
+    hiddenOnPage: 1,
+    exportFmt: noop,
+    setStatus: noop,
+    openShortcuts: noop,
+    togglePanel: noop,
+    isOpen: () => false,
+    collapsed: false,
+    setCollapsed: noop,
+    onSaveSnippet: noop,
+    onInsertSnippet: noop
+  })
+  return captured('draw-menubar', <DrawMenuBar actions={{ ...menus, documentOps: ops() }} />)
+}
 
 const drawMenuRows = (ctx: RailCtx): Array<MenuItem & { kind: 'item'; cmdId?: string }> => {
   // Draw's rows carry no id; the label is unique per command, so tag by it.
@@ -459,10 +487,7 @@ const APPS: App[] = [
     rail: diagramRailItems as never,
     railCtx: diagCtx('node'),
     registry: true,
-    menuRows: (ctx: DCtx) => {
-      const c = ctx.cmds as unknown as Record<string, OfficeCommand>
-      return DIAGRAM_MENU_NAMES.filter((n) => c[n]).map((n) => menuItemOf(c[n]!) as MenuItem & { kind: 'item'; cmdId?: string })
-    },
+    menuRows: (ctx: DCtx) => diagramMenuRows(ctx),
     min: 100,
     minKept: 10, // Group, Align, Distribute, Paste style: their reasons
     minFromCommand: 0
@@ -484,7 +509,7 @@ const APPS: App[] = [
 ]
 
 function walk(app: App): Verdict {
-  const out: Verdict = { stamped: 0, fromCommand: 0, kept: [], checked: 0, wrong: [], pairs: [] }
+  const out: Verdict = { stamped: 0, fromCommand: 0, kept: [], checked: 0, wrong: [], pairs: [], live: [] }
   for (const [ci, ctx] of app.ctxs.entries()) {
     for (const tab of app.tabs) {
       if (tab.when && !tab.when(ctx as never)) continue
@@ -622,9 +647,142 @@ describe.each(APPS.map((a) => [a.name, a] as const))('%s on a read-only document
 // theirs live, for the same reason).
 const READ_SAFE: Record<string, string[]> = {
   Deck: ['sl-a11y', 'sl-save-snippet'],
-  Design: ['ds-save-snippet'],
+  // Check accessibility reads the design and reports (viewer-registry-41), as Deck's does.
+  Design: ['ds-save-snippet', 'ds-a11y'],
   Diagrams: ['dg-copy-style']
 }
+
+// ── Every row and control a viewer sees: off with the sentence, or read-only safe ──
+//
+// viewer-registry-41. Design's Insert and Layout rows and Diagrams' Undo, Redo,
+// Insert, Import, View and Arrange rows were written by hand beside the
+// registries, so a viewer saw them LIVE and only the editor's refusal (or, for
+// Diagrams, a change to the viewer's own copy) stood behind them. The rule:
+//
+//   * a row or control from a registry command is live only if the command is
+//     read-only safe (readOnlySafeOf, from its gate); otherwise it is off and
+//     says exactly the sentence;
+//   * a row or control still written by hand is live only if it is named below
+//     as one that changes nothing in the document. Adding a hand-written row
+//     that writes, live for a viewer, fails here by its label.
+
+/** Hand-written menu rows that only read the document or the screen: what each does. */
+const HAND_SAFE_ROWS: Record<string, Record<string, string>> = {
+  Design: {
+    'Image (.png)': 'exports what is on screen',
+    'PDF document (.pdf)': 'exports',
+    'Save selection as snippet…': 'reads the selection (ds-save-snippet on the bar)',
+    'Preflight for print…': 'the print check: a report',
+    'Print PDF (bleed + crop marks)': 'exports',
+    'Keyboard shortcuts': 'help'
+  },
+  Diagrams: {
+    'PNG image': 'exports',
+    'SVG (vector)': 'exports',
+    'JPG image': 'exports',
+    PDF: 'exports',
+    'Selection as PNG': 'exports',
+    'Selection as SVG': 'exports',
+    'Mermaid (.mmd)': 'exports',
+    'Copy as Mermaid': 'copies text out',
+    'draw.io (.drawio), all pages': 'exports',
+    'PlexiiDiagrams JSON': 'exports',
+    'Save selection as snippet…': 'reads the selection',
+    'Shape library': 'a panel',
+    Layers: 'a panel',
+    Ribbon: 'collapses the ribbon',
+    'Keyboard shortcuts': 'help',
+    'How to diagram': 'help'
+  }
+}
+
+/** Hand-written bar and rail controls a viewer keeps live (readOnlySafe set by hand): what each does. */
+const HAND_SAFE_CONTROLS: Record<string, Record<string, string>> = {
+  Design: { Select: 'the rail\'s Select tool: navigation' },
+  Diagrams: {
+    'Show grid': 'a view aid; the menu row is dg-grid, ungated alike',
+    Minimap: 'a view aid; dg-minimap alike',
+    'Shape library': 'a panel',
+    Layers: 'a panel',
+    'Keyboard shortcuts': 'help',
+    // The rail's tools and panels (navigation).
+    Select: 'navigation',
+    'Hand (or hold Space, or drag with the middle button)': 'navigation',
+    'Shape library (shapes, icons, images)': 'a panel'
+  }
+}
+
+/**
+ * NOT safe, and named so it cannot hide: the font picker sits in a BarCustom,
+ * whose content the read-only bar does not gate in ANY office app (a shell
+ * primitive, d8's; reported by viewer-registry-41). A viewer can open it; the
+ * editor refuses the change. Remove the entry when BarCustom gates read-only.
+ */
+const KNOWN_SHELL_GAP: Record<string, Record<string, string>> = {
+  Design: { Font: 'BarCustom (FontPicker) is not gated by a read-only bar' },
+  Diagrams: { Font: 'BarCustom (FontPicker) is not gated by a read-only bar' }
+}
+
+describe.each((['Design', 'Diagrams'] as const).map((n) => [n, APPS.find((a) => a.name === n)!] as const))('%s: every row and control a viewer sees', (name, app) => {
+  it('every menu row is off with the sentence, or read-only safe', () => {
+    const wrong: string[] = []
+    const handSeen = new Set<string>()
+    let registryRows = 0
+    let offRows = 0
+    for (const ctx of app.ctxs) {
+      rec.cmds.clear()
+      for (const r of app.menuRows(ctx as never)) {
+        const off = r.disabled === true && r.hint === SENTENCE
+        if (off) offRows++
+        if (r.cmdId) {
+          registryRows++
+          const c = rec.cmds.get(r.cmdId) as OfficeCommand | undefined
+          if (!c) wrong.push(`${r.label}: tagged ${r.cmdId}, but no command was seen`)
+          else if (readOnlySafeOf(c)) {
+            if (r.hint === SENTENCE) wrong.push(`${r.label} (${r.cmdId}): read-only safe, yet says the sentence`)
+          } else if (!off) wrong.push(`${r.label} (${r.cmdId}): writes, but is ${r.disabled ? `off with "${r.hint}"` : 'LIVE'}`)
+          continue
+        }
+        if (off) continue
+        if (r.label in HAND_SAFE_ROWS[name]!) handSeen.add(r.label)
+        else wrong.push(`${r.label}: written by hand and ${r.disabled ? `off with "${r.hint ?? ''}"` : 'LIVE'} for a viewer`)
+      }
+    }
+    expect(wrong, `${name}: menu rows`).toEqual([])
+    // Not vacuous: the registry renders the rows, plenty of them off; and the allowlist is not stale.
+    expect(registryRows, `${name}: registry rows`).toBeGreaterThan(name === 'Diagrams' ? 150 : 35)
+    expect(offRows, `${name}: rows off with the sentence`).toBeGreaterThan(name === 'Diagrams' ? 120 : 25)
+    expect([...handSeen].sort(), `${name}: every hand-written safe row named is still there`).toEqual(Object.keys(HAND_SAFE_ROWS[name]!).sort())
+  })
+
+  it('every bar and rail control live for a viewer is read-only safe', () => {
+    rec.safe.length = 0
+    rec.answer.clear()
+    verdicts.delete(app.name)
+    const v = verdict(app)
+    const wrong: string[] = []
+    const handSeen = new Set<string>()
+    const gapSeen = new Set<string>()
+    for (const l of v.live) {
+      if (l.cmd) {
+        // Registry-backed: barProps gave readOnlySafe from the command's gate (asserted above); it must say yes.
+        if (rec.answer.get(l.cmd) !== true) wrong.push(`${l.where}: "${l.tip}" (${l.cmd}) is live, but its command writes`)
+        continue
+      }
+      // The longest name the tooltip is (or begins with, before its key or hint).
+      const label = Object.keys(HAND_SAFE_CONTROLS[name]!)
+        .filter((k) => l.tip === k || l.tip.startsWith(`${k} (`) || l.tip.startsWith(`${k} — `))
+        .sort((a, b) => b.length - a.length)[0]
+      if (label) handSeen.add(label)
+      else if (l.tip in KNOWN_SHELL_GAP[name]!) gapSeen.add(l.tip)
+      else wrong.push(`${l.where}: "${l.tip}" is written by hand and live for a viewer`)
+    }
+    expect(wrong, `${name}: live controls`).toEqual([])
+    expect([...handSeen].sort(), `${name}: every hand-written safe control named is still there`).toEqual(Object.keys(HAND_SAFE_CONTROLS[name]!).sort())
+    // The named gap is still a gap (when the shell closes it, this fails: delete the entry).
+    expect([...gapSeen].sort(), `${name}: known shell gap`).toEqual(Object.keys(KNOWN_SHELL_GAP[name]!).sort())
+  })
+})
 
 describe('a read-only right-click', () => {
   // ctxRow THROWS in tests on an off row with no reason (SPEC §9.5), so a

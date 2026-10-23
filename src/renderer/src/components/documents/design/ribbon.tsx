@@ -82,7 +82,6 @@ export interface DesignCtx {
     removeBackground: () => void
     addPage: () => void
     duplicatePage: () => void
-    toggleGuides: () => void
     toggleFacing: () => void
     setBleed: (px: number) => void
     brandify: () => void
@@ -90,7 +89,6 @@ export interface DesignCtx {
     openPanel: (id: DesignPanelId) => void
     exportAs: (f: 'png' | 'pdf') => void
     exportPrint: () => void
-    checkA11y: () => void
   }
   /**
    * The Start-from control, rendered by the editor and passed in: it is a
@@ -352,7 +350,8 @@ const layoutTab: BarTab<DesignCtx> = {
       </BarCustom>
       <BarSep />
       <BarDialogButton icon="grid_on" label="Margins, columns & layers…" onOpen={() => c.cmd.openPanel('layout')} testid="design-layout-btn" />
-      <BarToggle icon="visibility" label="Layout guides" pressed={c.guidesVisible} onChange={c.cmd.toggleGuides} testid="design-aids-toggle" />
+      {/* The viewer's own view of the page (ds-guides): live for a viewer, as Layout ▸ Show layout guides is. */}
+      <BarToggle {...barProps(c.cmds.toggleGuides)} icon="visibility" pressed={c.guidesVisible} onChange={c.cmds.toggleGuides.run} testid="design-aids-toggle" />
       <BarToggle icon="auto_stories" label="Facing pages" pressed={c.facing} onChange={c.cmd.toggleFacing} testid="design-facing-toggle-bar" />
       <BarSep />
       {/* Bleed belongs with page setup, not buried in the export menu where it
@@ -393,7 +392,8 @@ const reviewTab: BarTab<DesignCtx> = {
   render: (c) => (
     <>
       <BarDialogButton icon="fact_check" label="Preflight for print…" onOpen={() => c.cmd.openPanel('preflight')} testid="design-preflight-btn" />
-      <BarButton icon="accessibility_new" label="Check accessibility" showLabel onClick={c.cmd.checkA11y} testid="design-a11y-check" />
+      {/* From the registry (ds-a11y): it only reads the design, so a viewer keeps it, as in Tools ▸. */}
+      <BarButton {...barProps(c.cmds.checkA11y)} showLabel onClick={c.cmds.checkA11y.run} testid="design-a11y-check" />
       <BarSep />
       <BarMenu
         icon="download"

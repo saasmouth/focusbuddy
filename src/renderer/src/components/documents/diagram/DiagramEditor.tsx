@@ -45,8 +45,7 @@ import { useDiagramCommands, type Commands } from './commands'
 import { DiagramChrome } from './DiagramChrome'
 import { QuickShapeMenu } from './QuickShapeMenu'
 import { ContextMenu, type ContextTarget } from './ContextMenu'
-import { buildDiagramCommands } from './diagramCommands'
-import { runCommandKey } from '../../../lib/menus/commandKeys'
+import { buildDiagramCommands, dispatchDiagramKey } from './diagramCommands'
 import type { DiagramSnippetBody } from '@shared/snippets'
 import SaveSnippetDialog from '../../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../../snippets/SnippetLibrary'
@@ -634,10 +633,15 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   // current every render, for the key listener below.
   const selNodes = page.nodes.filter((n) => sel.nodes.has(n.id))
   const selEdges = page.edges.filter((e) => sel.edges.has(e.id))
-  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, readOnly, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined }))
+  const keyCmdsRef = useRef(buildDiagramCommands({ cmd, readOnly, nodes: 0, edges: 0, locked: false, grouped: false, openFind: () => undefined, canUndo: true, canRedo: true }))
   keyCmdsRef.current = buildDiagramCommands({
     cmd,
     readOnly,
+    // ⌘Z / ⇧⌘Z simply try (an empty history does nothing); only a viewer is refused.
+    canUndo: true,
+    canRedo: true,
+    // T arms the text tool through Insert ▸ Text's command, so a viewer's T arms nothing.
+    ui: { setTool },
     nodes: selNodes.length,
     edges: selEdges.length,
     locked: selNodes.some((n) => n.locked) || selEdges.some((e) => e.locked),
@@ -656,13 +660,9 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     const onKey = (e: KeyboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
       // Every key a menu or the ribbon shows runs from its definition
-      // (diagramCommands, lib/menus/commandKeys); a command that is off is not run.
-      if (runCommandKey(Object.values(keyCmdsRef.current), e)) {
-        e.preventDefault()
-        e.stopPropagation()
-        return
-      }
-      if (cmd.handleKey(e, { setTool, tool })) {
+      // (diagramCommands, lib/menus/commandKeys); a command that is off is not run,
+      // and every other key that changes the diagram takes a gate (dispatchDiagramKey).
+      if (dispatchDiagramKey(e, keyCmdsRef.current, cmd, { setTool, tool, readOnly })) {
         e.preventDefault()
         e.stopPropagation()
       }
@@ -673,6 +673,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     }
     const onCut = (e: ClipboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
+      // ⌘X arrives as the platform's cut event (keyOwner 'clipboard'), so it
+      // takes Cut's gate here: a viewer's ⌘X cuts nothing out of their copy.
+      const cut = keyCmdsRef.current.cut
+      if (cut.enabled && !cut.enabled()) return
       if (cmd.copy(e.clipboardData)) {
         cmd.deleteSelection()
         e.preventDefault()
@@ -856,7 +860,15 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
               if (!selRef.current.edges.has(ed.id)) setSel({ nodes: new Set(), edges: new Set([ed.id]) })
               openContext(e, { kind: 'edge', id: ed.id })
             }}
-            onPaneContextMenu={(e) => openContext(e, { kind: 'pane', flow: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) })}
+            onPaneContextMenu={(e) => {
+              // React Flow's pan-zoom layer reports a right-click on a shape as a
+              // pane right-click too, unless the shape carries `nopan`, which only
+              // draggable shapes do. So a VIEWER's right-click on a shape opened
+              // the canvas menu over the shape's own (viewer-registry-41): the
+              // shape or line handler has already opened the right one.
+              if ((e.target as Element | null)?.closest?.('.react-flow__node, .react-flow__edge')) return
+              openContext(e, { kind: 'pane', flow: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) })
+            }}
             onEdgeDoubleClick={(_e, ed) => !readOnly && setEditingId(`edge:${ed.id}`)}
             onMoveEnd={(_e, vp) => {
               const b = bodyRef.current

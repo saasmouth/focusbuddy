@@ -1,7 +1,6 @@
 import type { Graph, Sel } from '@shared/diagram/ops'
 import CanvasContextMenu, { type CtxMenuItem } from '../../CanvasContextMenu'
 import { canvasMenu, objectMenu } from '../../../lib/menus/officeContextMenu'
-import { hint } from '../../../lib/menus/menuAction'
 import { ctxRow } from '../../../lib/menus/officeCommand'
 import { buildDiagramCommands } from './diagramCommands'
 import type { Commands } from './commands'
@@ -43,7 +42,20 @@ export function ContextMenu({
   const grouped = nodes.some((n) => n.groupId)
   // The same paste as ⌘V and Edit › Paste (commands.pasteFromClipboard).
   // The same definitions as the menu bar and the ribbon (diagramCommands).
-  const c = buildDiagramCommands({ cmd, readOnly, nodes: nodes.length, edges: page.edges.filter((e) => sel.edges.has(e.id)).length, locked, grouped, openFind: () => undefined })
+  // Every row that changes the diagram is a registry command, so a viewer's is
+  // off with the shell's sentence (viewer-registry-41: Edit text, Route, Tidy
+  // and Add … here were hand-written and live). Undo is not a row here.
+  const c = buildDiagramCommands({
+    cmd,
+    readOnly,
+    nodes: nodes.length,
+    edges: page.edges.filter((e) => sel.edges.has(e.id)).length,
+    locked,
+    grouped,
+    openFind: () => undefined,
+    canUndo: true,
+    canRedo: true
+  })
   const paste = c.paste
   const lock = ctxRow(c.lock)
 
@@ -53,28 +65,33 @@ export function ContextMenu({
           paste,
           insertSnippet: onInsertSnippet && !readOnly ? onInsertSnippet : undefined,
           create: [
-            { label: 'Add text here', icon: 'title', onClick: () => cmd.addShape('note', { center: target.flow, edit: true }) },
-            { label: 'Add a box here', icon: 'crop_square', onClick: () => cmd.addShape('process', { center: target.flow, edit: true }) }
+            ctxRow(c.insertShape, { label: 'Add text here', icon: 'title', testid: 'ctx-dg-add-text-here', onClick: () => cmd.addShape('note', { center: target.flow, edit: true }) }),
+            ctxRow(c.insertShape, { label: 'Add a box here', icon: 'crop_square', testid: 'ctx-dg-add-box-here', onClick: () => cmd.addShape('process', { center: target.flow, edit: true }) })
           ],
           selectAll: c.selectAll,
           view: [
-            { label: 'Tidy connections', icon: 'cleaning_services', onClick: () => void cmd.tidyConnections() },
+            ctxRow(c.tidy, { onClick: () => void cmd.tidyConnections() }),
             ctxRow(c.fit)
           ]
         })
       : target.kind === 'edge'
         ? objectMenu({
             object: [
-              { label: 'Edit label', icon: 'edit', shortcut: hint(['enter']), onClick: cmd.editSelected },
+              ctxRow(c.editText, { label: 'Edit label', testid: 'ctx-dg-edit-label' }),
               {
                 label: 'Route',
                 icon: 'turn_right',
                 children: [
-                  { label: 'Right-angle', icon: 'turn_right', onClick: () => cmd.setEdges({ routing: 'orthogonal', waypoints: undefined }) },
-                  { label: 'Curved', icon: 'gesture', onClick: () => cmd.setEdges({ routing: 'curved', waypoints: undefined }) },
-                  { label: 'Straight', icon: 'horizontal_rule', onClick: () => cmd.setEdges({ routing: 'straight', waypoints: undefined }) },
+                  ctxRow(c.route, { label: 'Right-angle', icon: 'turn_right', testid: 'ctx-dg-route-orthogonal', onClick: () => cmd.setEdges({ routing: 'orthogonal', waypoints: undefined }) }),
+                  ctxRow(c.route, { label: 'Curved', icon: 'gesture', testid: 'ctx-dg-route-curved', onClick: () => cmd.setEdges({ routing: 'curved', waypoints: undefined }) }),
+                  ctxRow(c.route, { label: 'Straight', icon: 'horizontal_rule', testid: 'ctx-dg-route-straight', onClick: () => cmd.setEdges({ routing: 'straight', waypoints: undefined }) }),
                   { separator: true },
-                  { label: 'Reset route', icon: 'restart_alt', onClick: () => cmd.setEdges({ waypoints: undefined, sourceHandle: undefined, targetHandle: undefined }) }
+                  ctxRow(c.route, {
+                    label: 'Reset route',
+                    icon: 'restart_alt',
+                    testid: 'ctx-dg-route-reset',
+                    onClick: () => cmd.setEdges({ waypoints: undefined, sourceHandle: undefined, targetHandle: undefined })
+                  })
                 ]
               }
             ],
@@ -83,14 +100,7 @@ export function ContextMenu({
           })
         : objectMenu({
             object: [
-              {
-                label: 'Edit text',
-                icon: 'edit',
-                shortcut: hint(['enter']),
-                onClick: cmd.editSelected,
-                disabled: nodes.length !== 1,
-                hint: nodes.length !== 1 ? 'Select one shape' : undefined
-              }
+              ctxRow(c.editText)
             ],
             cut: c.cut,
             copy: c.copy,
@@ -108,13 +118,7 @@ export function ContextMenu({
               lock,
               ctxRow(c.hide, { testid: 'diagram-ctx-hide' }),
               ctxRow(c.zoomToSelection),
-              {
-                label: 'Tidy these connections',
-                icon: 'cleaning_services',
-                onClick: () => void cmd.tidyConnections(),
-                disabled: nodes.length < 2,
-                hint: nodes.length < 2 ? 'Select two or more shapes' : undefined
-              }
+              ctxRow(c.tidySelected, { onClick: () => void cmd.tidyConnections() })
             ],
             del: c.remove
           })

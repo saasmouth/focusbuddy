@@ -182,7 +182,7 @@ test('Deck, as a viewer: Duplicate is off in the menu and the ribbon with the se
   expect(writes, 'a viewer wrote nothing').toEqual([])
 })
 
-test('Design, as a viewer: Duplicate is off in the menu and the ribbon with the sentence; Save selection as snippet is live and runs', async () => {
+test('Design, as a viewer: Duplicate and Insert › Text are off with the sentence; Save selection as snippet and Check accessibility are live and run', async () => {
   test.setTimeout(120_000)
   const app = APPS[1]!
   const { w, writes } = await openAsViewer(app)
@@ -201,10 +201,25 @@ test('Design, as a viewer: Duplicate is off in the menu and the ribbon with the 
   await expect(w.locator('[data-testid="save-snippet-dialog"]')).toBeVisible()
   // It holds the selected frame: a real read, not an empty draft.
   await expect(w.locator('[data-testid="save-snippet-empty"]')).toHaveCount(0)
+  await w.locator('[data-testid="save-snippet-dialog"] button[aria-label="Close"]').click()
+  await expect(w.locator('[data-testid="save-snippet-dialog"]')).toBeHidden()
+  // viewer-registry-41: Insert's rows were written by hand, live for a viewer.
+  // From the registry now, each is off with the sentence.
+  expect(await menuRow(w, app, 'insert', 'Text')).toEqual({ off: true, hint: SENTENCE })
+  // Check accessibility only reads the design: live in Tools ▸ and on the
+  // Review tab (it was a hand-written bar button, off for a viewer), and it
+  // runs. Design reports in the bar's status slot; it has no panel of its own.
+  expect(await menuRow(w, app, 'tools', 'Check accessibility')).toEqual({ off: false, hint: '' })
+  await w.locator('[data-testid="design-toolbar-tab-review"]').click()
+  const a11y = w.locator('[data-testid="design-a11y-check"]')
+  await expect(a11y).toBeEnabled()
+  await expect(w.locator('[data-testid="design-status-slot"]')).not.toContainText('Accessibility:')
+  await a11y.click()
+  await expect(w.locator('[data-testid="design-status-slot"]')).toContainText(/^Accessibility: /)
   expect(writes, 'a viewer wrote nothing').toEqual([])
 })
 
-test('Diagrams, as a viewer: Duplicate is off in the menu and the ribbon with the sentence; Copy style is live and runs', async () => {
+test('Diagrams, as a viewer: Duplicate, Undo and right-click Edit text are off with the sentence; Copy style is live and runs; keys change nothing', async () => {
   test.setTimeout(120_000)
   const app = APPS[2]!
   const { w, writes } = await openAsViewer(app)
@@ -224,5 +239,25 @@ test('Diagrams, as a viewer: Duplicate is off in the menu and the ribbon with th
   const pasteStyle = w.getByRole('button', { name: /^Paste style/ })
   await expect(pasteStyle).toBeDisabled()
   await expect(pasteStyle).toHaveAttribute('aria-label', `Paste style — ${SENTENCE}`)
+  // viewer-registry-41: Undo was a hand-written row (off only with nothing to
+  // undo, and silently); the right-click Edit text was live for a viewer.
+  expect(await menuRow(w, app, 'edit', 'Undo')).toEqual({ off: true, hint: SENTENCE })
+  const node = w.locator('.react-flow__node').first()
+  // A viewer's right-click on a shape opens the SHAPE's menu (it opened the canvas's until viewer-registry-41).
+  await node.click({ button: 'right' })
+  const editText = w.locator('[data-testid="diagram-context-menu"] [data-testid="ctx-dg-edit-text"]')
+  await expect(editText).toBeDisabled()
+  await expect(editText).toHaveAttribute('title', SENTENCE)
+  await w.keyboard.press('Escape')
+  await expect(w.locator('[data-testid="diagram-context-menu"]')).toBeHidden()
+  // A viewer's keys: forward-delete and an arrow nudge used to change the
+  // viewer's own copy (no gate in commands.handleKey). Now nothing moves.
+  await node.click()
+  const box = await node.boundingBox()
+  await w.keyboard.press('ArrowRight')
+  await w.keyboard.press('Delete')
+  await w.waitForTimeout(400)
+  await expect(w.locator('.react-flow__node')).toHaveCount(1)
+  expect(await node.boundingBox(), 'the shape did not move').toEqual(box)
   expect(writes, 'a viewer wrote nothing').toEqual([])
 })
