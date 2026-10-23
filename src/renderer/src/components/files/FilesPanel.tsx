@@ -21,7 +21,7 @@ import { useFileManagerStore, useFilesPanelBrowser, sortEntries } from '../../st
 import { useFilesPanelStore } from '../../stores/filesPanel'
 import { useViewStore } from '../../stores/view'
 import { useNodeStore } from '../../stores/nodes'
-import { useOrgStore } from '../../stores/org'
+import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
 import { useNoticeStore } from '../../stores/notice'
 import { useThumbnail, previewable } from '../../lib/fileThumbnail'
 import { fileTypeIcon, fileTypeLabel, isWidgetFileEntry } from '../../lib/fileEntryType'
@@ -41,6 +41,12 @@ import { moveFilesInto, placeFilesOnDesk } from '../../lib/filesDrop'
 import { nextSelection, stepSelection } from '../../lib/filesSelection'
 import { filesUndoAction } from '../../lib/filesUndoScope'
 import { confirmTrashWidgetFile } from '../../lib/widgetRemoval'
+import { fileEntryMenu, filesAreaMenu, isTextFieldTarget } from '../../lib/fileEntryMenu'
+import { useAccountStore } from '../../stores/account'
+import { promoteFolderToLive } from '../../lib/liveFolderMirror'
+import { shareToOrgOrGroup } from '../../lib/shareScope'
+import ShareDialog from '../ShareDialog'
+import type { ShareableKind } from '@shared/types'
 import { spawnPositionFor } from '../../lib/spawnPosition'
 import { catalogFor } from '../../lib/widgetCatalog'
 import { exceedsSyncLimit } from '@shared/fileSyncLimits'
@@ -125,6 +131,13 @@ export default function FilesPanel({
   const [query, setQuery] = useState(b.search)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [ctx, setCtx] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null)
+  // The share dialog's target (the menu's Share…), as in the full Files view.
+  const [linkTarget, setLinkTarget] = useState<{ kind: ShareableKind; id: string; name: string } | null>(null)
+  const sessionToken = useAccountStore((s) => s.sessionToken)
+  const orgs = useOrgStore((s) => s.orgs)
+  // Sharing into a team: from the Personal Drive, when a team org exists (as in FilesView).
+  const sharedOrgs = useMemo(() => orgs.filter((o) => !o.personal), [orgs])
+  const canShare = activeOrgId === PERSONAL_ORG_ID && sharedOrgs.length > 0
   const [preview, setPreview] = useState<FileEntry | null>(null)
   const [pathOpen, setPathOpen] = useState(false)
   const [dropOver, setDropOver] = useState<string | null>(null)
@@ -227,37 +240,69 @@ export default function FilesPanel({
     []
   )
 
+  // One builder for this panel and the full Files view (lib/fileEntryMenu.ts),
+  // so the same entry says the same thing in both.
   function entryMenu(entry: FileEntry): CtxMenuItem[] {
     const refs = selected.includes(entry.id) && selected.length > 1 ? selectionRefs() : [refFromEntry(entry, activeOrgId)]
-    const items: CtxMenuItem[] = [{ label: 'Open', icon: 'open_in_new', onClick: () => openEntry(entry) }]
-    if (deskOpen) {
-      items.push({
-        label: refs.length > 1 ? `Add ${refs.length} items to this desk` : 'Add to this desk',
-        icon: 'add_to_queue',
-        onClick: () => void addToDesk(refs)
-      })
-    }
-    items.push({
-      label: 'Show in full Files',
-      icon: 'open_in_full',
-      onClick: () => {
-        useViewStore.getState().goFiles()
-        void useFileManagerStore.getState().openFolder(entry.parentId ?? null).then(() => useFileManagerStore.getState().select(entry.id))
+    return fileEntryMenu(
+      entry,
+      'flyout',
+      { signedIn: !!sessionToken, canShareWithTeam: canShare, addToDeskCount: deskOpen ? refs.length : undefined, platform: window.api?.platform ?? 'darwin' },
+      {
+        open: () => openEntry(entry),
+        rename: () => setRenaming(entry.id),
+        addToDesk: () => void addToDesk(refs),
+        showInFiles: () => {
+          useViewStore.getState().goFiles()
+          void useFileManagerStore.getState().openFolder(entry.parentId ?? null).then(() => useFileManagerStore.getState().select(entry.id))
+        },
+        exportWidgetFile: (docId) => void window.api.widgetFiles.export(docId),
+        reveal: () => void window.api.fileManager.reveal(entry.id),
+        collaborateLive: () => {
+          if (!sessionToken) return
+          void promoteFolderToLive(entry.id, entry.name, sessionToken).then((res) => {
+            if (res) useViewStore.getState().goLiveFolder(res.liveId)
+          })
+        },
+        share: () => {
+          const kind: ShareableKind = entry.kind === 'folder' ? 'docfolder' : entry.kind === 'doc' ? 'document' : 'file'
+          const id = entry.kind === 'doc' ? entry.docId : entry.id
+          if (id) setLinkTarget({ kind, id, name: entry.name })
+        },
+        shareWithTeam: () =>
+          void shareToOrgOrGroup({
+            name: entry.name,
+            kindLabel: entry.kind === 'folder' ? 'folder and its contents' : 'file',
+            sharedOrgs,
+            move: async (org, team) => {
+              await ops().moveToOrg(entry.id, org, team)
+              await useFilesPanelBrowser.getState().refresh()
+            }
+          }),
+        moveToTrash: () =>
+          void (isWidgetFileEntry(entry) && entry.docId
+            ? confirmTrashWidgetFile(entry.docId).then(() => ops().refresh())
+            : ops().remove(entry.id)),
+        removeFromFolder: () => void ops().remove(entry.id)
       }
-    })
-    items.push({ label: 'Rename', icon: 'edit', onClick: () => setRenaming(entry.id) })
-    items.push({ separator: true })
-    if (isWidgetFileEntry(entry) && entry.docId) {
-      const docId = entry.docId
-      items.push({ label: 'Move to Trash', icon: 'delete', onClick: () => void confirmTrashWidgetFile(docId).then(() => ops().refresh()) })
-    } else {
-      items.push({
-        label: entry.kind === 'folder' ? 'Delete folder and contents' : entry.kind === 'doc' ? 'Remove from folder' : 'Delete',
-        icon: 'delete',
-        onClick: () => void ops().remove(entry.id)
+    )
+  }
+
+  // Right-click on the empty part of the listing.
+  function onAreaContext(e: React.MouseEvent): void {
+    if (e.defaultPrevented || isTextFieldTarget(e.target)) return
+    e.preventDefault()
+    const panel = useFilesPanelBrowser.getState()
+    setCtx({
+      x: e.clientX,
+      y: e.clientY,
+      items: filesAreaMenu({
+        newFolder: () => void ops().createFolder('New folder', b.cwd).then(() => panel.refresh()),
+        addFiles: () => void ops().importFiles(b.cwd),
+        importFolder: () => void ops().importFolder(b.cwd).then(() => panel.refresh()),
+        selectAll: order.length ? () => panel.setSelection(order, order[0]!) : undefined
       })
-    }
-    return items
+    })
   }
 
   function onListKey(e: React.KeyboardEvent): void {
@@ -572,6 +617,7 @@ export default function FilesPanel({
           if (e.target === e.currentTarget) setDropOver(null)
         }}
         onDrop={onBackgroundDrop}
+        onContextMenu={onAreaContext}
         className={`flex-1 min-h-0 min-w-0 overflow-auto p-1 outline-none ${dropOver === '__bg__' ? 'ring-2 ring-inset ring-[rgb(var(--accent)/0.6)]' : ''} ${
           isGrid ? 'grid gap-1 content-start' : 'flex flex-col'
         }`}
@@ -611,6 +657,7 @@ export default function FilesPanel({
               }}
               onOpen={() => openEntry(entry)}
               onContext={(ev) => {
+                if (isTextFieldTarget(ev.target)) return
                 ev.preventDefault()
                 if (!selected.includes(entry.id)) useFilesPanelBrowser.getState().select(entry.id)
                 setCtx({ x: ev.clientX, y: ev.clientY, items: entryMenu(entry) })
@@ -678,6 +725,7 @@ export default function FilesPanel({
 
       {preview && <PreviewCard entry={preview} onClose={() => setPreview(null)} />}
       {ctx && <CanvasContextMenu x={ctx.x} y={ctx.y} items={ctx.items} onClose={() => setCtx(null)} />}
+      {linkTarget && <ShareDialog kind={linkTarget.kind} entityId={linkTarget.id} label={linkTarget.name} onClose={() => setLinkTarget(null)} />}
     </div>
   )
 }

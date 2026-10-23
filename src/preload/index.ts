@@ -6,6 +6,7 @@ import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
 import type { WebMenuCommand } from '@shared/webMenu'
+import type { TextMenuCommand } from '@shared/textMenu'
 import type {
   ActionProposal,
   AnswerGrounding,
@@ -1245,6 +1246,16 @@ const api = {
       const handler = (_: unknown, cmd: WebMenuCommand): void => cb(cmd)
       ipcRenderer.on('webMenu:command', handler)
       return () => ipcRenderer.removeListener('webMenu:command', handler)
+    }
+  },
+  textMenu: {
+    // "Ask PlexiiAssist about this" / "Save selection as snippet…" chosen in
+    // the app window's native text menu (main/webContextMenu.ts): the surface
+    // that owns the focused text handles it (renderer lib/textMenuHandlers.ts).
+    onAction: (cb: (cmd: TextMenuCommand) => void): (() => void) => {
+      const handler = (_: unknown, cmd: TextMenuCommand): void => cb(cmd)
+      ipcRenderer.on('textMenu:action', handler)
+      return () => ipcRenderer.removeListener('textMenu:action', handler)
     }
   },
   contextMenu: {

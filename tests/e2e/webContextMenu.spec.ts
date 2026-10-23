@@ -108,7 +108,7 @@ const labels = (m: Recorded): string[] => (m?.entries ?? []).filter((e) => e.typ
 async function checkAll(app: ElectronApplication, url: string, surface: string): Promise<void> {
   const link = await rightClick(app, url, '#link')
   expect(link?.surface).toBe(surface)
-  expect(labels(link)).toEqual(expect.arrayContaining(['Open link in default browser', 'Copy link address']))
+  expect(labels(link)).toEqual(expect.arrayContaining(['Open link in default browser', 'Copy link']))
   expect(labels(link)).toContain(surface === 'desk' ? 'Open link as a new browser work widget' : 'Open link')
 
   const img = await rightClick(app, url, '#img')
@@ -304,7 +304,10 @@ test('WCM-9 — selected text: Ask PlexiiAssist stages the passage; AI Assist pr
   await waitLoaded(app, url)
   await rightClick(app, url, '#text', { select: true })
   const ai = (await flat(app)).filter((e) => e.path[0] === 'AI Assist').map((e) => e.label)
-  expect(ai).toEqual(expect.arrayContaining(['Summarise', 'Explain', 'Simplify', 'Rewrite', 'French', 'Formal', 'Custom Prompt…']))
+  // The one AI set of eight (E-12), sentence case (SPEC §9.4).
+  expect(ai).toEqual(
+    expect.arrayContaining(['Expand', 'Simplify', 'Summarise', 'Rewrite', 'Fix grammar', 'Improve clarity', 'Continue writing', 'Explain', 'French', 'Formal', 'Custom prompt…'])
+  )
   expect(await choose(app, 'ask-assist')).toBe(true)
   await expect
     .poll(() =>

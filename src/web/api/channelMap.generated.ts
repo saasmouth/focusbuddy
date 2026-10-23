@@ -660,6 +660,7 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'share.onIncomingToken': 'share:incoming-token',
   'snippets.onChanged': 'snippets:changed',
   'tables.onRowsChanged': 'tables:rowsChanged',
+  'textMenu.onAction': 'textMenu:action',
   'update.onState': 'update:state',
   'webMenu.onCommand': 'webMenu:command',
   'webview.onLinkClicked': 'webview:link-clicked',
