@@ -37,7 +37,7 @@ function widget(widgetKind: string, content: string, width: number, height: numb
  */
 export function toWidget(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
-  if (body.kind === 'widget') return ok(structuredClone(body), [])
+  if (body?.kind === 'widget') return ok(structuredClone(body), [])
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
   if (!f) return refusal(body, 'widget')
   switch (f.kind) {

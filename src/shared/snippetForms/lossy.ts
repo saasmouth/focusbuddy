@@ -29,7 +29,9 @@ export const L = {
   linkedFrames: 'Linked text frames become one text box holding the whole story.',
   linkedFramesFirst: 'Text that flows through linked frames is drawn in the first frame.',
   colourSize: 'Text colour, size and highlighting are not kept.',
-  alignment: 'Text alignment is not kept.'
+  alignment: 'Text alignment is not kept.',
+  unsupportedImage: 'An image with an unsupported address was left out.',
+  textBoxesSeparate: 'Text boxes arrive as separate frames; to make the text flow, select them and use Link text frames on the Text tab.'
 } as const
 
 /** How many formulas could not be computed from the saved cells alone. */

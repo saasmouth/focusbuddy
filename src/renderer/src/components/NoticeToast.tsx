@@ -31,7 +31,7 @@ export default function NoticeToast(): JSX.Element | null {
       }`}
     >
       <Icon name={notice.icon ?? 'check_circle'} size={16} className="shrink-0 text-[rgb(var(--accent))]" />
-      <span className="min-w-0 flex-1 text-[12.5px] text-[var(--ink-90)] truncate">{notice.text}</span>
+      <span className="min-w-0 flex-1 text-[12.5px] text-[var(--ink-90)] line-clamp-3 break-words" title={notice.text}>{notice.text}</span>
       {notice.action && (
         <button
           onClick={() => {

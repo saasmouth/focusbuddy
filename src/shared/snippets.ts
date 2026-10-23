@@ -232,10 +232,13 @@ export interface SnippetQuery {
  */
 /**
  * What a target returns from `insert`. `true` took it; `false` declined without
- * a reason; the object form declines WITH one, which the store surfaces
- * verbatim. Boolean-returning targets stay valid.
+ * a reason; `{ ok: false, reason }` declines WITH one, which the store surfaces
+ * verbatim. `{ ok: true, notice }` took it CONVERTED, and `notice` is the one
+ * plain line saying so (conversionNotice: "It becomes a picture: edit it in
+ * PlexiiDraw."), which the store shows once the library has closed, so a
+ * converted insert is never silently lossy. Boolean-returning targets stay valid.
  */
-export type SnippetInsertResult = boolean | { ok: false; reason: string }
+export type SnippetInsertResult = boolean | { ok: false; reason: string } | { ok: true; notice?: string | null }
 
 export interface SnippetTarget {
   /** Stable id for the surface instance, e.g. `doc:<documentId>`. */
