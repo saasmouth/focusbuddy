@@ -180,7 +180,8 @@ export function deckSnippetTargetId(instanceId: string): string {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function translate(e: SlideElement, dx: number, dy: number): SlideElement {
+/** Move an element (and a line's far end) by dx, dy. */
+export function translate(e: SlideElement, dx: number, dy: number): SlideElement {
   return translateLineEnd({ ...e, x: e.x + dx, y: e.y + dy } as SlideElement, dx, dy)
 }
 

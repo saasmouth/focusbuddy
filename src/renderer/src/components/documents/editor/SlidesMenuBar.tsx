@@ -22,6 +22,8 @@ export interface SlidesMenuActions {
   redo: () => void
   canUndo: boolean
   canRedo: boolean
+  /** False while editing a single-slide fragment (a slide snippet): slide-level items are disabled. */
+  slideOps?: boolean
   present: () => void
   checkA11y: () => void
   newSlide: () => void
@@ -181,12 +183,12 @@ export default function SlidesMenuBar({ actions }: { actions: SlidesMenuActions 
       id: 'slide',
       label: 'Slide',
       build: () => [
-        { kind: 'item', label: 'New slide', icon: 'add', run: a.newSlide },
-        { kind: 'item', label: 'Duplicate slide', icon: 'file_copy', run: a.duplicateSlide },
-        { kind: 'item', label: 'Delete slide', icon: 'delete', run: a.deleteSlide },
+        { kind: 'item', label: 'New slide', icon: 'add', run: a.newSlide, disabled: a.slideOps === false },
+        { kind: 'item', label: 'Duplicate slide', icon: 'file_copy', run: a.duplicateSlide, disabled: a.slideOps === false },
+        { kind: 'item', label: 'Delete slide', icon: 'delete', run: a.deleteSlide, disabled: a.slideOps === false },
         { kind: 'sep' },
-        { kind: 'item', label: 'Move slide up', icon: 'arrow_upward', run: a.moveSlideUp },
-        { kind: 'item', label: 'Move slide down', icon: 'arrow_downward', run: a.moveSlideDown }
+        { kind: 'item', label: 'Move slide up', icon: 'arrow_upward', run: a.moveSlideUp, disabled: a.slideOps === false },
+        { kind: 'item', label: 'Move slide down', icon: 'arrow_downward', run: a.moveSlideDown, disabled: a.slideOps === false }
       ]
     },
     {

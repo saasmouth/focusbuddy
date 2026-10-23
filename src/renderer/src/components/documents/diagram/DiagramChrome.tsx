@@ -58,6 +58,7 @@ export function DiagramChrome({
   canUndo,
   canRedo,
   readOnly,
+  singlePage = false,
   onSaveSnippet,
   onInsertSnippet,
   children
@@ -76,6 +77,8 @@ export function DiagramChrome({
   canUndo: boolean
   canRedo: boolean
   readOnly: boolean
+  /** One graph, no pages (a diagram snippet): no page tabs, no new page. */
+  singlePage?: boolean
   // Saved snippets: the editor owns the dialogs; the menus only open them.
   onSaveSnippet?: () => void
   onInsertSnippet?: () => void
@@ -180,6 +183,7 @@ export function DiagramChrome({
         settings,
         themeId: settings.theme,
         readOnly,
+        singlePage,
         zoom,
         tool,
         setTool,
@@ -195,7 +199,7 @@ export function DiagramChrome({
           imageRef.current?.click()
         }
       }),
-    [cmd, page, sel, settings, readOnly, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus]
+    [cmd, page, sel, settings, readOnly, singlePage, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus]
   )
   const railItems = useMemo(() => diagramRailItems(), [])
   const [lastShape, setLastShape] = useState<string>('shape:process')
@@ -293,7 +297,7 @@ export function DiagramChrome({
       ...(onInsertSnippet ? [{ kind: 'item' as const, label: 'Insert snippet…', icon: 'bookmarks', run: onInsertSnippet, disabled: readOnly }] : []),
       { kind: 'item', label: 'AI diagram…', icon: 'auto_awesome', run: () => setSidePane('ai') },
       { kind: 'sep' },
-      { kind: 'item', label: 'New page', icon: 'note_add', run: cmd.addPage }
+      ...(singlePage ? [] : [{ kind: 'item' as const, label: 'New page', icon: 'note_add', run: cmd.addPage }])
     ],
     arrange: (): MenuItem[] => [
       { kind: 'item', label: 'Bring to front', icon: 'flip_to_front', shortcut: '⇧⌘]', run: () => cmd.order('front'), disabled: !hasSel },
@@ -499,7 +503,7 @@ export function DiagramChrome({
             ariaLabel="Diagram tools"
           />
         }
-        bottom={<PagesBar cmd={cmd} pages={pages} pageIdx={pageIdx} sel={sel} page={page} status={status} layersOpen={isOpen('layers')} onLayers={() => togglePanel('layers')} readOnly={readOnly} />}
+        bottom={<PagesBar cmd={cmd} pages={pages} pageIdx={pageIdx} sel={sel} page={page} status={status} layersOpen={isOpen('layers')} onLayers={() => togglePanel('layers')} readOnly={readOnly} singlePage={singlePage} />}
         panels={
           open.length ? (
             <>
@@ -594,7 +598,8 @@ function PagesBar({
   status,
   layersOpen,
   onLayers,
-  readOnly
+  readOnly,
+  singlePage
 }: {
   cmd: Commands
   pages: PageInfo[]
@@ -605,6 +610,7 @@ function PagesBar({
   layersOpen: boolean
   onLayers: () => void
   readOnly: boolean
+  singlePage: boolean
 }): JSX.Element {
   const [renaming, setRenaming] = useState<number | null>(null)
   const [menu, setMenu] = useState<number | null>(null)
@@ -615,7 +621,7 @@ function PagesBar({
   return (
     <div className="shrink-0 h-8 flex items-center gap-1 px-2 border-t border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_55%,transparent)] text-[11px]" data-testid="diagram-pages-bar">
       <div className="flex items-center gap-0.5 overflow-x-auto min-w-0">
-        {pages.map((p, i) => (
+        {!singlePage && pages.map((p, i) => (
           <div key={p.id} className="relative">
             {renaming === i ? (
               <input
@@ -675,7 +681,7 @@ function PagesBar({
             )}
           </div>
         ))}
-        {!readOnly && (
+        {!readOnly && !singlePage && (
           <button type="button" onClick={cmd.addPage} className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-60)] hover:bg-[var(--surface-raised)]" title="Add page" data-testid="diagram-page-add">
             <Icon name="add" size={14} />
           </button>

@@ -94,9 +94,16 @@ interface Props {
    * onChange is never called.
    */
   readOnly?: boolean
+  /**
+   * Edit one slide with no deck around it (a slide snippet, which is a fragment):
+   * the navigator is hidden and every slide-level command (new, duplicate,
+   * delete, move, templates) refuses, so nothing can be added that the snippet
+   * would have nowhere to keep.
+   */
+  singleSlide?: boolean
 }
 
-export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false }: Props): JSX.Element {
+export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false, singleSlide = false }: Props): JSX.Element {
   const [body, setBody] = useState<SlidesBody>(() => migrateSlidesBody(rawBody))
   // Accept live external updates (co-editing): fold a new body prop into the
   // deck without disturbing the current slide selection or any active element
@@ -280,7 +287,12 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // ── Slide rail ops ────────────────────────────────────────────────────────
   // Insert a new slide built from a starter template, right after the current
   // one so it lands where the user is working.
+  function openGallery(): void {
+    if (singleSlide) return
+    setGalleryOpen(true)
+  }
   function addSlideFromTemplate(templateId: string): void {
+    if (singleSlide) return
     const tpl = SLIDE_TEMPLATES.find((t) => t.id === templateId)
     const elements = tpl ? tpl.build(theme) : layoutElements('title-content', theme)
     const s: Slide = {
@@ -307,6 +319,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
    * single element, one level up.
    */
   function duplicateSlide(i: number): void {
+    if (singleSlide) return
     const src = slides[i]
     if (!src) return
     const copy: Slide = {
@@ -320,12 +333,14 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     setSelectedIds([])
   }
   function deleteSlide(i: number): void {
+    if (singleSlide) return
     if (slides.length <= 1) return
     setSlides(slides.filter((_, si) => si !== i))
     setSel(Math.max(0, i - 1))
     setSelectedIds([])
   }
   function moveSlide(i: number, dir: -1 | 1): void {
+    if (singleSlide) return
     const j = i + dir
     if (j < 0 || j >= slides.length) return
     const next = [...slides]
@@ -788,7 +803,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         { id: 'sl-chart', label: 'Insert chart', icon: 'bar_chart', group: 'Insert', keywords: 'graph plot data sheet', run: insertChart },
         { id: 'sl-table', label: 'Insert table', icon: 'table_chart', group: 'Insert', keywords: 'grid rows columns cells', run: insertTable },
         { id: 'sl-snippet', label: 'Insert snippet', icon: 'bookmarks', group: 'Insert', keywords: 'saved reuse library', run: () => setSnippetLibraryOpen(true) },
-        { id: 'sl-new', label: 'New slide', icon: 'add_to_photos', group: 'Slide', keywords: 'add template', run: () => setGalleryOpen(true) },
+        { id: 'sl-new', label: 'New slide', icon: 'add_to_photos', group: 'Slide', keywords: 'add template', run: openGallery },
         { id: 'sl-present', label: 'Present deck', icon: 'play_arrow', group: 'Slide', keywords: 'slideshow play', run: () => setPresenting(true) },
         { id: 'sl-ai', label: 'AI: generate or redesign slides', icon: 'auto_awesome', group: 'AI', keywords: 'design make beautiful', run: () => setSidePane('generate') },
         { id: 'sl-undo', label: 'Undo', icon: 'undo', shortcut: '⌘Z', group: 'Edit', run: undoLast },
@@ -861,6 +876,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     el: selectedEl,
     anyGrouped,
     readOnly,
+    singleSlide,
     tool,
     setTool,
     isPanelOpen,
@@ -879,7 +895,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
       insertWidget: () => setWidgetPickerOpen(true),
       insertSnippet: () => setSnippetLibraryOpen(true),
       saveSnippet: saveSelectionAsSnippet,
-      openGallery: () => setGalleryOpen(true),
+      openGallery,
       duplicateSlide: () => duplicateSlide(slideIdx),
       applyLayout,
       applyTheme,
@@ -954,6 +970,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             redo: redoLast,
             canUndo: undo.current.length > 0,
             canRedo: redo.current.length > 0,
+            slideOps: !singleSlide,
             present: () => setPresenting(true),
             checkA11y: () => setA11yIssues(checkSlidesA11y(body)),
             newSlide: () => addSlideFromTemplate('blank'),
@@ -1012,6 +1029,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
           />
         }
         leftAside={
+          singleSlide ? undefined :
           // The navigator (SPEC §1): slide thumbnails, not tools or settings, as in PowerPoint.
           <div className="w-40 h-full overflow-auto p-2 space-y-2" data-testid="slides-thumbnails">
             {slides.map((s, i) => (
@@ -1033,7 +1051,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
                 </div>}
               </div>
             ))}
-            {!readOnly && <button onClick={() => setGalleryOpen(true)} className="w-full aspect-video rounded-md border-2 border-dashed border-[var(--edge-firm)] text-[var(--ink-40)] hover:text-accent hover:border-accent flex items-center justify-center" data-testid="slides-add" aria-label="New slide">
+            {!readOnly && <button onClick={openGallery} className="w-full aspect-video rounded-md border-2 border-dashed border-[var(--edge-firm)] text-[var(--ink-40)] hover:text-accent hover:border-accent flex items-center justify-center" data-testid="slides-add" aria-label="New slide">
               <Icon name="add" size={20} />
             </button>}
           </div>

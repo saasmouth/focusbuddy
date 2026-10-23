@@ -14,6 +14,8 @@ import Icon from '../Icon'
 // node, which renders the embed, so that one has to be lazy regardless.
 const SnippetDocSurface = lazy(() => import('./SnippetDocSurface'))
 const SnippetSheetSession = lazy(() => import('./SnippetSheetSession'))
+const SnippetDiagramSession = lazy(() => import('./SnippetDiagramSession'))
+const SnippetSlideSession = lazy(() => import('./SnippetSlideSession'))
 
 function Loading(): JSX.Element {
   return <div className="p-4 text-[12px] text-[var(--ink-50)]">Opening the editor…</div>
@@ -82,6 +84,22 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
     render: ({ body, title, onChange }) => (
       <Suspense fallback={<Loading />}>
         <SnippetSheetSession body={body} title={title} onChange={onChange} />
+      </Suspense>
+    )
+  },
+  // PlexiiDiagrams: page one of a MapBody, single page (documents/diagram/snippetSession).
+  diagram: {
+    render: ({ body, title, onChange }) => (
+      <Suspense fallback={<Loading />}>
+        <SnippetDiagramSession body={body} title={title} onChange={onChange} />
+      </Suspense>
+    )
+  },
+  // PlexiiDeck: an in-memory one-slide deck, single slide (documents/slides/snippetSession).
+  slide: {
+    render: ({ body, title, onChange }) => (
+      <Suspense fallback={<Loading />}>
+        <SnippetSlideSession body={body} title={title} onChange={onChange} />
       </Suspense>
     )
   }

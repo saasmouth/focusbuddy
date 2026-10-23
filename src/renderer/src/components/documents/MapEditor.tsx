@@ -19,6 +19,8 @@ interface Props {
   // as a new body identity and folding them would fight the live editing state.
   foldExternal?: boolean
   readOnly?: boolean
+  // One graph, no pages (editing a diagram snippet).
+  singlePage?: boolean
   // Live co-editing: own-change undo over the shared document.
   liveUndo?: LiveUndo
 }
