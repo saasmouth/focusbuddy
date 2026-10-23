@@ -13,7 +13,8 @@ import { convertClipboard } from '../../src/renderer/src/lib/clipboardPaste'
 import { acceptFor, readDropForms } from '../../src/renderer/src/lib/widgetSnippetInsert'
 import { readFilesDragForms } from '../../src/renderer/src/lib/filesDragForms'
 import { sourceKindOf, type FileDragRef } from '../../src/shared/filesDragPayload'
-import { L, firstSheetOf } from '../../src/shared/snippetForms/lossy'
+import { L, firstSheetOf, tidyNotes } from '../../src/shared/snippetForms/lossy'
+import { conversionNotice } from '../../src/shared/snippetConvert'
 import { NOTICE_WORKBOOK_LINK, XLSX_REASON, workbookTooLarge } from '../../src/shared/xlsxSheet'
 import { NOTICE_BYTES_MISSING } from '../../src/shared/fileForms'
 import type { SnippetKind } from '../../src/shared/snippets'
@@ -141,6 +142,36 @@ describe('a workbook dropped into each office app lands as its first sheet', () 
       expect(a.picture?.svg?.app).toBe('the original file')
       expect(a.lossy).toContain(firstSheetOf(3))
     }
+  })
+})
+
+describe('one formula note per target, never two saying the same loss', () => {
+  beforeEach(() => store.set('wb', budgetWorkbook()))
+
+  it('PlexiiCells keeps formulas live: only the cross-sheet note', async () => {
+    const o = landed((await dropInto('sheet')).out)
+    expect(o.notice).toContain(L.otherSheetFormulas)
+    expect(o.notice).not.toContain(L.formulasValues)
+  })
+
+  it.each([['doc' as const], ['slide' as const], ['design' as const], ['draw' as const]])('%s: only "Formulas become their values."', async (target) => {
+    const o = landed((await dropInto(target)).out)
+    expect(o.notice).toContain(L.formulasValues)
+    expect(o.notice).not.toContain(L.otherSheetFormulas)
+  })
+
+  it('an image work widget: only "Formulas become their values."', async () => {
+    const read = await readFilesDragForms(ref('wb'), { target: 'image' })
+    const r = readDropForms(read)
+    const a = acceptFor('image', r.forms, r.ctx) as { ok: boolean; lossy?: string[] }
+    expect(a.lossy).toContain(L.formulasValues)
+    expect(a.lossy).not.toContain(L.otherSheetFormulas)
+  })
+
+  it('tidyNotes holds for any combination of notes', () => {
+    expect(tidyNotes([L.otherSheetFormulas, firstSheetOf(2), L.formulasValues, L.formulasValues])).toEqual([firstSheetOf(2), L.formulasValues])
+    expect(tidyNotes([firstSheetOf(2), L.otherSheetFormulas])).toEqual([firstSheetOf(2), L.otherSheetFormulas])
+    expect(conversionNotice(null, 'doc', [L.otherSheetFormulas, L.formulasValues])).toBe(L.formulasValues)
   })
 })
 

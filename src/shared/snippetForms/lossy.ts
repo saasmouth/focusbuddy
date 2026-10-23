@@ -79,6 +79,19 @@ export function uniq(list: string[]): string[] {
   return [...new Set(list)]
 }
 
+/**
+ * Notes put together from more than one place (a workbook's own notes and a
+ * conversion's), as one list a person reads: unique, and never two lines
+ * saying the same loss. Where EVERY formula becomes its value, that a
+ * cross-sheet formula became its saved value is already said, so only
+ * "Formulas become their values." stays; the cross-sheet line is for where
+ * formulas stay live (PlexiiCells).
+ */
+export function tidyNotes(list: string[]): string[] {
+  const lines = uniq(list.map((l) => l.trim()).filter(Boolean))
+  return lines.includes(L.formulasValues) ? lines.filter((l) => l !== L.otherSheetFormulas) : lines
+}
+
 /** What a document fragment loses when it becomes plain text. */
 export function docTextLossy(f: DocFeatures): string[] {
   const out: string[] = []

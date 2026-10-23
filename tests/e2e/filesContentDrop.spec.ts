@@ -407,6 +407,9 @@ test('CD-9 an Excel workbook: a picture in PlexiiDraw, a real table in PlexiiDec
   await dropRow(window, xlsx, '[data-testid="draw-canvas-scroll"]')
   await expect(notice(window)).toContainText('First sheet of 3.', { timeout: 15_000 })
   await expect(notice(window)).toContainText('It becomes a picture: edit it in the original file.')
+  // One formula note: every formula is a value here, so the cross-sheet line is not said too.
+  await expect(notice(window)).toContainText('Formulas become their values.')
+  await expect(notice(window)).not.toContainText('Formulas that read other sheets')
   await expect.poll(async () => (await drawingPictures(window, seed.d.draw)).length, { timeout: 10_000 }).toBe(1)
   const [pic] = await drawingPictures(window, seed.d.draw)
   expect(pic).toContain('>Pens</text>')
@@ -437,6 +440,8 @@ test('CD-9 an Excel workbook: a picture in PlexiiDraw, a real table in PlexiiDec
   await openDoc(window, seed.d.write, '.ProseMirror')
   await dropRow(window, xlsx, '[data-testid="doc-editor-surface"]', { dx: 40, dy: 12 })
   await expect.poll(() => saved(window, seed.d.write), { timeout: 15_000 }).toContain('"type":"table"')
+  await expect(notice(window)).toContainText('Formulas become their values.')
+  await expect(notice(window)).not.toContainText('Formulas that read other sheets')
   const doc = await saved(window, seed.d.write)
   expect(doc).toContain('"text":"Pens"')
   expect(doc).toContain('"text":"12"')

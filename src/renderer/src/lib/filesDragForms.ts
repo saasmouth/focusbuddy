@@ -19,6 +19,7 @@
 import { formsOf } from '@shared/snippetForms'
 import { formsOfSheet } from '@shared/snippetForms/fromSheet'
 import { XLSX_DROP_MAX_BYTES } from '@shared/xlsxSheet'
+import { tidyNotes } from '@shared/snippetForms/lossy'
 import type { Form } from '@shared/snippetForms'
 import { sourceKindOf, type FileDragRef } from '@shared/filesDragPayload'
 import {
@@ -154,7 +155,9 @@ async function readWorkbook(ref: FileDragRef, content: FileContent): Promise<Fil
     return { ...content, sheetRefused: { reason: r.reason, tooLarge: r.code === 'too-large' } }
   }
   const forms = formsOfSheet(r.body, snippetConvertDeps(), { app: 'the original file' })
-  content.docForms = r.notes.length ? forms.map((f): Form => ({ ...f, lossy: [...r.notes, ...f.lossy] }) as Form) : forms
+  // tidyNotes: a value form already says "Formulas become their values.", so
+  // the workbook's cross-sheet line is said only on the native form (Cells).
+  content.docForms = r.notes.length ? forms.map((f): Form => ({ ...f, lossy: tidyNotes([...r.notes, ...f.lossy]) }) as Form) : forms
   return content
 }
 
