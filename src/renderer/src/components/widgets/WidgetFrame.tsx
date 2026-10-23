@@ -1205,13 +1205,14 @@ export default function WidgetFrame({
         // the header buttons, the "…" overflow menu and the pin / expand
         // pickers (portalled, but React routes their events through this tree).
         onClickCapture={(e) => {
-          swallowModifierClick(e, { zoom, isChildOfSection, isPinned })
+          swallowModifierClick(e, { zoom, isChildOfSection, isPinned }, () => zoomToWidget(widget.id))
         }}
         onClick={(e) => {
           e.stopPropagation()
           // Cmd/⌘-click while zoomed out (< 80%) dives into this widget (jump
-          // to 100% with it centred) on mousedown, above; its click is
-          // swallowed in capture, so it never reaches here.
+          // to 100% with it centred) — on mousedown above, and again from the
+          // click capture (a click with no mousedown, e.g. synthesised, still
+          // dives; zoomToWidget is idempotent). It never reaches here.
           // Suppress the click that fires immediately after a drag-end —
           // react-rnd doesn't natively distinguish them.
           if (performance.now() - dragJustEnded.current < 250) return

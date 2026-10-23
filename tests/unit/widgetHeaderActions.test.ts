@@ -65,9 +65,10 @@ describe('foldHeaderActions — one rule for every kind', () => {
     let prev: HeaderActionId[] = []
     for (let budget = 0; budget <= rowWidth(8); budget++) {
       const { visible, overflow } = foldHeaderActions(ALL, budget)
+      expect(visible.length).toBeGreaterThanOrEqual(1)
       // Nothing lost, nothing duplicated.
       expect([...visible, ...overflow].sort()).toEqual([...ALL].sort())
-      // The visible set is always a priority prefix…
+      // The visible set is always a priority prefix (AI at least)…
       const prefix = HEADER_ACTION_PRIORITY.slice(0, visible.length)
       expect([...visible].sort()).toEqual([...prefix].sort())
       // …and only ever grows with width.
@@ -82,8 +83,21 @@ describe('foldHeaderActions — one rule for every kind', () => {
     expect(visible).toEqual(['ai', 'pin', 'expand', 'remove'])
   })
 
-  it('a budget too small even for "…" still gets "…", so no tool is unreachable', () => {
-    expect(foldHeaderActions(ALL, 0)).toEqual({ visible: [], overflow: HEADER_ACTION_ORDER })
+  it('a budget too small even for "…" keeps AI and "…": no tool is unreachable, AI never moves', () => {
+    const fold = foldHeaderActions(ALL, 0)
+    expect(fold.visible).toEqual(['ai'])
+    expect(fold.overflow).toEqual(HEADER_ACTION_ORDER.filter((id) => id !== 'ai'))
+  })
+
+  it('the 180px floor (every kind minimum) keeps AI inline', () => {
+    // 180 − 16 padding = 164 inner, 56 of fixed title cluster.
+    expect(foldHeaderActions(ALL, headerActionBudget(164, 56)).visible).toEqual(['ai'])
+  })
+
+  it('AI is never folded at any width', () => {
+    for (let budget = 0; budget <= rowWidth(8); budget++) {
+      expect(foldHeaderActions(ALL, budget).visible[0]).toBe('ai')
+    }
   })
 
   it('folds only the tools a widget has (a section child has no pin/size tools)', () => {
@@ -160,14 +174,15 @@ describe('swallowModifierClick — the frame click capture, on a real DOM tree',
     frame.appendChild(button)
     document.body.appendChild(frame)
     const action = vi.fn()
-    frame.addEventListener('click', (e) => swallowModifierClick(e, ctx), true)
+    const dive = vi.fn()
+    frame.addEventListener('click', (e) => swallowModifierClick(e, ctx, dive), true)
     button.addEventListener('click', action)
     const click = (init: MouseEventInit): MouseEvent => {
       const ev = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1, ...init })
       button.dispatchEvent(ev)
       return ev
     }
-    return { action, click, cleanup: () => frame.remove() }
+    return { action, dive, click, cleanup: () => frame.remove() }
   }
 
   it('plain click: the button runs', () => {
@@ -181,6 +196,7 @@ describe('swallowModifierClick — the frame click capture, on a real DOM tree',
     const t = mount()
     expect(t.click({ shiftKey: true }).defaultPrevented).toBe(true)
     expect(t.action).not.toHaveBeenCalled()
+    expect(t.dive).not.toHaveBeenCalled()
     t.cleanup()
   })
 
@@ -189,6 +205,8 @@ describe('swallowModifierClick — the frame click capture, on a real DOM tree',
     t.click({ metaKey: true })
     t.click({ ctrlKey: true })
     expect(t.action).not.toHaveBeenCalled()
+    // The click dives too (a click with no mousedown still dives; idempotent).
+    expect(t.dive).toHaveBeenCalledTimes(2)
     t.cleanup()
   })
 

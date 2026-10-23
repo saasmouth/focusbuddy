@@ -42,6 +42,14 @@ export const HEADER_ACTION_PRIORITY: readonly HeaderActionId[] = [
   'shrink'
 ]
 
+/**
+ * Tools that never fold. The AI button is "first in the row, on every widget
+ * with a header, so it is in the same place every time" (WidgetFrame) — a rule
+ * that predates the fold and that the fold keeps: on the narrowest widget the
+ * header is AI, "…", the grab strip and as much title as is left.
+ */
+export const HEADER_ALWAYS_SHOWN: readonly HeaderActionId[] = ['ai']
+
 /** Where each tool sits in the row, left to right, whatever is folded. */
 export const HEADER_ACTION_ORDER: readonly HeaderActionId[] = [
   'ai',
@@ -93,9 +101,10 @@ export interface HeaderFold {
  * `budget` null means the header has not been measured (first paint, or a
  * detached node): show everything, as the row always did. When every present
  * tool fits, nothing folds and there is no "…". Otherwise the "…" button takes
- * its own slot from the budget and the highest-priority tools fill the rest; a
- * budget too small even for "…" still gets "…", so no tool ever becomes
- * unreachable.
+ * its own slot from the budget and the highest-priority tools fill the rest.
+ * The always-shown tools (HEADER_ALWAYS_SHOWN) and "…" stay even when the
+ * budget is smaller than they are, so no tool ever becomes unreachable and the
+ * AI button never moves; the title then gives up the difference.
  */
 export function foldHeaderActions(present: readonly HeaderActionId[], budget: number | null): HeaderFold {
   const inRowOrder = (ids: Iterable<HeaderActionId>): HeaderActionId[] => {
@@ -105,7 +114,8 @@ export function foldHeaderActions(present: readonly HeaderActionId[], budget: nu
   const all = inRowOrder(present)
   if (budget === null || rowWidth(all.length) <= budget) return { visible: all, overflow: [] }
   const byPriority = HEADER_ACTION_PRIORITY.filter((id) => all.includes(id))
-  let keep = 0
+  // The always-shown tools lead the priority list, so they are a prefix of it.
+  let keep = byPriority.filter((id) => HEADER_ALWAYS_SHOWN.includes(id)).length
   // k visible buttons plus the "…" button.
   while (keep < byPriority.length && rowWidth(keep + 2) <= budget) keep++
   const visible = inRowOrder(byPriority.slice(0, keep))
@@ -172,10 +182,17 @@ export interface SwallowableClick extends ModifierState {
  * its desk job on mousedown (select, or dive), so the control it landed on —
  * a header button, a "…" menu item, a picker option — never runs its action.
  * A plain click passes through untouched. Returns true when it stopped one.
+ * `dive` is called for a ⌘/Ctrl dive click (zoomToWidget is idempotent).
  */
-export function swallowModifierClick(e: SwallowableClick, ctx: ModifierContext): boolean {
-  if (resolveModifierClick(e, ctx).runAction) return false
+export function swallowModifierClick(e: SwallowableClick, ctx: ModifierContext, dive: () => void): boolean {
+  const mod = resolveModifierClick(e, ctx)
+  if (mod.runAction) return false
   e.stopPropagation()
   e.preventDefault()
+  // The dive runs on the click as well as on mousedown, as it always has: a
+  // click that arrives without a mousedown (synthesised, or from assistive
+  // tech) still dives. Selection is NOT repeated here — toggling twice would
+  // undo it.
+  if (mod.dive) dive()
   return true
 }
