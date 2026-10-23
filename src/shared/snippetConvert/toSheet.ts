@@ -1,5 +1,5 @@
 import type { BuildContext, SnippetConversion } from '../snippetConvert'
-import { REASON, ok, pick, refusal } from './common'
+import { REASON, linkRefusal, ok, pick, refusal } from './common'
 
 /**
  * Into PlexiiCells: rows of values. A document gives its first table (or one
@@ -18,6 +18,7 @@ export function toSheet(ctx: BuildContext): SnippetConversion {
   // A paste of a picture alone (no source body to name): the same reason a
   // picture snippet gets, rather than a generic one.
   if (!f && !body && forms.some((x) => x.kind === 'svg' || x.kind === 'image')) return { ok: false, reason: REASON.cellsNoPictures }
-  if (!f || f.kind !== 'rows' || !f.value.rows.length) return refusal(body, 'sheet')
+  if (!f) return linkRefusal(forms, 'sheet') ?? refusal(body, 'sheet')
+  if (f.kind !== 'rows' || !f.value.rows.length) return refusal(body, 'sheet')
   return ok({ kind: 'sheet', rows: structuredClone(f.value.rows) }, f.lossy)
 }

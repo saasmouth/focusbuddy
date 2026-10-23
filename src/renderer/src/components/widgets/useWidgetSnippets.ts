@@ -2,7 +2,8 @@
 // pasting into it, through the one conversion (shared/snippetWidgets.ts) and
 // the one set of side effects (lib/widgetSnippetInsert.ts). A widget calls the
 // hook for its kind and hands the result to WidgetFrame's `snippets` prop,
-// which puts "Insert snippet…" and "Paste" in its menus.
+// which puts "Insert snippet…" and "Paste" in its menus, and carries
+// `dropForms` for a file dropped from the Files panel.
 
 import { useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
@@ -25,7 +26,9 @@ import {
   isTsvGrid,
   markdownReady,
   pageNodesReady,
+  readDropForms,
   readPasteForms,
+  NOTHING_DROPPED,
   snapshotFromSystem,
   snapshotPaste,
   spliceText,
@@ -35,12 +38,35 @@ import {
   type PasteSnapshot
 } from '../../lib/widgetSnippetInsert'
 import { useWidgetStore } from '../../stores/widgets'
+import type { FormsRead } from '../../lib/clipboardForms'
+import { textareaCaretAt } from '../../lib/textareaCaretAt'
 
 export interface WidgetSnippets {
   targetId: string
   kinds: SnippetKind[]
   /** Paste from the menu (no event): reads the system clipboard. */
   onPaste: () => void
+  /**
+   * A drop (a file from the Files panel, already read as forms). `at` moves the
+   * caret to the drop point first, then the SAME `land` as paste and insert
+   * runs with the verb 'drop'. A `refused` read is returned verbatim. Shows no
+   * notice: the drop handler gathers one line per drop from the results.
+   */
+  dropForms: (read: FormsRead, at?: DropPoint) => Promise<SnippetInsertResult>
+}
+
+/** Where a drop happened, in client coordinates. */
+export interface DropPoint {
+  clientX: number
+  clientY: number
+}
+
+/** A drop read as forms, or the result that ends it before anything lands. */
+function dropRead(read: FormsRead): { forms: Form[]; ctx: AcceptContext } | { ok: false; reason: string } {
+  const r = readDropForms(read)
+  if (r.refused) return { ok: false, reason: r.refused }
+  if (!r.forms.length) return { ok: false, reason: NOTHING_DROPPED }
+  return { forms: r.forms, ctx: r.ctx }
 }
 
 const insertCtx = (s: Snippet): AcceptContext => ({ body: s.body, verb: 'insert' })
@@ -90,6 +116,18 @@ export function useTextWidgetSnippets(
     onPaste: () => {
       const at = caret()
       void snapshotFromSystem().then((snap) => pasteSnap(snap, at))
+    },
+    dropForms: async (read, point) => {
+      const r = dropRead(read)
+      if ('ok' in r) return r
+      // The caret moves to the character nearest the drop point, then the text
+      // lands there exactly as an insert at that caret would.
+      const ta = textarea()
+      if (point && ta && ta.isConnected) {
+        const off = textareaCaretAt(ta, point.clientX, point.clientY)
+        if (off !== null) ta.setSelectionRange(off, off)
+      }
+      return land(r.forms, r.ctx, caret())
     },
     onTextareaPaste: (e) => {
       const snap = snapshotPaste(e.clipboardData)
@@ -167,6 +205,21 @@ export function useEditorWidgetSnippets(
   return {
     targetId,
     kinds: widgetAccepts(kind),
+    dropForms: async (read, point) => {
+      const r = dropRead(read)
+      if ('ok' in r) return r
+      // The cursor moves to the drop point (the editor's own posAtCoords), and
+      // counts as placed, so the land inserts there rather than at the end.
+      const ed = editorRef.current
+      if (point && ed && !ed.isDestroyed && ed.isEditable) {
+        const hit = ed.view.posAtCoords({ left: point.clientX, top: point.clientY })
+        if (hit) {
+          ed.commands.setTextSelection(hit.pos)
+          touched.current = true
+        }
+      }
+      return land(r.forms, r.ctx)
+    },
     onPaste: () => {
       void snapshotFromSystem().then((snap) => {
         const ed = editorRef.current
@@ -215,7 +268,12 @@ export function useTableWidgetSnippets(widget: Widget, tableId: string | null): 
     announcePaste(await land(read.forms, read.ctx))
   }
   const targetId = useWidgetSnippetTarget(widget, 'table', (s) => land(bodyForms(s.body), insertCtx(s)), !!tableId)
-  return { targetId, kinds: widgetAccepts('table'), onPaste: () => void pasteRows(), pasteRows }
+  // Rows are appended (matched to columns by heading), so a drop point does not move anything.
+  const dropForms = async (read: FormsRead): Promise<SnippetInsertResult> => {
+    const r = dropRead(read)
+    return 'ok' in r ? r : land(r.forms, r.ctx)
+  }
+  return { targetId, kinds: widgetAccepts('table'), onPaste: () => void pasteRows(), pasteRows, dropForms }
 }
 
 // ── Image: replace the picture ───────────────────────────────────────────────
@@ -242,6 +300,11 @@ export function useImageWidgetSnippets(widget: Widget): WidgetSnippets & { onBod
     targetId,
     kinds: widgetAccepts('image'),
     onPaste: () => void snapshotFromSystem().then(pasteSnap),
+    // The picture replaces the one shown, wherever it was dropped.
+    dropForms: async (read) => {
+      const r = dropRead(read)
+      return 'ok' in r ? r : land(r.forms, r.ctx)
+    },
     onBodyPaste: (e) => {
       const t = e.target as HTMLElement
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return // the URL field keeps its own paste

@@ -3,7 +3,7 @@ import type { MapNode } from '../types'
 import { getShape } from '../diagram/shapes'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L, notesDropped } from '../snippetForms/lossy'
-import { fitWithin, ok, pick, refusal } from './common'
+import { fitWithin, linkRefusal, ok, pick, refusal } from './common'
 
 /** As many notes as Diagrams' own text paste makes at once. */
 export const DIAGRAM_MAX_NOTES = 50
@@ -23,7 +23,7 @@ export function toDiagram(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
   if (body?.kind === 'diagram') return ok(structuredClone(body), [])
   const f = pick(forms, ['rows', 'image', 'svg', 'text'], body)
-  if (!f) return refusal(body, 'diagram')
+  if (!f) return linkRefusal(forms, 'diagram') ?? refusal(body, 'diagram')
   switch (f.kind) {
     case 'rows': {
       const rows = f.value.rows

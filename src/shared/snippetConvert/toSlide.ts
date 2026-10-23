@@ -2,7 +2,7 @@ import type { BuildContext, SnippetConversion } from '../snippetConvert'
 import { designAsPlainElements } from '../snippetForms/fromDesign'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { REASON, ok, pick, refusal } from './common'
+import { REASON, linkRefusal, ok, pick, refusal } from './common'
 import { docNodesToParagraphs, imageElement, lineParagraphs, tableElement, textBox } from './elements'
 
 /**
@@ -21,7 +21,7 @@ export function toSlide(ctx: BuildContext): SnippetConversion {
     return ok({ kind: 'slide', elements: plain.elements }, [...(plain.linkedChains ? [L.linkedFrames] : []), ...(plain.droppedImages ? [L.unsupportedImage] : [])])
   }
   const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
-  if (!f) return refusal(body, 'slide')
+  if (!f) return linkRefusal(forms, 'slide') ?? refusal(body, 'slide')
   switch (f.kind) {
     case 'rows':
       return ok({ kind: 'slide', elements: [tableElement(f.value)] }, f.lossy)

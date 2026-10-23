@@ -4,7 +4,7 @@ import { docFeatures } from '../snippetForms/tiptap'
 import { rowsToGfm } from '../snippetForms/rows'
 import { pictureLossy, svgDataUrl } from '../snippetForms/picture'
 import { L } from '../snippetForms/lossy'
-import { fitWithin, ok, pick, refusal } from './common'
+import { fitWithin, linkAsText, ok, pick, refusal, widgetPictureSrc } from './common'
 
 /** Marks a page work widget's editor holds (StarterKit, Link). */
 const PAGE_MARKS = new Set(['bold', 'italic', 'strike', 'code', 'link', 'underline'])
@@ -33,12 +33,13 @@ function widget(widgetKind: string, content: string, width: number, height: numb
  * Into a desk: a work widget template. A document becomes a page widget (its
  * TipTap JSON), a sheet block a markdown widget holding a GFM table of its
  * values, text a sticky, and anything visual an image widget whose content is
- * the picture as a data: URL (a later step stores it in the file store).
+ * the picture as a data: URL (a later step stores it in the file store). A
+ * link (a file from Files) is a sticky holding "title (href)".
  */
 export function toWidget(ctx: BuildContext): SnippetConversion {
   const { body, forms } = ctx
   if (body?.kind === 'widget') return ok(structuredClone(body), [])
-  const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text'], body)
+  const f = pick(forms, ['rows', 'docNodes', 'image', 'svg', 'text', 'link'], body)
   if (!f) return refusal(body, 'widget')
   switch (f.kind) {
     case 'rows':
@@ -52,7 +53,7 @@ export function toWidget(ctx: BuildContext): SnippetConversion {
       return ok(widget('page', JSON.stringify({ type: 'doc', content: f.value }), 480, 400), lossy)
     }
     case 'image':
-      return ok(widget('image', f.value.src, 360, 280), f.lossy)
+      return ok(widget('image', widgetPictureSrc(f.value), 360, 280), f.lossy)
     case 'svg': {
       const size = fitWithin(f.value.width, f.value.height, 640, 640)
       return ok(widget('image', svgDataUrl(f.value.svg), Math.max(160, size.w), Math.max(120, size.h)), [pictureLossy(f.value.app), ...f.lossy])
@@ -60,6 +61,10 @@ export function toWidget(ctx: BuildContext): SnippetConversion {
     case 'text':
       if (!f.value.trim()) return refusal(body, 'widget')
       return ok(widget('sticky', f.value.trim(), 240, 200), f.lossy)
+    case 'link':
+      // A desk places a dropped file as a file widget itself (the Files drop
+      // handler); a link that reaches the converter is written down as text.
+      return ok(widget('sticky', linkAsText(f.value), 240, 200), f.lossy)
     default:
       return refusal(body, 'widget')
   }

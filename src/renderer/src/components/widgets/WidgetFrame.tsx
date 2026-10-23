@@ -3,6 +3,7 @@ import SaveSnippetDialog from '../snippets/SaveSnippetDialog'
 import SnippetLibrary from '../snippets/SnippetLibrary'
 import { widgetBodyFromWidget } from '../desk/deskSnippets'
 import type { SnippetKind, WidgetSnippetBody } from '@shared/snippets'
+import type { WidgetSnippets } from './useWidgetSnippets'
 import { GRID } from '../../lib/canvasGrid'
 import { stripMentions } from '@shared/mentionText'
 import { snapEnabled } from '../../lib/gridPref'
@@ -101,7 +102,13 @@ interface Props {
    * widgets that take inserted and pasted content; the menus then offer
    * "Insert snippet…" beside "Save as snippet", and "Paste".
    */
-  snippets?: { targetId: string; kinds: SnippetKind[]; onPaste?: () => void }
+  snippets?: {
+    targetId: string
+    kinds: SnippetKind[]
+    onPaste?: () => void
+    /** A file dropped from the Files panel, read as forms (useWidgetSnippets.ts). Returns the result; shows no notice. */
+    dropForms?: WidgetSnippets['dropForms']
+  }
 }
 
 export default function WidgetFrame({

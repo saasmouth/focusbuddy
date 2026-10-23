@@ -33,8 +33,10 @@ import { formsOfWidget } from './snippetForms/fromWidget'
  * rows      a grid of DISPLAYED values (formulas computed when an evaluator is given)
  * svg       a standalone SVG picture of the content
  * image     a picture held by reference (a URL, a file link or a data: URL)
+ * link      a reference to a file, document or folder in Files (a drop from
+ *           the Files panel): it carries no content, only where the thing is
  */
-export type FormKind = 'native' | 'docNodes' | 'markdown' | 'text' | 'rows' | 'svg' | 'image'
+export type FormKind = 'native' | 'docNodes' | 'markdown' | 'text' | 'rows' | 'svg' | 'image' | 'link'
 
 /** The app that owns the editable original of a picture, as the user knows it. */
 export type SnippetAppName =
@@ -47,6 +49,8 @@ export type SnippetAppName =
   | 'a work widget'
   /** A picture pasted from outside our apps: its original is wherever it was copied from. */
   | 'the app it came from'
+  /** A picture made from a file dropped from Files (an SVG): the file itself is the editable original. */
+  | 'the original file'
 
 export interface RowsValue {
   rows: string[][]
@@ -80,6 +84,30 @@ export interface ImageValue {
   width?: number
   height?: number
   alt?: string
+  /**
+   * The fb_files row this picture already is, when it came from Files. A work
+   * widget then refers to that row (`fb-file://<id>`) instead of storing a
+   * second copy of the same bytes. Office builders ignore it and use `src`
+   * (the data: URL), because an office document carries its pictures inline.
+   */
+  fileId?: string
+}
+
+/**
+ * A reference to something in Files: a file, an office document or a folder.
+ * It has no content of its own, so only destinations that hold links take it
+ * (PlexiiWrite, page, markdown, sticky and note); every other one refuses it
+ * with a reason that names somewhere it can go (snippetConvert/common.ts,
+ * linkRefusal).
+ */
+export interface LinkValue {
+  /** Where it points, as a `plexii://file/<id>`, `plexii://document/<id>` or `plexii://folder/<id>` link. */
+  href: string
+  /** What the person sees: the file's, document's or folder's name. */
+  title: string
+  target: 'file' | 'document' | 'folder'
+  /** The file's type, when it is a file. Decides how a refusal names it (a video, an audio file). */
+  mime?: string
 }
 
 interface FormOf<K extends FormKind, V> {
@@ -96,9 +124,18 @@ export type TextForm = FormOf<'text', string>
 export type RowsForm = FormOf<'rows', RowsValue>
 export type SvgForm = FormOf<'svg', SvgValue>
 export type ImageForm = FormOf<'image', ImageValue>
+export type LinkForm = FormOf<'link', LinkValue>
 
 /** One way a body can be held, with what that way loses. `kind` discriminates `value`. */
-export type Form = NativeForm | DocNodesForm | MarkdownForm | TextForm | RowsForm | SvgForm | ImageForm
+export type Form = NativeForm | DocNodesForm | MarkdownForm | TextForm | RowsForm | SvgForm | ImageForm | LinkForm
+
+/**
+ * The lossy line on a picture of a PDF's first page (a PDF dropped from Files
+ * into somewhere that holds pictures). The page is rendered by the Files drop
+ * reader, which is async and DOM-bound, so it is not a ConvertDeps entry: the
+ * reader emits an `image` form carrying this line, and the core stays pure.
+ */
+export const PDF_FIRST_PAGE = 'Only the first page comes in, as a picture.'
 
 /** What the formula engine says a sheet block displays. */
 export interface SheetEvaluation {

@@ -18,12 +18,12 @@
 // side effects (renderer/src/lib/widgetSnippetInsert.ts).
 
 import type { SnippetBody } from './snippets'
-import type { Form, FormKind, SvgValue } from './snippetForms'
+import type { Form, FormKind, ImageValue, LinkValue, SvgValue } from './snippetForms'
 import { docFeatures, firstTableRows, inlineText, tiptapToMarkdown, type TipNode } from './snippetForms/tiptap'
 import { paragraphNode, rowsToGfm, rowsToTableNode } from './snippetForms/rows'
 import { L, docMarkdownLossy, uniq } from './snippetForms/lossy'
 import { pictureLossy } from './snippetForms/picture'
-import { fitWithin, refusal } from './snippetConvert/common'
+import { REASON, fitWithin, isSafeLinkHref, linkAsText, linkRefusal, refusal, widgetPictureSrc } from './snippetConvert/common'
 
 /** The work widgets that take inserted and pasted content. */
 export type WidgetTargetKind = 'sticky' | 'note' | 'page' | 'markdown' | 'table' | 'image'
@@ -34,8 +34,16 @@ export function isWidgetTargetKind(k: string): k is WidgetTargetKind {
   return (WIDGET_TARGET_KINDS as readonly string[]).includes(k)
 }
 
-/** Insert from the library, or paste from the clipboard: only the wording of a refusal differs. */
-export type WidgetVerb = 'insert' | 'paste'
+/**
+ * Insert from the library, paste from the clipboard, or drop (a file from the
+ * Files panel): only the wording of a refusal differs.
+ */
+export type WidgetVerb = 'insert' | 'paste' | 'drop'
+
+/** "Nothing on the clipboard …" for a paste, "Nothing that was dropped …" for a drop. */
+function nothingFrom(verb: WidgetVerb): string {
+  return verb === 'drop' ? 'Nothing that was dropped' : 'Nothing on the clipboard'
+}
 
 export interface AcceptContext {
   /** The snippet body the forms came from. Absent for a paste. */
@@ -50,7 +58,7 @@ export type PageAccept = { ok: true; nodes: unknown[]; lossy: string[] } | Refus
 export type MarkdownAccept = { ok: true; markdown: string; lossy: string[] } | Refusal
 export type TableAccept = { ok: true; rows: string[][]; header: boolean; lossy: string[] } | Refusal
 /** A picture by reference (`src`), or as SVG markup still to be stored. */
-export type Picture = { src: string; alt?: string; width?: number; height?: number } | { svg: SvgValue }
+export type Picture = { src: string; alt?: string; width?: number; height?: number; fileId?: string } | { svg: SvgValue }
 export type ImageAccept = { ok: true; picture: Picture; lossy: string[] } | Refusal
 
 // ── Picking ──────────────────────────────────────────────────────────────────
@@ -112,7 +120,12 @@ export function lossyLine(lossy: string[]): string {
  */
 export function textWidgetRefusal(kind: 'sticky' | 'note', verb: WidgetVerb): Refusal {
   const who = kind === 'sticky' ? 'Stickies' : 'Notes'
-  const where = verb === 'paste' ? 'Paste on the desk to add it as an image.' : 'Insert it on the desk to add it as an image.'
+  const where =
+    verb === 'paste'
+      ? 'Paste on the desk to add it as an image.'
+      : verb === 'drop'
+        ? 'Drop on the desk to add it as an image.'
+        : 'Insert it on the desk to add it as an image.'
   return { ok: false, reason: `${who} hold text. ${where}` }
 }
 
@@ -228,8 +241,10 @@ export function acceptForTextWidget(kind: 'sticky' | 'note', forms: Form[], ctx:
   }
   const art = isArt(forms, body)
   if (art) return textWidgetRefusal(kind, ctx.verb)
-  const f = pickForm(forms, ['rows', 'docNodes', 'markdown', 'text'], false)
+  const f = pickForm(forms, ['rows', 'docNodes', 'markdown', 'text', 'link'], false)
   if (!f) return body ? (refusal(body, 'widget') as Refusal) : textWidgetRefusal(kind, ctx.verb)
+  // A file, document or folder from Files: its name and where it is, as text.
+  if (f.kind === 'link') return { ok: true, text: linkAsText(f.value), lossy: [...f.lossy] }
   if (f.kind === 'rows') {
     // A grid is a pipe table; a single column is its lines.
     const rows = f.value.rows
@@ -288,7 +303,10 @@ export const WIDGET_PICTURE_MAX_WIDTH = 560
 function pictureNodes(f: Form): { nodes: unknown[]; lossy: string[] } | null {
   if (f.kind === 'image') {
     const v = f.value
-    return { nodes: [imageNode(v.src, v.alt ?? '', v.width ? Math.min(v.width, WIDGET_PICTURE_MAX_WIDTH) : undefined)], lossy: [...f.lossy] }
+    // A picture from Files is referred to as the row it already is (fb-file://),
+    // never stored a second time: storeNodePictures leaves anything that is not
+    // a data: URL alone.
+    return { nodes: [imageNode(widgetPictureSrc(v), v.alt ?? '', v.width ? Math.min(v.width, WIDGET_PICTURE_MAX_WIDTH) : undefined)], lossy: [...f.lossy] }
   }
   if (f.kind === 'svg') {
     const v = f.value
@@ -307,12 +325,25 @@ export function svgSrc(v: SvgValue): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(v.svg)}`
 }
 
+/**
+ * A link as a page or markdown editor holds it: a paragraph holding the title
+ * under a link mark. A document is a link too (a page has no document embed).
+ */
+export function linkParagraph(v: LinkValue): unknown {
+  const href = v.href.trim()
+  return { type: 'paragraph', content: [{ type: 'text', text: v.title.trim() || href, marks: [{ type: 'link', attrs: { href } }] }] }
+}
+
 /** Into a page work widget: TipTap nodes. Pictures are now kept, as image nodes. */
 export function acceptForPage(forms: Form[], ctx: AcceptContext): PageAccept {
   const { body } = ctx
   const art = isArt(forms, body)
-  const f = pickForm(forms, ['docNodes', 'image', 'svg', 'text'], art)
-  if (!f) return body ? (refusal(body, 'doc') as Refusal) : { ok: false, reason: 'Nothing on the clipboard can go in a page.' }
+  const f = pickForm(forms, ['docNodes', 'image', 'svg', 'text', 'link'], art)
+  if (!f) return body ? (refusal(body, 'doc') as Refusal) : { ok: false, reason: `${nothingFrom(ctx.verb)} can go in a page.` }
+  if (f.kind === 'link') {
+    if (!isSafeLinkHref(f.value.href)) return { ok: false, reason: REASON.linkUnsafe }
+    return { ok: true, nodes: [linkParagraph(f.value)], lossy: [...f.lossy] }
+  }
   if (f.kind === 'docNodes') {
     if (!f.value.length) return { ok: false, reason: 'There is nothing in this snippet to insert.' }
     const nodes = structuredClone(f.value)
@@ -337,8 +368,12 @@ export function acceptForMarkdown(forms: Form[], ctx: AcceptContext): MarkdownAc
     return { ok: true, markdown: raw, lossy: [] }
   }
   const art = isArt(forms, body)
-  const f = pickForm(forms, ['docNodes', 'markdown', 'image', 'svg', 'text'], art)
-  if (!f) return body ? (refusal(body, 'doc') as Refusal) : { ok: false, reason: 'Nothing on the clipboard can go in a markdown work widget.' }
+  const f = pickForm(forms, ['docNodes', 'markdown', 'image', 'svg', 'text', 'link'], art)
+  if (!f) return body ? (refusal(body, 'doc') as Refusal) : { ok: false, reason: `${nothingFrom(ctx.verb)} can go in a markdown work widget.` }
+  if (f.kind === 'link') {
+    if (!isSafeLinkHref(f.value.href)) return { ok: false, reason: REASON.linkUnsafe }
+    return { ok: true, markdown: tiptapToMarkdown([linkParagraph(f.value)]), lossy: [...f.lossy] }
+  }
   if (f.kind === 'docNodes') {
     if (!f.value.length) return { ok: false, reason: 'There is nothing in this snippet to insert.' }
     // Width is not markdown: a picture lands at its natural size.
@@ -368,14 +403,22 @@ export function acceptForTable(forms: Form[], ctx: AcceptContext): TableAccept {
   if (isArt(forms, body)) return { ok: false, reason: TABLE_NO_PICTURES }
   const f = pickForm(forms, ['rows'], false)
   if (!f || f.kind !== 'rows' || !f.value.rows.length) {
-    return body ? (refusal(body, 'sheet') as Refusal) : { ok: false, reason: 'Nothing on the clipboard reads as rows for this table.' }
+    if (body) return refusal(body, 'sheet') as Refusal
+    return linkRefusal(forms, 'table') ?? { ok: false, reason: `${nothingFrom(ctx.verb)} reads as rows for this table.` }
   }
   return { ok: true, rows: structuredClone(f.value.rows), header: f.value.header, lossy: [...f.lossy] }
 }
 
 // ── Image: one picture ───────────────────────────────────────────────────────
 
-export const IMAGE_NEEDS_PICTURE = 'An image work widget holds a picture, and this has none.'
+/** A picture for a work widget: a picture from Files keeps its row (fb-file://<id>) instead of its bytes. */
+export function widgetPicture(v: ImageValue): Picture {
+  const out: ImageValue = { ...v, src: widgetPictureSrc(v) }
+  delete out.fileId
+  return out
+}
+
+export const IMAGE_NEEDS_PICTURE: string = REASON.imageNeedsPicture
 
 /** Into an image work widget: one picture, which replaces the one it shows. */
 export function acceptForImage(forms: Form[], ctx: AcceptContext): ImageAccept {
@@ -383,9 +426,10 @@ export function acceptForImage(forms: Form[], ctx: AcceptContext): ImageAccept {
   const f = pickForm(forms, ['image', 'svg'], true)
   if (!f) {
     if (body && isArt(forms, body)) return refusal(body, 'widget') as Refusal
-    return { ok: false, reason: IMAGE_NEEDS_PICTURE }
+    // A folder names where it can go; a file or a document has no picture.
+    return linkRefusal(forms, 'image') ?? { ok: false, reason: IMAGE_NEEDS_PICTURE }
   }
-  if (f.kind === 'image') return { ok: true, picture: { ...f.value }, lossy: [...f.lossy] }
+  if (f.kind === 'image') return { ok: true, picture: widgetPicture(f.value), lossy: [...f.lossy] }
   if (f.kind === 'svg') return { ok: true, picture: { svg: f.value }, lossy: uniq([pictureLossy(f.value.app), ...f.lossy]) }
   return { ok: false, reason: IMAGE_NEEDS_PICTURE }
 }
@@ -456,8 +500,12 @@ export function planDesk(forms: Form[], ctx: AcceptContext): DeskPlan {
       case 'image': {
         const v = f.value
         const size = fitWithin(v.width ?? 360, v.height ?? 280, 640, 640)
-        return { ok: true, widget: 'image', picture: { ...v }, width: Math.max(160, size.w), height: Math.max(120, size.h), lossy: [...f.lossy] }
+        return { ok: true, widget: 'image', picture: widgetPicture(v), width: Math.max(160, size.w), height: Math.max(120, size.h), lossy: [...f.lossy] }
       }
+      case 'link':
+        // The Files drop handler places a dropped file as a file widget itself;
+        // a link that reaches a desk plan is written down, as a sticky.
+        return { ok: true, widget: 'sticky', text: linkAsText(f.value), width: 240, height: 200, lossy: [...f.lossy] }
       case 'svg': {
         const v = f.value
         const size = fitWithin(v.width, v.height, 640, 640)
@@ -474,5 +522,5 @@ export function planDesk(forms: Form[], ctx: AcceptContext): DeskPlan {
     }
   }
   if (body) return refusal(body, 'widget') as Refusal
-  return { ok: false, reason: 'There is nothing on the clipboard that can be placed on a desk.' }
+  return { ok: false, reason: ctx.verb === 'drop' ? 'Nothing that was dropped can be placed on a desk.' : 'There is nothing on the clipboard that can be placed on a desk.' }
 }

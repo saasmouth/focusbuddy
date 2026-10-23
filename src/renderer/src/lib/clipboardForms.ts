@@ -63,6 +63,14 @@ export interface ClipboardForms {
   refused?: string
 }
 
+/**
+ * Forms read from anywhere that is not a saved snippet, in the one shape every
+ * destination takes: the clipboard (readClipboardForms) and a file dropped from
+ * the Files panel (its drop reader). `refused` set means nothing goes in and
+ * that sentence is shown verbatim.
+ */
+export type FormsRead = ClipboardForms
+
 // ── PlexiiCells' copy ────────────────────────────────────────────────────────
 //
 // Cells puts only TSV on the clipboard (navigator.clipboard.writeText), which

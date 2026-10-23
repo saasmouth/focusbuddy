@@ -11,7 +11,7 @@ import { useEffect, useId, useRef } from 'react'
 import { formsOf, type Form } from '@shared/snippetForms'
 import { rowsToGfm } from '@shared/snippetForms/rows'
 import { looksLikeHeader } from '@shared/snippetForms/rows'
-import { probeBodies } from '@shared/snippetConvert/accepts'
+import { FILE_PROBES, probeBodies, probeFileForms, type FileProbe } from '@shared/snippetConvert/accepts'
 import { parseTsv } from '@shared/gridClipboard'
 import { defaultConfig, type FieldDefinition, type TableSchema } from '@shared/fields'
 import {
@@ -37,7 +37,7 @@ import {
 } from '@shared/snippetWidgets'
 import type { Widget, WidgetKind } from '@shared/types'
 import { snippetConvertDeps } from './snippetConvertDeps'
-import { readClipboardForms } from './clipboardForms'
+import { readClipboardForms, type FormsRead } from './clipboardForms'
 import { pictureSrc, storeMarkdownPictures, storeNodePictures } from './widgetPictures'
 import { freshColumnId, planRowsIntoTable, schemaWithPlan } from './widgetSnippetTable'
 import { announceConverted } from './convertedNotice'
@@ -97,6 +97,19 @@ export function widgetAccepts(kind: WidgetTargetKind): SnippetKind[] {
   })
   acceptsCache.set(kind, out)
   return out
+}
+
+/**
+ * The kinds of FILE a work widget takes from a Files drop, derived the same
+ * way: its acceptor run over the representative file forms
+ * (shared/snippetConvert/accepts.ts probeFileForms), read exactly as a drop is
+ * (readDropForms, verb 'drop'). For the drop handler's highlight and hint.
+ */
+export function widgetFileAccepts(kind: WidgetTargetKind): FileProbe[] {
+  return FILE_PROBES.filter((probe) => {
+    const read = readDropForms({ forms: probeFileForms(probe), source: null })
+    return acceptFor(kind, read.forms, read.ctx).ok
+  })
 }
 
 /** The result a target returns: took it, with the lossy line as its notice. */
@@ -209,6 +222,21 @@ export async function readPasteForms(snap: PasteSnapshot): Promise<PasteRead> {
   const native = forms.find((f) => f.kind === 'native')
   const body = native && native.kind === 'native' ? native.value : undefined
   return body ? { forms, ctx: { body, verb: 'paste' } } : { forms: pasteForms(forms), ctx: { verb: 'paste' } }
+}
+
+/** Why a drop with no forms at all lands nothing. */
+export const NOTHING_DROPPED = 'Nothing that was dropped can go in this work widget.'
+
+/**
+ * A drop read for the acceptors (a file from the Files panel, already read as
+ * forms by its drop reader): the same shape as a paste, with the verb 'drop'
+ * so a refusal says "Drop". Synchronous: the reading was done by the caller.
+ */
+export function readDropForms(read: FormsRead): PasteRead {
+  if (read.refused) return { forms: [], ctx: { verb: 'drop' }, refused: read.refused }
+  const native = read.forms.find((f) => f.kind === 'native')
+  const body = native && native.kind === 'native' ? native.value : undefined
+  return body ? { forms: read.forms, ctx: { body, verb: 'drop' } } : { forms: pasteForms(read.forms), ctx: { verb: 'drop' } }
 }
 
 /** Is this text a grid of two or more tab-separated columns? */
