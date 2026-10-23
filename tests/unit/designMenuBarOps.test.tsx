@@ -12,6 +12,8 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
+import { buildDesignCommands, type DesignCommandDeps } from '../../src/renderer/src/components/documents/design/designCommands'
+import { expectNotReadOnly } from './_notReadOnly'
 
 let host: HTMLDivElement
 let root: Root
@@ -53,7 +55,12 @@ const actions = {
   brandify: vi.fn(),
   openBrandKit: vi.fn(),
   checkA11y: vi.fn(),
-  activePage: 0
+  activePage: 0,
+  // Edit's and Insert's registry rows (designCommands), on stub deps; an editable design.
+  cmds: expectNotReadOnly(
+    'designMenuBarOps',
+    buildDesignCommands(new Proxy({ readOnly: false, selected: 0, grouped: false, canPaste: false, textMarks: null } as Record<string, unknown>, { get: (t, k) => (k in t ? t[k as string] : vi.fn()) }) as unknown as DesignCommandDeps)
+  )
 } as unknown as Parameters<typeof import('../../src/renderer/src/components/documents/editor/DesignMenuBar').default>[0]['actions']
 
 function ops(): DocumentOps & { calls: string[] } {

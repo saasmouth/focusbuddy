@@ -15,6 +15,7 @@ vi.mock('../../src/renderer/src/components/Tooltip', () => ({ default: ({ childr
 import { ContextBar, ToolRail } from '../../src/renderer/src/components/office/shell'
 import { DECK_TABS, deckRailItems, type DeckCtx } from '../../src/renderer/src/components/documents/slides/ribbon'
 import { buildDeckCommands, type DeckCommandDeps } from '../../src/renderer/src/components/documents/slides/deckCommands'
+import { expectNotReadOnly } from './_notReadOnly'
 import { BUILTIN_THEMES, resolveTheme } from '../../src/shared/slideThemes'
 import type { Slide, SlideElement } from '../../src/shared/types'
 
@@ -52,11 +53,11 @@ function ctxFor(sel: Sel, over: Partial<DeckCtx> = {}): DeckCtx {
   const ed = new Proxy({}, { get: () => noop }) as DeckCtx['ed']
   // The real command record (slides/deckCommands), on stub functions.
   const deps = new Proxy(
-    { selected: selected.length, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: selected[0]?.type === 'text' ? {} : null } as Record<string, unknown>,
+    { readOnly: false, selected: selected.length, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: selected[0]?.type === 'text' ? {} : null } as Record<string, unknown>,
     { get: (t, k) => (k in t ? t[k as string] : noop) }
   ) as unknown as DeckCommandDeps
   return {
-    cmds: buildDeckCommands(deps),
+    cmds: expectNotReadOnly('deckShellMapping', buildDeckCommands(deps)),
     slide,
     theme: resolveTheme('plexi-default'),
     selected,

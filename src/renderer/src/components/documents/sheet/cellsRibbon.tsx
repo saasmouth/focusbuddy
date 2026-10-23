@@ -103,28 +103,26 @@ function cmd(c: CCtx, id: string): OfficeCommand {
   return found
 }
 
-/**
- * `readOnlySafe` is derived, not declared: a command with no `enabled` gate
- * changes nothing in the sheet, which is exactly what the shell means by
- * read-only safe. So the registry decides a viewer's ribbon too, and a control
- * cannot be live here while its menu row is greyed out.
- */
-const safe = (k: OfficeCommand): { readOnlySafe?: true } => (k.enabled ? {} : { readOnlySafe: true })
+// `readOnlySafe` is derived, not declared: barProps reads it off the command's
+// gate (officeCommand's readOnlySafeOf), the same answer for every office app.
+// A command that changes nothing has no gate, and one gated only on the
+// selection still runs for a viewer; so the registry decides a viewer's
+// ribbon too, and a control cannot be live here while its menu row is off.
 
 export function cmdToggle(c: CCtx, id: string, extra: Partial<Parameters<typeof BarToggle>[0]> = {}): JSX.Element {
   const k = cmd(c, id)
-  return <BarToggle {...barProps(k)} {...safe(k)} pressed={!!k.checked?.()} onChange={k.run} {...extra} />
+  return <BarToggle {...barProps(k)} pressed={!!k.checked?.()} onChange={k.run} {...extra} />
 }
 
 export function cmdButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element {
   const k = cmd(c, id)
-  return <BarButton {...barProps(k)} {...safe(k)} onClick={k.run} {...extra} />
+  return <BarButton {...barProps(k)} onClick={k.run} {...extra} />
 }
 
 /** A control that opens a dialog; BarDialogButton gives it its ellipsis. */
 export function cmdDialogButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarDialogButton>[0]> = {}): JSX.Element {
   const k = cmd(c, id)
-  return <BarDialogButton {...barProps(k)} {...safe(k)} onOpen={k.run} {...extra} />
+  return <BarDialogButton {...barProps(k)} onOpen={k.run} {...extra} />
 }
 
 const homeTab: BarTab<CCtx> = {

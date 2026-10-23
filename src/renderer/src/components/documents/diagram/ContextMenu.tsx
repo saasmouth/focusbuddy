@@ -43,7 +43,7 @@ export function ContextMenu({
   const grouped = nodes.some((n) => n.groupId)
   // The same paste as ⌘V and Edit › Paste (commands.pasteFromClipboard).
   // The same definitions as the menu bar and the ribbon (diagramCommands).
-  const c = buildDiagramCommands({ cmd, nodes: nodes.length, edges: page.edges.filter((e) => sel.edges.has(e.id)).length, locked, grouped, openFind: () => undefined })
+  const c = buildDiagramCommands({ cmd, readOnly, nodes: nodes.length, edges: page.edges.filter((e) => sel.edges.has(e.id)).length, locked, grouped, openFind: () => undefined })
   const paste = c.paste
   const lock = ctxRow(c.lock)
 

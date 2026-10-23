@@ -49,6 +49,7 @@ import SlidesMenuBar from '../../src/renderer/src/components/documents/editor/Sl
 import { buildDeckCommands } from '../../src/renderer/src/components/documents/slides/deckCommands'
 import { buildDesignCommands } from '../../src/renderer/src/components/documents/design/designCommands'
 import DesignMenuBar from '../../src/renderer/src/components/documents/editor/DesignMenuBar'
+import { expectNotReadOnly } from './_notReadOnly'
 
 // Anything an app reads off its actions, its editor or its ops: callable, and
 // chainable (editor.chain().focus().toggleBold()…), so a bar builds every item.
@@ -86,7 +87,7 @@ const APPS: Record<string, { testid: string; render: () => JSX.Element }> = {
         actions={actions({
           ...live,
           documentOps: ops(),
-          cmds: buildDeckCommands(actions({ selected: 2, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))
+          cmds: expectNotReadOnly('Deck menu fixture', buildDeckCommands(actions({ readOnly: false, selected: 2, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} })))
         })}
       />
     )
@@ -95,7 +96,7 @@ const APPS: Record<string, { testid: string; render: () => JSX.Element }> = {
     testid: 'design-menubar',
     render: () => (
       <DesignMenuBar
-        actions={actions({ ...live, cmds: buildDesignCommands(actions({ selected: 2, grouped: true, canPaste: true, textMarks: {} })) })}
+        actions={actions({ ...live, cmds: expectNotReadOnly('Design menu fixture', buildDesignCommands(actions({ readOnly: false, selected: 2, grouped: true, canPaste: true, textMarks: {} }))) })}
         documentOps={ops()}
       />
     )

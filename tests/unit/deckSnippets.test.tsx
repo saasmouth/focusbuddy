@@ -25,6 +25,7 @@ import { linkModesFor, snippetBodyIsEmpty, snippetSummary, type Snippet, type Sl
 import { ContextBar } from '../../src/renderer/src/components/office/shell'
 import { DECK_TABS, type DeckCtx } from '../../src/renderer/src/components/documents/slides/ribbon'
 import { buildDeckCommands, type DeckCommandDeps } from '../../src/renderer/src/components/documents/slides/deckCommands'
+import { expectNotReadOnly } from './_notReadOnly'
 import { resolveTheme } from '../../src/shared/slideThemes'
 import type { Slide, SlideElement } from '../../src/shared/types'
 
@@ -281,11 +282,11 @@ describe('where the commands live on the shell', () => {
     // The ribbon renders Deck's command record (slides/deckCommands); its
     // snippet commands reach the same functions the old `ed` hooks did.
     const deps = new Proxy(
-      { selected: selected.length, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: null, saveSnippet: ed.saveSnippet ?? noop, insertSnippet: ed.insertSnippet ?? noop } as Record<string, unknown>,
+      { readOnly: false, selected: selected.length, anyGrouped: false, canUndo: false, canRedo: false, canPaste: false, singleSlide: false, textMarks: null, saveSnippet: ed.saveSnippet ?? noop, insertSnippet: ed.insertSnippet ?? noop } as Record<string, unknown>,
       { get: (t, k) => (k in t ? t[k as string] : noop) }
     ) as unknown as DeckCommandDeps
     return {
-      cmds: buildDeckCommands(deps),
+      cmds: expectNotReadOnly('deckSnippets', buildDeckCommands(deps)),
       slide: slideWith(ALL),
       theme: resolveTheme('plexi-default'),
       selected,
