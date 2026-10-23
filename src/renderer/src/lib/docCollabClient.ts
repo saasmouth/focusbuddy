@@ -21,10 +21,67 @@ export interface LockHolder {
   handle: string
   firstName?: string | null
   lastName?: string | null
+  /**
+   * The member's access. Returned by the server as of signal v123; absent
+   * from an older server, and an absent role means EDITOR — every member
+   * could write before roles existed, so treating a missing role as a viewer
+   * would lock the existing population out of their own documents.
+   */
+  role?: 'owner' | 'editor' | 'viewer'
 }
 export interface LiveDocFull extends LiveDocMeta {
   body: string
   members: LockHolder[]
+  /**
+   * THIS account's access to the document (signal v123). Until it existed
+   * nothing exposed a role at all, so every member — viewers included — was
+   * handed a full editor. Optional for the same reason as above: against an
+   * older server it is absent, and absent means editor.
+   */
+  myRole?: 'owner' | 'editor' | 'viewer'
+}
+
+/** Is this account allowed to change the document? Absent role means yes. */
+export function canEditLiveDoc(role: LiveDocFull['myRole']): boolean {
+  return role !== 'viewer'
+}
+
+/**
+ * What this account may do with a live document, from its own role.
+ *
+ * A separate function rather than two lines in the view because the view can
+ * only render an editor once the Yjs engine has produced a body, so a test
+ * that mounts it cannot reach the props it passes down. This decision is the
+ * part that must be right, so it is testable on its own — the same reason
+ * yjsDocAuth.ts exists on the server.
+ */
+export function liveDocAccess(meta: Pick<LiveDocFull, 'docType' | 'myRole'> | null): {
+  viewerOnly: boolean
+  canComment: boolean
+} {
+  const viewerOnly = !!meta && !canEditLiveDoc(meta.myRole)
+  return {
+    viewerOnly,
+    // Comments are document-only, and still not open to a VIEWER — but for a
+    // different reason than the one this used to give.
+    //
+    // The old reason was that a comment's anchor IS a mark in the body, so a
+    // viewer could not write one. That is no longer true: an anchor is stored
+    // with the comment and drawn as a decoration, and leaving one writes
+    // nothing to the document. The client half is done and a viewer could use
+    // it today.
+    //
+    // What stops it is the SERVER, observably rather than as a matter of
+    // policy: the deployed livedoc service has no anchor column and drops the
+    // field, so a viewer's comment would be stored with no anchor and no mark —
+    // a thread in the panel pointing at nothing, with no quote to recover it
+    // from, permanently. A viewer cannot fall back to a mark the way an owner
+    // can, so there is nothing honest to give them until the column exists.
+    //
+    // This opens the moment the server can hold an anchor. It is one condition
+    // in one place, and the rest of the chain is already built behind it.
+    canComment: !!meta && meta.docType === 'doc' && !viewerOnly
+  }
 }
 export type LiveDocListItem = LiveDocMeta
 

@@ -36,9 +36,26 @@ describe('neither host applies a comment mark', () => {
     for (const h of HOSTS) expect(code(h).length).toBeGreaterThan(500)
   })
 
-  it('calls no setComment', () => {
-    const offenders = HOSTS.filter((h) => /\bsetComment\b/.test(code(h)))
-    expect(offenders).toEqual([])
+  it('applies a mark only where the server dropped the anchor', () => {
+    // The local host writes no mark at all: its anchor column exists, so there
+    // is never a reason to.
+    expect(/\bsetComment\b/.test(code(HOSTS[0]!))) .toBe(false)
+
+    // The live host has exactly ONE, and it is a compatibility fallback rather
+    // than a highlight mechanism. The deployed livedoc service has no anchor
+    // column and drops the field, so without this a comment made before the
+    // service is updated would have neither an anchor nor a mark — a thread
+    // pointing at nothing, with no quote to recover from, permanently.
+    //
+    // It must stay CONDITIONAL on the server's own answer. Unconditional, it is
+    // the write that makes viewer comments impossible and it double-draws the
+    // highlight (fb-comment over fb-comment) once the column exists.
+    const live = code(HOSTS[1]!).split('\n')
+    const calls = live.map((l, i) => [l, i] as const).filter(([l]) => /\bsetComment\b/.test(l))
+    expect(calls).toHaveLength(1)
+    const [, at] = calls[0]!
+    const preceding = live.slice(Math.max(0, at - 4), at).join('\n')
+    expect(preceding).toContain('created.anchor == null')
   })
 
   it('pushes ranges instead', () => {
