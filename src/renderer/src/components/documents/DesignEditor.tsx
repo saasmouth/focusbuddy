@@ -558,6 +558,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // makes ⌘C/⌘V and the native Edit menu run the same code — and the three
   // functions it returns are what this editor's own Edit menu calls.
   const clipboard = useElementClipboard({
+    app: 'design',
     canvas: () => ({ w: designRef.current.width, h: designRef.current.height }),
     selected: () => {
       const els = designRef.current.elements ?? []

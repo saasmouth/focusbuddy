@@ -660,6 +660,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   // Cut / Copy / Paste, shared with PlexiiDesign: the hook owns the DOM
   // clipboard events, so ⌘C/⌘V and the native Edit menu run the same code.
   const clipboard = useElementClipboard({
+    app: 'slide',
     canvas: () => ({ w: body.size?.w ?? 1280, h: body.size?.h ?? 720 }),
     selected: () => {
       const ids = new Set(selectedIds)

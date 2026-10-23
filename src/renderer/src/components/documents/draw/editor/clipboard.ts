@@ -33,27 +33,11 @@ import { addObject, editableIds, findLayer, getObjects, nodesBounds, primaryArtb
 import { drawDocToSvg } from '@shared/draw/svg'
 import { findNode, vectorLayersOf } from '@shared/draw/tree'
 import type { EditorCtx } from './types'
+import { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION, type DrawClipboardPayload } from '@shared/draw/clipboardFormat'
 
 // ── The payload ──────────────────────────────────────────────────────────────
 
-export const DRAW_CLIPBOARD_KIND = 'plexiidraw/clipboard'
-export const DRAW_CLIPBOARD_VERSION = 1
-
-/** The native clipboard format: what a PlexiiDraw copy writes as JSON. */
-export interface DrawClipboardPayload {
-  kind: typeof DRAW_CLIPBOARD_KIND
-  version: number
-  /** Visible bounds of the copied art, document space. */
-  bounds: Box
-  /** The artboard the art was copied from (Paste in Place keeps the art where it sat on it). */
-  artboard: { x: number; y: number; w: number; h: number }
-  /** Top-level copied nodes, bottom first. Ids are the source's; a paste mints new ones. */
-  nodes: DrawNode[]
-  /** Exactly the assets the nodes use. */
-  assets: Record<string, DrawAsset>
-  /** Exactly the swatches the nodes reference. */
-  swatches: DrawSwatch[]
-}
+export { DRAW_CLIPBOARD_KIND, DRAW_CLIPBOARD_VERSION, type DrawClipboardPayload }
 
 /** Every swatch id a value references (paints anywhere inside it: fills, strokes, appearance). */
 function swatchRefs(v: unknown, out: Set<string>, depth = 0): void {

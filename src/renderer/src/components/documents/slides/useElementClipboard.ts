@@ -67,6 +67,11 @@ export interface ElementClipboardWiring {
   stories?: () => Record<string, unknown>
   /** A fresh story id, minted the way this editor mints them. */
   newStoryId?: () => string
+  /**
+   * Which app this is. Written on the copy, so a paste into the other app of
+   * the two (which shares the format) is known to be a conversion.
+   */
+  app?: 'slide' | 'design'
   /** Remove these ids, for a cut. */
   onCut: (ids: string[]) => void
   /**
@@ -95,7 +100,7 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
     const w = ref.current
     const els = w.selected()
     if (els.length === 0) return false
-    const clip = buildElementClipboard(els, w.canvas(), w.stories?.())
+    const clip = buildElementClipboard(els, w.canvas(), w.stories?.(), w.app)
     lastClip = clip
     setHasClip(true)
     if (data) {
