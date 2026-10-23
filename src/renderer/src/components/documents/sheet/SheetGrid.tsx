@@ -46,6 +46,14 @@ interface Props {
   commitOnArrow?: boolean
   onCancelEdit: () => void
   onHeaderRename: (c: number, name: string) => void
+  /**
+   * A reader, not an editor. The grid's one always-mounted input is the column
+   * header rename; the cell editor is rendered only while editing, which a
+   * read-only SheetEditor never starts. The rename already wrote nothing — it
+   * goes through the guarded commit — but a caret that takes typing and snaps
+   * back is the app pretending, so the input is made read-only too.
+   */
+  readOnly?: boolean
   onColResizeStart: (c: number, e: React.MouseEvent) => void
   onColAutoFit?: (c: number) => void
   onHeaderContextMenu: (c: number, x: number, y: number) => void
@@ -278,6 +286,7 @@ export default function SheetGrid(props: Props): JSX.Element {
                   </span>
                   <input
                     value={col}
+                    readOnly={props.readOnly}
                     onChange={(e) => props.onHeaderRename(c, e.target.value)}
                     className="w-full bg-transparent px-1 py-1.5 text-[12px] font-semibold text-stone-700 dark:text-stone-200 min-w-0"
                   />

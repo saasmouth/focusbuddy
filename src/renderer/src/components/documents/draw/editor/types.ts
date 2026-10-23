@@ -59,8 +59,21 @@ export interface EditorState {
   spaceDown: boolean
   /** The live, uncommitted brush stroke is on screen. */
   scratchVisible: boolean
-  /** Made by a newer PlexiiDraw: shown, never written. */
+  /**
+   * Shown, never written. Enforced centrally — history.commit, the command
+   * runner, tool selection and the key handler all check it — so every write
+   * path is covered by this one flag.
+   *
+   * It has TWO causes, OR'd: the drawing was made by a newer PlexiiDraw
+   * (`compat.readOnly`), or the HOST says this person may only read it
+   * (`hostReadOnly`) — a viewer of a shared drawing. The two are kept apart
+   * because `fold` recomputes compatibility when a peer's body arrives, and
+   * recomputing `readOnly` from compatibility alone silently handed a viewer a
+   * writable editor the first time anybody else typed.
+   */
   readOnly: boolean
+  /** The host's own read-only, remembered so `fold` cannot clear it. */
+  hostReadOnly: boolean
   compat: DrawCompatibility
   /** The schema the document was loaded as; it is never written back older. */
   storedSchema: number
