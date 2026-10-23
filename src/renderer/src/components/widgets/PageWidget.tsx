@@ -14,6 +14,8 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { WidgetImage } from './widgetImage'
+import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { confirmDialog } from '../plexi/PromptDialog'
 import AnsweredBy from '../ai/AnsweredBy'
 
@@ -86,6 +88,7 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
     }, 250)
   }
 
+  const pasteRef = useRef<(e: ClipboardEvent) => boolean>(() => false)
   const editor = useEditor(
     {
       editable: !isLiving,
@@ -98,6 +101,9 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
         Link.configure({ openOnClick: false }),
         // GFM tables — render + edit, stored natively in the page's Tiptap JSON.
         TableKit.configure({ table: { resizable: false } }),
+        // Pictures (owner decision): stored as fb-file:// on insert or paste, and
+        // written as ![alt](src) in markdown.
+        WidgetImage,
         // Lets a pasted |---|---| markdown table (or markdown in general) become
         // real nodes. The page still stores Tiptap JSON via getJSON; this only
         // affects how pasted text is interpreted, so tables paste in cleanly.
@@ -116,6 +122,12 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
       // Detect slash key to open the block menu. We open at the caret's
       // screen position so the menu floats next to the cursor.
       editorProps: {
+        // ⌘V of what the editor cannot read itself (a picture, a drawing, a
+        // grid of cells) goes through the snippet conversion; text and HTML keep
+        // the editor's own paste.
+        handlePaste(_view, event) {
+          return pasteRef.current(event)
+        },
         handleKeyDown(_, event) {
           if (isLiving) return false
           if (event.key === '/' && !slashOpen) {
@@ -157,6 +169,11 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
       if (persistTimer.current) clearTimeout(persistTimer.current)
     }
   }, [])
+
+  // A destination for saved snippets and ⌘V. A living page is written for
+  // the person, so it takes neither.
+  const snippets = useEditorWidgetSnippets(widget, 'page', editor, !isLiving)
+  pasteRef.current = snippets.handlePaste
 
   function removeSlashTrigger(): void {
     if (!editor) return
@@ -563,6 +580,7 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
       widget={widget}
       headerLabel={widget.title || 'Page'}
       headerAccent="bg-stone-300/60 dark:bg-white/[0.09]"
+      snippets={isLiving ? undefined : snippets}
     >
       {body}
     </WidgetFrame>

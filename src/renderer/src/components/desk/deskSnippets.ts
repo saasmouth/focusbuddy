@@ -1,8 +1,20 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { Widget, WidgetKind } from '@shared/types'
-import type { Snippet, SnippetTarget, WidgetSnippetBody } from '@shared/snippets'
+import type { Snippet, SnippetInsertResult, SnippetKind, SnippetTarget, WidgetSnippetBody } from '@shared/snippets'
+import { acceptsFor } from '@shared/snippetConvert/accepts'
 import { registerSnippetTarget } from '../../stores/snippets'
 import { useWidgetStore } from '../../stores/widgets'
+import { snippetConvertDeps } from '../../lib/snippetConvertDeps'
+import { spawnPositionFor } from '../../lib/spawnPosition'
+import {
+  announcePaste,
+  bodyForms,
+  placeOnDesk,
+  readPasteForms,
+  snapshotPaste,
+  tookIt,
+  type DeskPlacement
+} from '../../lib/widgetSnippetInsert'
 
 // A desk as a snippet surface: save a work widget as a reusable one, and place
 // a saved one on any desk.
@@ -61,6 +73,33 @@ export async function insertWidgetSnippetOnDesk(taskId: string, snippet: Snippet
 }
 
 /**
+ * Place ANY snippet on a desk. A work widget snippet lands as itself; every
+ * other kind becomes the work widget that holds it natively
+ * (shared/snippetWidgets.ts planDesk): a document a page, a sheet block a real
+ * table work widget with its own table, a drawing, diagram, design or slide an
+ * image work widget whose picture is stored in the file store, text a sticky.
+ * A converted insert returns its lossy line as the notice; a refusal its reason.
+ */
+export async function insertSnippetOnDesk(taskId: string, snippet: Snippet, at?: DeskPlacement['at']): Promise<SnippetInsertResult> {
+  if (!taskId) return { ok: false, reason: 'There is no desk open.' }
+  if (snippet.body.kind === 'widget') return insertWidgetSnippetOnDesk(taskId, snippet)
+  const placed = await placeOnDesk(bodyForms(snippet.body), { body: snippet.body, verb: 'insert' }, {
+    taskId,
+    title: snippet.name,
+    at: at ?? ((w, h) => spawnPositionFor(w, h))
+  })
+  if (!placed.ok) return placed
+  return tookIt(placed.lossy)
+}
+
+/** The kinds a desk takes: derived from the builders, never listed (shared/snippetConvert/accepts.ts). */
+let deskAccepts: SnippetKind[] | null = null
+export function deskAcceptedKinds(): SnippetKind[] {
+  if (!deskAccepts) deskAccepts = acceptsFor('desk', snippetConvertDeps())
+  return deskAccepts
+}
+
+/**
  * Register the open desk as an insertion target while it is mounted.
  *
  * `taskId` is the desk. A desk that is not open is not a destination, which is
@@ -72,11 +111,15 @@ export function useDeskSnippetTarget(taskId: string | null, deskTitle: string): 
     const target: SnippetTarget = {
       id: `desk:${taskId}`,
       label: deskTitle?.trim() ? `“${deskTitle.trim()}” desk` : 'This desk',
-      accepts: ['widget'],
+      // A desk's own content is work widgets; every other kind is placed as
+      // the work widget that holds it (insertSnippetOnDesk).
+      accepts: deskAcceptedKinds(),
+      host: 'desk',
       // See the note at the top: a widget file already provides live, so the
       // desk honours Duplicate and says so rather than offering both.
       supports: ['duplicate'],
-      insert: (snippet) => insertWidgetSnippetOnDesk(taskId, snippet)
+      insert: (snippet, link) =>
+        link === 'duplicate' ? insertSnippetOnDesk(taskId, snippet) : { ok: false, reason: 'A desk takes a copy of a snippet, not a live one.' }
     }
     return registerSnippetTarget(target)
   }, [taskId, deskTitle])
@@ -85,4 +128,68 @@ export function useDeskSnippetTarget(taskId: string | null, deskTitle: string): 
 /** The registry id for a desk surface. One place, so host and picker agree. */
 export function deskSnippetTargetId(taskId: string): string {
   return `desk:${taskId}`
+}
+
+// ── Paste onto the desk ──────────────────────────────────────────────────────
+
+/** Is this element somewhere a paste belongs to something else (a field, a widget, a dialog)? */
+export function pasteBelongsElsewhere(el: Element | null): boolean {
+  if (!el || el === document.body || el === document.documentElement) return false
+  const h = el as HTMLElement
+  if (h.tagName === 'INPUT' || h.tagName === 'TEXTAREA' || h.tagName === 'SELECT' || h.isContentEditable) return true
+  return !!h.closest('[data-widget-id], [role="dialog"], .fb-scrim, input, textarea, [contenteditable="true"]')
+}
+
+/** Paste the clipboard onto a desk as the work widget that holds it, and say what happened. */
+export async function pasteOntoDesk(taskId: string, snap: ReturnType<typeof snapshotPaste>, at?: DeskPlacement['at']): Promise<boolean> {
+  const read = await readPasteForms(snap)
+  if (read.refused) {
+    announcePaste({ ok: false, reason: read.refused })
+    return false
+  }
+  const placed = await placeOnDesk(read.forms, read.ctx, { taskId, at: at ?? ((w, h) => spawnPositionFor(w, h)) })
+  if (!placed.ok) {
+    announcePaste(placed)
+    return false
+  }
+  announcePaste({ ok: true, lossy: placed.lossy })
+  return true
+}
+
+/**
+ * ⌘V on the desk with nothing focused creates the work widget that holds what
+ * is on the clipboard, beside the last-touched widget or at the viewport centre
+ * (spawnPositionFor). The desk had no paste at all before this.
+ *
+ * Edit › Paste fires a DOM paste (main/index.ts editAction). A field, a
+ * widget or a dialog with focus keeps its own paste. `surface` is the canvas
+ * element: a desk hidden behind a full-pane document is not pasted into.
+ */
+export function useDeskPaste(taskId: string | null, surface: () => HTMLElement | null): void {
+  const getSurface = useMemo(() => surface, [surface])
+  useEffect(() => {
+    if (!taskId) return
+    const onPaste = (e: ClipboardEvent): void => {
+      if (e.defaultPrevented) return
+      const el = getSurface()
+      if (!el || !el.isConnected || el.getClientRects().length === 0) return
+      // Whose paste it is follows FOCUS. With nothing focused Chromium aims the
+      // event at whatever element last held the selection, which can be
+      // anywhere in the app, so the target says nothing; the focused element
+      // does. A field, a widget or a dialog with focus keeps its own paste.
+      const focused = document.activeElement
+      if (focused && focused !== document.body && focused !== document.documentElement) {
+        if (pasteBelongsElsewhere(focused) || !el.contains(focused)) return
+      }
+      // And the desk must be what is showing: a document or panel opened over
+      // it keeps its own paste.
+      const r = el.getBoundingClientRect()
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      if (!top || !(el.contains(top) || top.closest('[data-widget-id]'))) return
+      e.preventDefault()
+      void pasteOntoDesk(taskId, snapshotPaste(e.clipboardData))
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [taskId, getSurface])
 }

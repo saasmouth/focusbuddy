@@ -61,6 +61,13 @@ export interface FrameCallbacks {
   // onSaveAsFile, which makes ONE widget appear in several places with its
   // edits flowing both ways. A snippet is a template; a file is one object.
   onSaveAsSnippet?: () => void
+  // The other direction: put a saved snippet INTO this widget, converted to
+  // what it holds (a sheet block into a page lands as a table). Present only
+  // on the work widgets that take inserted content.
+  onInsertSnippet?: () => void
+  // Paste the clipboard into this widget through the same conversion as an
+  // insert. Present only on widgets that take pasted content.
+  onPaste?: () => void
 }
 
 export interface MenuContext {

@@ -6,6 +6,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { splitStickyBlocks } from '../../lib/stickyText'
+import { useTextWidgetSnippets } from './useWidgetSnippets'
 
 interface Props {
   widget: Widget
@@ -98,6 +99,18 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
     }
   }, [update, widget.id])
 
+  // A destination for saved snippets and ⌘V, as the sticky is.
+  const snippets = useTextWidgetSnippets(
+    widget,
+    'note',
+    () => textRef.current,
+    (next, caret) => {
+      setText(next)
+      if (editing) requestAnimationFrame(() => textareaRef.current?.setSelectionRange(caret, caret))
+    },
+    () => textareaRef.current
+  )
+
   const rendered = (
     <div
       className={`fb-note-rendered w-full h-full whitespace-pre-wrap text-stone-800 leading-relaxed font-serif cursor-text ${
@@ -157,6 +170,7 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
         userEditRef.current = true
       }}
       onBlur={leaveEdit}
+      onPaste={snippets.onTextareaPaste}
       placeholder="Notes, thoughts, anything that doesn’t fit on a sticky…"
       onContextMenu={(e) => {
         // Shift-right-click for the browser's native menu (cut/copy/paste).
@@ -190,7 +204,7 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
   if (inline) return content
 
   return (
-    <WidgetFrame widget={widget} headerLabel="note" headerAccent="bg-stone-200/70 dark:bg-white/[0.07]">
+    <WidgetFrame widget={widget} headerLabel="note" headerAccent="bg-stone-200/70 dark:bg-white/[0.07]" snippets={snippets}>
       {content}
     </WidgetFrame>
   )
