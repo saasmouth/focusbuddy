@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   instanceModeFor,
+  primaryKindFor,
   snippetKindIcon,
   type Snippet,
+  type SnippetBody,
   type SnippetHostKind,
   type SnippetInstanceMode
 } from '@shared/snippets'
+import { convertSnippetBody } from '@shared/snippetConvert'
 import Icon from '../../Icon'
 import SnippetContent from '../../snippets/SnippetContent'
 import { onSnippetChanged } from '../../../stores/snippets'
@@ -53,7 +56,13 @@ type State =
   | { phase: 'loading' }
   | { phase: 'missing' }
   | { phase: 'error'; message: string }
-  | { phase: 'ready'; snippet: Snippet }
+  // `body` is what gets drawn: the master's own body for a native kind, or the
+  // conversion of it for a kind this host cannot show as itself. `lossy` names
+  // what the conversion dropped.
+  | { phase: 'ready'; snippet: Snippet; body: SnippetBody; lossy: string[] }
+  // The master exists but cannot be shown here at all, with the reason 2e's
+  // matrix gives — a refusal is better than a flattening that loses the point.
+  | { phase: 'refused'; snippet: Snippet; reason: string }
 
 const MODE_LABEL: Record<SnippetInstanceMode, string> = {
   editable: 'Live',
@@ -87,9 +96,33 @@ export default function SnippetEmbed({
     const resolve = (): void => {
       window.api.snippets
         .get(snippetId)
-        .then((s) => {
+        .then(async (s) => {
           if (!live) return
-          setState(s ? { phase: 'ready', snippet: s } : { phase: 'missing' })
+          if (!s) {
+            setState({ phase: 'missing' })
+            return
+          }
+          // Native kind: draw the master's own body.
+          if (instanceModeFor(s.kind, host, 'live') !== 'readonly') {
+            setState({ phase: 'ready', snippet: s, body: s.body, lossy: [] })
+            return
+          }
+          // Converted kind: re-derive from the master EVERY time this resolves,
+          // which is what makes a converted instance live. convertSnippetBody is
+          // deterministic and re-runnable by contract, so repeating it cannot
+          // churn the content.
+          //
+          // The deps are imported dynamically: they pull in the formula engine
+          // and the Draw SVG writer, and a document should not carry those in
+          // its static graph just because a snippet might be converted.
+          const { snippetConvertDeps } = await import('../../../lib/snippetConvertDeps')
+          if (!live) return
+          const out = convertSnippetBody(s.body, primaryKindFor(host), snippetConvertDeps())
+          setState(
+            out.ok
+              ? { phase: 'ready', snippet: s, body: out.body, lossy: out.lossy }
+              : { phase: 'refused', snippet: s, reason: out.reason }
+          )
         })
         .catch((e: Error) => {
           if (!live) return
@@ -157,6 +190,18 @@ export default function SnippetEmbed({
     )
   }
 
+  if (state.phase === 'refused') {
+    return (
+      <div
+        className="flex items-start gap-2 rounded-[var(--radius-row)] border border-dashed border-[var(--edge-firm)] px-3 py-2 text-[12px] text-[var(--ink-60)]"
+        data-testid="snippet-embed-refused"
+      >
+        <Icon name="block" size={14} className="mt-0.5 text-[var(--ink-40)]" />
+        <span>{state.reason}</span>
+      </div>
+    )
+  }
+
   const { snippet } = state
   const mode = instanceModeFor(snippet.kind, host, 'live')
   const chromeOpen = hovered || focused || showChrome
@@ -175,7 +220,26 @@ export default function SnippetEmbed({
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <SnippetContent body={snippet.body} />
+      <SnippetContent body={state.body} />
+
+      {state.lossy.length > 0 && (
+        // What the conversion dropped, stated where the content is rather than
+        // only in the picker it was chosen from. A converted instance is
+        // read-only, so the user cannot see the difference by editing it — if
+        // this were left to the insert moment alone, anyone meeting the document
+        // later would have no way to know something was missing.
+        <ul
+          className="mt-1 list-none space-y-0.5 text-[11px] text-[var(--ink-50)]"
+          data-testid="snippet-embed-lossy"
+        >
+          {state.lossy.map((note) => (
+            <li key={note} className="flex items-start gap-1">
+              <Icon name="info" size={11} className="mt-0.5 shrink-0 text-[var(--ink-40)]" />
+              {note}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {chromeOpen && (
         <div
