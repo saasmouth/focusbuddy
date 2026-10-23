@@ -34,6 +34,7 @@
     "release:verify": "bash scripts/verify-release-assets.sh",
     "sync:contract": "node scripts/sync-contract.mjs",
     "test:unit": "vitest run",
+    "test:shuffle": "node scripts/test-shuffle.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:smoke": "npm run build && playwright test tests/e2e/securityQuickWins.spec.ts tests/e2e/a11yKeyboardOperability.spec.ts tests/e2e/a11yReducedMotion.spec.ts tests/e2e/plxA11yWcagZoom.spec.ts tests/e2e/modalA11y.spec.ts tests/e2e/onboarding.spec.ts tests/e2e/backup.spec.ts tests/e2e/meetingLaunchDialog.spec.ts tests/e2e/syncSpec.spec.ts",
     "test": "npm run test:unit && npm run test:e2e",

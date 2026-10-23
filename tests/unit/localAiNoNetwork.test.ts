@@ -21,7 +21,7 @@
 // under CPU load. That pushed the test past its 5 s timeout now and then (the
 // rotating "localAiNoNetwork" failure), and made its result depend on which
 // models the machine happened to have installed.
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -132,16 +132,7 @@ beforeAll(async () => {
   applySchemaAndMigrations(db as never)
   const { seedWorkspace } = await import('../../tools/local-ai-eval/fixtures')
   await seedWorkspace()
-
-  const router = await import('../../src/main/ai/local/providerRouter')
-  const { setLocalRouteResolver } = await import('../../src/main/ai/modelRouting')
-  router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
-  router.setLocalRuntime({ engine: async () => fakeEngine as never, modelLabel: () => 'test', installed: () => true })
-  setLocalRouteResolver((p) => router.routeForPurpose(p) === 'local')
-  // Measure the routing, not the gates: every purpose served locally.
-  router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
-  const { setBundledEmbedder } = await import('../../src/main/ai/localModel')
-  setBundledEmbedder({ installed: () => true, label: () => 'nomic-test', embed: async (t) => t.map(() => [0.1, 0.2, 0.3]) })
+  await routeEverythingLocally()
 
   const f = globalThis.fetch
   globalThis.fetch = ((input: unknown, init?: unknown) => {
@@ -164,6 +155,46 @@ beforeAll(async () => {
   spy(tls, 'connect', (a) => hostFromUrlish(a[0]) ?? (typeof a[1] === 'string' ? a[1] : undefined))
   spy(dns, 'lookup', (a) => String(a[0]))
 }, 180_000)
+
+/**
+ * The state every test starts from: source "Local on this device", the stand-in
+ * engine and embedder installed, every purpose gated 'ok', no cloud provider, no
+ * consent given, no notices, untagged model ids, and no traffic recorded.
+ *
+ * The router, modelRouting and localModel keep all of this in module state that
+ * lives for the whole file, and the tests below change it -- one removes the
+ * embedder, others install cloud providers, a model tagger, a consent asker and
+ * the real gates -- putting it back (where they did at all) only as their last
+ * lines, so a failing test never did. Whichever test ran after one of them
+ * inherited its setup: the first test, run after "no local embedder", found no
+ * embedder and reported { ok: false, reason: 'no_key' }. Set before EACH test,
+ * so the result no longer depends on which test ran before it.
+ */
+async function routeEverythingLocally(): Promise<void> {
+  const router = await import('../../src/main/ai/local/providerRouter')
+  const { setLocalRouteResolver, setModelTagger } = await import('../../src/main/ai/modelRouting')
+  const { setBundledEmbedder } = await import('../../src/main/ai/localModel')
+  router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
+  router.setLocalRuntime({ engine: async () => fakeEngine as never, modelLabel: () => 'test', installed: () => true })
+  router.setCloudProviders({ anthropic: () => null, credits: () => null, openai: () => null })
+  // Measure the routing, not the gates: every purpose served locally.
+  router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
+  router.setConsentAsker(async () => false)
+  router.setNoticeSink(() => undefined) // also forgets which notices were shown
+  setModelTagger((_p, m) => m)
+  setLocalRouteResolver((p) => router.routeForPurpose(p) === 'local')
+  setBundledEmbedder({ installed: () => true, label: () => 'nomic-test', embed: async (t) => t.map(() => [0.1, 0.2, 0.3]) })
+  // Imported only now that the engine and embedder are in place: loading it
+  // earlier, with neither installed, sends its start-up work to Ollama, and the
+  // model list that leaves cached is what the no-embedder test needs to see
+  // being asked for.
+  const ai = await import('../../src/main/ai/anthropic')
+  ai.invalidateAnthropicClient()
+  delete process.env.REMOVEBG_API_KEY
+  remote.length = 0
+}
+
+beforeEach(routeEverythingLocally)
 
 afterAll(async () => {
   for (const r of restores.reverse()) r()

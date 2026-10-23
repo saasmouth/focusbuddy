@@ -88,6 +88,16 @@ export function registerObjectType(def: { id: string; label?: string }): ObjectT
   REGISTRY.set(def.id, entry)
   return entry
 }
+/**
+ * Remove an extension type registered at runtime. Built-in types cannot be
+ * removed (returns false), so this can only undo a registerObjectType call.
+ * Returns whether a type was removed.
+ */
+export function unregisterObjectType(id: string): boolean {
+  const existing = REGISTRY.get(id)
+  if (!existing || existing.builtin) return false
+  return REGISTRY.delete(id)
+}
 export function isRegisteredObjectType(id: string): boolean {
   return REGISTRY.has(id)
 }

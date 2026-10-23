@@ -4,11 +4,18 @@
 // the server holds it for 48 hours, the recipient's browser unpacks it, and the
 // same file is what they carry to the desktop app. If a round trip loses a
 // widget, a table row or a picture, every one of those steps loses it too.
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import { initSqlite, openMemoryDatabase, type SqliteDb } from '../../src/web/worker/sqlite'
 
+// The sender's database and file store, and the ones a test is currently
+// pointing the product at. A test that plays the recipient swaps both and
+// afterEach puts the sender's back -- even when the test failed half way.
+// (It used to clear the ONE shared blob map to play the recipient, which
+// emptied the sender's files for every test that ran after it.)
+let senderDb: SqliteDb
+const senderBlobs = new Map<string, Uint8Array>()
 let db: SqliteDb
-const blobs = new Map<string, Uint8Array>()
+let blobs = senderBlobs
 
 vi.mock('../../src/main/db/database', () => ({
   getDb: () => db,
@@ -64,8 +71,8 @@ function seed(): void {
   }
   f('file-1', '.png', 3)
   f('file-2', '.png', 4)
-  blobs.set('file-1.png', new Uint8Array([1, 2, 3]))
-  blobs.set('file-2.png', new Uint8Array([9, 8, 7, 6]))
+  senderBlobs.set('file-1.png', new Uint8Array([1, 2, 3]))
+  senderBlobs.set('file-2.png', new Uint8Array([9, 8, 7, 6]))
 
   // A desk filed inside a folder -- half of a real workspace looks like this.
   db.prepare(`INSERT INTO nodes (id,parent_id,kind,title,description,status,priority,interest,importance,sort_order,created_at,updated_at,extensions_minutes,org_id)
@@ -93,8 +100,23 @@ beforeAll(async () => {
   const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
   applyBrowserSchema(db)
   seed()
+  senderDb = db
   mod = await import('../../src/main/db/deskBundle')
 })
+
+afterEach(() => {
+  db = senderDb
+  blobs = senderBlobs
+})
+
+/** An empty recipient database that enforces foreign keys, with its own file store. */
+async function recipient(): Promise<{ db: SqliteDb; blobs: Map<string, Uint8Array> }> {
+  const target = openMemoryDatabase()
+  target.pragma('foreign_keys = ON')
+  const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
+  applyBrowserSchema(target)
+  return { db: target, blobs: new Map() }
+}
 
 describe('packing a desk', () => {
   it('takes the desk and everything filed under it', async () => {
@@ -154,45 +176,41 @@ describe('reading a file reference', () => {
 })
 
 describe('unpacking into a fresh database', () => {
-  let fresh: SqliteDb
-
   it('restores the desk whole', async () => {
     const bundle = await mod.buildDeskBundle('desk-1')
 
-    // A different database, as the recipient's browser would be.
-    fresh = openMemoryDatabase()
-    fresh.pragma('foreign_keys = ON')
-    const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
-    applyBrowserSchema(fresh)
-    const sender = db
-    db = fresh
-    blobs.clear()
+    // A different database and file store, as the recipient's browser would be.
+    const fresh = await recipient()
+    db = fresh.db
+    blobs = fresh.blobs
 
     const res = await mod.importDeskBundle(bundle)
     expect(res.ok, res.reason).toBe(true)
     expect(res.deskId).toBe('desk-1')
     expect(res.filesWritten).toBe(2)
 
-    const widgets = fresh.prepare("SELECT id FROM widgets WHERE task_id IN ('desk-1','desk-child') ORDER BY id").all() as { id: string }[]
+    const widgets = fresh.db.prepare("SELECT id FROM widgets WHERE task_id IN ('desk-1','desk-child') ORDER BY id").all() as { id: string }[]
     expect(widgets.map((w) => w.id)).toEqual(['w-child', 'w-doc', 'w-file', 'w-img', 'w-sticky'])
-    const row = fresh.prepare("SELECT cells_json FROM fb_rows WHERE id='r-1'").get() as { cells_json: string }
+    const row = fresh.db.prepare("SELECT cells_json FROM fb_rows WHERE id='r-1'").get() as { cells_json: string }
     expect(JSON.parse(row.cells_json).c1).toBe('row one')
-    expect(blobs.get('file-1.png')).toEqual(new Uint8Array([1, 2, 3]))
-    db = sender
+    expect(fresh.blobs.get('file-1.png')).toEqual(new Uint8Array([1, 2, 3]))
   })
 
   it('is additive: importing twice adds nothing and destroys nothing', async () => {
     const bundle = await mod.buildDeskBundle('desk-1')
-    const sender = db
-    db = fresh
+    // Its own first import, so this does not depend on the test above having run.
+    const fresh = await recipient()
+    db = fresh.db
+    blobs = fresh.blobs
+    const first = await mod.importDeskBundle(bundle)
+    expect(first.ok, first.reason).toBe(true)
     // Something the recipient changed after the first import must survive.
-    fresh.prepare("UPDATE widgets SET content='edited by the recipient' WHERE id='w-sticky'").run()
+    fresh.db.prepare("UPDATE widgets SET content='edited by the recipient' WHERE id='w-sticky'").run()
     const again = await mod.importDeskBundle(bundle)
     expect(again.ok).toBe(true)
     expect(again.imported).toBe(0)
-    const w = fresh.prepare("SELECT content FROM widgets WHERE id='w-sticky'").get() as { content: string }
+    const w = fresh.db.prepare("SELECT content FROM widgets WHERE id='w-sticky'").get() as { content: string }
     expect(w.content).toBe('edited by the recipient')
-    db = sender
   })
 
   it('refuses anything that is not a bundle', async () => {
@@ -242,15 +260,13 @@ describe('a desk that points outside itself', () => {
 
   it('imports into a database that ENFORCES the keys, which is where it broke', async () => {
     const bundle = await mod.buildDeskBundle('desk-nested')
-    const target = openMemoryDatabase()
     // The whole point: without foreign_keys ON this test passes while broken.
-    target.pragma('foreign_keys = ON')
-    const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
-    applyBrowserSchema(target)
-    const sender = db
+    const { db: target, blobs: targetBlobs } = await recipient()
     db = target
+    blobs = targetBlobs
     const res = await mod.importDeskBundle(bundle)
-    db = sender
+    db = senderDb
+    blobs = senderBlobs
     expect(res.ok, res.reason).toBe(true)
     expect(res.reason).toBeUndefined()
     const desk = target.prepare("SELECT parent_id FROM nodes WHERE id='desk-nested'").get() as { parent_id: string | null }
@@ -269,14 +285,12 @@ describe('when a bundle is malformed, it says what is wrong', () => {
       'node desk-nested ("Nested desk") is filed under folder-1, which is not in the bundle'
     ])
 
-    const target = openMemoryDatabase()
-    target.pragma('foreign_keys = ON')
-    const { applyBrowserSchema } = await import('../../src/web/worker/schemaInit')
-    applyBrowserSchema(target)
-    const sender = db
+    const { db: target, blobs: targetBlobs } = await recipient()
     db = target
+    blobs = targetBlobs
     const res = await mod.importDeskBundle(bundle)
-    db = sender
+    db = senderDb
+    blobs = senderBlobs
     expect(res.ok).toBe(false)
     // The bit a person can act on.
     expect(res.reason).toContain('point outside this desk')
