@@ -228,7 +228,7 @@ describe('the Keyboard shortcuts dialog', () => {
     await key('g')
     expect(pressed('rect')).toBe('true')
     // The rail's tooltip (and accessible name) shows the live key.
-    expect(testid('draw-tool-rect')!.getAttribute('aria-label')).toBe('Rectangle (G)')
+    expect(testid('draw-tool-rect')!.getAttribute('aria-label')).toBe('Rectangle (G) — double-click to keep it selected')
     // Reset all brings Illustrator's key back.
     await key('˚', { metaKey: true, altKey: true, shiftKey: true, code: 'KeyK' })
     await clickEl(testid('draw-shortcuts-reset-all'))

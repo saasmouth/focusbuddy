@@ -16,10 +16,13 @@ describe('registries', () => {
     expect(drawTools().filter((t) => t.hidden).map((t) => t.id)).toEqual(['place'])
     expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
-      // Group Selection has no default letter, as in Illustrator.
-      'groupSelect:',
       'direct:A',
+      // Group Selection has no default letter, as in Illustrator; it follows
+      // Direct Selection in their flyout, as Illustrator's does.
+      'groupSelect:',
       'lasso:Q',
+      // The Hand sits with the selection tools (SPEC §3.9).
+      'hand:H',
       'pen:P',
       'curvature:Shift+`',
       'addAnchor:+',
@@ -48,8 +51,7 @@ describe('registries', () => {
       'eraser:Shift+E',
       'bucket:K',
       'eyedropper:I',
-      'artboard:Shift+O',
-      'hand:H'
+      'artboard:Shift+O'
     ])
     expect(toolRegistryProblems()).toEqual([])
   })
@@ -76,7 +78,7 @@ describe('registries', () => {
     // Overlay panels (the rail's bottom buttons); the inspector, Transform, Align and
     // Anchor points panels became top-bar tabs (bar/*.tab.tsx).
     expect(drawPanels().map((p) => p.id)).toEqual(['layers', 'artboards'])
-    expect(drawBarTabs().map((t) => t.id)).toEqual(['home', 'object', 'align', 'type', 'shape', 'brush', 'anchors', 'path', 'group', 'image', 'artboard'])
+    expect(drawBarTabs().map((t) => t.id)).toEqual(['home', 'insert', 'object', 'align', 'type', 'shape', 'brush', 'anchors', 'path', 'group', 'image', 'artboard'])
     expect(drawDialogs().map((d) => d.id).sort()).toEqual([
       'artboard-options',
       'artboard-rearrange',

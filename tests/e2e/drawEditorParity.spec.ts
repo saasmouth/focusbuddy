@@ -60,7 +60,7 @@ async function paintedPixels(layerTestId: string): Promise<number> {
   })
 }
 
-test('EP-1 the rail offers every tool, in toolbox order, with its live shortcut; flyouts hold the rest', async () => {
+test('EP-1 the rail offers every tool, in the shared rail order, with its live shortcut; flyouts hold the rest', async () => {
   await openDocument(window, await seedDrawDoc(window, v1Body([])))
   // The office shell's rail: one button per tool or flyout (the flyout shows its
   // first tool, or the one last used), tooltips and names from the live keymap.
@@ -71,11 +71,14 @@ test('EP-1 the rail offers every tool, in toolbox order, with its live shortcut;
     'draw-tool-select=Select (V) — double-click for options',
     'draw-tool-direct=Direct Selection (A)',
     'draw-tool-lasso=Lasso (Q)',
+    // The shared rail order (SPEC §3.9): the Hand with the selection tools,
+    // then Type and the shapes (which lock on a double-click), then the paths.
+    'draw-tool-hand=Hand (H)',
+    'draw-tool-text=Type (T) — double-click to keep it selected',
+    'draw-tool-rect=Rectangle (M) — double-click to keep it selected',
     'draw-tool-pen=Pen (P)',
     'draw-tool-scissors=Scissors (C)',
     'draw-tool-pencil=Pencil (N)',
-    'draw-tool-rect=Rectangle (M)',
-    'draw-tool-text=Type (T)',
     'draw-tool-rotate=Rotate (R) — double-click for options',
     'draw-tool-scale=Scale (S) — double-click for options',
     'draw-tool-freeTransform=Free Transform (E)',
@@ -83,8 +86,7 @@ test('EP-1 the rail offers every tool, in toolbox order, with its live shortcut;
     'draw-tool-eraser=Eraser (⇧E)',
     'draw-tool-bucket=Paint bucket (K)',
     'draw-tool-eyedropper=Eyedropper (I)',
-    'draw-tool-artboard=Artboard (⇧O)',
-    'draw-tool-hand=Pan (H)'
+    'draw-tool-artboard=Artboard (⇧O)'
   ])
   const flyout = async (id: string): Promise<string[]> => {
     await window.locator(`[data-testid="draw-toolbox-flyout-${id}"]`).click()
@@ -100,7 +102,7 @@ test('EP-1 the rail offers every tool, in toolbox order, with its live shortcut;
     return items
   }
   // Every tool of the toolbox, in its order: the flyouts hold the ones not on show.
-  expect(await flyout('direct')).toEqual(['draw-tool-groupSelect-flyout=Group selection', 'draw-tool-direct-flyout=Direct Selection (A)'])
+  expect(await flyout('direct')).toEqual(['draw-tool-direct-flyout=Direct Selection (A)', 'draw-tool-groupSelect-flyout=Group selection'])
   expect(await flyout('pen')).toEqual([
     'draw-tool-pen-flyout=Pen (P)',
     'draw-tool-curvature-flyout=Curvature (⇧`)',

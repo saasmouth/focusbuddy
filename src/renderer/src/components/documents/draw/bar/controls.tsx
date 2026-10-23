@@ -10,11 +10,10 @@
 //   in a popover, the editor that used to sit in the right-hand inspector.
 // - useEditor: re-render a tab when the editor state changes.
 
-import { useContext, useRef, useState } from 'react'
+import { useContext } from 'react'
 import { useStore } from 'zustand'
 import Icon from '../../../Icon'
-import { BarButton, BarContext, BarCustom, BarPopover, BarToggle, barTip, READ_ONLY_REASON } from '../../../office/shell'
-import Tooltip from '../../../Tooltip'
+import { BarButton, BarColor, BarContext, BarCustom, BarToggle } from '../../../office/shell'
 import { solid } from '@shared/draw'
 import { docPaintToCss } from '@shared/draw/svg'
 import type { DrawDocPaint as DrawPaint, DrawDoc } from '@shared/draw/model'
@@ -237,54 +236,41 @@ export function PaintEditor({ value, onChange, testid }: { value: DrawPaint; onC
  * Fill or Stroke paint in the bar: a swatch button (testid) that opens the
  * paint editor in a popover. The swatch shows the paint; "none" shows a slash.
  */
-export function PaintButton({ label, value, swatches, onChange, testid, stroke, disabledReason }: {
+export function PaintButton({ label, value, swatches, onChange, testid, stroke, disabledReason, semantic }: {
   label: string
   value: DrawPaint
   swatches: DrawDoc['swatches']
   onChange: (p: DrawPaint) => void
   testid: string
-  /** Draw the swatch as a ring (stroke) rather than a solid chip (fill). */
+  /** The stroke paint (border icon) rather than a fill. */
   stroke?: boolean
   disabledReason?: string
+  /** What the control means, for the control-type contract (Type › Text colour). */
+  semantic?: 'text-color'
 }): JSX.Element {
-  const readOnly = useBarReadOnly()
-  const [open, setOpen] = useState(false)
-  const btn = useRef<HTMLButtonElement>(null)
-  const reason = readOnly ? READ_ONLY_REASON : disabledReason
-  const tip = barTip(label, undefined, reason)
-  const css = value.type === 'none' ? 'transparent' : docPaintToCss({ swatches }, value)
+  // The colour control every office app uses (BarColor: its trigger, look and
+  // aria), with Draw's own picker inside, because a Draw paint can be a
+  // swatch, a gradient or none, which a flat palette cannot express (SPEC §3.9).
+  const css = value.type === 'none' ? undefined : docPaintToCss({ swatches }, value)
   return (
     <BarCustom testid={`${testid}-cluster`}>
-      <Tooltip content={tip} placement="bottom">
-        <button
-          ref={btn}
-          type="button"
-          aria-label={tip}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          disabled={!!reason}
-          data-testid={testid}
-          onClick={() => setOpen((v) => !v)}
-          className="h-7 px-1.5 inline-flex items-center gap-1 rounded text-[12px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)] disabled:opacity-35 disabled:cursor-not-allowed"
-        >
-          <span className="text-[11px] text-[var(--ink-50)]">{label}</span>
-          <span
-            aria-hidden
-            className={`relative w-4 h-4 rounded-sm overflow-hidden ${stroke ? 'border-[3px]' : 'border border-[var(--edge-firm)]'}`}
-            style={stroke ? { borderColor: value.type === 'none' ? 'var(--edge-firm)' : css, background: 'transparent' } : { background: css }}
-          >
-            {value.type === 'none' && <span className="absolute left-1/2 top-[-2px] bottom-[-2px] w-px bg-red-500 rotate-45" />}
-          </span>
-          <Icon name="expand_more" size={14} />
-        </button>
-      </Tooltip>
-      {open && (
-        <BarPopover anchor={btn.current} onClose={() => setOpen(false)} label={label} testid={`${testid}-popover`} minWidth={220}>
+      <BarColor
+        icon={stroke ? 'border_color' : semantic === 'text-color' ? 'format_color_text' : 'format_color_fill'}
+        label={label}
+        value={value.type === 'solid' ? css : undefined}
+        swatch={css}
+        palette={[]}
+        onChange={() => undefined}
+        disabled={!!disabledReason}
+        disabledReason={disabledReason}
+        semantic={semantic}
+        testid={testid}
+        popover={() => (
           <div className="p-2 w-[240px]">
             <PaintEditor value={value} onChange={onChange} testid={testid} />
           </div>
-        </BarPopover>
-      )}
+        )}
+      />
     </BarCustom>
   )
 }

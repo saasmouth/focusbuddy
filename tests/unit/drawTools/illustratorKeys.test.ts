@@ -199,9 +199,10 @@ describe("the keymap is Illustrator's published table", () => {
   it('the tools carry Illustrator’s keys: M, L, \\, Shift+E, K, and WP-PATH’s Q, Shift+~, +, -, Shift+C, C; Rounded rectangle, Polygon, Star, Knife, Smooth, Path Eraser and Join none', () => {
     expect(drawTools().filter((t) => !t.hidden).map((t) => `${t.id}:${t.key ?? ''}`)).toEqual([
       'select:V',
-      'groupSelect:',
       'direct:A',
+      'groupSelect:',
       'lasso:Q',
+      'hand:H',
       'pen:P',
       'curvature:Shift+`',
       'addAnchor:+',
@@ -230,8 +231,7 @@ describe("the keymap is Illustrator's published table", () => {
       'eraser:Shift+E',
       'bucket:K',
       'eyedropper:I',
-      'artboard:Shift+O',
-      'hand:H'
+      'artboard:Shift+O'
     ])
   })
 })

@@ -6,8 +6,10 @@ import { nodeSize } from '@shared/diagram/geom'
 import { THEMES, getTheme, resolveEdgeStyle, resolveNodeStyle } from '@shared/diagram/style'
 import { ARROW_HEADS } from '@shared/diagram/arrowheads'
 import {
+  armedTool,
   BarButton,
   BarColor,
+  BarFontSize,
   BarCustom,
   BarDialogButton,
   BarGroup,
@@ -18,12 +20,14 @@ import {
   BarToggle,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
+  railGroup,
   type BarTab,
   type RailItem
 } from '../../office/shell'
 import type { Commands } from './commands'
 import type { Tool } from './DiagramEditor'
 import { ARROW_LABEL, ArrowPreview, DASHES, FONTS, common } from './parts'
+import FontPicker from '../editor/FontPicker'
 
 // PlexiiDiagrams on the office shell (SPEC §6.1): the ToolRail items and every
 // ContextBar tab. Owner ruling D1 removed the right Inspector, so every control
@@ -150,17 +154,19 @@ function TextFormat({ c, ids }: { c: DCtx; ids: boolean }): JSX.Element {
   const toggle = (k: 'bold' | 'italic' | 'underline' | 'strike'): void => cmd.setStyle({ [k]: r(k) ? undefined : true })
   return (
     <BarGroup label="Text">
-      <BarSelect label="Font" value={r('fontFamily') ?? ''} options={[...(r('fontFamily') === undefined ? [{ value: '', label: 'Mixed' }] : []), ...FONTS]} onChange={(v) => v && cmd.setStyle({ fontFamily: v })} testid={ids ? 'diagram-font' : undefined} width={118} />
-      <BarNumber label="Font size" value={r('fontSize')} min={6} max={200} suffix="pt" onChange={(v) => cmd.setStyle({ fontSize: v })} testid={ids ? 'diagram-font-size' : undefined} width={44} />
-      <BarToggle icon="format_bold" label="Bold" shortcut="⌘B" pressed={!!r('bold')} onChange={() => toggle('bold')} testid={ids ? 'diagram-bold' : undefined} />
-      <BarToggle icon="format_italic" label="Italic" shortcut="⌘I" pressed={!!r('italic')} onChange={() => toggle('italic')} />
-      <BarToggle icon="format_underlined" label="Underline" shortcut="⌘U" pressed={!!r('underline')} onChange={() => toggle('underline')} />
+      <BarCustom label="Font" semantic="font-family">
+        <FontPicker value={r('fontFamily') ?? ''} mixed={r('fontFamily') === undefined} extra={FONTS} allowDefault={false} compact onChange={(v) => v && cmd.setStyle({ fontFamily: v })} testid={ids ? 'diagram-font' : undefined} />
+      </BarCustom>
+      <BarFontSize value={r('fontSize')} min={6} max={200} suffix="pt" onChange={(v) => cmd.setStyle({ fontSize: v })} testid={ids ? 'diagram-font-size' : undefined} width={44} />
+      <BarToggle icon="format_bold" semantic="bold" label="Bold" shortcut="⌘B" pressed={!!r('bold')} onChange={() => toggle('bold')} testid={ids ? 'diagram-bold' : undefined} />
+      <BarToggle icon="format_italic" semantic="italic" label="Italic" shortcut="⌘I" pressed={!!r('italic')} onChange={() => toggle('italic')} />
+      <BarToggle icon="format_underlined" semantic="underline" label="Underline" shortcut="⌘U" pressed={!!r('underline')} onChange={() => toggle('underline')} />
       {ids && <BarToggle icon="strikethrough_s" label="Strikethrough" pressed={!!r('strike')} onChange={() => toggle('strike')} />}
-      <BarColor icon="format_color_text" label="Text colour" value={common(nodes, (n) => n.style?.textColor)} palette={c.palette} onChange={(v) => cmd.setStyle({ textColor: v })} testid={ids ? 'diagram-text-color' : undefined} />
+      <BarColor icon="format_color_text" semantic="text-color" label="Text colour" value={common(nodes, (n) => n.style?.textColor)} palette={c.palette} onChange={(v) => cmd.setStyle({ textColor: v })} testid={ids ? 'diagram-text-color' : undefined} />
       <BarSep />
-      <BarToggle icon="format_align_left" label="Align left" pressed={r('textAlign') === 'left'} onChange={() => cmd.setStyle({ textAlign: 'left' })} />
-      <BarToggle icon="format_align_center" label="Align centre" pressed={r('textAlign') === 'center'} onChange={() => cmd.setStyle({ textAlign: 'center' })} />
-      <BarToggle icon="format_align_right" label="Align right" pressed={r('textAlign') === 'right'} onChange={() => cmd.setStyle({ textAlign: 'right' })} />
+      <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={r('textAlign') === 'left'} onChange={() => cmd.setStyle({ textAlign: 'left' })} />
+      <BarToggle icon="format_align_center" semantic="align-center" label="Align centre" pressed={r('textAlign') === 'center'} onChange={() => cmd.setStyle({ textAlign: 'center' })} />
+      <BarToggle icon="format_align_right" semantic="align-right" label="Align right" pressed={r('textAlign') === 'right'} onChange={() => cmd.setStyle({ textAlign: 'right' })} />
       {ids && (
         <>
           <BarToggle icon="vertical_align_top" label="Text at the top" pressed={r('vAlign') === 'top'} onChange={() => cmd.setStyle({ vAlign: 'top' })} />
@@ -201,6 +207,7 @@ function AlignTools({ c, ids }: { c: DCtx; ids: boolean }): JSX.Element {
 const homeTab: BarTab<DCtx> = {
   id: 'home',
   label: 'Home',
+  role: 'home',
   render: (c) => {
     const { cmd, nodes, edges } = c
     const first = nodes[0]
@@ -246,6 +253,7 @@ const homeTab: BarTab<DCtx> = {
 const insertTab: BarTab<DCtx> = {
   id: 'insert',
   label: 'Insert',
+  role: 'insert',
   render: (c) => {
     const { cmd } = c
     return (
@@ -285,6 +293,7 @@ const insertTab: BarTab<DCtx> = {
 const arrangeTab: BarTab<DCtx> = {
   id: 'arrange',
   label: 'Arrange',
+  role: 'arrange',
   render: (c) => {
     const { cmd, nodes } = c
     const one = nodes.length === 1 ? nodes[0]! : null
@@ -345,6 +354,7 @@ const arrangeTab: BarTab<DCtx> = {
 const designTab: BarTab<DCtx> = {
   id: 'design',
   label: 'Design',
+  role: 'app',
   render: (c) => {
     const { cmd, settings } = c
     const theme = getTheme(settings.theme)
@@ -393,6 +403,7 @@ const designTab: BarTab<DCtx> = {
 const viewTab: BarTab<DCtx> = {
   id: 'view',
   label: 'View',
+  role: 'view',
   render: (c) => {
     const { cmd } = c
     return (
@@ -585,29 +596,29 @@ const SHAPE_TOOLS: { id: string; key?: string }[] = [
 /** The ToolRail items (SPEC §3.1 order). Armed shapes use new `-tool-` ids (§4.1). */
 export function diagramRailItems(): RailItem<DCtx>[] {
   return [
-    { id: 'select', label: 'Select', icon: 'arrow_selector_tool', kind: 'tool', group: 0, order: 0, shortcut: 'V', readOnlySafe: true, testid: 'diagram-tool-select', onSelect: (c) => c.setTool('select') },
-    { id: 'pan', label: 'Pan (or hold Space, or drag with the middle button)', icon: 'pan_tool', kind: 'tool', group: 0, order: 1, shortcut: 'H', readOnlySafe: true, testid: 'diagram-tool-pan', onSelect: (c) => c.setTool('pan') },
-    { id: 'text', label: 'Text: click the canvas to type', icon: 'title', kind: 'tool', group: 1, order: 0, shortcut: 'T', testid: 'diagram-tool-text', onSelect: (c) => c.setTool('text') },
-    ...SHAPE_TOOLS.map(({ id, key }, i): RailItem<DCtx> => ({
-      id: `shape:${id}`,
-      label: `${getShape(id).label}: click to place, drag to size`,
-      icon: SHAPE_ICON[id] ?? 'crop_square',
-      kind: 'tool',
-      group: 1,
-      order: 1 + i,
-      flyout: 'shapes',
-      shortcut: key,
-      testid: `diagram-tool-${id}`,
-      onSelect: (c) => c.setTool(`shape:${id}`),
-      onOptions: (c) => c.setTool(`shape:${id}`, true),
-      optionsHint: 'double-click to keep it selected'
-    })),
-    { id: 'sticky', label: 'Sticky note', icon: 'sticky_note_2', kind: 'action', group: 2, order: 0, testid: 'diagram-rail-sticky', onSelect: (c) => void c.cmd.addShape(stickyShapeId()) },
-    { id: 'table', label: 'Table', icon: 'grid_on', kind: 'action', group: 2, order: 1, testid: 'diagram-rail-table', onSelect: (c) => void c.cmd.addShape(tableShapeId()) },
-    { id: 'image', label: 'Image', icon: 'image', kind: 'action', group: 2, order: 2, testid: 'diagram-rail-image', onSelect: (c) => c.pickImage() },
-    { id: 'library', label: 'Shape library (shapes, icons, images)', icon: 'category', kind: 'panel', group: 9, order: 0, pinned: 'bottom', readOnlySafe: true, testid: 'diagram-toggle-library', onSelect: (c) => c.togglePanel('library') },
-    { id: 'layers', label: 'Layers', icon: 'layers', kind: 'panel', group: 9, order: 1, pinned: 'bottom', readOnlySafe: true, testid: 'diagram-rail-layers', onSelect: (c) => c.togglePanel('layers') },
-    { id: 'ai', label: 'Generate a diagram with AI', icon: 'auto_awesome', kind: 'panel', sidePane: true, group: 9, order: 2, pinned: 'bottom', testid: 'map-ai', onSelect: (c) => c.toggleSidePane('ai') }
+    { id: 'select', label: 'Select', icon: 'arrow_selector_tool', kind: 'tool', role: 'select', group: railGroup('select'), order: 0, shortcut: 'V', readOnlySafe: true, testid: 'diagram-tool-select', onSelect: (c) => c.setTool('select') },
+    { id: 'pan', label: 'Hand (or hold Space, or drag with the middle button)', icon: 'pan_tool', kind: 'tool', role: 'hand', group: railGroup('hand'), order: 1, shortcut: 'H', readOnlySafe: true, testid: 'diagram-tool-pan', onSelect: (c) => c.setTool('pan') },
+    armedTool<DCtx>({ id: 'text', label: 'Text: click the canvas to type', icon: 'title', role: 'text', order: 0, shortcut: 'T', testid: 'diagram-tool-text', arm: (c, lock) => c.setTool('text', lock) }),
+    ...SHAPE_TOOLS.map(({ id, key }, i): RailItem<DCtx> =>
+      armedTool<DCtx>({
+        id: `shape:${id}`,
+        label: `${getShape(id).label}: click to place, drag to size`,
+        icon: SHAPE_ICON[id] ?? 'crop_square',
+        role: 'shape',
+        order: 1 + i,
+        flyout: 'shapes',
+        shortcut: key,
+        testid: `diagram-tool-${id}`,
+        arm: (c, lock) => c.setTool(`shape:${id}`, lock)
+      })
+    ),
+    // Inserts, Image first (SPEC §3.1).
+    { id: 'image', label: 'Image', icon: 'image', kind: 'action', role: 'image', group: railGroup('image'), order: 0, testid: 'diagram-rail-image', onSelect: (c) => c.pickImage() },
+    { id: 'table', label: 'Table', icon: 'grid_on', kind: 'action', role: 'insert', group: railGroup('insert'), order: 1, testid: 'diagram-rail-table', onSelect: (c) => void c.cmd.addShape(tableShapeId()) },
+    { id: 'sticky', label: 'Sticky note', icon: 'sticky_note_2', kind: 'action', role: 'insert', group: railGroup('insert'), order: 2, testid: 'diagram-rail-sticky', onSelect: (c) => void c.cmd.addShape(stickyShapeId()) },
+    { id: 'library', label: 'Shape library (shapes, icons, images)', icon: 'category', kind: 'panel', role: 'panel', group: railGroup('panel'), order: 0, pinned: 'bottom', readOnlySafe: true, testid: 'diagram-toggle-library', onSelect: (c) => c.togglePanel('library') },
+    { id: 'layers', label: 'Layers', icon: 'layers', kind: 'panel', role: 'panel', group: railGroup('panel'), order: 1, pinned: 'bottom', readOnlySafe: true, testid: 'diagram-rail-layers', onSelect: (c) => c.togglePanel('layers') },
+    { id: 'ai', label: 'Generate a diagram with AI', icon: 'auto_awesome', kind: 'panel', role: 'ai', sidePane: true, group: railGroup('ai'), order: 2, pinned: 'bottom', testid: 'map-ai', onSelect: (c) => c.toggleSidePane('ai') }
   ]
 }
 

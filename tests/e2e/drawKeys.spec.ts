@@ -181,7 +181,7 @@ test('KEY-4 ⌥⇧⌘K lists every shortcut, searchable; a remapped key works an
   await window.keyboard.press('g')
   await expect(toolPressed('rect')).toHaveAttribute('aria-pressed', 'true')
   // The rail's tooltip and accessible name show the remapped key.
-  await expect(toolPressed('rect')).toHaveAttribute('aria-label', 'Rectangle (G)')
+  await expect(toolPressed('rect')).toHaveAttribute('aria-label', 'Rectangle (G) — double-click to keep it selected')
   await drag([100, 100], [300, 250])
   await waitForSave(window)
   expect((await objects(id)).map((o) => o.shapeKind)).toEqual(['rect'])

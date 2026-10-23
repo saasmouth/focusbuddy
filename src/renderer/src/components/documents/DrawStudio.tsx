@@ -557,6 +557,11 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // ── Office shell: rail, top bar, overlay panels ───────────────────────────
 
   const prefs = useStore(shellPrefs)
+  // Every office app opens on Home (SPEC §3.9). The prefs store outlives an
+  // editor (another drawing may have left it on Object), so a new one resets it.
+  useLayoutEffect(() => {
+    setShellPrefs({ tab: 'home' })
+  }, [])
   // The shared right pane (owner D1: AI conversation and preview belong
   // there, not in a floating panel). CLOSED unless the person opened it
   // before: an AI pane that opens itself covers the canvas, and in a narrow
@@ -576,7 +581,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     const t = toolById(tool)
     if (t?.flyout) rememberFlyoutTool(t.flyout, t.id)
   }, [tool])
-  const railCtx: RailCtx = { ctx, s: state, altHeld: () => altHeld.current }
+  const railCtx: RailCtx = { ctx, s: state, altHeld: () => altHeld.current, sidePane, toggleAi: () => setSidePane(sidePane === 'ai' ? null : 'ai') }
   const barTabs = useMemo<BarTab<RailCtx>[]>(
     () =>
       drawBarTabs().map((t) => {
@@ -584,6 +589,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         return {
           id: t.id,
           label: t.label,
+          role: t.role,
           contextual: !!t.when,
           ...(t.when ? { when: (c: RailCtx) => t.when!(c.s) } : {}),
           render: (c: RailCtx) => <C ctx={c.ctx} />
@@ -800,7 +806,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
             items={withBadges(railItems, state)}
             ctx={railCtx}
             activeId={activeRailId(state, modHeld)}
-            openPanels={state.openPanels}
+            openPanels={sidePane === 'ai' ? [...state.openPanels, 'ai'] : state.openPanels}
             lastUsed={prefs.lastUsed}
             onFlyoutPick={(f, id) => rememberFlyoutTool(f, id)}
             readOnly={state.readOnly}
