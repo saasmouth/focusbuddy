@@ -132,6 +132,8 @@ export interface DocumentCommands {
   versionHistory: OfficeCommand
   meeting: OfficeCommand
   moveToTrash: OfficeCommand
+  /** Print… ⌘P, only where the host can really print (ops.print, 9d ruling (c)); absent otherwise. Placed before Download ▸. */
+  print?: OfficeCommand
 }
 
 /**
@@ -150,6 +152,10 @@ export function documentCommands(ops: DocumentOps | undefined, docType: string):
     rename: sharedCommand('file.rename', 'rename', () => void ops.rename(), { icon: 'edit' }),
     versionHistory: sharedCommand('file.history', 'versionHistory', () => ops.openHistory(), { icon: 'history' }),
     meeting: sharedCommand('document.meeting', 'meeting', () => ops.startMeeting(), { icon: 'videocam' }),
-    moveToTrash: sharedCommand('file.trash', 'moveToTrash', () => void ops.moveToTrash())
+    moveToTrash: sharedCommand('file.trash', 'moveToTrash', () => void ops.moveToTrash()),
+    // Read structurally: the print engine (agent 19) adds the optional op.
+    ...(typeof (ops as { print?: unknown }).print === 'function'
+      ? { print: sharedCommand('file.print', 'print', () => void (ops as unknown as { print: () => unknown }).print(), { icon: 'print' }) }
+      : {})
   }
 }

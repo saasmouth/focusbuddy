@@ -91,6 +91,16 @@ describe('documentCommands: File acts on the document its host bound', () => {
     ])
   })
 
+  it('Print… ⌘P only where the host can really print', () => {
+    expect(documentCommands(opsFor('A'), 'doc')!.print, 'no print op, no Print row').toBeUndefined()
+    const print = vi.fn()
+    const c = documentCommands({ ...opsFor('A'), print } as never, 'doc')!
+    expect(c.print).toMatchObject({ label: 'Print…', id: 'file.print' })
+    expect(commandHint(c.print!, 'darwin')).toBe('⌘P')
+    c.print!.run()
+    expect(print).toHaveBeenCalledTimes(1)
+  })
+
   it('no ops (a snippet session): no document commands, so the rows are absent', () => {
     expect(documentCommands(undefined, 'doc')).toBeNull()
   })
