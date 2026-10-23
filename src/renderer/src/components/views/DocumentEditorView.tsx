@@ -289,13 +289,19 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           />
         )}
         {active.docType === 'slides' && (
-          <SlidesEditor key={active.id} body={active.body as SlidesBody} title={active.title} onChange={(b) => saveBody(b)} />
+          <SlidesEditor key={active.id} body={active.body as SlidesBody} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
         )}
         {active.docType === 'map' && (
-          <MapEditor key={active.id} body={active.body as MapBody} title={active.title} onChange={(b) => saveBody(b)} />
+          <MapEditor key={active.id} body={active.body as MapBody} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
         )}
         {active.docType === 'design' && (
-          <DesignEditor key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} />
+          <DesignEditor
+            key={active.id}
+            content={active.body}
+            title={active.title}
+            onChange={(b) => saveBody(b)}
+            documentOps={documentOps}
+          />
         )}
         {active.docType === 'draw' && (
           <DrawStudio key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} />

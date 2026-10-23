@@ -681,6 +681,16 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           ) : (
             <div className="p-6 text-[13px] text-[var(--ink-40)]" data-testid="livedoc-connecting">Connecting live editing…</div>
           ))}
+        {/* NO documentOps for a live document, deliberately. A live doc is its
+            OWN document on the signal server — createLiveDoc mints a fresh id
+            and keeps no reference to the local row it was started from — so
+            local document operations pointed at a live id would trash
+            nothing, show empty version history, and turn Make a copy into a
+            blank document. The items are absent instead, which is also a
+            strict improvement on today: the menu bar read the documents
+            store's `active`, so in this view Move to trash trashed whatever
+            Documents last opened. Renaming or trashing a LIVE document needs
+            the livedocs API, which is its own piece of work. */}
         {meta.docType === 'design' &&
           (collabBody !== null ? (
             <DesignEditor key={`${meta.id}:collab`} content={collabBody} title={meta.title} onChange={onJsonChange} foldExternal />

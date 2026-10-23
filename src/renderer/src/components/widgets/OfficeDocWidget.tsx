@@ -3,9 +3,9 @@ import type { Widget } from '@shared/types'
 import type { DocType, FbDocument } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
+import { useViewStore } from '../../stores/view'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { createDocumentOps } from '../documents/editor/documentOps'
-import { useViewStore } from '../../stores/view'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
 
 // A document / spreadsheet / slide deck living on the canvas as a native widget.
@@ -118,7 +118,7 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   let body: JSX.Element
   if (trashed) {
     body = (
-      <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center">
+      <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center" data-testid="office-doc-trashed">
         <span className="text-[11px] text-[var(--ink-70)]">
           Moved to the trash.
         </span>
@@ -156,13 +156,13 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
       />
     )
   } else if (docType === 'slides') {
-    body = <SlidesEditor key={doc.id} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} />
+    body = <SlidesEditor key={doc.id} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else if (docType === 'design') {
-    body = <DesignEditor key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
+    body = <DesignEditor key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else if (docType === 'draw') {
     body = <DrawStudio key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
   } else {
-    body = <MapEditor key={doc.id} body={doc.body as MapBody} title={doc.title} onChange={saveBody} />
+    body = <MapEditor key={doc.id} body={doc.body as MapBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   }
 
   // Stop right-clicks (and the editors' own context menus, e.g. the sheet column

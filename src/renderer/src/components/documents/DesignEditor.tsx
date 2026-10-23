@@ -72,6 +72,7 @@ import BrandKitModal from './BrandKitModal'
 import { GOOGLE_FONTS, loadGoogleFont, familyLabel } from '../../lib/googleFonts'
 import DesignAiPanel from './DesignAiPanel'
 import DesignMenuBar from './editor/DesignMenuBar'
+import type { DocumentOps } from './editor/documentOps'
 import { useAccountStore } from '../../stores/account'
 import { personDisplayName } from '../../lib/personName'
 import WidgetPickerDialog from './embed/WidgetPickerDialog'
@@ -99,6 +100,15 @@ interface Props {
   // our own saves come back as a new identity and folding them would fight local
   // editing.
   foldExternal?: boolean
+  /**
+   * The document this editor is showing, bound by the HOST (documentOps.ts).
+   * Passed straight through to the menu bar, which reads no store: it used to
+   * act on the documents store's `active`, so in a desk widget File › Move to
+   * trash trashed whatever Documents last opened (shipped in public 4.3.33).
+   * Absent in a snippet session, which has no document, and the document
+   * items are then not offered at all.
+   */
+  documentOps?: DocumentOps
 }
 
 
@@ -158,7 +168,7 @@ const TOOL_DEFAULT: Record<Exclude<DesignTool, 'select'>, { w: number; h: number
   line: { w: 0.6, h: 0 }
 }
 
-export default function DesignEditor({ content, title, onChange, foldExternal = false }: Props): JSX.Element {
+export default function DesignEditor({ content, title, onChange, documentOps, foldExternal = false }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   // A brand-new, empty design: the Start-from menu opens itself once, which is
@@ -1489,6 +1499,7 @@ export default function DesignEditor({ content, title, onChange, foldExternal = 
   // beside the tab strip (SPEC §1, owner decision D2).
   const menuBar = (
         <DesignMenuBar
+          documentOps={documentOps}
           actions={{
             title,
             undo,

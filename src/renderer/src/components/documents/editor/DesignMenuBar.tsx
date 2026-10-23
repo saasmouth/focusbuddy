@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { openDocHistory } from '../DocHistoryPanel'
-import { confirmDialog, promptText } from '../../plexi/PromptDialog'
-import { useDocumentsStore } from '../../../stores/documents'
-import { useViewStore } from '../../../stores/view'
-import { launchMeeting } from '../../../lib/startMeeting'
+// No documents store, no view store, no meeting or history helpers here: every
+// document action comes from the host through DocumentOps, bound to the
+// document actually on screen (documentOps.ts, and the guard test that keeps
+// this list of imports honest).
 import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
+import type { DocumentOps } from './documentOps'
 
 // A menu bar for PlexiDesign — the free-form page designer. Its menus fit what a
 // layout program does: place text frames, shapes, lines and images anywhere on
@@ -74,54 +74,44 @@ export interface DesignMenuActions {
   preflightHint?: string
 }
 
-export default function DesignMenuBar({ actions }: { actions: DesignMenuActions }): JSX.Element {
+export default function DesignMenuBar({
+  actions,
+  documentOps
+}: {
+  actions: DesignMenuActions
+  /**
+   * The document on screen, bound BY THE HOST (documentOps.ts). This menu bar
+   * reads no store: it used to act on the documents store's `active`, which in
+   * a desk widget is whatever Documents last opened — so Move to trash trashed
+   * a DIFFERENT document, silently, in public 4.3.33.
+   *
+   * Absent (a snippet session, which has no document) means the document items
+   * are not offered at all. Absent, not disabled: there is nothing for them to
+   * act on, and a greyed Move to trash invites a second look for a reason that
+   * does not exist.
+   */
+  documentOps?: DocumentOps
+}): JSX.Element {
   const a = actions
-  const createBlank = useDocumentsStore((s) => s.createBlank)
-  const active = useDocumentsStore((s) => s.active)
-  const rename = useDocumentsStore((s) => s.rename)
-  const remove = useDocumentsStore((s) => s.remove)
-  const goDocument = useViewStore((s) => s.goDocument)
-  const goDocuments = useViewStore((s) => s.goDocuments)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-
-  async function newDesign(): Promise<void> {
-    const doc = await createBlank('design')
-    goDocument(doc.id)
-  }
-  async function makeCopy(): Promise<void> {
-    const copy = await window.api.documents.create({
-      docType: 'design',
-      title: `Copy of ${a.title || 'Untitled design'}`,
-      body: active?.body
-    })
-    goDocument(copy.id)
-  }
-  async function doRename(): Promise<void> {
-    const next = await promptText({ title: 'Rename design', initial: a.title, confirmLabel: 'Rename' })
-    if (next != null && next.trim()) void rename(next.trim())
-  }
-  async function moveToTrash(): Promise<void> {
-    if (!active) return
-    const ok = await confirmDialog({
-      title: `Move "${a.title || 'Untitled design'}" to trash?`,
-      body: 'You can restore it from the Documents trash.',
-      confirmLabel: 'Move to trash'
-    })
-    if (!ok) return
-    await remove(active.id)
-    goDocuments()
-  }
 
   const menus: MenuDef[] = [
     {
       id: 'file',
       label: 'File',
       build: () => [
-        { kind: 'item', label: 'New design', icon: 'note_add', run: () => void newDesign() },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy() },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) } },
+        // Every document item acts through the host's ops, BY ID. With no
+        // document bound (a snippet session) they are absent; Download stays,
+        // because exporting what is on screen needs no document row.
+        ...(documentOps
+          ? ([
+              { kind: 'item', label: 'New design', icon: 'note_add', run: () => void documentOps.newDocument() },
+              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void documentOps.makeCopy() },
+              { kind: 'sep' },
+              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void documentOps.rename() },
+              { kind: 'item', label: 'Version history', icon: 'history', run: () => documentOps.openHistory() }
+            ] as MenuDef['build'] extends () => infer R ? R : never)
+          : []),
         {
           kind: 'submenu',
           label: 'Download',
@@ -131,8 +121,12 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
             { kind: 'item', label: 'PDF document (.pdf)', run: () => a.exportAs('pdf') }
           ]
         },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash() }
+        ...(documentOps
+          ? ([
+              { kind: 'sep' },
+              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void documentOps.moveToTrash() }
+            ] as MenuDef['build'] extends () => infer R ? R : never)
+          : [])
       ]
     },
     {
@@ -183,7 +177,12 @@ export default function DesignMenuBar({ actions }: { actions: DesignMenuActions 
         { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
         { kind: 'sep' },
-        { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'design', id: active?.id ?? '', title: a.title || 'Design meeting' }) }
+        // A meeting invites other people to a document by id. With no document
+        // bound there is nothing to meet about, so the item is absent rather
+        // than starting a meeting about id ''.
+        ...(documentOps
+          ? ([{ kind: 'item', label: 'Meeting', icon: 'videocam', run: () => documentOps.startMeeting() }] as MenuDef['build'] extends () => infer R ? R : never)
+          : [])
       ]
     },
     {
