@@ -480,6 +480,7 @@ import {
   type MindMapNodeKind,
   type LocalAgent
 } from '../ai/mindMap'
+import { generateDrawScene, type DrawGenerateInput } from '../ai/drawGenerate'
 import {
   createAgent,
   type AgentModelTier,
@@ -1993,6 +1994,14 @@ export function registerIpcHandlers(): void {
   // The argument type is written inline rather than as Parameters<typeof …> so
   // the generated IPC contract registry can derive a real shape for it.
   ipcMain.handle('draw:export', (_e, input: { draw: DrawBody; title: string; format: 'png' | 'svg' | 'pdf'; scope?: 'artboard' | 'each' | 'canvas' | 'pages'; artboardId?: string }) => exportDraw(input))
+  // PlexiiDraw: describe it and the model draws it. Vector art comes back as a
+  // scene that compiles to Draw's own editable objects (shared/draw/generate),
+  // so this returns the SCENE and the renderer previews it before anything is
+  // applied — generated work is never dropped into someone's drawing unseen.
+  ipcMain.handle('draw:generate', (_e, input: DrawGenerateInput) => {
+    recordAiCall()
+    return generateDrawScene(input)
+  })
   ipcMain.handle('draw:pickImportFiles', (_e, input: { purpose: 'place' | 'open' | 'import' | 'replace' }) => pickDrawImportFiles(input))
   ipcMain.handle('draw:pdfPage', (_e, input: { bytes: Uint8Array; page?: number }) => renderDrawPdfPage(input))
   ipcMain.handle('draw:clipboardWrite', (_e, input: { json: string; svg: string; png?: string; pngScale: number; svgAsText?: boolean }) => writeDrawClipboard(input))
@@ -4313,7 +4322,13 @@ export function registerIpcHandlers(): void {
         return Promise.resolve({ ok: false, error: 'Designs are generated through the design tools.' })
       }
       if (input.docType === 'draw') {
-        return Promise.resolve({ ok: false, error: 'Artwork is created in the PlexiiDraw studio, not generated from a prompt.' })
+        // Artwork IS generated from a prompt now — in the studio, through
+        // draw:generate, because it previews the result and applies it to a
+        // layer rather than replacing a document body wholesale.
+        return Promise.resolve({
+          ok: false,
+          error: 'Open the drawing and use PlexiiAssist in the studio to generate artwork.'
+        })
       }
       if (input.docType === 'widget') {
         return Promise.resolve({ ok: false, error: 'Work widget files are created from the Work widgets menu or by the assistant, not generated as a document.' })

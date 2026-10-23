@@ -799,6 +799,32 @@ const SHADOW: Record<string, string> = {
   lg: '0 14px 38px rgba(0,0,0,0.28)'
 }
 
+/**
+ * Image addresses a design element may carry.
+ *
+ * Draw's isDrawImageSrc allows embedded bytes ONLY, because its raster tools
+ * read the canvas back and a remote image would taint it. Design is not the
+ * same: its own photo path fetches a stock image to a data URL before placing
+ * it, but a brand kit's logoUrl is documented as "an uploaded asset or data
+ * URI", so https has to be allowed or every brand logo becomes an unsupported
+ * address. So: embedded image bytes, or https. Nothing else — and in
+ * particular not javascript:, not data:text/html, and nothing carrying a
+ * quote, an angle bracket or a control character, which is what can break out
+ * of the attribute it is written into.
+ *
+ * Exported because a SNIPPET carries one document's elements into another's,
+ * and elementHtml now renders them inside a foreignObject in Write, Diagrams
+ * and Draw: a src that was our own data inside Design is someone else's data
+ * once it travels. The conversion side calls this and leaves an image with an
+ * unusable address OUT, with a lossy note, rather than embedding it.
+ */
+export function isSafeImageSrc(v: unknown): v is string {
+  if (typeof v !== 'string' || v === '') return false
+  // eslint-disable-next-line no-control-regex
+  if (/["'<>\\\u0000-\u001f]/.test(v)) return false
+  return /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|svg\+xml)[;,]/i.test(v) || /^https:\/\//i.test(v)
+}
+
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -915,7 +941,10 @@ export function elementHtml(el: SlideElement): string {
     }">${paras}</div></div>`
   }
   if (el.type === 'image') {
-    return `<div style="${base}${border(el.border)}"><img src="${el.src}" style="width:100%;height:100%;object-fit:${el.fit ?? 'contain'}"/></div>`
+    // Escaped, not trusted: with snippets, this element may have come from
+    // another document, and an unescaped quote here breaks out of the
+    // attribute in whatever foreignObject is rendering it.
+    return `<div style="${base}${border(el.border)}"><img src="${escHtml(el.src)}" style="width:100%;height:100%;object-fit:${el.fit ?? 'contain'}"/></div>`
   }
   if (el.type === 'shape') {
     if (el.shape === 'triangle') {
@@ -945,7 +974,7 @@ export function elementHtml(el: SlideElement): string {
           `<tr>${row
             .map((cell) => {
               const head = el.headerRow && r === 0
-              return `<td style="border:1px solid ${accent};padding:4px 8px;${head ? `font-weight:700;background:${accent};` : ''}">${cell.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</td>`
+              return `<td style="border:1px solid ${accent};padding:4px 8px;${head ? `font-weight:700;background:${accent};` : ''}">${escHtml(cell)}</td>`
             })
             .join('')}</tr>`
       )

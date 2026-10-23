@@ -3070,6 +3070,20 @@ const api = {
   // PlexiDraw (the vector + painting studio) — export one artwork out to
   // .png / .svg / .pdf.
   draw: {
+    // Describe it and the model draws it. The SCENE comes back, not a document:
+    // the studio previews it and the person applies it, so nothing generated
+    // lands in a drawing unseen. Vector art runs on whichever AI source the
+    // person uses, the device included.
+    generate: (input: {
+      prompt: string
+      width: number
+      height: number
+      selection?: import('@shared/draw/generate/scene').Scene
+      palette?: string[]
+    }): Promise<
+      | { ok: true; scene: import('@shared/draw/generate/scene').Scene; problems: Array<{ at: string; why: string }> }
+      | { ok: false; error: string; needsKey?: boolean }
+    > => ipcRenderer.invoke('draw:generate', input),
     export: (input: {
       draw: import('@shared/draw').DrawBody
       title: string

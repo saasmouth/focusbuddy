@@ -34,13 +34,15 @@ import TextEditor from './draw/render/TextEditor'
 import ArtboardsView from './draw/render/ArtboardsView'
 import { VectorLayerView } from './draw/render/SceneView'
 import RightSlot from './draw/render/RightSlot'
+import AiSidePane from './draw/AiSidePane'
+import { readSidePane, writeSidePane } from './draw/generate/panePref'
 import { RailFooter, activeRailId, drawRailItems, withBadges, type RailCtx } from './draw/render/rail'
 import { CmdButton } from './draw/bar/controls'
 import { drawBarTabs } from './draw/bar/registry'
 import { panelById } from './draw/panels/registry'
 import { rememberFlyoutTool, setShellPrefs, shellPrefs } from './draw/editor/shellPrefs'
 import { fieldKeepsKey, subscribeKeyOverrides } from './draw/commands/keys'
-import { ContextBar, OfficeShellLayout, ShellPanel, ToolRail, type BarTab, type ContextBarHandle } from '../office/shell'
+import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type BarTab, type ContextBarHandle } from '../office/shell'
 
 // PlexiiDraw -- the vector + painting studio. This file is only the HOST: it
 // mounts the editor (documents/draw/editor), wires real services into it
@@ -495,6 +497,15 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // ── Office shell: rail, top bar, overlay panels ───────────────────────────
 
   const prefs = useStore(shellPrefs)
+  // The shared right pane (owner D1: AI conversation and preview belong
+  // there, not in a floating panel). CLOSED unless the person opened it
+  // before: an AI pane that opens itself covers the canvas, and in a narrow
+  // desk widget it covers all of it.
+  const [sidePane, setSidePaneState] = useState<string | null>(() => readSidePane())
+  const setSidePane = useCallback((id: string | null) => {
+    setSidePaneState(id)
+    writeSidePane(id)
+  }, [])
   // Re-render when the person remaps a key, so the rail and bar show the new one.
   const [keysTick, setKeysTick] = useState(0)
   useEffect(() => subscribeKeyOverrides(() => setKeysTick((n) => n + 1)), [])
@@ -681,7 +692,19 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
                 <CmdButton ctx={ctx} id="edit.redo" icon="redo" label="Redo" testid="draw-redo" />
               </>
             }
-            rightSlot={<RightSlot ctx={ctx} />}
+            rightSlot={
+              <>
+                <RightSlot ctx={ctx} />
+                <BarButton
+                  icon="right_panel_open"
+                  label={sidePane ? 'Hide PlexiiAssist' : 'Generate with AI'}
+                  onClick={() => setSidePane(sidePane ? null : 'ai')}
+                  controls={SIDE_PANE_DOM_ID}
+                  readOnlySafe
+                  testid="draw-sidepane-toggle"
+                />
+              </>
+            }
           />
         }
         rail={
@@ -699,6 +722,14 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           />
         }
         panels={panelEls.length ? <>{panelEls}</> : undefined}
+        rightPane={
+          <ShellSidePane
+            testid="draw-sidepane"
+            panes={[{ id: 'ai', title: 'PlexiiAssist', icon: 'auto_awesome', testid: 'draw-ai-pane', render: () => <AiSidePane ctx={ctx} /> }]}
+            activeId={sidePane}
+            onChange={setSidePane}
+          />
+        }
       >
       <div className="h-full min-w-0 flex flex-col min-h-0">
       {/* Notices sit beside a pinned panel, never under it. In a short host (a

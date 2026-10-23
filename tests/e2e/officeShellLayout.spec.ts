@@ -63,7 +63,14 @@ const APPS: AppCase[] = [
     canvas: 'draw-canvas-scroll',
     panelOpener: 'draw-rail-layers',
     panel: 'draw-panel-layers',
-    undo: 'draw-undo'
+    undo: 'draw-undo',
+    // No `page`: that check asserts a PINNED panel never covers the page, and
+    // Draw does not solve it by layout the way the document apps do — a
+    // pinned panel floats over its canvas and the viewport insets instead
+    // (domServices' Fit and Paste read insetRef), so the artboard is clear of
+    // the panel after a fit rather than at every moment. Claiming the field
+    // would assert something Draw does not promise.
+    sidePane: { toggle: 'draw-sidepane-toggle', pane: 'draw-sidepane', content: 'draw-ai-pane' }
   },
   {
     name: 'PlexiiWrite',
