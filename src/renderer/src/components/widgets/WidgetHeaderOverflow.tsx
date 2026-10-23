@@ -163,7 +163,7 @@ export default function WidgetHeaderOverflow({
             aria-label="More work widget actions"
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={onMenuKey}
-            className="fixed z-[200] min-w-[184px] max-w-[260px] rounded-[var(--radius-row)] fb-glass-panel fb-pop-in p-1 cursor-default"
+            className="fixed z-[200] min-w-[184px] max-w-[260px] rounded-[var(--radius-row)] fb-glass-panel fb-menu-solid fb-pop-in p-1 cursor-default"
             style={{ top: pos.top, bottom: pos.bottom, right: pos.right }}
             data-placement={pos.bottom !== undefined ? 'above' : 'below'}
             data-testid={`widget-overflow-menu-${widgetId}`}

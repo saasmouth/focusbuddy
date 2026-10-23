@@ -37,11 +37,13 @@ interface Seeded {
   wide: string
 }
 
-async function seedAndOpen(l: LaunchedApp): Promise<Seeded> {
+async function seedAndOpen(l: LaunchedApp, theme?: 'light' | 'dark' | 'atelier'): Promise<Seeded> {
   const { window } = l
   await waitForReady(window)
   await chooseCloudAiSource(window)
   await suppressFeatureSpotlights(window)
+  // The theme picker's own key (lib/theme.ts); the reload below applies it.
+  if (theme) await window.evaluate((m: string) => localStorage.setItem('fb.theme.mode', m), theme)
   const seeded = await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
     const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Narrow header desk' })
@@ -80,6 +82,49 @@ async function seedAndOpen(l: LaunchedApp): Promise<Seeded> {
     await Promise.all(moving.map((a) => a.finished.catch(() => undefined)))
   }, seeded.narrow)
   return seeded
+}
+
+/**
+ * Wait until the "…" menu has finished its entrance (fb-pop-in, 140ms, which
+ * starts at opacity 0). toBeVisible() passes at opacity 0, so without this a
+ * measurement or screenshot catches the menu mid-fade.
+ */
+async function menuSettled(window: Page): Promise<void> {
+  await window.evaluate(async () => {
+    const menu = document.querySelector('[role="menu"][aria-label="More work widget actions"]')
+    if (!menu) throw new Error('menuSettled: no "…" menu open')
+    await Promise.all(menu.getAnimations().map((a) => a.finished.catch(() => undefined)))
+  })
+}
+
+/** What the open "…" menu looks like to a reader: opacity, fill alpha, and what is on top of each item. */
+async function menuReadability(window: Page): Promise<{
+  opacity: string
+  backgroundAlpha: number
+  background: string
+  backdrop: string
+  coveredItems: string[]
+}> {
+  return window.evaluate(() => {
+    const menu = document.querySelector('[role="menu"][aria-label="More work widget actions"]') as HTMLElement
+    const cs = getComputedStyle(menu)
+    // Alpha of the computed colour: "rgb(a b c)", "oklab(l a b / 0.94)", "rgba(r, g, b, 0.9)"…
+    const bg = cs.backgroundColor
+    const slash = bg.match(/\/\s*([\d.]+%?)\s*\)$/)
+    const comma = bg.match(/^rgba\([^)]*,\s*([\d.]+)\)$/)
+    const raw = slash?.[1] ?? comma?.[1]
+    const backgroundAlpha = raw === undefined ? 1 : raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw)
+    let opacity = 1
+    for (let el: HTMLElement | null = menu; el; el = el.parentElement) opacity *= parseFloat(getComputedStyle(el).opacity)
+    const coveredItems = (Array.from(menu.querySelectorAll('[role="menuitem"]')) as HTMLElement[])
+      .filter((it) => {
+        const r = it.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return !hit || !it.contains(hit)
+      })
+      .map((it) => it.dataset.action ?? '?')
+    return { opacity: String(opacity), backgroundAlpha, background: bg, backdrop: cs.backdropFilter, coveredItems }
+  })
 }
 
 const CONTROL = 'button, input, textarea, select, a, [role="button"], [role="menuitem"], [contenteditable="true"]'
@@ -222,6 +267,7 @@ test('WH-1 — a 240px sticky keeps a title and ≥40px of grabbable header; the
     const where = [...inline, ...labels].filter((l) => tool.test(l))
     expect(where, `${tool} reachable exactly once (inline ${JSON.stringify(inline)}, menu ${JSON.stringify(labels)})`).toHaveLength(1)
   }
+  await menuSettled(window)
   await window.screenshot({ path: test.info().outputPath('widget-header-240-overflow-open.png') })
 
   // A folded tool works: Grow (×1.5) from the menu.
@@ -327,3 +373,28 @@ test('WH-4 — a wide sticky shows every tool and no "…"; "…" is keyboard-op
   await expect(window.getByRole('menu')).toHaveCount(0)
   await expect(more).toBeFocused()
 })
+
+for (const theme of ['light', 'dark', 'atelier'] as const) {
+  test(`WH-5 — the "…" menu is opaque and on top of the work widget (${theme})`, async () => {
+    // Measured on 163e2bf6: the settled menu was at opacity 1 and on top, but
+    // its fill was glass — 94% surface-raised in light (oklab … / 0.94), 92%
+    // in dark, 80% in atelier — over the sticky's own text and colour dots,
+    // which therefore read through it. The screenshot that showed it looking
+    // ~35% opaque had caught fb-pop-in mid-fade as well (toBeVisible passes at
+    // opacity 0). This takes the menu after its entrance and checks what a
+    // reader gets: full opacity, a fully opaque fill, and each item on top.
+    launched = await launchApp()
+    const { window } = launched
+    const s = await seedAndOpen(launched, theme)
+    await hoverHeader(window, s.narrow)
+    await window.locator(`[data-testid="widget-overflow-${s.narrow}"]`).click()
+    await expect(window.getByRole('menu', { name: 'More work widget actions' })).toBeVisible()
+    await menuSettled(window)
+    const m = await menuReadability(window)
+    expect(m.opacity, 'menu and every ancestor at full opacity after the entrance').toBe('1')
+    expect(m.backgroundAlpha, `menu fill is fully opaque (computed ${m.background})`).toBe(1)
+    expect(m.coveredItems, 'every item is the top element at its own centre').toEqual([])
+    await window.screenshot({ path: test.info().outputPath(`widget-header-240-overflow-open-${theme}.png`) })
+  })
+}
+

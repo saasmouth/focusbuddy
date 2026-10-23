@@ -3058,6 +3058,21 @@ html.dark[data-widget-skin='studio'] [data-widget-id] > .fb-card {
   }
 }
 
+/* The header's menus — "…" and the pin / expand pickers — are SOLID, not
+   glass. They open over the work widget's own content (a sticky's text and
+   colour dots sit right under them), where the 94% glass fill (80% in
+   atelier) lets that content read through and competes with the items.
+   --surface-raised is opaque in every theme (light, dark, atelier), so this
+   takes the theme's panel colour without restating it. Unlayered and after
+   `.atelier .fb-glass-panel`, so it wins that rule's !important at equal
+   specificity. */
+.fb-menu-solid,
+.atelier .fb-menu-solid {
+  background-color: var(--surface-raised) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 /* ── The Plexii pill ─────────────────────────────────────────────────────────
    Asked for on 2026-10-09: "make sure the ii assistant button is more
    noticable... It should be super obvious. Purple and pulsating."

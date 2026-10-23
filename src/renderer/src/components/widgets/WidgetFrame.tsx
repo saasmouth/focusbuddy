@@ -1837,7 +1837,7 @@ function PinControl({
           // sits above pinned-layer (z-30), floating toolbar (z-20), and
           // anything else in the canvas chrome, but below modal dialogs
           // (typically z-[300]+).
-          className="fixed z-[200] w-44 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in p-2 cursor-default"
+          className="fixed z-[200] w-44 rounded-[var(--radius-row)] fb-glass-panel fb-menu-solid fb-pop-in p-2 cursor-default"
           style={{ top: popoverPos.top, right: popoverPos.right }}
         >
           <div className="text-[10px] uppercase tracking-wider text-[var(--ink-50)] mb-1.5">
@@ -1979,7 +1979,7 @@ function ExpandControl({
         <div
           ref={popoverRef}
           onMouseDown={(e) => e.stopPropagation()}
-          className="fixed z-[200] w-48 rounded-[var(--radius-row)] fb-glass-panel fb-pop-in p-1 cursor-default"
+          className="fixed z-[200] w-48 rounded-[var(--radius-row)] fb-glass-panel fb-menu-solid fb-pop-in p-1 cursor-default"
           style={{ top: popoverPos.top, right: popoverPos.right }}
         >
           <button
