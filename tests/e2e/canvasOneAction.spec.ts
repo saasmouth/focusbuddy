@@ -109,3 +109,23 @@ test('Diagrams: ⌘B on a shape that is bold by default makes it not bold, as th
     .poll(async () => nodesOf(await storedBody<MapG>(w, id)).find((n) => n.id === 'm')?.style?.bold, { message: '⌘B turned the default bold off (it used to set bold:true, which changed nothing)', timeout: 5_000 })
     .toBe(false)
 })
+
+test('Design: ⌘B bolds the selected text frame (the key the ribbon shows)', async () => {
+  test.setTimeout(120_000)
+  const body = {
+    width: 794,
+    height: 1123,
+    elements: [{ id: 't1', type: 'text', x: 120, y: 160, w: 360, h: 80, z: 1, paragraphs: [{ runs: [{ text: 'Heading here' }] }] }]
+  }
+  const { w, id } = await open('design', body)
+  await expect(w.locator('[data-testid="design-menubar"]')).toBeVisible({ timeout: 15_000 })
+  type D = { elements?: Array<{ id: string; type: string; paragraphs?: Array<{ runs: Array<{ bold?: boolean }> }> }>; pages?: Array<{ elements: Array<{ id: string; type: string; paragraphs?: Array<{ runs: Array<{ bold?: boolean }> }> }> }> }
+  const textOf = async () => {
+    const d = await storedBody<D>(w, id)
+    return (d.elements ?? d.pages?.[0]?.elements ?? []).find((e) => e.type === 'text')
+  }
+  const tid = (await textOf())!.id
+  await w.locator(`.react-draggable:has([data-element-id="${tid}"])`).click()
+  await w.keyboard.press('Meta+b')
+  await expect.poll(async () => !!(await textOf())?.paragraphs?.[0]?.runs[0]?.bold, { message: '⌘B made the frame bold', timeout: 5_000 }).toBe(true)
+})
