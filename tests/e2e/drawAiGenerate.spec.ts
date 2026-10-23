@@ -243,3 +243,92 @@ test('DG-7 with the pane OPEN the canvas geometry still holds: fit and zoom to s
   // formula), so it shares this risk rather than carrying its own; saying so
   // beats a test that pastes nothing and looks like coverage.
 })
+
+test('DG-8 with the pane open AND Layers pinned, ⌘0, ⌥⌘0 and Zoom to Selection keep the art between them', async () => {
+  // d1's follow-up after the rebase onto draw-41c: the tip now has the
+  // fit-before-first-paint change and the pinned-panel pan fix, and this is
+  // the two-sided case neither drawPinnedPanel nor DG-7 covers on its own —
+  // an overlay panel insetting from the LEFT while the side pane takes width
+  // from the RIGHT. If the two ever fought, the art would end up under one of
+  // them, or drift.
+  //
+  // This is PP-3's scenario with the pane open. It is NOT a claim that
+  // PP-1..3 themselves run with the pane open: those launch their own profile
+  // with it closed. The pane is seeded here through the preference the studio
+  // reads at mount, which is the only way a spec can start with it open.
+  const body = {
+    schemaVersion: 2,
+    minWriterVersion: 2,
+    artboards: [
+      { id: 'artboard-1', name: 'Artboard 1', x: 0, y: 0, w: 800, h: 600, background: { type: 'solid', color: '#ffffff' } },
+      { id: 'b2', name: 'Artboard 2', x: 900, y: 0, w: 400, h: 600, background: { type: 'solid', color: '#ffffff' } }
+    ],
+    activeArtboardId: 'artboard-1',
+    layers: [{ id: 'L1', kind: 'vector', name: 'Layer 1', visible: true, locked: false, opacity: 1, blend: 'normal', objects: [rectObject('a', 0, 0, 120, 90)] }],
+    activeLayerId: 'L1',
+    assets: {},
+    swatches: [],
+    guides: [],
+    settings: {}
+  }
+  const id = await seedDrawDoc(window, body, 'Pinned panel and pane')
+  await window.evaluate(() => localStorage.setItem('plexii.draw.sidePane', 'ai'))
+  await openDocument(window, id)
+  await expect(t('draw-ai-pane')).toBeVisible({ timeout: 10_000 })
+
+  // Pin Layers on the left, so both sides are taken at once.
+  await t('draw-rail-layers').click()
+  const pinBtn = window.locator('[data-testid="draw-panel-layers-pin"]')
+  if ((await pinBtn.getAttribute('aria-pressed')) !== 'true') await pinBtn.click()
+  await expect(t('draw-panel-layers')).toBeVisible()
+
+  const panel = (await t('draw-panel-layers').boundingBox())!
+  const pane = (await t('draw-sidepane').boundingBox())!
+  const between = async (sel: string): Promise<boolean> => {
+    const b = await t(sel).boundingBox()
+    if (!b) return false
+    return b.x >= panel.x + panel.width - 1 && b.x + b.width <= pane.x + 1
+  }
+
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+  await t('draw-canvas-scroll').focus()
+
+  await window.keyboard.press(`${mod}+0`)
+  await expect.poll(() => between('draw-artboard-artboard-1'), { timeout: 6_000, message: '⌘0 frames the artboard between the panel and the pane' }).toBe(true)
+
+  await window.keyboard.press(`${mod}+Alt+0`)
+  await expect
+    .poll(async () => (await between('draw-artboard-artboard-1')) && (await between('draw-artboard-b2')), {
+      timeout: 6_000,
+      message: '⌥⌘0 frames every artboard between them'
+    })
+    .toBe(true)
+
+  // Zoom to Selection, the third centring path, with both sides taken.
+  const rect = (await window.locator('[data-testid="draw-stage"] path').first().boundingBox())!
+  await window.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2)
+  await expect(t('draw-selection')).toHaveCount(1)
+  await t('draw-zoom-menu').click()
+  await t('draw-zoom-item-zoomToSelection').click()
+  await expect
+    .poll(async () => {
+      const b = await window.locator('[data-testid="draw-stage"] path').first().boundingBox()
+      return !!b && b.x >= panel.x + panel.width - 1 && b.x + b.width <= pane.x + 1
+    }, { timeout: 6_000, message: 'Zoom to Selection lands between the panel and the pane' })
+    .toBe(true)
+
+  // Paste is the fourth path PP-3 covers and is NOT repeated here: it reads
+  // the same visible box from the same domServices code these three do, and
+  // asserting it would mean saving and restoring the system pasteboard for a
+  // risk already covered three times over.
+
+  // And it settles: two insets fighting each other would keep moving.
+  const settled = (await t('draw-stage').boundingBox())!
+  await window.waitForTimeout(400)
+  const again = (await t('draw-stage').boundingBox())!
+  expect(Math.abs(again.x - settled.x)).toBeLessThan(1)
+
+  // Leave the panel as the next test expects it.
+  await pinBtn.click()
+  await window.evaluate(() => localStorage.removeItem('plexii.draw.sidePane'))
+})
