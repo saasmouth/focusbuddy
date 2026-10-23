@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWidgetStore } from '../stores/widgets'
 import { isOverFloatingChrome } from './floatingChrome'
-import { EDGE_PAN_MARGIN, createEdgePanArming, isInEdgeZone, type PointerSample } from './edgePanArming'
+import { EDGE_PAN_MARGIN, createEdgePanArming, isInEdgeZone, type PointerPlace, type PointerSample } from './edgePanArming'
 
 // Edge-pan / "infinite map" camera control for the canvas.
 //
@@ -37,7 +37,10 @@ import { EDGE_PAN_MARGIN, createEdgePanArming, isInEdgeZone, type PointerSample 
 // surface, the zone or the content shifted under it while it rested — a
 // scroll, a layout shift, the dock widening --fb-dock-inset — never starts
 // one; Chromium's fake mousemove and repeating dragover carry the old screen
-// point, and those re-read the position without arming.
+// point, and those re-read the position without arming. An HTML5 drag that
+// started OFF the desk (the Files panel, the side menu) must also have reached
+// the desk's interior first, since it can only arrive across an edge zone.
+// Both are one rule, in lib/edgePanArming; this hook only reports events to it.
 //
 // Pauses regardless of drag mode when:
 //   - the camera is mid-animation (animatingPan)
@@ -189,26 +192,23 @@ export function useEdgePan({
       attributeFilter: ['class']
     })
 
-    // A drag that STARTS OUTSIDE the desk (the Files panel beside the menu,
-    // the side menu's work widgets) enters it across an edge, and that edge
-    // is an edge-pan zone: the desk scrolled away under the pointer before it
-    // got anywhere, and the drop missed what it was aimed at (found with real
-    // OS drags from the Files panel). Such a drag pans only after it has been
-    // in the desk's interior once, as a drag that starts on the desk does.
-    let entryGuard = false
+    // Where the drag started decides how it may arm (lib/edgePanArming): one
+    // from off the desk (the Files panel beside the menu, the side menu's work
+    // widgets) enters across an edge zone, so it pans only once it has reached
+    // the desk's interior. Whether the source is on the desk is a DOM question,
+    // so it is answered here and handed to the arming rule.
     function onHtmlDragStart(e: DragEvent): void {
       htmlDragging = true
       lastFrameRef.current = 0
-      entryGuard = !(el && e.target instanceof Node && el.contains(e.target))
+      arming.dragBegan(!!el && e.target instanceof Node && el.contains(e.target))
     }
     function onHtmlDragEnd(): void {
       htmlDragging = false
-      entryGuard = false
+      arming.dragEnded()
       // After drag ends the next event is a click — clear the cached
       // mouse position so the indicators don't pulse from the last
       // drag point until the user moves the mouse again.
       pointerRef.current = null
-      arming.disarm()
       setIntensity((i) => (i === ZERO_INTENSITY ? i : ZERO_INTENSITY))
     }
     document.addEventListener('dragstart', onHtmlDragStart, true)
@@ -267,6 +267,11 @@ export function useEdgePan({
       return Number.isFinite(v) ? v : 0
     }
 
+    function placeOf(p: ReturnType<typeof canvasPoint>): PointerPlace {
+      if (!p.inside) return 'off'
+      return isInEdgeZone(p, p, marginRef.current) ? 'zone' : 'interior'
+    }
+
     function readPositionFromEvent(e: PointerSample): void {
       if (!el) return
       refreshSize()
@@ -284,19 +289,8 @@ export function useEdgePan({
         }
         return
       }
-      const inEdge = isInEdgeZone(p, p, marginRef.current)
-      if (entryGuard && htmlDragging) {
-        if (inEdge) {
-          // Still crossing in from outside: no pan yet.
-          arming.note(e)
-          pointerRef.current = null
-          setIntensity((i) => (i === ZERO_INTENSITY ? i : ZERO_INTENSITY))
-          return
-        }
-        entryGuard = false
-      }
       pointerRef.current = { x: e.clientX, y: e.clientY }
-      arming.observe(e, inEdge)
+      arming.observe(e, placeOf(p))
     }
 
     // The floating menus (sidebar, segment/office menus, the minimised-menu
@@ -341,8 +335,7 @@ export function useEdgePan({
     function onDocMove(e: MouseEvent): void {
       if (!el || (e.target instanceof Node && el.contains(e.target))) return
       refreshSize()
-      const p = canvasPoint({ x: e.clientX, y: e.clientY }, geomRef.current)
-      arming.observe(e, p.inside && isInEdgeZone(p, p, marginRef.current))
+      arming.observe(e, placeOf(canvasPoint({ x: e.clientX, y: e.clientY }, geomRef.current)))
     }
     // During HTML5 drag the OS suppresses mousemove and instead emits
     // dragover on valid drop targets. The canvas already accepts drops
