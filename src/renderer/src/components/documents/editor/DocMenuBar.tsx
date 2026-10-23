@@ -1,21 +1,21 @@
 import { useState } from 'react'
-import { openDocHistory } from '../DocHistoryPanel'
-import { confirmDialog, promptText } from '../../plexi/PromptDialog'
+import { promptText } from '../../plexi/PromptDialog'
 import type { Editor } from '@tiptap/react'
-import { useDocumentsStore } from '../../../stores/documents'
-import { useViewStore } from '../../../stores/view'
-import { launchMeeting } from '../../../lib/startMeeting'
-import type { FbDocument } from '@shared/types'
+import type { DocumentOps } from './documentOps'
 import Icon from '../../Icon'
 import { checkDocA11y } from '../../../lib/docA11y'
-import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
+import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
 import { menuPasteIntoDoc } from './docSnippets'
 
 // A Google-Docs-style menu bar for the document editor: File / Edit / View /
 // Insert / Format / Tools / Help, each a dropdown of real actions. Every item is
-// wired to a genuine capability — Tiptap editor commands, the documents store, or
-// the office export IPC. Nothing here is a decorative no-op; an action that the
-// editor cannot do is simply not listed.
+// wired to a genuine capability — Tiptap editor commands, the document ops the
+// HOST binds, or the office export IPC. Nothing here is a decorative no-op; an
+// action that the editor cannot do is simply not listed.
+//
+// This file does not read the documents store, and must not: it used to act on
+// the store's `active` document, which in a desk widget is not the document on
+// screen (see documentOps). Enforced by tests/unit/documentOpsGuard.test.ts.
 //
 // This file declares the menus; menuBarKit renders them, as it does for every
 // other office app. The bar's testid is `doc-menubar` while its menus are
@@ -41,11 +41,18 @@ interface Props {
   onSetPageView: (v: boolean) => void
   onOutline: () => void
   onComments: () => void
+  /**
+   * The document on screen, bound to its id by whichever host mounted this
+   * editor. Absent where there is no document — a snippet session — and then
+   * none of the document items are shown at all.
+   */
+  documentOps?: DocumentOps
 }
 
 export default function DocMenuBar({
   editor,
   title,
+  documentOps,
   onInsertImage,
   onInsertWidget,
   onInsertSnippet,
@@ -59,53 +66,11 @@ export default function DocMenuBar({
   onOutline,
   onComments
 }: Props): JSX.Element {
-  const createBlank = useDocumentsStore((s) => s.createBlank)
-  const active = useDocumentsStore((s) => s.active)
-  const rename = useDocumentsStore((s) => s.rename)
-  const remove = useDocumentsStore((s) => s.remove)
-  const goDocument = useViewStore((s) => s.goDocument)
-  const goDocuments = useViewStore((s) => s.goDocuments)
-
   const [wordCountOpen, setWordCountOpen] = useState(false)
   const [a11yOpen, setA11yOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const chain = (): ReturnType<Editor['chain']> => editor.chain().focus()
-
-  async function newDocument(): Promise<void> {
-    const doc = await createBlank('doc')
-    goDocument(doc.id)
-  }
-
-  async function makeCopy(): Promise<void> {
-    // Create a real copy that carries the current body, then open it. The store's
-    // active doc holds the live body (kept current by the debounced autosave), so
-    // the copy is a faithful duplicate, not an empty document.
-    const body = (active?.body ?? undefined) as FbDocument['body'] | undefined
-    const copy = await window.api.documents.create({
-      docType: 'doc',
-      title: `Copy of ${title || 'Untitled document'}`,
-      body
-    })
-    goDocument(copy.id)
-  }
-
-  async function doRename(): Promise<void> {
-    const next = await promptText({ title: 'Rename document', initial: title, confirmLabel: 'Rename' })
-    if (next != null && next.trim()) void rename(next.trim())
-  }
-
-  async function moveToTrash(): Promise<void> {
-    if (!active) return
-    const ok = await confirmDialog({
-      title: `Move "${title || 'Untitled document'}" to trash?`,
-      body: 'You can restore it from the Documents trash.',
-      confirmLabel: 'Move to trash'
-    })
-    if (!ok) return
-    await remove(active.id)
-    goDocuments()
-  }
 
   async function exportHtml(): Promise<void> {
     await window.api.exportDoc.html({
@@ -141,26 +106,44 @@ export default function DocMenuBar({
     {
       id: 'file',
       label: 'File',
-      build: () => [
-        { kind: 'item', label: 'New document', icon: 'note_add', run: () => void newDocument() },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy() },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) } },
-        {
-          kind: 'submenu',
-          label: 'Download',
-          icon: 'download',
-          items: [
-            { kind: 'item', label: 'Microsoft Word (.docx)', run: onExportDocx },
-            { kind: 'item', label: 'PDF document (.pdf)', run: onExportPdf },
-            { kind: 'item', label: 'Web page (.html)', run: () => void exportHtml() }
-          ]
-        },
-        { kind: 'item', label: 'Print (PDF)', shortcut: '⌘P', icon: 'print', run: onExportPdf },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash() }
-      ]
+      build: () => {
+        // Each of these acts on a document, so the whole group is ABSENT without
+        // ops rather than disabled. Download and Print are not here: they act on
+        // the editor's own content and work with no document at all.
+        const ops = documentOps
+        const docGroup: MenuItem[] = ops
+          ? [
+              { kind: 'item', label: 'New document', icon: 'note_add', run: () => void ops.newDocument() },
+              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              { kind: 'sep' },
+              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
+              { kind: 'item', label: 'Version history', icon: 'history', run: () => ops.openHistory() }
+            ]
+          : []
+        // The separator belongs to Move to trash, so it leaves with it; left
+        // behind, the menu would end on a divider with nothing under it.
+        const trashGroup: MenuItem[] = ops
+          ? [
+              { kind: 'sep' },
+              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+            ]
+          : []
+        return [
+          ...docGroup,
+          {
+            kind: 'submenu',
+            label: 'Download',
+            icon: 'download',
+            items: [
+              { kind: 'item', label: 'Microsoft Word (.docx)', run: onExportDocx },
+              { kind: 'item', label: 'PDF document (.pdf)', run: onExportPdf },
+              { kind: 'item', label: 'Web page (.html)', run: () => void exportHtml() }
+            ]
+          },
+          { kind: 'item', label: 'Print (PDF)', shortcut: '⌘P', icon: 'print', run: onExportPdf },
+          ...trashGroup
+        ]
+      }
     },
     {
       id: 'edit',
@@ -202,8 +185,15 @@ export default function DocMenuBar({
         { kind: 'item', label: 'Saved snippet', icon: 'bookmarks', run: onInsertSnippet },
         { kind: 'item', label: 'Link', shortcut: '⌘K', icon: 'link', run: insertLink },
         { kind: 'item', label: 'Horizontal line', icon: 'horizontal_rule', run: () => chain().setHorizontalRule().run() },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'doc', id: active?.id ?? '', title: title || 'Document meeting' }) }
+        // A meeting is the one item here that reaches other people, so a wrong
+        // id invites them to someone else's document. It went out with
+        // `id: active?.id ?? ''` — the wrong document, or none at all.
+        ...(documentOps
+          ? ([
+              { kind: 'sep' },
+              { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => documentOps.startMeeting() }
+            ] as MenuItem[])
+          : [])
       ]
     },
     {

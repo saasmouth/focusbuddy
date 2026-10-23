@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { openDocHistory } from '../DocHistoryPanel'
-import { confirmDialog, promptText } from '../../plexi/PromptDialog'
-import type { SheetCellFormat, SheetNumberFormat, FbDocument } from '@shared/types'
-import { useDocumentsStore } from '../../../stores/documents'
-import { useViewStore } from '../../../stores/view'
-import { launchMeeting } from '../../../lib/startMeeting'
-import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
+import type { SheetCellFormat, SheetNumberFormat } from '@shared/types'
+import type { DocumentOps } from './documentOps'
+import { MenuBarShell, MenuModal, type MenuDef, type MenuItem } from './menuBarKit'
 
 // A Google-Sheets-style menu bar for the spreadsheet editor. Every item maps to a
-// real SheetEditor operation (passed in as `actions`) or a documents-store action.
-// Capabilities the editor does not have (merge, freeze, cell find/replace) are
-// simply not listed rather than shown as dead items.
+// real SheetEditor operation (passed in as `actions`) or to the document ops the
+// HOST binds. Capabilities the editor does not have (merge, freeze, cell
+// find/replace) are simply not listed rather than shown as dead items.
+//
+// This file does not read the documents store, and must not: it used to act on
+// the store's `active` document, which in a desk widget is not the spreadsheet
+// on screen (see documentOps). Enforced by tests/unit/documentOpsGuard.test.ts.
 
 /**
  * The chart kinds SheetEditor.insertChart actually accepts. This was declared
@@ -51,47 +51,19 @@ export interface SheetMenuActions {
   saveSnippet: () => void
   /** Open the snippet library aimed at this spreadsheet. */
   insertSnippet: () => void
+  /**
+   * The document on screen, bound to its id by whichever host mounted this
+   * editor. Absent where there is no document — a snippet session — and then
+   * none of the document items are shown at all.
+   */
+  documentOps?: DocumentOps
 }
 
 export default function SheetMenuBar({ actions }: { actions: SheetMenuActions }): JSX.Element {
   const a = actions
   const fmt = a.activeFormat
-  const createBlank = useDocumentsStore((s) => s.createBlank)
-  const active = useDocumentsStore((s) => s.active)
-  const rename = useDocumentsStore((s) => s.rename)
-  const remove = useDocumentsStore((s) => s.remove)
-  const goDocument = useViewStore((s) => s.goDocument)
-  const goDocuments = useViewStore((s) => s.goDocuments)
+  const ops = a.documentOps
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-
-  async function newSheet(): Promise<void> {
-    const doc = await createBlank('sheet')
-    goDocument(doc.id)
-  }
-  async function makeCopy(): Promise<void> {
-    const body = (active?.body ?? undefined) as FbDocument['body'] | undefined
-    const copy = await window.api.documents.create({
-      docType: 'sheet',
-      title: `Copy of ${a.title || 'Untitled sheet'}`,
-      body
-    })
-    goDocument(copy.id)
-  }
-  async function doRename(): Promise<void> {
-    const next = await promptText({ title: 'Rename spreadsheet', initial: a.title, confirmLabel: 'Rename' })
-    if (next != null && next.trim()) void rename(next.trim())
-  }
-  async function moveToTrash(): Promise<void> {
-    if (!active) return
-    const ok = await confirmDialog({
-      title: `Move "${a.title || 'Untitled sheet'}" to trash?`,
-      body: 'You can restore it from the Documents trash.',
-      confirmLabel: 'Move to trash'
-    })
-    if (!ok) return
-    await remove(active.id)
-    goDocuments()
-  }
 
   const numFmtKind = fmt?.numFmt?.kind ?? 'general'
 
@@ -99,25 +71,42 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
     {
       id: 'file',
       label: 'File',
-      build: () => [
-        { kind: 'item', label: 'New spreadsheet', icon: 'note_add', run: () => void newSheet() },
-        { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void makeCopy() },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Rename', icon: 'edit', run: doRename },
-        { kind: 'item', label: 'Version history', icon: 'history', run: () => { if (active) openDocHistory(active.id) } },
-        { kind: 'item', label: 'Import (.xlsx / .csv)', icon: 'upload', run: a.importFile },
-        {
-          kind: 'submenu',
-          label: 'Download',
-          icon: 'download',
-          items: [
-            { kind: 'item', label: 'Microsoft Excel (.xlsx)', run: () => a.exportFile('xlsx') },
-            { kind: 'item', label: 'Comma-separated values (.csv)', run: () => a.exportFile('csv') }
-          ]
-        },
-        { kind: 'sep' },
-        { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void moveToTrash() }
-      ]
+      build: () => {
+        const docGroup: MenuItem[] = ops
+          ? [
+              { kind: 'item', label: 'New spreadsheet', icon: 'note_add', run: () => void ops.newDocument() },
+              { kind: 'item', label: 'Make a copy', icon: 'file_copy', run: () => void ops.makeCopy() },
+              { kind: 'sep' },
+              { kind: 'item', label: 'Rename', icon: 'edit', run: () => void ops.rename() },
+              { kind: 'item', label: 'Version history', icon: 'history', run: () => ops.openHistory() }
+            ]
+          : []
+        const trashGroup: MenuItem[] = ops
+          ? [
+              { kind: 'sep' },
+              { kind: 'item', label: 'Move to trash', icon: 'delete', run: () => void ops.moveToTrash() }
+            ]
+          : []
+        return [
+          ...docGroup,
+          // Import and Download are NOT document ops, despite living in this
+          // menu: Import replaces the editor's body and emits onChange (the
+          // host persists it, so it already lands on the right file), and
+          // Download reads the body in memory. Both are correct with no
+          // document at all, so neither is gated.
+          { kind: 'item', label: 'Import (.xlsx / .csv)', icon: 'upload', run: a.importFile },
+          {
+            kind: 'submenu',
+            label: 'Download',
+            icon: 'download',
+            items: [
+              { kind: 'item', label: 'Microsoft Excel (.xlsx)', run: () => a.exportFile('xlsx') },
+              { kind: 'item', label: 'Comma-separated values (.csv)', run: () => a.exportFile('csv') }
+            ]
+          },
+          ...trashGroup
+        ]
+      }
     },
     {
       id: 'edit',
@@ -156,7 +145,11 @@ export default function SheetMenuBar({ actions }: { actions: SheetMenuActions })
         { kind: 'sep' },
         { kind: 'item', label: 'Insert snippet…', icon: 'bookmarks', run: a.insertSnippet },
         { kind: 'sep' },
-        { kind: 'item', label: 'Meeting', icon: 'videocam', run: () => void launchMeeting({ kind: 'sheet', id: active?.id ?? '', title: a.title || 'Spreadsheet meeting' }) }
+        // A meeting reaches other people, so a wrong id invites them to someone
+        // else's spreadsheet. It went out with `id: active?.id ?? ''`.
+        ...(ops
+          ? ([{ kind: 'item', label: 'Meeting', icon: 'videocam', run: () => ops.startMeeting() }] as MenuItem[])
+          : [])
       ]
     },
     {
