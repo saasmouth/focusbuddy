@@ -5,6 +5,15 @@ import { useViewStore } from '../../stores/view'
 import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
 import {
+  isCollabEditor,
+  localAnchorFor,
+  positionText,
+  resolveForEditor,
+  yjsAnchorFor
+} from '../documents/editor/commentPositions'
+import { anchorToPersist } from '../documents/editor/commentWriteBack'
+import { setLiveCommentAnchor } from '../../lib/docCollabClient'
+import {
   inviteToLiveDoc,
   snapshotLiveBody,
   listComments,
@@ -295,6 +304,55 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     if (inviting && token) void listTeams(token).then(setTeams).catch(() => setTeams([]))
   }, [inviting, token])
 
+  // Where every thread belongs in the document as it now stands.
+  //
+  // Re-resolved when the thread list changes or the editor is rebuilt, not on
+  // every keystroke: the decorations map through transactions already. In a
+  // live document the editor is also rebuilt rarely, so this is cheap.
+  useEffect(() => {
+    if (!editor) return
+    const threads = comments
+      .filter((c) => !c.parentId && c.anchor != null)
+      .map((c) => ({ id: c.id, anchor: c.anchor, state: c.resolved ? ('resolved' as const) : ('open' as const) }))
+    if (threads.length === 0) {
+      editor.commands.setCommentRanges([])
+      return
+    }
+    const { ranges } = resolveForEditor(editor, threads)
+    editor.commands.setCommentRanges(ranges)
+
+    // Persist a re-found LOCAL anchor only.
+    //
+    // A yjs anchor is never written back from here. Its relative positions are
+    // the thing that makes it survive other people typing, and replacing them
+    // with offsets would be permanent — offsets go stale the moment any peer
+    // inserts before them, and nothing would tell the other peers it happened.
+    // A yjs anchor that resolved by its quote comes back `corrected` as a
+    // matter of course, so this is a rule rather than an edge case.
+    const docText = positionText(editor.state.doc)
+    const tok = useAccountStore.getState().sessionToken
+    if (!tok) return
+    for (const r of ranges) {
+      const thread = threads.find((t) => t.id === r.id)
+      if (!thread) continue
+      // The same rule as the local host, and the yjs guard lives inside it.
+      const write = anchorToPersist(thread, r, docText)
+      if (!write) continue
+      const json = write.json
+      void setLiveCommentAnchor(tok, r.id, json).then((res) => {
+        // A 403 is ORDINARY: only a comment's author may correct its anchor,
+        // because an anchor carries the quote and whoever can rewrite one can
+        // move someone else's comment onto words they never commented on.
+        // Reading someone else's thread therefore costs a quote search per
+        // open and nothing else. Saying anything to the user here would be
+        // reporting a permission they were never meant to have.
+        if (!res.ok) return
+        setComments((prev) => prev.map((c) => (c.id === r.id ? { ...c, anchor: json } : c)))
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, comments])
+
   if (loading || !meta || meta.id !== liveDocId) {
     return (
       <div className="h-full flex items-center justify-center desk-paper no-tod text-[13px] text-[var(--ink-40)]">
@@ -407,6 +465,19 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
 
   // Start a comment on the current selection: capture the range and open the
   // composer. Applying the mark waits until the body is typed and saved.
+
+  /**
+   * Is this thread anchored the OLD way, by a mark in the document body?
+   *
+   * Only those have anything in the document to clear when they are resolved or
+   * deleted. Clearing a mark is a document write — refused for a viewer in a
+   * live document — so it must not happen for a thread that does not have one.
+   */
+  function markAnchored(threadId: string): boolean {
+    const row = comments.find((c) => c.id === threadId)
+    return !!row && row.anchor == null
+  }
+
   function startComment(): void {
     if (!editor) return
     const { from, to, empty } = editor.state.selection
@@ -421,10 +492,19 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     const tok = useAccountStore.getState().sessionToken
     if (!editor || !composing || !text || !tok) return
     const id = 'cmt_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16)
-    editor.chain().setTextSelection({ from: composing.from, to: composing.to }).setComment(id).run()
-    const created = await addComment(tok, liveDocId, text, { id })
+    // NO setComment. Applying the mark mutates the shared Y.Doc and propagates
+    // to every peer, which is precisely why a viewer could never comment — the
+    // server refuses the write. The anchor goes with the comment instead.
+    //
+    // A yjs anchor when this editor is actually co-editing, because relative
+    // positions survive other people typing where an offset does not. When
+    // there is no binding yet, a local anchor is the honest fallback: it is
+    // what this editor can describe, and the quote carries it either way.
+    const anchor =
+      (isCollabEditor(editor) ? yjsAnchorFor(editor, composing.from, composing.to) : null) ??
+      localAnchorFor(editor, composing.from, composing.to)
+    const created = await addComment(tok, liveDocId, text, { id, anchor: JSON.stringify(anchor) })
     if (created) setComments((prev) => [...prev.filter((c) => c.id !== created.id), created])
-    else editor.commands.unsetComment(id) // save failed — drop the orphan mark
     setComposing(null)
     setComposeText('')
   }
@@ -440,20 +520,41 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     const tok = useAccountStore.getState().sessionToken
     if (!tok) return
     setComments((prev) => prev.map((c) => (c.id === rootId ? { ...c, resolved } : c)))
-    if (resolved) editor?.commands.unsetComment(rootId) // clear the highlight when resolved
+    // A thread anchored the new way needs nothing done to the document: the
+    // resolve pass simply stops drawing a resolved thread. Only a LEGACY
+    // mark-anchored comment has a mark to clear, and clearing it is a document
+    // write — which is why it is narrowed to exactly that case instead of
+    // being done for every thread. See commentsDoNotWrite.test.ts.
+    if (resolved && markAnchored(rootId)) editor?.commands.unsetComment(rootId)
     await resolveComment(tok, rootId, resolved)
   }
 
   async function removeComment(commentId: string): Promise<void> {
     const tok = useAccountStore.getState().sessionToken
     if (!tok) return
+    const legacy = markAnchored(commentId)
     setComments((prev) => prev.filter((c) => c.id !== commentId && c.parentId !== commentId))
-    editor?.commands.unsetComment(commentId)
+    // Same narrowing as resolve: only a legacy mark leaves anything behind in
+    // the document. A thread with an anchor disappears because the next resolve
+    // pass does not include it.
+    if (legacy) editor?.commands.unsetComment(commentId)
     await deleteComment(tok, commentId)
   }
 
   function jumpToComment(commentId: string): void {
     if (!editor) return
+    // A thread anchored the new way has no mark to scan for, so resolve its
+    // range and go there. The document decides, not the rendered markup.
+    const row = comments.find((c) => c.id === commentId)
+    if (row?.anchor != null) {
+      const { ranges } = resolveForEditor(editor, [{ id: commentId, anchor: row.anchor }])
+      const r = ranges[0]
+      if (r) {
+        editor.chain().setTextSelection({ from: r.from, to: r.to }).scrollIntoView().focus().run()
+        return
+      }
+    }
+    // An older, mark-anchored comment.
     let found: { from: number; to: number } | null = null
     editor.state.doc.descendants((node, pos) => {
       if (found || !node.isText) return

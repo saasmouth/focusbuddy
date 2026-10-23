@@ -34,7 +34,7 @@ function urlFor(path: string): string {
 
 // Returns the parsed JSON plus ok/status so callers can branch on 409 (locked).
 async function call<T>(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   token: string,
   body?: unknown
@@ -123,6 +123,17 @@ export interface DocComment {
   body: string
   resolved: boolean
   createdAt: number
+  /**
+   * The anchor JSON — a range plus a quote of the commented text — stored and
+   * returned VERBATIM, because the quote is compared character for character
+   * and re-serialising would change the one thing that decides whether a
+   * highlight is drawn.
+   *
+   * Absent until the server carrying it is deployed, which reads as null and
+   * simply means the thread has no range to draw: the document behaves exactly
+   * as it does today, with marks only, and no flag is needed to arrange that.
+   */
+  anchor?: string | null
 }
 
 export async function listComments(token: string, docId: string): Promise<DocComment[]> {
@@ -134,14 +145,41 @@ export async function addComment(
   token: string,
   docId: string,
   body: string,
-  opts?: { id?: string; parentId?: string }
+  opts?: { id?: string; parentId?: string; anchor?: string | null }
 ): Promise<DocComment | null> {
   const { json } = await call<{ ok: boolean; comment?: DocComment }>('POST', `/livedocs/${docId}/comments`, token, {
     body,
     id: opts?.id,
-    parentId: opts?.parentId
+    parentId: opts?.parentId,
+    anchor: opts?.anchor
   })
   return json?.comment ?? null
+}
+
+/**
+ * Save an anchor the editor had to re-find, for a live document's comment.
+ *
+ * `{ ok: false, forbidden: true }` is the ORDINARY case, not an error: the
+ * server lets only a comment's own author correct its anchor, because an anchor
+ * carries the quote as well as the range, so whoever can rewrite one can move
+ * someone else's comment onto words they never commented on — and the server
+ * cannot tell a correction from a forgery, since it never sees the rendered
+ * text. A viewer reading someone else's thread therefore skips persisting and
+ * re-resolves next time: the highlight is still correct for them, it just costs
+ * a quote search per open. Nothing should be shown to anyone.
+ */
+export async function setLiveCommentAnchor(
+  token: string,
+  commentId: string,
+  anchor: string | null
+): Promise<{ ok: boolean; forbidden: boolean }> {
+  const { ok, status } = await call<{ ok: boolean }>(
+    'PATCH',
+    `/livedocs/comments/${commentId}/anchor`,
+    token,
+    { anchor }
+  )
+  return { ok, forbidden: status === 403 }
 }
 
 export async function resolveComment(token: string, commentId: string, resolved: boolean): Promise<void> {
