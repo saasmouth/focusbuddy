@@ -36,6 +36,26 @@ export const commands: Command[] = [
       useViewStore.getState().goDocument(doc.id)
     }
   },
+  // Save (Illustrator's ⌘S). A drawing is persisted from every edit by its
+  // host, so there is nothing to save and this shows disabled -- and ⌘S is not
+  // claimed (keyWhen), so the key does exactly what it did before. Where the
+  // host writes only when asked (a saved snippet's edit session), this is that
+  // host's Save. It never writes anything itself.
+  {
+    id: 'file.save',
+    label: 'Save',
+    icon: 'save',
+    // After Open (105) and before Make a copy (110), as Save sits in Illustrator's File menu.
+    menu: { path: 'file', order: 108 },
+    enabled: (ctx) => !!ctx.host.saveRequest?.() && writable(ctx),
+    disabledReason: (ctx) =>
+      !ctx.host.saveRequest?.() ? 'drawings save as you work' : !writable(ctx) ? 'this drawing is read-only' : null,
+    keyWhen: (ctx) => !!ctx.host.saveRequest?.(),
+    run: (ctx) => {
+      const save = ctx.host.saveRequest?.()
+      if (save && writable(ctx)) save()
+    }
+  },
   {
     id: 'file.copy',
     label: 'Make a copy',

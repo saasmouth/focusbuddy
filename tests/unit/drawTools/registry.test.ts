@@ -144,6 +144,8 @@ describe('the menu bar is built from commands', () => {
         'file',
         'New artwork|note_add|⌘N||',
         'Open SVG…|folder_open|⌘O||',
+        // Off: a drawing saves as you work. On only in a host that saves on request (a snippet edit session).
+        'Save|save|⌘S|off|',
         'Make a copy|file_copy|⌥⌘S||',
         '---',
         'New from preset|aspect_ratio|>',

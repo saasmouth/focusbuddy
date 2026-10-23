@@ -262,6 +262,13 @@ export interface HostService {
   liveUndo(): import('../../../../lib/yjsKeyedJson').LiveUndo | undefined
   /** Export through the main process. */
   exportAs(format: 'png' | 'svg' | 'pdf', opts?: ExportOptions): Promise<void>
+  /**
+   * The host's Save, when the host writes only when asked (a saved snippet's
+   * edit session: SnippetEditSessionView); absent when every edit is persisted
+   * as it is made, which is how a drawing saves. Read at call time, so File ›
+   * Save and ⌘S (`file.save`) follow the current prop. The editor never saves.
+   */
+  saveRequest?(): (() => void) | undefined
 }
 
 // ── The context ──────────────────────────────────────────────────────────────

@@ -20,6 +20,8 @@ export interface StudioRefs {
   onChange: { current: (body: unknown) => void }
   title: { current: string }
   liveUndo: { current: LiveUndo | undefined }
+  /** The host's Save, when it saves only on request (DrawStudio's `onSaveRequest`). */
+  onSaveRequest?: { current: (() => void) | undefined }
   /**
    * How much of the viewport's left edge pinned overlay panels cover, in
    * screen px. Fit and Paste work in the visible part, so ⌘0 centres the art
@@ -128,6 +130,7 @@ export function createDomServices(refs: StudioRefs, store: () => { getState(): E
     host: {
       emit: (stored) => refs.onChange.current(stored),
       liveUndo: () => refs.liveUndo.current,
+      saveRequest: () => refs.onSaveRequest?.current,
       exportAs: async (format, opts) => {
         const s = store()
         // A drawing this build cannot fully show cannot be honestly exported:

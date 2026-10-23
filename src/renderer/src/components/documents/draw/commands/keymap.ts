@@ -72,6 +72,7 @@ export const KEYMAP: Record<string, readonly [string, 'prevent'?]> = {
   'mod+l': ['layer.newVector', 'prevent'],
   'mod+n': ['file.new', 'prevent'],
   'mod+o': ['file.openSvg', 'prevent'],
+  'mod+s': ['file.save', 'prevent'],
   'mod+shift+[': ['object.arrange.back', 'prevent'],
   'mod+shift+]': ['object.arrange.front', 'prevent'],
   'mod+shift+a': ['edit.deselect', 'prevent'],

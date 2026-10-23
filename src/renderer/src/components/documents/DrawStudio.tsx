@@ -73,6 +73,14 @@ interface Props {
    * it may become v2. v2-only commands then show disabled with this reason.
    */
   v2Blocked?: string | null
+  /**
+   * A host that writes only when asked (a saved snippet's edit session,
+   * SnippetEditSessionView): File › Save and ⌘S (`file.save`) call this, and
+   * ⌘S's default is prevented. Absent -- a drawing, which is persisted from
+   * onChange as it is edited -- Save shows disabled and ⌘S is left alone, as
+   * before. The studio never saves; it only emits onChange per edit.
+   */
+  onSaveRequest?: () => void
 }
 
 /** Focus is on a control of the studio's chrome (the top bar, the rail, a panel), not the canvas. */
@@ -108,7 +116,7 @@ function keyInput(e: KeyboardEvent): KeyInput {
   }
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -120,6 +128,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   titleRef.current = title
   const liveUndoRef = useRef(liveUndo)
   liveUndoRef.current = liveUndo
+  const onSaveRequestRef = useRef(onSaveRequest)
+  onSaveRequestRef.current = onSaveRequest
   const rootRef = useRef<HTMLDivElement | null>(null)
   const barHandle = useRef<ContextBarHandle | null>(null)
   /** Screen px of the viewport's left edge that pinned overlay panels cover (domServices: Fit, Paste). */
@@ -132,7 +142,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // see the current DOM and props.
   const editorRef = useRef<DrawEditor | null>(null)
   if (!editorRef.current) {
-    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, inset: insetRef, pendingCentre }
+    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, onSaveRequest: onSaveRequestRef, inset: insetRef, pendingCentre }
     // ⌥F6 (window.focusNext): the canvas, then the top bar, then the tool rail.
     const ui = {
       cycleFocus: (): void => {
