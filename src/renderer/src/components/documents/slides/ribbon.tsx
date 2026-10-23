@@ -335,8 +335,9 @@ const designTab: BarTab<DeckCtx> = {
         />
         <BarSelect label="Slide transition" width={150} value={(c.slide.transition ?? 'none') as SlideTransition} options={TRANSITIONS} onChange={c.ed.setTransition} testid="slides-prop-transition" />
         <BarSep />
-        {/* The theme's heading face, read from the live theme: change it by changing the theme. */}
-        <BarCustom label="Slide font (from the theme)" testid="slides-prop-font">
+        {/* The theme's heading face, read from the live theme: change it by changing the theme.
+            Read-only safe with no command to ask: a read-out, nothing in it acts. */}
+        <BarCustom label="Slide font (from the theme)" testid="slides-prop-font" readOnlySafe>
           <span className="px-1.5 text-[11px] text-[var(--ink-60)] whitespace-nowrap" title="Slide font, set by the theme">
             Aa {c.theme.fontHeading.split(',')[0]!.replace(/['"]/g, '')}
           </span>

@@ -65,8 +65,8 @@ test.afterEach(async () => {
   launched = null
 })
 
-/** Open `app`'s document as a viewer of a shared live document. Returns the window and every body the app tried to store. */
-async function openAsViewer(app: App): Promise<{ w: Page; writes: string[] }> {
+/** Open `app`'s document as a viewer (or, to compare, an editor) of a shared live document. Returns the window and every body the app tried to store. */
+async function openAsViewer(app: App, role: 'viewer' | 'editor' = 'viewer'): Promise<{ w: Page; writes: string[] }> {
   launched = await launchApp()
   const w = launched.window
   await waitForReady(w)
@@ -119,9 +119,9 @@ async function openAsViewer(app: App): Promise<{ w: Page; writes: string[] }> {
         body: JSON.stringify(app.body),
         members: [
           { accountId: 'acc_owner', handle: 'owner', role: 'owner' },
-          { accountId: 'acc_e2e', handle: 'e2e', role: 'viewer' }
+          { accountId: 'acc_e2e', handle: 'e2e', role }
         ],
-        myRole: 'viewer'
+        myRole: role
       }
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, doc }) })
     }
@@ -260,4 +260,84 @@ test('Diagrams, as a viewer: Duplicate, Undo and right-click Edit text are off w
   await expect(w.locator('.react-flow__node')).toHaveCount(1)
   expect(await node.boundingBox(), 'the shape did not move').toEqual(box)
   expect(writes, 'a viewer wrote nothing').toEqual([])
+})
+
+// shell-slot-ro-41. The Font picker sits in a BarCustom, which a read-only bar
+// did not gate in any office app: a viewer opened it and picked a font, and
+// only the editor's refusal stood behind it. Now the shell turns the slot off.
+// Seeing the font is fine: the picker still shows it. Each document's text
+// carries a font of its own, so "shows the current font" is not the default.
+const FONT_CASES = [
+  {
+    app: {
+      ...APPS[1]!,
+      body: {
+        width: 800,
+        height: 600,
+        elements: [{ id: 't1', type: 'text', x: 60, y: 60, w: 320, h: 80, z: 1, fontFamily: '"Lora", sans-serif', paragraphs: [{ runs: [{ text: 'Hello design', fontSize: 32 }] }] }]
+      }
+    },
+    /** Select the text frame, and bring the tab whose Font picker carries the testid. */
+    select: async (w: Page): Promise<void> => {
+      await w.locator('.react-draggable:has([data-testid="slide-element"])').first().click()
+      await w.locator('[data-testid="design-toolbar-tab-home"]').click()
+    },
+    picker: 'design-font-family',
+    shows: 'Lora'
+  },
+  {
+    app: {
+      ...APPS[2]!,
+      body: { version: 1, nodes: [{ id: 'a', x: 200, y: 160, label: 'Node A', shape: 'process', color: '#336699', style: { fontFamily: 'Georgia, serif' } }], edges: [] }
+    },
+    select: async (w: Page): Promise<void> => {
+      await w.locator('.react-flow__node').first().click()
+      await w.locator('[data-testid="diagram-toolbar-tab-text"]').click()
+    },
+    picker: 'diagram-font',
+    shows: 'Georgia'
+  }
+]
+
+for (const fc of FONT_CASES) {
+  test(`${fc.app.name}, as a viewer: the Font picker shows the font, opens nothing, and says the sentence`, async () => {
+    test.setTimeout(120_000)
+    const { w, writes } = await openAsViewer(fc.app)
+    await fc.select(w)
+    const picker = w.locator(`[data-testid="${fc.app.bar}"] [data-testid="${fc.picker}"]`)
+    await expect(picker).toBeVisible()
+    // It shows the document's font.
+    await expect(picker).toContainText(fc.shows)
+    // Off, with the shell's sentence in the same shape as every stamped control.
+    await expect(picker).toBeDisabled()
+    await expect(picker).toHaveAttribute('title', `Font — ${SENTENCE}`)
+    // A click opens nothing (forced past Playwright's enabled check: a person's click lands on it regardless).
+    await picker.click({ force: true })
+    await w.waitForTimeout(400)
+    await expect(w.locator('[data-testid="font-picker-panel"]')).toHaveCount(0)
+    await expect(picker).toContainText(fc.shows)
+    expect(writes, 'a viewer wrote nothing').toEqual([])
+  })
+}
+
+// The same document as an EDITOR: the same picker opens and changes the font
+// (the slot is off only in a read-only bar).
+test('Diagrams, as an editor: the Font picker opens and changes the font', async () => {
+  test.setTimeout(120_000)
+  const fc = FONT_CASES[1]!
+  const { w, writes } = await openAsViewer(fc.app, 'editor')
+  await fc.select(w)
+  const picker = w.locator(`[data-testid="${fc.app.bar}"] [data-testid="${fc.picker}"]`)
+  await expect(picker).toBeEnabled()
+  await expect(picker).toHaveAttribute('title', 'Font')
+  await expect(picker).toContainText('Georgia')
+  await picker.click()
+  const panel = w.locator('[data-testid="font-picker-panel"]')
+  await expect(panel).toBeVisible()
+  await panel.getByRole('button', { name: 'Arial', exact: true }).click()
+  await expect(panel).toHaveCount(0)
+  await expect(picker).toContainText('Arial')
+  // The change reached the shape's text, and went to the live room as an edit.
+  await expect.poll(() => w.locator('.react-flow__node').first().evaluate((n) => [...n.querySelectorAll<HTMLElement>('*')].map((e) => getComputedStyle(e).fontFamily).join('|')), { timeout: 6_000 }).toMatch(/Arial/)
+  await expect.poll(() => writes.includes('yjsUpdate'), { message: 'the editor sent the change', timeout: 6_000 }).toBe(true)
 })

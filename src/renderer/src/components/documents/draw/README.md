@@ -272,7 +272,10 @@ export default gradient
 - A contextual tab appears while `when` holds and never switches to itself
   (owner D3); when it vanishes while active, the bar falls back to Home.
 - A read-only drawing greys every control without `readOnlySafe` and says why
-  (the bar's `readOnly`); a `BarCustom` widget asks `useBarReadOnly()`.
+  (the bar's `readOnly`). A `BarCustom` is off as a whole in a read-only bar
+  unless it is `readOnlySafe` (the shell disables it as a fieldset); a widget
+  inside with a tooltip or popover of its own asks `useBarSlot()`, and one
+  that gates on the drawing's own state too asks `useBarReadOnly()`.
 
 ## Add a panel: one new file
 

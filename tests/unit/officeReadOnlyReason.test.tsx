@@ -127,6 +127,9 @@ import { buildDesignCommands, type DesignCommandDeps } from '../../src/renderer/
 import { buildDeckCommands, type DeckCommandDeps } from '../../src/renderer/src/components/documents/slides/deckCommands'
 import { drawBarTabs } from '../../src/renderer/src/components/documents/draw/bar/registry'
 import { drawRailItems, type RailCtx } from '../../src/renderer/src/components/documents/draw/render/rail'
+import RightSlot from '../../src/renderer/src/components/documents/draw/render/RightSlot'
+import StartFromMenu from '../../src/renderer/src/components/documents/design/StartFromMenu'
+import { commandById } from '../../src/renderer/src/components/documents/draw/commands/registry'
 import { drawCommands, drawMenus } from '../../src/renderer/src/components/documents/draw/commands/registry'
 import { setKeyPlatform } from '../../src/renderer/src/components/documents/draw/commands/keys'
 import { buildMenu } from '../../src/renderer/src/components/documents/editor/DrawStudioMenuBar'
@@ -192,6 +195,18 @@ const cellsCtx = anyFn<CCtx>({ a: sheetA, readOnly: true, fmt: undefined, active
 // Deck: a text box selected, then a shape (its contextual tab).
 const textEl = { id: 't', type: 'text', x: 0, y: 0, w: 200, h: 60, z: 1, paragraphs: [{ runs: [{ text: 'Hi', fontSize: 24 }] }] } as unknown as SlideElement
 const shapeEl = { id: 'sh', type: 'shape', shape: 'rect', x: 0, y: 0, w: 100, h: 100, z: 2, fill: '#2563eb' } as unknown as SlideElement
+// An image and a chart: their contextual tabs hold the Alt text and Chart title fields (BarCustom).
+const imageEl = { id: 'im', type: 'image', x: 0, y: 0, w: 100, h: 100, z: 3, src: 'data:image/png;base64,', alt: 'A cat' } as unknown as SlideElement
+const chartEl = {
+  id: 'ch',
+  type: 'chart',
+  x: 0,
+  y: 0,
+  w: 300,
+  h: 200,
+  z: 4,
+  chart: { type: 'bar', title: 'Sales', data: { categories: ['Q1'], series: [{ name: 'A', values: [1] }] } }
+} as unknown as SlideElement
 const deckCmds = buildDeckCommands(anyFn<DeckCommandDeps>({ readOnly: true, selected: 1, anyGrouped: false, canUndo: true, canRedo: false, canPaste: false, singleSlide: false, textMarks: {} }))
 const deckCtx = (el: SlideElement): DeckCtx =>
   anyFn<DeckCtx>({
@@ -208,22 +223,24 @@ const deckCtx = (el: SlideElement): DeckCtx =>
     cmds: deckCmds
   })
 
-// Design: a text frame selected.
+// Design: a text frame selected, then an image (its tab holds Alt text). The
+// Start from control is the editor's real one, as DesignEditor hands it over.
 const designCmds = buildDesignCommands(anyFn<DesignCommandDeps>({ readOnly: true, selected: 1, grouped: false, canPaste: false, textMarks: {} }))
-const designCtx: DesignCtx = {
-  cmds: designCmds,
-  design: normalizeDesignBody({ width: 794, height: 1123, elements: [textEl] }),
-  selected: [textEl],
-  first: textEl,
-  fonts: ['Inter'],
-  palette: ['#000000'],
-  cmd: anyFn({}),
-  startFrom: null,
-  guidesVisible: true,
-  facing: false,
-  bleed: 0,
-  layers: []
-} as unknown as DesignCtx
+const designCtx = (el: SlideElement): DesignCtx =>
+  ({
+    cmds: designCmds,
+    design: normalizeDesignBody({ width: 794, height: 1123, elements: [el] }),
+    selected: [el],
+    first: el,
+    fonts: ['Inter'],
+    palette: ['#000000'],
+    cmd: anyFn({}),
+    startFrom: <StartFromMenu size={{ w: 794, h: 1123 }} onTemplate={noop} onSize={noop} />,
+    guidesVisible: true,
+    facing: false,
+    bleed: 0,
+    layers: []
+  }) as unknown as DesignCtx
 
 // Diagrams: a shape selected, then a line.
 const node = (id: string): MapNode => ({ id, x: 0, y: 0, label: id, shape: 'process', color: '#2563eb' })
@@ -245,12 +262,14 @@ const diagCtx = (sel: 'node' | 'edge'): DCtx =>
   )
 
 // Draw: a read-only drawing (the host's viewer flag), a text object selected, then a rectangle.
-const drawCtx = (what: 'text' | 'rect'): RailCtx => {
+const drawCtx = (what: 'text' | 'rect' | 'artboard' | 'smooth'): RailCtx => {
   const h = harness(
     blank([{ id: 'tx', type: 'text', x: 0, y: 0, w: 100, text: 'Hi', fontSize: 20, fill: { type: 'solid', color: '#000000' } }, rect('r', 150, 10, 60, 60)]),
     { readOnly: true }
   )
-  h.ed.ctx.select([what === 'text' ? 'tx' : 'r'])
+  // The Artboard tab (its name field) and a trail tool's options are tool states, not selections.
+  if (what === 'artboard' || what === 'smooth') h.tool(what)
+  else h.ed.ctx.select([what === 'text' ? 'tx' : 'r'])
   return { ctx: h.ed.ctx, s: h.state(), altHeld: () => false, sidePane: null, toggleAi: noop }
 }
 /** Draw's bar tabs as DrawStudio maps them onto the shell. */
@@ -272,7 +291,23 @@ interface Control {
   cmd?: string
   /** That command's label as the bar shows it. */
   label?: string
+  /** The BarCustom it sits in (its label, else its testid), and whether that slot declares itself read-only safe. */
+  slot?: string
+  slotSafe?: boolean
 }
+
+/** The BarCustom a control sits in: its name, and whether it is read-only safe. */
+const slotOf = (el: HTMLElement): { slot?: string; slotSafe?: boolean } => {
+  const s = el.closest<HTMLElement>('[data-bar-kind="custom"]')
+  if (!s) return {}
+  return { slot: s.getAttribute('aria-label') ?? s.dataset.testid ?? '(unnamed)', slotSafe: s.dataset.readOnlySafe === 'true' }
+}
+/**
+ * Off as the browser has it: its own `disabled`, or inside a disabled
+ * <fieldset> (which disables every form control in it, natively; the
+ * element's own `disabled` property still reads false).
+ */
+const isOff = (el: HTMLElement): boolean => (el as HTMLButtonElement).disabled || !!el.closest('fieldset[disabled]')
 
 const controlsIn = (scope: Element, registryApp: boolean): Control[] =>
   [...scope.querySelectorAll<HTMLElement>('button, select, input')]
@@ -288,7 +323,7 @@ const controlsIn = (scope: Element, registryApp: boolean): Control[] =>
         for (const l of rec.bar.keys()) if ((tip === l || tip.startsWith(`${l} — `) || tip.startsWith(`${l} (`)) && l.length > best.length) best = l
         if (best) [cmd, label] = [rec.bar.get(best), best]
       }
-      return { tip, off: (el as HTMLButtonElement).disabled, ...(cmd ? { cmd } : {}), ...(label ? { label } : {}) }
+      return { tip, off: isOff(el), ...(cmd ? { cmd } : {}), ...(label ? { label } : {}), ...slotOf(el) }
     })
 
 /** The tooltip with a trailing key hint " (⌘B)" removed: barTip drops the key when it shows a reason. */
@@ -306,7 +341,16 @@ interface Verdict {
   /** Bar controls tied to a command, with the document state they were rendered in. */
   pairs: Array<{ cmd: string; label?: string; tip: string; off: boolean; state: number }>
   /** Controls LIVE in the read-only render: where, what it shows, and the registry command it renders from, if any. */
-  live: Array<{ where: string; tip: string; cmd?: string }>
+  live: Array<{ where: string; tip: string; cmd?: string; slot?: string; slotSafe?: boolean }>
+  /** Every control met inside a BarCustom, as the viewer gets it. */
+  slotted: Array<{ where: string; tip: string; off: boolean; slot: string; slotSafe: boolean }>
+  /** Every BarCustom met in the read-only render (a read-out with no control in it too), and whether it says it is read-only safe. */
+  slots: Map<string, boolean>
+}
+
+/** Every BarCustom under `scope`, by name, with its read-only-safe declaration. */
+const slotsIn = (scope: Element, into: Map<string, boolean>): void => {
+  for (const s of scope.querySelectorAll<HTMLElement>('[data-bar-kind="custom"]')) into.set(s.getAttribute('aria-label') ?? s.dataset.testid ?? '(unnamed)', s.dataset.readOnlySafe === 'true')
 }
 
 /**
@@ -321,9 +365,10 @@ function judge(where: string, state: number, ro: Control[], own: Control[], out:
   ro.forEach((c, i) => {
     const o = own[i]!
     if (c.cmd) out.pairs.push({ cmd: c.cmd, ...(c.label ? { label: c.label } : {}), tip: c.tip, off: c.off, state })
+    if (c.slot !== undefined) out.slotted.push({ where, tip: c.tip, off: c.off, slot: c.slot, slotSafe: !!c.slotSafe })
     if (!c.off) {
       // Read-only safe: live in a read-only document. Which ones is checked below.
-      out.live.push({ where, tip: c.tip, ...(c.cmd ? { cmd: c.cmd } : {}) })
+      out.live.push({ where, tip: c.tip, ...(c.cmd ? { cmd: c.cmd } : {}), ...(c.slot !== undefined ? { slot: c.slot, slotSafe: !!c.slotSafe } : {}) })
       return
     }
     out.checked++
@@ -372,6 +417,8 @@ interface App {
   minKept: number
   /** Fewest controls whose command itself says the sentence (its registry gates read-only first). */
   minFromCommand: number
+  /** What the app puts in the bar's right slot, walked by the same rule (Draw's zoom). */
+  rightSlot?: (ctx: never) => JSX.Element
 }
 
 const flat = (list: MenuItem[]): Array<MenuItem & { kind: 'item'; cmdId?: string }> =>
@@ -451,7 +498,7 @@ const APPS: App[] = [
   {
     name: 'Deck',
     tabs: DECK_TABS as never,
-    ctxs: [deckCtx(textEl), deckCtx(shapeEl)],
+    ctxs: [deckCtx(textEl), deckCtx(shapeEl), deckCtx(imageEl), deckCtx(chartEl)],
     rail: deckRailItems as never,
     railCtx: deckCtx(textEl),
     registry: true,
@@ -467,7 +514,7 @@ const APPS: App[] = [
   {
     name: 'Design',
     tabs: DESIGN_TABS as never,
-    ctxs: [designCtx],
+    ctxs: [designCtx(textEl), designCtx(imageEl)],
     rail: designRailItems as never,
     railCtx: anyFn<DesignRailCmds>(),
     registry: true,
@@ -495,7 +542,7 @@ const APPS: App[] = [
   {
     name: 'Draw',
     tabs: drawTabs as never,
-    ctxs: [drawText, drawCtx('rect')],
+    ctxs: [drawText, drawCtx('rect'), drawCtx('artboard'), drawCtx('smooth')],
     rail: drawRailItems as never,
     railCtx: drawText,
     registry: false,
@@ -504,12 +551,13 @@ const APPS: App[] = [
     // Draw's commands gate read-only first too; its kept reasons are the
     // stroke controls' "choose a stroke paint first" (Home, nothing to stroke).
     minKept: 4,
-    minFromCommand: 50
+    minFromCommand: 50,
+    rightSlot: (c: RailCtx) => <RightSlot ctx={c.ctx} />
   }
 ]
 
 function walk(app: App): Verdict {
-  const out: Verdict = { stamped: 0, fromCommand: 0, kept: [], checked: 0, wrong: [], pairs: [], live: [] }
+  const out: Verdict = { stamped: 0, fromCommand: 0, kept: [], checked: 0, wrong: [], pairs: [], live: [], slotted: [], slots: new Map() }
   for (const [ci, ctx] of app.ctxs.entries()) {
     for (const tab of app.tabs) {
       if (tab.when && !tab.when(ctx as never)) continue
@@ -518,11 +566,27 @@ function walk(app: App): Verdict {
         act(() => root.render(<ContextBar testid="bar" tabs={app.tabs} ctx={ctx as never} activeTab={tab.id} onTabChange={noop} readOnly={readOnly} menuBar={null} />))
         const panel = host.querySelector('[data-testid="bar-panel"] [role="toolbar"]')!
         const list = controlsIn(panel, app.registry)
+        if (readOnly) slotsIn(panel, out.slots)
         act(() => root.render(<></>))
         return list
       })
       judge(`${app.name} › ${tab.label}${app.ctxs.length > 1 ? ` (state ${ci + 1})` : ''}`, ci, renders[0]!, renders[1]!, out)
     }
+  }
+  // The bar's right slot, by the same rule.
+  if (app.rightSlot) {
+    const ctx = app.ctxs[0]
+    const tab = app.tabs[0]!
+    const rs = [true, false].map((readOnly) => {
+      act(() =>
+        root.render(<ContextBar testid="bar" tabs={app.tabs} ctx={ctx as never} activeTab={tab.id} onTabChange={noop} readOnly={readOnly} menuBar={null} rightSlot={<div data-testid="rs">{app.rightSlot!(ctx as never)}</div>} />)
+      )
+      const list = controlsIn(host.querySelector('[data-testid="rs"]')!, false)
+      if (readOnly) slotsIn(host.querySelector('[data-testid="rs"]')!, out.slots)
+      act(() => root.render(<></>))
+      return list
+    })
+    judge(`${app.name} › right slot`, 0, rs[0]!, rs[1]!, out)
   }
   // The rail, by the same rule.
   const rails = [true, false].map((readOnly) => {
@@ -712,17 +776,6 @@ const HAND_SAFE_CONTROLS: Record<string, Record<string, string>> = {
   }
 }
 
-/**
- * NOT safe, and named so it cannot hide: the font picker sits in a BarCustom,
- * whose content the read-only bar does not gate in ANY office app (a shell
- * primitive, d8's; reported by viewer-registry-41). A viewer can open it; the
- * editor refuses the change. Remove the entry when BarCustom gates read-only.
- */
-const KNOWN_SHELL_GAP: Record<string, Record<string, string>> = {
-  Design: { Font: 'BarCustom (FontPicker) is not gated by a read-only bar' },
-  Diagrams: { Font: 'BarCustom (FontPicker) is not gated by a read-only bar' }
-}
-
 describe.each((['Design', 'Diagrams'] as const).map((n) => [n, APPS.find((a) => a.name === n)!] as const))('%s: every row and control a viewer sees', (name, app) => {
   it('every menu row is off with the sentence, or read-only safe', () => {
     const wrong: string[] = []
@@ -762,8 +815,12 @@ describe.each((['Design', 'Diagrams'] as const).map((n) => [n, APPS.find((a) => 
     const v = verdict(app)
     const wrong: string[] = []
     const handSeen = new Set<string>()
-    const gapSeen = new Set<string>()
     for (const l of v.live) {
+      // A control in a BarCustom is live only in a read-only-safe slot: judged by the custom-slot rule below.
+      if (l.slot !== undefined) {
+        if (!l.slotSafe || CUSTOM_SLOTS[name]![l.slot]?.safe !== true) wrong.push(`${l.where}: "${l.tip}" is live in the custom slot "${l.slot}", which is not read-only safe`)
+        continue
+      }
       if (l.cmd) {
         // Registry-backed: barProps gave readOnlySafe from the command's gate (asserted above); it must say yes.
         if (rec.answer.get(l.cmd) !== true) wrong.push(`${l.where}: "${l.tip}" (${l.cmd}) is live, but its command writes`)
@@ -774,13 +831,129 @@ describe.each((['Design', 'Diagrams'] as const).map((n) => [n, APPS.find((a) => 
         .filter((k) => l.tip === k || l.tip.startsWith(`${k} (`) || l.tip.startsWith(`${k} — `))
         .sort((a, b) => b.length - a.length)[0]
       if (label) handSeen.add(label)
-      else if (l.tip in KNOWN_SHELL_GAP[name]!) gapSeen.add(l.tip)
       else wrong.push(`${l.where}: "${l.tip}" is written by hand and live for a viewer`)
     }
     expect(wrong, `${name}: live controls`).toEqual([])
     expect([...handSeen].sort(), `${name}: every hand-written safe control named is still there`).toEqual(Object.keys(HAND_SAFE_CONTROLS[name]!).sort())
-    // The named gap is still a gap (when the shell closes it, this fails: delete the entry).
-    expect([...gapSeen].sort(), `${name}: known shell gap`).toEqual(Object.keys(KNOWN_SHELL_GAP[name]!).sort())
+  })
+})
+
+// ── Custom slots: off with the sentence, or read-only safe ───────────────────
+//
+// shell-slot-ro-41. A BarCustom holds an app's own widget (the FontPicker, a
+// raw field, Start from, Draw's Transform cluster). Until this branch the shell
+// did not gate it: in a read-only document of ANY of the six apps the Font
+// picker opened, and the editor's refusal was all that stood behind it. Now a
+// read-only bar turns every BarCustom off (a disabled fieldset, its controls
+// saying "Label — This document is read-only.") unless the slot declares
+// itself `readOnlySafe`. The rule, for every slot a viewer meets:
+//
+//   * each one is named below with its decision; a new slot fails here until
+//     it is decided;
+//   * the decision comes from the command the slot runs where there is one
+//     (`cmds`: readOnlySafeOf for the registries, the gate for Draw), and
+//     where there is none it says so (`none`);
+//   * a live control sits only in a slot decided safe; every control in a slot
+//     decided off is off, and says the sentence or a reason of its own.
+
+/** A slot's read-only decision: from its commands, or, with none, why. */
+type SlotDecision = { safe: boolean } & ({ cmds: string[] } | { none: string })
+
+/** Every BarCustom a viewer meets in each app, by its label (else its testid). */
+const CUSTOM_SLOTS: Record<string, Record<string, SlotDecision>> = {
+  Write: {
+    Font: { safe: false, none: 'sets the font family of the text (writes)' },
+    View: { safe: true, cmds: ['doc-page-continuous', 'doc-page-paged'] },
+    'Paper size': { safe: false, none: "writes the document's page setup" }
+  },
+  Cells: {
+    Font: { safe: false, none: 'sets the font family of the cells (writes)' }
+  },
+  Deck: {
+    Font: { safe: false, none: 'sets the font family of the text box (writes)' },
+    'Slide font (from the theme)': { safe: true, none: "a read-out of the theme's heading face; nothing in it acts" },
+    'Alt text': { safe: false, none: "writes the image's alt text" },
+    'Chart title': { safe: false, none: "writes the chart's title" }
+  },
+  Design: {
+    Font: { safe: false, none: 'sets the font family of the text frame (writes)' },
+    'Start from': { safe: false, none: 'applies a template or a page size (writes)' },
+    'Alt text': { safe: false, none: "writes the image's alt text" }
+  },
+  Diagrams: {
+    Font: { safe: false, none: 'sets the font family of the shape (writes)' },
+    'Shape type': { safe: false, none: 'changes the shape (writes)' },
+    'Line label': { safe: false, none: "writes the line's label" }
+  },
+  // Draw's bar-only commands (object.textPatch, object.fill, object.stroke,
+  // object.alignSpacing, path.prefs, the view.zoom* set) carry no gate, so no
+  // read-only answer to derive from: history refuses a read-only write, and
+  // the view commands only look. Those are decided here by what they do.
+  Draw: {
+    Font: { safe: false, none: 'object.textPatch has no gate; it sets the font family (writes)' },
+    Transform: { safe: false, none: 'moves, scales, rotates and shears (writes); the 9-point reference and Constrain only steer those edits' },
+    Spacing: { safe: false, none: 'object.alignSpacing has no gate; the exact gap only steers Distribute spacing, which writes' },
+    Artboard: { safe: false, cmds: ['artboard.rename'] },
+    'Smooth options': { safe: false, none: "path.prefs has no gate; the Smooth tool's settings only steer the tool, which writes" },
+    'draw-fill-cluster': { safe: false, none: 'object.fill has no gate; it sets the fill (writes)' },
+    'draw-stroke-cluster': { safe: false, none: 'object.stroke has no gate; it sets the stroke (writes)' },
+    'draw-text-color-cluster': { safe: false, none: "object.fill has no gate; it sets the text's colour (writes)" },
+    Zoom: { safe: true, none: 'the view.zoom* commands have no gate; they set the zoom, not the drawing (the zoom buttons beside it are readOnlySafe alike)' }
+  }
+}
+
+/** Is the command read-only safe, by its own registry's answer, in the read-only fixture? */
+function commandSafe(app: App, id: string): boolean | undefined {
+  if (app.name === 'Draw') {
+    // Only a gated command answers; an ungated one is decided by hand (`none`).
+    const c = commandById(id)
+    return c?.disabledReason ? c.disabledReason(drawText.ctx) !== SENTENCE : undefined
+  }
+  const reg = { Write: writeCmds, Cells: cellsCmds, Deck: deckCmds, Design: designCmds, Diagrams: diagCtx('node').cmds }[app.name] as unknown as Record<string, OfficeCommand>
+  const c = reg[id] ?? Object.values(reg).find((x) => x.id === id)
+  return c ? readOnlySafeOf(c) : undefined
+}
+
+describe.each(APPS.map((a) => [a.name, a] as const))('%s: every custom-slot control a viewer sees', (name, app) => {
+  it('is off with the sentence, or sits in a slot decided read-only safe', () => {
+    verdicts.delete(app.name)
+    const v = verdict(app)
+    const decided = CUSTOM_SLOTS[name]!
+    const wrong: string[] = []
+    const seen = new Set<string>()
+    for (const c of v.slotted) {
+      seen.add(c.slot)
+      const d = decided[c.slot]
+      if (!d) {
+        wrong.push(`${c.where}: the custom slot "${c.slot}" ("${c.tip}") is not decided: add it to CUSTOM_SLOTS`)
+        continue
+      }
+      if (c.slotSafe !== d.safe) wrong.push(`${c.where}: the slot "${c.slot}" says readOnlySafe=${c.slotSafe}, decided ${d.safe}`)
+      if (!c.off) {
+        if (!d.safe) wrong.push(`${c.where}: "${c.tip}" in the slot "${c.slot}" is LIVE for a viewer`)
+        continue
+      }
+      if (d.safe) continue // off for a reason of its own inside a safe slot (judged by rule 2 above)
+      // Off: the sentence, after its label; or a reason of its own (judged by rule 2 above, which pairs it with its own render).
+      if (reasonOf(c.tip) === null) wrong.push(`${c.where}: "${c.tip}" in the slot "${c.slot}" is off and does not say why`)
+    }
+    // Every slot, control or none: decided, and saying what was decided.
+    for (const [slot, safe] of v.slots) {
+      const d = decided[slot]
+      if (!d) wrong.push(`the custom slot "${slot}" is not decided: add it to CUSTOM_SLOTS`)
+      else if (safe !== d.safe) wrong.push(`the slot "${slot}" says readOnlySafe=${safe}, decided ${d.safe}`)
+    }
+    expect(wrong, `${name}: custom-slot controls`).toEqual([])
+    // Not stale, and not vacuous: every decided slot was met; and every slot
+    // decided off had a control in it that the walk saw off.
+    expect([...v.slots.keys()].sort(), `${name}: custom slots met`).toEqual(Object.keys(decided).sort())
+    const offSlots = Object.keys(decided).filter((k) => !decided[k]!.safe)
+    expect(offSlots.filter((k) => !seen.has(k)), `${name}: off slots with no control seen`).toEqual([])
+    // The decision is the command's where there is one.
+    for (const [slot, d] of Object.entries(decided)) {
+      if (!('cmds' in d)) continue
+      for (const id of d.cmds) expect(commandSafe(app, id), `${name}: ${slot} runs ${id}`).toBe(d.safe)
+    }
   })
 })
 
