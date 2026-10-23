@@ -9,10 +9,10 @@ import { finishCurvature } from '../tools/curvature.tool'
 import { finishPen, popPenAnchor } from '../tools/pen.tool'
 import { nudgeSelection } from '../transform/apply'
 import { escapeIntent } from '../../../office/shell/chrome'
+import { firstOf, gate, notReadOnly, unless } from './gate'
 
 /** Selection tools: Esc deselects with these rather than switching tool. */
 const SELECTION_TOOLS = new Set(['select', 'direct', 'groupSelect', 'lasso'])
-import { firstOf, gate, notReadOnly, unless } from './gate'
 
 const hasSelection = (ctx: EditorCtx): boolean => ctx.get().selection.length > 0
 /** What Duplicate acts on: selected objects that are not locked or hidden. */
