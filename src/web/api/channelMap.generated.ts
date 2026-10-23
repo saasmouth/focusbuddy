@@ -653,7 +653,6 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'mdext.onIncomingPath': 'mdext:incoming-path',
   'meet.onIncomingRoom': 'meet:incoming-room',
   'share.onIncomingToken': 'share:incoming-token',
-  'snippets.onChanged': 'snippets:changed',
   'tables.onRowsChanged': 'tables:rowsChanged',
   'update.onState': 'update:state',
   'webMenu.onCommand': 'webMenu:command',
