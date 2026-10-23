@@ -1,4 +1,4 @@
-// Pan (H): drag to scroll the canvas. Holding Space, or dragging with the
+// Hand (H): drag to scroll the canvas. Holding Space, or dragging with the
 // middle button, pans from any tool (the dispatcher routes those here).
 
 import type { DrawTool } from '../editor/types'
@@ -10,10 +10,11 @@ interface PanGesture {
 
 const hand: DrawTool = {
   id: 'hand',
-  label: 'Pan',
+  label: 'Hand',
   icon: 'pan_tool',
-  group: 5,
-  order: 160,
+  // With the selection tools, as every office app's rail has it (SPEC §3.1).
+  group: 0,
+  order: 24,
   key: 'H',
   cursor: 'grab',
   readOnlySafe: true,

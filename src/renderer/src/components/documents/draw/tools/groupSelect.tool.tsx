@@ -58,7 +58,8 @@ const groupSelect: DrawTool = {
   label: 'Group selection',
   icon: 'ads_click',
   group: 0,
-  order: 15,
+  // After Direct Selection (20), so the flyout leads with Direct, as Illustrator's does.
+  order: 21,
   flyout: 'direct',
   cursor: 'default',
   overlayOrder: 1,

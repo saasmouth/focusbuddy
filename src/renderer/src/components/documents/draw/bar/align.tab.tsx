@@ -106,6 +106,6 @@ function keyHint(to: AlignToMode, hasKey: boolean): string {
   return 'An exact spacing is measured from a key object: choose Align to key object to use it.'
 }
 
-const align: DrawBarTab = { id: 'align', label: 'Align', order: 30, component: AlignControls }
+const align: DrawBarTab = { id: 'align', label: 'Align', role: 'app', order: 30, component: AlignControls }
 
 export default align

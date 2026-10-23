@@ -10,6 +10,7 @@ import {
   ShellSidePane,
   SIDE_PANE_DOM_ID,
   ToolRail,
+  useShellChrome,
   type SidePane
 } from '../office/shell'
 import type { SheetMenuActions } from './editor/SheetMenuBar'
@@ -25,8 +26,6 @@ import { CELLS_TABS, cellsRailItems, type CCtx, type CellsPanel, type CellsSideP
 // every operation stay with SheetEditor and arrive here as `actions`: this
 // component places chrome, it does not own the sheet.
 
-const TAB_KEY = 'plexii.sheet.ribbonTab'
-const COLLAPSE_KEY = 'plexii.sheet.ribbonCollapsed'
 const PINS_KEY = 'plexii.sheet.pinnedPanels'
 
 function readPref<T>(k: string, fallback: T): T {
@@ -83,19 +82,13 @@ const PANEL_META: Record<CellsPanel, { title: string; icon: string; width?: numb
 export default function CellsChrome(props: CellsChromeProps): JSX.Element {
   const { actions, readOnly, menuBar, aiOpen, onAiOpen, panelBodies, bottom, children } = props
 
-  const [tab, setTabState] = useState<string>(() => readPref<string>(TAB_KEY, 'home'))
-  const [collapsed, setCollapsedState] = useState<boolean>(() => readPref<boolean>(COLLAPSE_KEY, false))
+  // Tab (opens on Home), collapse (remembered) and the Chart flyout's last
+  // pick: the same host state as every office app (SPEC §3.9).
+  const chrome = useShellChrome('sheet', { chart: 'chart-bar' })
+  const { tab, setTab: changeTab, collapsed, setCollapsed: changeCollapsed } = chrome
   const [open, setOpen] = useState<CellsPanel[]>([])
   const [pinned, setPinned] = useState<CellsPanel[]>(() => readPref<CellsPanel[]>(PINS_KEY, []))
 
-  const changeTab = useCallback((id: string) => {
-    setTabState(id)
-    writePref(TAB_KEY, id)
-  }, [])
-  const changeCollapsed = useCallback((v: boolean) => {
-    setCollapsedState(v)
-    writePref(COLLAPSE_KEY, v)
-  }, [])
 
   const isPanelOpen = useCallback((p: CellsPanel) => open.includes(p), [open])
   const togglePanel = useCallback(
@@ -205,6 +198,8 @@ export default function CellsChrome(props: CellsChromeProps): JSX.Element {
           items={railItems}
           ctx={ctx}
           openPanels={sidePane ? [...open, sidePane] : open}
+          lastUsed={chrome.lastUsed}
+          onFlyoutPick={chrome.onFlyoutPick}
           readOnly={readOnly}
           ariaLabel="Sheet tools"
         />

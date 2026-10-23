@@ -63,6 +63,7 @@ export function initialEditorState(content: unknown, hostReadOnly = false): Edit
     past: [],
     future: [],
     tool: 'select',
+    toolLocked: null,
     selection: [],
     zoom: 1,
     fill: solid('#6d5dfc'),
@@ -151,7 +152,9 @@ export function createDrawEditor(
     // An object-level selection replaces any anchor-level one.
     select: (ids) => store.setState({ selection: ids, anchors: {} }),
     // Choosing any other tool unloads the Place cursor, as in Illustrator.
-    setTool: (id) => store.setState(id === 'place' ? { tool: id } : { tool: id, placing: null }),
+    // Choosing another tool also ends a tool lock (SPEC §3.2).
+    setTool: (id) =>
+      store.setState((s) => ({ ...(id === 'place' ? { tool: id } : { tool: id, placing: null }), toolLocked: s.toolLocked === id ? id : null })),
     run: (id, args) => {
       const c = commandById(id)
       if (c) void c.run(ctx, args)

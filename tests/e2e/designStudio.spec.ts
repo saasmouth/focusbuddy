@@ -24,7 +24,9 @@ async function ensureTemplatesOpen(window: Page): Promise<void> {
   const tpl = window.locator('[data-testid="design-template-social-quote"]')
   if (!(await tpl.isVisible().catch(() => false))) {
     await selectBarTab(window, 'design-toolbar', 'layout')
-  await window.locator('[data-testid="design-start-btn"]').click()
+    // The first visit to Layout on an empty design opens Start from by itself.
+    await window.waitForTimeout(300)
+    if (!(await tpl.isVisible().catch(() => false))) await window.locator('[data-testid="design-start-btn"]').click()
   }
   await expect(tpl).toBeVisible({ timeout: 5_000 })
 }
@@ -180,8 +182,12 @@ test.describe('PlexiDesign studio', () => {
     await placeDesign(window, 'text')
     await expect(window.locator('[data-testid="design-font-family"]')).toBeVisible()
     await selectBarTab(window, 'design-toolbar', 'home')
-    await window.locator('[data-testid="design-font-family"]').selectOption('Poppins')
-    await expect(window.locator('[data-testid="design-font-family"]')).toHaveValue('Poppins')
+    // The family control is the FontPicker every office app uses (SPEC §3.9).
+    await window.locator('[data-testid="design-font-family"]').click()
+    const panel = window.locator('[data-testid="font-picker-panel"]')
+    await panel.locator('input').fill('Poppins')
+    await panel.getByRole('button', { name: 'Poppins', exact: true }).click()
+    await expect(window.locator('[data-testid="design-font-family"]')).toContainText('Poppins')
   })
 
   test('DS-12 stock photo search is honest without a key', async () => {

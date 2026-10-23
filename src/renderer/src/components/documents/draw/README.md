@@ -9,20 +9,28 @@ bar or a shared list.
 The studio sits on the shared office shell (`components/office/shell`, spec
 `docs/office-shell/SPEC.md` §6.2), like every office app:
 
-- the **tool rail** on the left is the tool registry (`render/rail.tsx`):
-  the toolbox's sections and order, each tool's LIVE key, flyouts, the
-  overlay-panel buttons at the bottom and the fill/stroke chips under them;
+- the **tool rail** on the left is the tool registry (`render/rail.tsx`), in
+  the order every office app's rail keeps (SPEC §3.9): Select, the selection
+  tools and the Hand; Type, the Shapes flyout and the path tools; Image
+  (Place…); then Draw's own sections in toolbox order; the overlay-panel
+  buttons and PlexiiAssist (the side pane) at the bottom, and the fill/stroke
+  chips under them. `drawRailRole()` gives each tool its place; each tool's
+  LIVE key and flyouts come from the registry. Type and the shapes lock on a
+  double-click (`toolLocked`: they stay armed after placing until Esc or
+  another tool); Esc returns any tool but a selection tool to Select;
 - the **top bar** (ContextBar): the menu bar and the tabs on one row; Undo and
   Redo pinned left, the active tab's controls, and zoom, fit, grid, snap, the
   artboard size and the status at the right (`render/RightSlot.tsx`). Tabs are
-  `bar/*.tab.tsx`: Home, Object and Align always, contextual ones (Type, Shape,
+  `bar/*.tab.tsx`: Home, Insert, Object (the shared Arrange slot) and Align
+  always, each with a `role`; the bar opens on Home; contextual ones (Type, Shape,
   Brush, Anchors, Path, Group, Image, Artboard) while their context holds;
 - **overlay panels** (`panels/*.panel.tsx`: Layers F7, Artboards) float over
   the canvas beside the rail and can be pinned. **There is no right-hand
   inspector and no docked panel column** (owner ruling). A pinned panel insets
   the viewport (`StudioRefs.inset`), so ⌘0 and Paste use the part it leaves.
-- Content panes (an AI or comments pane, anything read and typed in) would go
-  in the shell's right `ShellSidePane`; Draw has none today.
+- Content panes (anything read and typed in) go in the shell's right
+  `ShellSidePane`: PlexiiAssist (`AiSidePane.tsx`), opened from the bar's
+  right slot or the rail's last item.
 - The shell adds **no key listener**: the editor's keymap is the only key
   handler. Arrows, Enter and Space on a focused bar or rail control stay with
   that control; tool letters and command chords still reach the keymap. The one shared file is `commands/keymap.ts`, and only when you add
@@ -75,8 +83,8 @@ const measure: DrawTool = {
   id: 'measure',
   label: 'Measure',
   icon: 'straighten',
-  group: 5,             // rail section; a divider is drawn between sections
-  order: 170,           // position on the rail (existing tools use 10..160)
+  group: 5,             // toolbox section; on the rail, Draw's own sections are divided (see drawRailRole)
+  order: 170,           // position in the toolbox (existing tools use 10..160)
   // flyout: 'measure',  // optional: tools sharing a flyout show as ONE rail button
   // key: 'Shift+W',    // optional: Illustrator's key for the tool ('M', 'Shift+W'); a unit test fails on a clash
   // onOptions(ctx) {},  // optional options dialog: Enter while active, or double-click the tool
@@ -127,7 +135,7 @@ Rules:
   `ctx.text` for measuring type, `ctx.viewport` and `ctx.host`. That is what
   lets the harness drive your tool with fakes.
 - **Read-only drawings:** the dispatcher sends input only to tools with
-  `readOnlySafe: true` (Select and Pan), and `history` refuses to write. Do not
+  `readOnlySafe: true` (Select and Hand), and `history` refuses to write. Do not
   work around either.
 - A tool with `hidden: true` is a MODE a command switches to, not a toolbox
   button (the Place cursor, `tools/place.tool.tsx`). It has no letter.

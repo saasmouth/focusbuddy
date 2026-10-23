@@ -10,6 +10,7 @@ import {
   BarToggle,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
+  railGroup,
   type BarTab,
   type RailItem
 } from '../../office/shell'
@@ -89,23 +90,24 @@ const CHART_TYPES = ['bar', 'line', 'area', 'pie', 'scatter'] as const
 const homeTab: BarTab<CCtx> = {
   id: 'home',
   label: 'Home',
+  role: 'home',
   render: (c) => {
     const { a, fmt } = c
     return (
       <>
-        <BarToggle icon="format_bold" label="Bold" shortcut="⌘B" pressed={!!fmt?.bold} onChange={(v) => a.format({ bold: v })} />
-        <BarToggle icon="format_italic" label="Italic" shortcut="⌘I" pressed={!!fmt?.italic} onChange={(v) => a.format({ italic: v })} />
-        <BarToggle icon="format_underlined" label="Underline" shortcut="⌘U" pressed={!!fmt?.underline} onChange={(v) => a.format({ underline: v })} />
-        <BarCustom label="Font">
+        <BarCustom label="Font" semantic="font-family">
           <FontPicker value={c.activeFont} onChange={(v) => a.format({ fontFamily: v })} compact />
         </BarCustom>
+        <BarToggle icon="format_bold" semantic="bold" label="Bold" shortcut="⌘B" pressed={!!fmt?.bold} onChange={(v) => a.format({ bold: v })} />
+        <BarToggle icon="format_italic" semantic="italic" label="Italic" shortcut="⌘I" pressed={!!fmt?.italic} onChange={(v) => a.format({ italic: v })} />
+        <BarToggle icon="format_underlined" semantic="underline" label="Underline" shortcut="⌘U" pressed={!!fmt?.underline} onChange={(v) => a.format({ underline: v })} />
         <BarSep />
-        <BarColor icon="format_color_text" label="Text colour" value={fmt?.color} palette={TEXT_PALETTE} onChange={(v) => a.format({ color: v })} />
+        <BarColor icon="format_color_text" semantic="text-color" label="Text colour" value={fmt?.color} palette={TEXT_PALETTE} onChange={(v) => a.format({ color: v })} />
         <BarColor icon="format_color_fill" label="Fill colour" allowNone value={fmt?.bg} palette={FILL_PALETTE} onChange={(v) => a.format({ bg: v })} />
         <BarSep />
-        <BarToggle icon="format_align_left" label="Align left" pressed={fmt?.align === 'left'} onChange={() => a.format({ align: 'left' })} />
-        <BarToggle icon="format_align_center" label="Align center" pressed={fmt?.align === 'center'} onChange={() => a.format({ align: 'center' })} />
-        <BarToggle icon="format_align_right" label="Align right" pressed={fmt?.align === 'right'} onChange={() => a.format({ align: 'right' })} />
+        <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={fmt?.align === 'left'} onChange={() => a.format({ align: 'left' })} />
+        <BarToggle icon="format_align_center" semantic="align-center" label="Align center" pressed={fmt?.align === 'center'} onChange={() => a.format({ align: 'center' })} />
+        <BarToggle icon="format_align_right" semantic="align-right" label="Align right" pressed={fmt?.align === 'right'} onChange={() => a.format({ align: 'right' })} />
         <BarToggle
           icon={c.isMerged ? 'call_split' : 'call_merge'}
           label={c.isMerged ? 'Unmerge cells' : 'Merge the selected cells'}
@@ -142,6 +144,7 @@ const homeTab: BarTab<CCtx> = {
 const insertTab: BarTab<CCtx> = {
   id: 'insert',
   label: 'Insert',
+  role: 'insert',
   render: (c) => (
     <>
       <BarButton icon="add_row_above" label="Insert row above" onClick={c.a.insertRowAbove} />
@@ -176,6 +179,7 @@ const insertTab: BarTab<CCtx> = {
 const dataTab: BarTab<CCtx> = {
   id: 'data',
   label: 'Data',
+  role: 'app',
   render: (c) => (
     <>
       <BarButton icon="arrow_upward" label="Sort ascending" onClick={() => c.a.sort('asc')} />
@@ -198,6 +202,7 @@ const dataTab: BarTab<CCtx> = {
 const toolsTab: BarTab<CCtx> = {
   id: 'tools',
   label: 'Tools',
+  role: 'app',
   render: (c) => (
     <>
       <BarButton icon="code" label="Macros — automate the sheet with a script" showLabel onClick={c.macros} testid="sheet-macros-btn" />
@@ -213,94 +218,66 @@ export const CELLS_TABS: BarTab<CCtx>[] = [homeTab, insertTab, dataTab, toolsTab
 
 // ── Rail ─────────────────────────────────────────────────────────────────────
 
+const CHART_ICON: Record<(typeof CHART_TYPES)[number], string> = { bar: 'bar_chart', line: 'show_chart', area: 'area_chart', pie: 'pie_chart', scatter: 'scatter_plot' }
+
 /**
- * Cells has no drawing tools either, so its rail carries the panel openers and
- * the two data tools, with AI fill pinned to the bottom.
+ * Cells' rail, in the one order every app shares (SPEC §3.9). No drawing
+ * tools, so it starts at Insert: the Chart flyout (it shows the chart kind
+ * last used), Pivot, Sparkline, Lookup. Then the sheet's own tools: Filter is
+ * an on/off toggle reading the same state as the Data tab's (§3.7), and
+ * Conditional formatting, Validation, Macros and Query open SheetEditor's
+ * modals (dialog items, never panels: §5a.14). The bottom holds the one real
+ * overlay panel (Import / export) and AI fill last.
  */
 export function cellsRailItems(): RailItem<CCtx>[] {
   return [
-    {
-      id: 'condformat',
-      label: 'Conditional formatting',
-      icon: 'palette',
-      kind: 'panel',
-      group: 0,
-      order: 0,
-      onSelect: (c) => c.a.conditionalFormat(),
-      testid: 'sheet-rail-condformat'
-    },
-    {
-      id: 'validation',
-      label: 'Data validation',
-      icon: 'rule',
-      kind: 'panel',
-      group: 0,
-      order: 1,
-      onSelect: (c) => c.a.dataValidation(),
-      testid: 'sheet-rail-validation'
-    },
-    {
-      id: 'query',
-      label: 'Query',
-      icon: 'account_tree',
-      kind: 'panel',
-      group: 0,
-      order: 2,
-      onSelect: (c) => c.query(),
-      testid: 'sheet-rail-query'
-    },
-    {
-      id: 'macros',
-      label: 'Macros',
-      icon: 'code',
-      kind: 'panel',
-      group: 0,
-      order: 3,
-      onSelect: (c) => c.macros(),
-      testid: 'sheet-rail-macros'
-    },
+    ...CHART_TYPES.map(
+      (t, i): RailItem<CCtx> => ({
+        id: `chart-${t}`,
+        label: `${t[0]!.toUpperCase()}${t.slice(1)} chart`,
+        icon: CHART_ICON[t],
+        kind: 'action',
+        role: 'insert',
+        group: railGroup('insert'),
+        order: i,
+        flyout: 'chart',
+        onSelect: (c) => c.a.insertChart(t),
+        testid: `sheet-rail-chart-${t}`
+      })
+    ),
+    { id: 'pivot', label: 'Pivot table', icon: 'pivot_table_chart', kind: 'action', role: 'insert', group: railGroup('insert'), order: 10, onSelect: (c) => c.a.insertPivot(), testid: 'sheet-rail-pivot' },
+    { id: 'sparkline', label: 'Insert a sparkline of the selection into the next cell', icon: 'show_chart', kind: 'action', role: 'insert', group: railGroup('insert'), order: 11, onSelect: (c) => c.a.insertSparkline(), testid: 'sheet-rail-sparkline' },
+    { id: 'lookup', label: 'Insert a lookup (XLOOKUP) into the active cell', icon: 'search', kind: 'action', role: 'insert', group: railGroup('insert'), order: 12, onSelect: (c) => c.insertLookup(), testid: 'sheet-rail-lookup' },
     {
       id: 'filter',
       label: 'Create a filter',
       icon: 'filter_alt',
-      kind: 'action',
-      group: 1,
+      kind: 'toggle',
+      role: 'app',
+      group: railGroup('app'),
       order: 0,
+      pressed: (c) => c.a.filterActive,
       onSelect: (c) => c.a.toggleFilter(),
       testid: 'sheet-rail-filter'
     },
-    {
-      id: 'pivot',
-      label: 'Pivot table',
-      icon: 'pivot_table_chart',
-      kind: 'action',
-      group: 1,
-      order: 1,
-      onSelect: (c) => c.a.insertPivot(),
-      testid: 'sheet-rail-pivot'
-    },
+    { id: 'condformat', label: 'Conditional formatting', icon: 'palette', kind: 'action', dialog: true, role: 'app', group: railGroup('app'), order: 1, onSelect: (c) => c.a.conditionalFormat(), testid: 'sheet-rail-condformat' },
+    { id: 'validation', label: 'Data validation', icon: 'rule', kind: 'action', dialog: true, role: 'app', group: railGroup('app'), order: 2, onSelect: (c) => c.a.dataValidation(), testid: 'sheet-rail-validation' },
+    { id: 'macros', label: 'Macros', icon: 'code', kind: 'action', dialog: true, role: 'app', group: railGroup('app'), order: 3, onSelect: (c) => c.macros(), testid: 'sheet-rail-macros' },
+    { id: 'query', label: 'Query', icon: 'account_tree', kind: 'action', dialog: true, role: 'app', group: railGroup('app'), order: 4, onSelect: (c) => c.query(), testid: 'sheet-rail-query' },
     {
       id: 'office',
       label: 'Import / export',
       icon: 'folder_open',
       kind: 'panel',
-      group: 1,
-      order: 2,
+      role: 'panel',
+      group: railGroup('panel'),
+      order: 0,
+      pinned: 'bottom',
       readOnlySafe: true,
       onSelect: (c) => c.togglePanel('office'),
       testid: 'sheet-rail-office'
     },
-    {
-      id: 'ai',
-      label: 'AI fill',
-      icon: 'auto_awesome',
-      kind: 'action',
-      group: 2,
-      order: 0,
-      pinned: 'bottom',
-      onSelect: (c) => c.a.aiFill(),
-      testid: 'sheet-rail-ai'
-    }
+    { id: 'ai', label: 'AI fill', icon: 'auto_awesome', kind: 'action', role: 'ai', group: railGroup('ai'), order: 0, pinned: 'bottom', onSelect: (c) => c.a.aiFill(), testid: 'sheet-rail-ai' }
   ]
 }
 

@@ -203,7 +203,7 @@ describe('every old toolbar, inspector and side-panel control has a home on the 
     const rect = items.find((i) => i.testid === 'slides-tool-rect')!
     rect.onSelect(ctxFor('none', { setTool }))
     rect.onOptions!(ctxFor('none', { setTool }))
-    expect(setTool.mock.calls).toEqual([['rect'], ['rect', true]])
+    expect(setTool.mock.calls).toEqual([['rect', false], ['rect', true]])
     expect(Object.fromEntries(items.filter((i) => i.shortcut).map((i) => [i.testid, i.shortcut]))).toEqual({
       'slides-tool-select': 'V',
       'slides-tool-text': 'T',

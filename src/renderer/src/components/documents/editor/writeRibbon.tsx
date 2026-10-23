@@ -3,11 +3,13 @@ import {
   BarButton,
   BarColor,
   BarCustom,
+  BarFontSize,
   BarSelect,
   BarSep,
   BarToggle,
   shellPanelDomId,
   SIDE_PANE_DOM_ID,
+  railGroup,
   type BarTab,
   type RailItem
 } from '../../office/shell'
@@ -81,7 +83,7 @@ export interface WCtx {
   focusMode: () => void
 }
 
-const FONT_SIZES = ['12', '14', '16', '18', '20', '24', '30', '36']
+const FONT_SIZES = [12, 14, 16, 18, 20, 24, 30, 36]
 
 const LINE_HEIGHTS = [
   { value: '', label: 'Spacing' },
@@ -107,6 +109,7 @@ const chain = (c: WCtx): ReturnType<Editor['chain']> => c.editor.chain().focus()
 const homeTab: BarTab<WCtx> = {
   id: 'home',
   label: 'Home',
+  role: 'home',
   render: (c) => {
     const { editor } = c
     const fontSize = ((editor.getAttributes('textStyle').fontSize as string) ?? '').replace('px', '')
@@ -121,23 +124,22 @@ const homeTab: BarTab<WCtx> = {
           controls={shellPanelDomId('styles')}
           testid="doc-styles-btn"
         />
-        <BarCustom label="Font">
+        <BarCustom label="Font" semantic="font-family">
           <FontPicker
             value={(editor.getAttributes('textStyle').fontFamily as string) ?? ''}
             onChange={(v) => (v ? chain(c).setFontFamily(v).run() : chain(c).unsetFontFamily().run())}
           />
         </BarCustom>
-        <BarSelect
-          label="Font size"
-          width={64}
-          value={fontSize}
-          options={[{ value: '', label: 'Size' }, ...FONT_SIZES.map((s) => ({ value: s, label: s }))]}
-          onChange={(v) => (v ? chain(c).setFontSize(`${v}px`).run() : chain(c).unsetFontSize().run())}
+        <BarFontSize
+          value={fontSize ? Number(fontSize) : undefined}
+          presets={FONT_SIZES}
+          onChange={(v) => chain(c).setFontSize(`${v}px`).run()}
+          onClear={() => chain(c).unsetFontSize().run()}
         />
         <BarSep />
-        <BarToggle icon="format_bold" label="Bold" shortcut="⌘B" pressed={editor.isActive('bold')} onChange={() => chain(c).toggleBold().run()} />
-        <BarToggle icon="format_italic" label="Italic" shortcut="⌘I" pressed={editor.isActive('italic')} onChange={() => chain(c).toggleItalic().run()} />
-        <BarToggle icon="format_underlined" label="Underline" shortcut="⌘U" pressed={editor.isActive('underline')} onChange={() => chain(c).toggleUnderline().run()} />
+        <BarToggle icon="format_bold" semantic="bold" label="Bold" shortcut="⌘B" pressed={editor.isActive('bold')} onChange={() => chain(c).toggleBold().run()} />
+        <BarToggle icon="format_italic" semantic="italic" label="Italic" shortcut="⌘I" pressed={editor.isActive('italic')} onChange={() => chain(c).toggleItalic().run()} />
+        <BarToggle icon="format_underlined" semantic="underline" label="Underline" shortcut="⌘U" pressed={editor.isActive('underline')} onChange={() => chain(c).toggleUnderline().run()} />
         <BarToggle icon="strikethrough_s" label="Strikethrough" pressed={editor.isActive('strike')} onChange={() => chain(c).toggleStrike().run()} />
         <BarToggle icon="code" label="Inline code" pressed={editor.isActive('code')} onChange={() => chain(c).toggleCode().run()} />
         <BarToggle icon="subscript" label="Subscript" pressed={editor.isActive('subscript')} onChange={() => chain(c).toggleSubscript().run()} />
@@ -145,6 +147,7 @@ const homeTab: BarTab<WCtx> = {
         <BarSep />
         <BarColor
           icon="format_color_text"
+          semantic="text-color"
           label="Text color"
           value={(editor.getAttributes('textStyle').color as string) ?? undefined}
           palette={TEXT_PALETTE}
@@ -159,9 +162,9 @@ const homeTab: BarTab<WCtx> = {
           onChange={(v) => (v ? chain(c).toggleHighlight({ color: v }).run() : chain(c).unsetHighlight().run())}
         />
         <BarSep />
-        <BarToggle icon="format_align_left" label="Align left" pressed={editor.isActive({ textAlign: 'left' })} onChange={() => chain(c).setTextAlign('left').run()} />
-        <BarToggle icon="format_align_center" label="Align center" pressed={editor.isActive({ textAlign: 'center' })} onChange={() => chain(c).setTextAlign('center').run()} />
-        <BarToggle icon="format_align_right" label="Align right" pressed={editor.isActive({ textAlign: 'right' })} onChange={() => chain(c).setTextAlign('right').run()} />
+        <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={editor.isActive({ textAlign: 'left' })} onChange={() => chain(c).setTextAlign('left').run()} />
+        <BarToggle icon="format_align_center" semantic="align-center" label="Align center" pressed={editor.isActive({ textAlign: 'center' })} onChange={() => chain(c).setTextAlign('center').run()} />
+        <BarToggle icon="format_align_right" semantic="align-right" label="Align right" pressed={editor.isActive({ textAlign: 'right' })} onChange={() => chain(c).setTextAlign('right').run()} />
         <BarToggle icon="format_align_justify" label="Justify" pressed={editor.isActive({ textAlign: 'justify' })} onChange={() => chain(c).setTextAlign('justify').run()} />
         <BarSelect label="Line spacing" width={78} value={lineHeight} options={LINE_HEIGHTS} onChange={(v) => chain(c).setLineHeight(v).run()} />
         <BarSep />
@@ -180,6 +183,7 @@ const homeTab: BarTab<WCtx> = {
 const insertTab: BarTab<WCtx> = {
   id: 'insert',
   label: 'Insert',
+  role: 'insert',
   render: (c) => (
     <>
       <BarToggle icon="link" label="Link" shortcut="⌘K" pressed={c.editor.isActive('link')} onChange={c.openLink} />
@@ -205,6 +209,7 @@ const insertTab: BarTab<WCtx> = {
 const layoutTab: BarTab<WCtx> = {
   id: 'layout',
   label: 'Layout',
+  role: 'layout',
   render: (c) => (
     <>
       {/*
@@ -292,6 +297,7 @@ const layoutTab: BarTab<WCtx> = {
 const reviewTab: BarTab<WCtx> = {
   id: 'review',
   label: 'Review',
+  role: 'review',
   render: (c) => (
     <>
       <BarToggle icon="edit_note" label="Suggesting — track every change" pressed={c.suggesting} onChange={c.setSuggesting} showLabel testid="doc-suggest-toggle" />
@@ -346,9 +352,11 @@ export const WRITE_TABS: BarTab<WCtx>[] = [homeTab, insertTab, layoutTab, review
 // ── Rail ─────────────────────────────────────────────────────────────────────
 
 /**
- * Write's rail is short on purpose: it has no drawing tools, so it carries the
- * panel openers and the two file flows. Groups: panels, then files, with Ask AI
- * pinned to the bottom the way Diagrams pins its own.
+ * Write's rail, in the one order every app shares (SPEC §3.9): Write has no
+ * drawing tools, so it starts at Insert (Image first), then its app action,
+ * then the overlay panels and the two AI entries pinned to the bottom with
+ * PlexiiAssist last. Each insert runs the same editor command its Insert-tab
+ * button runs.
  */
 export function writeRailItems(): RailItem<WCtx>[] {
   // No Find item: the ContextBar's right slot carries Find & replace and is
@@ -356,68 +364,55 @@ export function writeRailItems(): RailItem<WCtx>[] {
   // DE-1 looks that control up by name and a second one is a strict-mode
   // violation. Write had exactly one find button before the conversion.
   return [
+    { id: 'image', label: 'Insert image', icon: 'image', kind: 'action', role: 'image', group: railGroup('image'), order: 0, onSelect: (c) => c.insertImage(), testid: 'doc-rail-image' },
     {
-      id: 'styles',
-      label: 'Styles',
-      icon: 'format_size',
-      kind: 'panel',
-      group: 0,
-      order: 0,
-      onSelect: (c) => c.togglePanel('styles'),
-      testid: 'doc-toggle-styles'
-    },
-    {
-      id: 'headerfooter',
-      label: 'Header and footer',
-      icon: 'description',
-      kind: 'panel',
-      group: 0,
-      order: 1,
-      onSelect: (c) => c.togglePanel('headerfooter'),
-      testid: 'doc-toggle-headerfooter'
-    },
-    {
-      id: 'margins',
-      label: 'Margins',
-      icon: 'straighten',
-      kind: 'panel',
-      group: 0,
-      order: 2,
-      hidden: (c) => !c.pageView,
-      onSelect: (c) => c.togglePanel('margins'),
-      testid: 'doc-toggle-margins'
-    },
-    {
-      id: 'office',
-      label: 'Open or export Office files',
-      icon: 'folder_open',
+      id: 'table',
+      label: 'Insert table',
+      icon: 'grid_on',
       kind: 'action',
-      group: 1,
+      role: 'insert',
+      group: railGroup('insert'),
       order: 1,
-      readOnlySafe: true,
-      onSelect: (c) => c.togglePanel('office'),
-      testid: 'doc-rail-office'
+      onSelect: (c) => chain(c).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      testid: 'doc-rail-table'
     },
+    { id: 'link', label: 'Link', icon: 'link', kind: 'action', role: 'insert', group: railGroup('insert'), order: 2, shortcut: '⌘K', onSelect: (c) => c.openLink(), testid: 'doc-rail-link' },
+    { id: 'divider', label: 'Divider', icon: 'horizontal_rule', kind: 'action', role: 'insert', group: railGroup('insert'), order: 3, onSelect: (c) => chain(c).setHorizontalRule().run(), testid: 'doc-rail-divider' },
+    { id: 'widget', label: 'Insert work widget', icon: 'widgets', kind: 'action', role: 'insert', group: railGroup('insert'), order: 4, onSelect: (c) => c.insertWidget(), testid: 'doc-rail-widget' },
     {
       id: 'focus',
       label: 'Focus mode',
       icon: 'center_focus_strong',
       kind: 'action',
-      group: 1,
-      order: 2,
+      role: 'app',
+      group: railGroup('app'),
+      order: 0,
       readOnlySafe: true,
       onSelect: (c) => c.focusMode(),
       testid: 'doc-focus-toggle'
     },
+    // The overlay panels, pinned to the bottom like every app's.
+    { id: 'styles', label: 'Styles', icon: 'format_size', kind: 'panel', role: 'panel', group: railGroup('panel'), order: 0, pinned: 'bottom', onSelect: (c) => c.togglePanel('styles'), testid: 'doc-toggle-styles' },
+    { id: 'headerfooter', label: 'Header and footer', icon: 'description', kind: 'panel', role: 'panel', group: railGroup('panel'), order: 1, pinned: 'bottom', onSelect: (c) => c.togglePanel('headerfooter'), testid: 'doc-toggle-headerfooter' },
+    { id: 'margins', label: 'Margins', icon: 'straighten', kind: 'panel', role: 'panel', group: railGroup('panel'), order: 2, pinned: 'bottom', hidden: (c) => !c.pageView, onSelect: (c) => c.togglePanel('margins'), testid: 'doc-toggle-margins' },
+    // The Office files list is an overlay panel (doc-panel-office), so it is a
+    // panel item: pressed while open, aria-controls pointing at it.
     {
-      id: 'draft',
-      label: 'Ask AI',
-      icon: 'edit_note',
-      kind: 'action',
-      group: 2,
-      order: 0,
-      onSelect: (c) => c.askAi()
+      id: 'office',
+      label: 'Open or export Office files',
+      icon: 'folder_open',
+      kind: 'panel',
+      role: 'panel',
+      group: railGroup('panel'),
+      order: 3,
+      pinned: 'bottom',
+      readOnlySafe: true,
+      onSelect: (c) => c.togglePanel('office'),
+      testid: 'doc-rail-office'
     },
+    // Two AI entries, both at the bottom: Ask AI is the in-document draft and
+    // rewrite panel; PlexiiAssist, the one assistant, is last.
+    { id: 'draft', label: 'Ask AI', icon: 'edit_note', kind: 'action', role: 'ai', group: railGroup('ai'), order: 0, pinned: 'bottom', onSelect: (c) => c.askAi() },
     {
       // doc-assistant-toggle belongs to PlexiiAssist, not to the draft panel:
       // docAssistantConsolidation clicks it and expects the one global overlay.
@@ -425,7 +420,8 @@ export function writeRailItems(): RailItem<WCtx>[] {
       label: 'Show PlexiiAssist',
       icon: 'auto_awesome',
       kind: 'action',
-      group: 2,
+      role: 'ai',
+      group: railGroup('ai'),
       order: 1,
       pinned: 'bottom',
       onSelect: (c) => c.openAssistant(),

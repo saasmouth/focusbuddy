@@ -10,9 +10,13 @@ import { planRow1 } from './layout'
 // Row 1 folds for narrow/embedded editors: menus into "≡", then trailing tabs
 // into "More" (spec §2.6). Keys are handled only on the bar's own elements.
 
+/** A permanent tab's place in the one tab order (SPEC §3.9): Home · Insert · Arrange|Layout · app tabs (View too) · Review; contextual tabs last. */
+export type TabRole = 'home' | 'insert' | 'arrange' | 'layout' | 'app' | 'view' | 'review'
+
 export interface BarTab<C> {
   id: string
   label: string
+  role?: TabRole
   when?: (c: C) => boolean
   contextual?: boolean
   render: (c: C) => ReactNode
