@@ -66,12 +66,15 @@ test('a finished run lands on the chosen desk as a full table', async () => {
   await expect(window.locator('[data-testid="agent-run-desk-picker"]')).toBeVisible()
   await window.locator(`[data-testid="agent-run-desk-${target}"]`).click()
 
+  // Wait for the delivery to finish, not for its first widget: the table
+  // lands first, then 30 rows, then the note, so a widget count > 0 raced the
+  // note (red 2 of 3 alone).
   await expect
     .poll(
-      () => window.evaluate((id) => (window as any).api.widgets.listByTask(id).then((w: unknown[]) => w.length), target),
+      () => window.evaluate(() => (window as any).__fbBrowserAgent.getState().runs.r1.delivery.state),
       { timeout: 30_000, message: 'the results should reach the desk' }
     )
-    .toBeGreaterThan(0)
+    .toBe('done')
 
   const widgets = await window.evaluate((id) => (window as any).api.widgets.listByTask(id), target)
   const table = widgets.find((w: { kind: string }) => w.kind === 'table')
