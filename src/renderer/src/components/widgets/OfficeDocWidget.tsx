@@ -160,7 +160,7 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   } else if (docType === 'design') {
     body = <DesignEditor key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else if (docType === 'draw') {
-    body = <DrawStudio key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} />
+    body = <DrawStudio key={doc.id} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else {
     body = <MapEditor key={doc.id} body={doc.body as MapBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   }

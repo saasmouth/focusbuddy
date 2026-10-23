@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { DOMParser as XmlDomParser } from '@xmldom/xmldom'
-import { harness, blank, rect, withOlderPeer } from './harness'
+import { harness, blank, rect, withDocument, withOlderPeer } from './harness'
 import { bytesToBase64 } from '../../../src/shared/draw/import/imageInfo'
 import type { XmlDocument } from '../../../src/shared/draw/import/svg'
 import type { DrawDoc, DrawGroupNode, DrawImageNode, DrawNode, DrawPathNode } from '../../../src/shared/draw/model'
@@ -253,10 +253,9 @@ describe('dropping files on the canvas', () => {
 })
 
 describe('the File menu commands', () => {
-  function host(files: ImportFile[], opened: Array<{ title: string; body: unknown }> = []): ImportHost {
-    return { deps: () => deps, pick: async () => ({ ok: files.length > 0, files, skipped: [] }), openNewDrawing: async (title, body) => void opened.push({ title, body }) }
+  function host(files: ImportFile[]): ImportHost {
+    return { deps: () => deps, pick: async () => ({ ok: files.length > 0, files, skipped: [] }) }
   }
-
   it('Place… loads the cursor with the picked files', async () => {
     setImportHost(host([{ name: 'a.png', bytes: png(10, 10) }, { name: 'logo.svg', bytes: SVG }]))
     const h = harness(blank())
@@ -311,8 +310,8 @@ describe('the File menu commands', () => {
 
   it('Open SVG… makes a new drawing in the format this build writes', async () => {
     const opened: Array<{ title: string; body: unknown }> = []
-    setImportHost(host([{ name: 'poster.svg', bytes: SVG }], opened))
-    const h = harness(blank())
+    setImportHost(host([{ name: 'poster.svg', bytes: SVG }]))
+    const h = withDocument(harness(blank()), { newDocument: async (init) => void opened.push(init!) })
     h.run('file.openSvg')
     await settle()
     expect(opened).toHaveLength(1)
@@ -328,9 +327,9 @@ describe('the File menu commands', () => {
   })
 
   it('Open SVG… shows the report first when something could not come in', async () => {
-    const opened: unknown[] = []
-    setImportHost(host([{ name: 'm.svg', bytes: enc('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><image href="https://example.com/a.png" width="5" height="5"/><rect width="2" height="2"/></svg>') }], opened as never))
-    const h = harness(blank())
+    const opened: Array<{ title: string; body: unknown }> = []
+    setImportHost(host([{ name: 'm.svg', bytes: enc('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><image href="https://example.com/a.png" width="5" height="5"/><rect width="2" height="2"/></svg>') }]))
+    const h = withDocument(harness(blank()), { newDocument: async (init) => void opened.push(init!) })
     h.run('file.openSvg')
     await settle()
     expect(opened).toHaveLength(0)

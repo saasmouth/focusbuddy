@@ -8,7 +8,7 @@ import { drawBarTabs } from '../../../src/renderer/src/components/documents/draw
 import { drawDialogs } from '../../../src/renderer/src/components/documents/draw/dialogs/registry'
 import { buildMenu } from '../../../src/renderer/src/components/documents/editor/DrawStudioMenuBar'
 import type { MenuItem } from '../../../src/renderer/src/components/documents/editor/menuBarKit'
-import { blank, harness, rect } from './harness'
+import { blank, harness, rect, withDocument } from './harness'
 
 describe('registries', () => {
   it('every one of the 29 tools is registered, in toolbox order, with no clashing ids or letters', () => {
@@ -127,7 +127,8 @@ describe('the menu bar is built from commands', () => {
   beforeEach(() => setKeyPlatform('mac'))
 
   it('has the same menus, items, icons, shortcuts, separators and submenus', () => {
-    const h = harness(blank([rect('a', 0, 0, 10, 10)]))
+    // A drawing, as a document host mounts it (its document commands on).
+    const h = withDocument(harness(blank([rect('a', 0, 0, 10, 10)])))
     expect(drawMenus().filter((m) => !m.path.includes('/')).sort((a, b) => a.order - b.order).map((m) => `${m.path}:${m.label}`)).toEqual([
       'file:File',
       'edit:Edit',

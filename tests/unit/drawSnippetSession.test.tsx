@@ -2,8 +2,10 @@
 // components/snippets/SnippetEditSessionView.tsx): with `session` set, every
 // command that acts on a DOCUMENT is disabled with a reason -- in the File
 // menu, on its key and through ctx.run -- and none of them reaches
-// window.api.documents or the documents store. Save, Export and editing stay
-// on. Without `session`, nothing changes.
+// window.api.documents, the documents store or the host's DocumentOps, even
+// when a host passes ops as well. Save, Export and editing stay on. Without
+// `session`, the commands act through the host's DocumentOps
+// (tests/unit/drawDocumentOps.test.tsx has the per-command proof).
 
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -34,6 +36,7 @@ import {
   documentBlockedReason
 } from '../../src/renderer/src/components/documents/draw/editor/session'
 import type { DrawSession } from '../../src/renderer/src/components/documents/draw/editor/types'
+import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
 import { documentTitle } from '../../src/renderer/src/components/documents/draw/commands/file.commands'
 import { buildMenu } from '../../src/renderer/src/components/documents/editor/DrawStudioMenuBar'
 import { launchMeeting } from '../../src/renderer/src/lib/startMeeting'
@@ -117,6 +120,26 @@ function spyStores(): { touched: () => string[] } {
 
 const documentWrites = (): string[] => apiCalls.filter((c) => c.startsWith('documents.'))
 
+/** A host's DocumentOps for a drawing, recording every call (`opsCalls`). */
+let opsCalls: string[] = []
+function fakeOps(title = 'Bound drawing'): DocumentOps {
+  const rec =
+    (name: string) =>
+    async (..._args: unknown[]): Promise<void> => {
+      opsCalls.push(name)
+    }
+  return {
+    id: 'doc-bound',
+    title: () => title,
+    newDocument: rec('newDocument'),
+    makeCopy: rec('makeCopy'),
+    rename: rec('rename'),
+    openHistory: () => void opsCalls.push('openHistory'),
+    startMeeting: () => void opsCalls.push('startMeeting'),
+    moveToTrash: rec('moveToTrash')
+  }
+}
+
 let restoreDocs: ReturnType<typeof useDocumentsStore.getState>
 let restoreView: ReturnType<typeof useViewStore.getState>
 
@@ -127,6 +150,7 @@ beforeEach(() => {
   restoreDocs = useDocumentsStore.getState()
   restoreView = useViewStore.getState()
   vi.mocked(launchMeeting).mockClear()
+  opsCalls = []
 })
 afterEach(() => {
   ;(window as unknown as { api: unknown }).api = savedApi
@@ -134,9 +158,14 @@ afterEach(() => {
   useViewStore.setState(restoreView, true)
 })
 
-function sessionHarness(session?: DrawSession) {
+/**
+ * The headless studio. Its host binds a drawing (DocumentOps) unless told not
+ * to: a session must win over ops too, since a host could pass both.
+ */
+function sessionHarness(session?: DrawSession, ops: DocumentOps | null = fakeOps()) {
   const h = harness(blank([rect('a', 10, 10, 40, 40)]))
   if (session) h.ed.ctx.host.session = () => session
+  if (ops) h.ed.ctx.host.docOps = () => ops
   return h
 }
 
@@ -158,6 +187,7 @@ describe('in a snippet session, document commands are off', () => {
     expect(documentWrites()).toEqual([])
     expect(stores.touched()).toEqual([])
     expect(launchMeeting).not.toHaveBeenCalled()
+    expect(opsCalls, 'not even the host-bound document').toEqual([])
     // And it changed nothing in the drawing.
     expect(h.state().past).toHaveLength(0)
   })
@@ -169,8 +199,8 @@ describe('in a snippet session, document commands are off', () => {
     expect(documentTitle(h.ed.ctx)).toBe('Pricing badge')
     h.ed.ctx.host.title = () => ''
     expect(documentTitle(h.ed.ctx)).toBe('Untitled snippet')
-    // A drawing still names its document, as before.
-    expect(documentTitle(sessionHarness().ed.ctx)).toBe('Some drawing')
+    // A drawing names the document its host bound -- not the store's active one.
+    expect(documentTitle(sessionHarness().ed.ctx)).toBe('Bound drawing')
   })
 
   it('the default reason says what is going on', () => {
@@ -221,6 +251,7 @@ describe('in a snippet session, document commands are off', () => {
     }
     expect(documentWrites()).toEqual([])
     expect(stores.touched()).toEqual([])
+    expect(opsCalls).toEqual([])
   })
 
   it('every command that names the documents store or a new document is one a session turns off', () => {
@@ -228,7 +259,7 @@ describe('in a snippet session, document commands are off', () => {
     // documents store (or opens a new drawing) without documentCommand fails here.
     const h = sessionHarness({ kind: 'snippet' })
     const reaches =
-      /useDocumentsStore|api\.documents|goDocument|createBlank|openNewDrawing|openSvg\(|launchMeeting/
+      /useDocumentsStore|api\.documents|goDocument|createBlank|openNewDrawing|openSvg\(|launchMeeting|docOps|openDocHistory/
     const offenders = drawCommands()
       .filter((c) => reaches.test(String(c.run)))
       .filter(
@@ -250,7 +281,7 @@ describe('in a snippet session, document commands are off', () => {
   })
 })
 
-describe('without a session, nothing changes', () => {
+describe('without a session, the commands act on the host-bound drawing', () => {
   it.each(DOCUMENT_COMMANDS)('%s is enabled, with no reason', (id) => {
     const h = sessionHarness()
     const c = commandById(id)!
@@ -258,13 +289,16 @@ describe('without a session, nothing changes', () => {
     expect(c.disabledReason!(h.ed.ctx)).toBeNull()
   })
 
-  it('Make a copy still copies the active document (⌥⌘S)', async () => {
+  it('Make a copy (⌥⌘S) copies the host-bound drawing, never the store’s active one', async () => {
     const stores = spyStores()
     const h = sessionHarness()
     h.key('ß', { meta: true, alt: true, code: 'KeyS' })
     await settle()
-    expect(documentWrites()).toEqual(['documents.create'])
-    expect(stores.touched()).toEqual(['view.goDocument'])
+    expect(opsCalls).toEqual(['makeCopy'])
+    // The ops (a fake here) do the writing; the command itself writes nothing
+    // and never reaches the store or the view.
+    expect(documentWrites()).toEqual([])
+    expect(stores.touched()).toEqual([])
   })
 
   it('the File menu is the same as before, every item where it was', () => {
@@ -334,6 +368,8 @@ describe('the mounted studio in a session', () => {
           onChange={vi.fn()}
           onSaveRequest={onSaveRequest}
           session={session}
+          // A drawing's host binds its document; a session's host does not.
+          documentOps={session ? undefined : fakeOps()}
         />
       )
     })

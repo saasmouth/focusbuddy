@@ -21,6 +21,7 @@ import { floodFillPixels, parseHex, toHex } from '../../../src/renderer/src/comp
 import { createDrawEditor, type DrawEditor } from '../../../src/renderer/src/components/documents/draw/editor/editor'
 import type { EditorState, RasterService, ToolPointer } from '../../../src/renderer/src/components/documents/draw/editor/types'
 import type { LiveUndo } from '../../../src/renderer/src/lib/yjsKeyedJson'
+import type { DocumentOps } from '../../../src/renderer/src/components/documents/editor/documentOps'
 import { LIVE_V1_PEER_REASON } from '../../../src/renderer/src/components/documents/draw/editor/v2gate'
 
 export class FakeRaster implements RasterService {
@@ -305,5 +306,38 @@ export function harness(
  */
 export function withOlderPeer<H extends Harness>(h: H): H {
   h.ed.ctx.set({ v2Writes: false, v2Blocked: LIVE_V1_PEER_REASON })
+  return h
+}
+
+/**
+ * The editor as a document host mounts it (DocumentEditorView, a desk widget):
+ * the host binds the drawing on screen (DrawStudio's `documentOps`), so the
+ * document commands -- New, Open SVG, Make a copy, Rename, Version history,
+ * Move to trash, Meeting -- are on. Without it they are off with a reason, as
+ * in a live drawing (editor/session.ts). Every call is recorded in `calls`;
+ * `ops` overrides members.
+ */
+export function withDocument<H extends Harness>(
+  h: H,
+  ops: Partial<DocumentOps> = {},
+  calls: Array<{ op: string; args: unknown[] }> = []
+): H {
+  const rec =
+    (op: string) =>
+    async (...args: unknown[]): Promise<void> => {
+      calls.push({ op, args })
+    }
+  const bound: DocumentOps = {
+    id: 'doc-on-screen',
+    title: () => 'On screen',
+    newDocument: rec('newDocument'),
+    makeCopy: rec('makeCopy'),
+    rename: rec('rename'),
+    openHistory: () => void calls.push({ op: 'openHistory', args: [] }),
+    startMeeting: () => void calls.push({ op: 'startMeeting', args: [] }),
+    moveToTrash: rec('moveToTrash'),
+    ...ops
+  }
+  h.ed.ctx.host.docOps = () => bound
   return h
 }

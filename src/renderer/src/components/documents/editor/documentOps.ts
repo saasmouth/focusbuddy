@@ -26,10 +26,23 @@ import { confirmDialog, promptText } from '../../plexi/PromptDialog'
 export interface DocumentOps {
   /** The document these ops are bound to. Never the store's `active`. */
   id: string
-  /** New document of the same type (creates a row, navigates to it). */
-  newDocument(): Promise<void>
-  /** Copy THIS document's stored body into a new document, and open it. */
-  makeCopy(): Promise<void>
+  /**
+   * THIS document's live title, as the host knows it (raw: '' when untitled).
+   * For labels that name the document, so they name the bound one.
+   */
+  title(): string
+  /**
+   * New document of the same type (creates a row, navigates to it). With
+   * `init`, the new document starts with that title and body instead of blank
+   * (PlexiiDraw's New from preset and Open SVG).
+   */
+  newDocument(init?: { title: string; body: unknown }): Promise<void>
+  /**
+   * Copy THIS document into a new document, and open it. The stored body by
+   * default; an editor that holds a newer one in memory (edits still inside
+   * its host's save debounce) passes it, so the copy is what is on screen.
+   */
+  makeCopy(body?: unknown): Promise<void>
   /** Prompt for a name and rename THIS document. */
   rename(): Promise<void>
   openHistory(): void
@@ -57,7 +70,8 @@ const NOUN: Partial<Record<DocType, string>> = {
   sheet: 'spreadsheet',
   slides: 'presentation',
   map: 'diagram',
-  design: 'design'
+  design: 'design',
+  draw: 'artwork'
 }
 
 // The meeting kind for each office type (startMeeting's MeetingOrigin).
@@ -68,6 +82,7 @@ function meetingOrigin(docType: DocType, id: string, title: string): MeetingOrig
     case 'slides':
       return { kind: 'slides', id, title }
     case 'map':
+    case 'draw':
       return { kind: 'draw', id, title }
     case 'design':
       return { kind: 'design', id, title }
@@ -82,16 +97,27 @@ export function createDocumentOps(input: DocumentOpsInput): DocumentOps {
   const name = (): string => input.title().trim() || `Untitled ${noun}`
   return {
     id,
-    async newDocument() {
+    title: () => input.title(),
+    async newDocument(init) {
+      if (init) {
+        const doc = await window.api.documents.create({ docType, title: init.title, body: init.body } as never)
+        await useDocumentsStore.getState().refresh()
+        input.onOpen(doc.id)
+        return
+      }
       // createBlank opens the new document in the store; that is right here,
       // because New always navigates to it.
       const doc = await useDocumentsStore.getState().createBlank(docType)
       input.onOpen(doc.id)
     },
-    async makeCopy() {
-      const src = await window.api.documents.get(id)
-      if (!src) return
-      const copy = await window.api.documents.create({ docType, title: `Copy of ${name()}`, body: src.body } as never)
+    async makeCopy(body) {
+      let copyBody = body
+      if (copyBody === undefined) {
+        const src = await window.api.documents.get(id)
+        if (!src) return
+        copyBody = src.body
+      }
+      const copy = await window.api.documents.create({ docType, title: `Copy of ${name()}`, body: copyBody } as never)
       await useDocumentsStore.getState().refresh()
       input.onOpen(copy.id)
     },

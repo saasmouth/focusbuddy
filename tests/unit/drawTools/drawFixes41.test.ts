@@ -15,7 +15,7 @@ import { setImportHost, type ImportHost } from '../../../src/renderer/src/compon
 import { fieldKeepsKey } from '../../../src/renderer/src/components/documents/draw/commands/keys'
 import type { ImportDeps } from '../../../src/renderer/src/components/documents/draw/editor/importFiles'
 import { loadPlaceCursor, type PlaceItem } from '../../../src/renderer/src/components/documents/draw/editor/place'
-import { blank, harness, rect } from './harness'
+import { blank, harness, rect, withDocument } from './harness'
 
 function png(w: number, h: number): Uint8Array {
   const parts: number[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
@@ -71,8 +71,7 @@ beforeEach(() => {
     pick: async (purpose) => {
       picked.push(purpose)
       return { ok: false, files: [], skipped: [] }
-    },
-    openNewDrawing: async () => {}
+    }
   }
   setImportHost(host)
 })
@@ -169,7 +168,8 @@ describe('shortcuts pressed while a studio field has focus', () => {
   })
 
   it('⌘O and ⌘0 also run from a studio field', async () => {
-    const h = harness(blank())
+    // Open SVG… acts for a drawing a host bound (editor/session.ts).
+    const h = withDocument(harness(blank()))
     h.key('o', { meta: true, code: 'KeyO', inStudioField: true })
     await settle()
     expect(picked).toEqual(['open'])

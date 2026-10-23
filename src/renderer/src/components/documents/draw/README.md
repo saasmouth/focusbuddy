@@ -465,13 +465,30 @@ hold as it was (a paint layer kept as a picture, extra artboards, layers,
 a background, unused swatches). The host shows `lost` before it writes.
 
 The session also passes `session={{ kind: 'snippet' }}`. Every command that
-acts on a DOCUMENT -- the documents store's active document, or a new one
-opened in place of the studio -- is then disabled with a reason, on its key
-and through `ctx.run` too (`editor/session.ts`): New, New from preset, Open
-SVG, Make a copy, Rename, Version history, Move to trash, Meeting. A new
-command that reaches the documents store wraps itself in `documentCommand`;
-`tests/unit/drawSnippetSession.test.tsx` fails if it does not. Save, Export
-(a file the person picks) and editing stay on.
+acts on a DOCUMENT is then disabled with the session's reason, on its key and
+through `ctx.run` too (`editor/session.ts`): New, New from preset, Open SVG,
+Make a copy, Rename, Version history, Move to trash, Meeting. Save, Export (a
+file the person picks) and editing stay on.
+
+## The document on screen: DocumentOps
+
+Draw has no document id of its own. The HOST binds one: DocumentEditorView and
+OfficeDocWidget (desks, the Workcentre, widgets embedded
+in a document) build `createDocumentOps({ id, docType: 'draw', title, onOpen,
+onTrashed, onRenamed })` (`documents/editor/documentOps.ts`) for the drawing
+they loaded and pass it as DrawStudio's `documentOps`. The editor reads it as
+`ctx.host.docOps()`.
+
+The document commands above are written with `documentCommand`, whose run is
+handed those ops -- `run: (ctx, ops) => ops.moveToTrash()` -- and they reach a
+document no other way. No Draw command imports the documents store or reads
+its `active` document: on a desk that is whatever Documents last had open, and
+until 4.3.41 a Draw widget's Move to trash binned it. Where no host supplies
+a document (a live drawing, headless runs), the commands are disabled with
+"Not available here: this drawing is not stored in Documents." -- never a
+fallback to `active`. `tests/unit/drawDocumentOps.test.tsx` is the tripwire
+and the per-command proof; `tests/unit/drawSnippetSession.test.tsx` fails if a
+new command reaches a document without `documentCommand`.
 
 ## Test it
 

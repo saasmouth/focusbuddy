@@ -7,28 +7,26 @@ import { drawDocForStorage } from '@shared/draw/compat'
 import { putAsset } from '@shared/draw/assets'
 import type { DrawAsset, DrawDoc, DrawImageNode, DrawNode } from '@shared/draw/model'
 import { editableIds, getObject, mapObject, primaryArtboard } from '@shared/draw/ops'
-import { useViewStore } from '../../../../stores/view'
 import { domImportDeps, importStructure, newDocStructure, openSvgAsDoc, prepareFile, prepareFiles, type ImportDeps, type ImportFile } from '../editor/importFiles'
 import { copySvgCode, copyableIds, registerFilePasteImporter, registerSvgPasteImporter, type FilePasteImporter, type SvgPasteImporter } from '../editor/clipboard'
 import { loadPlaceCursor, placeIntoDoc, showImportReport } from '../editor/place'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 import { documentCommand } from '../editor/session'
+import type { DocumentOps } from '../../editor/documentOps'
 
-/** What the commands need from the app; tests replace it (setImportHost). */
+/**
+ * What the commands need from the app; tests replace it (setImportHost).
+ * Storing and opening a new drawing (Open SVG) is not here: it goes through
+ * the DocumentOps the studio's host bound (editor/session.ts documentCommand).
+ */
 export interface ImportHost {
   deps(): ImportDeps
   pick(purpose: 'place' | 'open' | 'import' | 'replace'): Promise<{ ok: boolean; files: ImportFile[]; skipped: Array<{ name: string; reason: string }> }>
-  /** Store a new drawing and open it. */
-  openNewDrawing(title: string, body: unknown): Promise<void>
 }
 
 const appHost: ImportHost = {
   deps: domImportDeps,
-  pick: (purpose) => window.api.draw.pickImportFiles({ purpose }),
-  openNewDrawing: async (title, body) => {
-    const doc = await window.api.documents.create({ docType: 'draw', title, body: body as never })
-    useViewStore.getState().goDocument(doc.id)
-  }
+  pick: (purpose) => window.api.draw.pickImportFiles({ purpose })
 }
 
 let host: ImportHost = appHost
@@ -109,7 +107,7 @@ async function importSvg(ctx: EditorCtx): Promise<void> {
   }
 }
 
-async function openSvg(ctx: EditorCtx): Promise<void> {
+async function openSvg(ctx: EditorCtx, ops: DocumentOps): Promise<void> {
   const picked = await host.pick('open')
   if (!picked.files.length) return report(ctx, skippedLines(picked.skipped))
   const f = picked.files[0]
@@ -123,7 +121,7 @@ async function openSvg(ctx: EditorCtx): Promise<void> {
   if ('error' in result) return ctx.status(result.error)
   const title = f.name.replace(/\.svgz?$/i, '') || 'Untitled artwork'
   const body = drawDocForStorage(result.doc)
-  const open = (): void => void host.openNewDrawing(title, body)
+  const open = (): void => void ops.newDocument({ title, body })
   // Anything worth knowing is said BEFORE the drawing replaces this one.
   if (result.report.length > 1) showImportReport(ctx, [{ name: f.name, lines: result.report }], { label: 'Open drawing', run: open })
   else open()
@@ -241,13 +239,15 @@ registerFilePasteImporter(pasteFileImporter)
 export const menus: MenuSpec[] = [{ path: 'edit/Copy As', label: 'Copy As', icon: 'content_copy', order: 207 }]
 
 export const commands: Command[] = [
-  // Opens the SVG as a NEW drawing in place of this one: off in a snippet edit session (editor/session.ts).
+  // Opens the SVG as a NEW drawing, through the host's DocumentOps (it opens
+  // where the host says): off in a snippet edit session, or with no document
+  // host (editor/session.ts).
   documentCommand({
     id: 'file.openSvg',
     label: 'Open SVG…',
     icon: 'folder_open',
     menu: { path: 'file', order: 105 },
-    run: (ctx) => openSvg(ctx)
+    run: (ctx, ops) => openSvg(ctx, ops)
   }),
   {
     id: 'file.place',

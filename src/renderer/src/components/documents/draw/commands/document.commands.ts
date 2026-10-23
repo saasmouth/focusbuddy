@@ -4,8 +4,6 @@ import { solid } from '@shared/draw'
 import type { DrawDocPaint } from '@shared/draw/model'
 import { applyPaintFollow, artboardResizeOffset, planPaintFollow, primaryArtboard, resizeArtboard, setArtboardBackground, type ArtboardAnchor } from '@shared/draw/ops'
 import { relayPaint } from '../editor/artboards'
-import { launchMeeting } from '../../../../lib/startMeeting'
-import { useDocumentsStore } from '../../../../stores/documents'
 import type { Command, EditorCtx, MenuSpec } from '../editor/types'
 import { documentCommand } from '../editor/session'
 
@@ -79,16 +77,14 @@ export const commands: Command[] = [
       run: (ctx) => ctx.history.commit(setArtboardBackground(ctx.doc(), b.paint), 'Background')
     })
   ),
-  // A meeting about the documents store's active document: off in a snippet edit session (editor/session.ts).
+  // A meeting about THIS drawing: the host-bound id and kind (DocumentOps).
+  // It reaches other people, so it never falls back to another id or to ''.
+  // Off in a snippet session or with no document (editor/session.ts).
   documentCommand({
     id: 'document.meeting',
     label: 'Meeting',
     icon: 'videocam',
     menu: { path: 'document', order: 200 },
-    run: () => {
-      const active = useDocumentsStore.getState().active
-      const title = active?.title ?? 'Untitled artwork'
-      void launchMeeting({ kind: 'draw', id: active?.id ?? '', title: title || 'Artwork review' })
-    }
+    run: (_ctx, ops) => ops.startMeeting()
   })
 ]

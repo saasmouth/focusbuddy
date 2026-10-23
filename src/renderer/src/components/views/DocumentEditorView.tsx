@@ -304,7 +304,7 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
           />
         )}
         {active.docType === 'draw' && (
-          <DrawStudio key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} />
+          <DrawStudio key={active.id} content={active.body} title={active.title} onChange={(b) => saveBody(b)} documentOps={documentOps} />
         )}
       </div>
       {shareOpen && (

@@ -21,6 +21,7 @@ import { clipboardEventInfo, handleClipboardEvent, type ClipboardEventKind } fro
 import { createDomServices } from './draw/editor/domServices'
 import { dragHasFiles, placeDroppedFiles, readDroppedFiles } from './draw/editor/fileDrop'
 import type { DrawSession, KeyInput, ToolPointer } from './draw/editor/types'
+import type { DocumentOps } from './editor/documentOps'
 import { dialogById } from './draw/dialogs/registry'
 import { useDrawSnippetTarget } from './draw/editor/drawSnippets'
 import { toolById } from './draw/tools/registry'
@@ -90,6 +91,19 @@ interface Props {
    * Export stay on. Absent: a drawing, nothing changes.
    */
   session?: DrawSession
+  /**
+   * The drawing this studio is showing, bound BY THE HOST to its id
+   * (editor/documentOps.ts createDocumentOps). What File › New, New from
+   * preset, Open SVG, Make a copy, Rename, Version history, Move to trash and
+   * Document › Meeting act on. The studio has no document id of its own and
+   * never asks the documents store which document is `active`: on a desk the
+   * store's active document is a different one (or none).
+   *
+   * Omitted where there is no stored document to act on -- a live drawing
+   * (LiveDocEditorView), a snippet session -- and those commands are then
+   * shown disabled with the reason.
+   */
+  documentOps?: DocumentOps
 }
 
 /** Focus is on a control of the studio's chrome (the top bar, the rail, a panel), not the canvas. */
@@ -125,7 +139,7 @@ function keyInput(e: KeyboardEvent): KeyInput {
   }
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session, documentOps }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -141,6 +155,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   onSaveRequestRef.current = onSaveRequest
   const sessionRef = useRef(session)
   sessionRef.current = session
+  const documentOpsRef = useRef(documentOps)
+  documentOpsRef.current = documentOps
   const rootRef = useRef<HTMLDivElement | null>(null)
   const barHandle = useRef<ContextBarHandle | null>(null)
   /** Screen px of the viewport's left edge that pinned overlay panels cover (domServices: Fit, Paste). */
@@ -153,7 +169,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // see the current DOM and props.
   const editorRef = useRef<DrawEditor | null>(null)
   if (!editorRef.current) {
-    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, onSaveRequest: onSaveRequestRef, session: sessionRef, inset: insetRef, pendingCentre }
+    const refs = { canvases: canvases.current, loaded: loaded.current, scratch, scroll: scrollRef, onChange: onChangeRef, title: titleRef, liveUndo: liveUndoRef, onSaveRequest: onSaveRequestRef, session: sessionRef, documentOps: documentOpsRef, inset: insetRef, pendingCentre }
     // ⌥F6 (window.focusNext): the canvas, then the top bar, then the tool rail.
     const ui = {
       cycleFocus: (): void => {
