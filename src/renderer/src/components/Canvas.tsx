@@ -35,6 +35,7 @@ import DeskSuggestionChip from './DeskSuggestionChip'
 import DeskGallery from './DeskGallery'
 import ColumnsView from './ColumnsView'
 import DeskDataViews, { type DataLayout } from './views/DeskDataViews'
+import WorkcentreView from './views/WorkcentreView'
 import { useDeskViewStore } from '../stores/deskView'
 import ZoomControls from './ZoomControls'
 import CanvasEdgeIndicators from './CanvasEdgeIndicators'
@@ -3082,6 +3083,12 @@ export default function Canvas(): JSX.Element {
           {deskViewMode === 'columns' && activeTaskId && (
             <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="columns-host">
               <ColumnsView taskId={activeTaskId} widgets={widgets} />
+            </div>
+          )}
+          {/* Workcentre (the dashboard) starts at the menu's right edge, like Columns. */}
+          {deskViewMode === 'workcentre' && activeTaskId && (
+            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="workcentre-host">
+              <WorkcentreView taskId={activeTaskId} widgets={widgets} />
             </div>
           )}
           {dataLayout && activeTaskId && (

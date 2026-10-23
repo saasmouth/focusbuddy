@@ -10,9 +10,10 @@ import { create } from 'zustand'
 
 // canvas = the infinite spatial canvas; columns = stacked walls (its Status
 // group-by is the Kanban board); list/table/gallery/compact = lightweight data
-// views of the same objects (spec §3.4). Timeline/Calendar are intentionally not
-// modeled here — they suit time-bound events, not arbitrary desk objects.
-export type DeskViewMode = 'canvas' | 'columns' | 'list' | 'table' | 'gallery' | 'compact'
+// views of the same objects (spec §3.4); workcentre = the dashboard, every object a
+// resizable tile showing its full content (owner, 4.3.41). Timeline/Calendar are
+// intentionally not modeled here — they suit time-bound events, not arbitrary desk objects.
+export type DeskViewMode = 'canvas' | 'columns' | 'workcentre' | 'list' | 'table' | 'gallery' | 'compact'
 
 const KEY = 'fb.deskView.v1'
 const DEFAULT_KEY = 'fb.deskDefaultView.v1'

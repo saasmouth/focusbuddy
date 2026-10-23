@@ -69,7 +69,7 @@ const LAYOUT_FIELDS: ReadonlySet<string> = new Set([
 ])
 
 /** Channels that only ever move the furniture. */
-const LAYOUT_ONLY = new Set(['deskLayout:save', 'widgets:bringToFront'])
+const LAYOUT_ONLY = new Set(['deskLayout:save', 'deskLayout:saveWorkcentre', 'widgets:bringToFront'])
 
 /**
  * The namespaces that hold what the desk SAYS.

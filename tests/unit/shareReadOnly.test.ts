@@ -17,7 +17,7 @@ describe('the desk is theirs to work on', () => {
   it.each([
     'widgets:create', 'widgets:update', 'widgets:delete', 'widgets:bringToFront',
     'nodes:update', 'tables:createRow', 'tables:updateRow', 'documents:update',
-    'files:ingestBuffer', 'deskLayout:save'
+    'files:ingestBuffer', 'deskLayout:save', 'deskLayout:saveWorkcentre'
   ])('%s is allowed', (c) => {
     expect(allowed(c)).toBe(true)
   })
@@ -129,6 +129,8 @@ describe('the gate is wired into the call path', () => {
 describe('what counts as a change worth warning about', () => {
   it('ignores the camera and the furniture', () => {
     expect(changesContent('deskLayout:save', [{}])).toBe(false)
+    // Sizing Workcentre tiles is arranging the desk, not changing what it says.
+    expect(changesContent('deskLayout:saveWorkcentre', ['u', 'd', 'desktop', { cols: 12, items: {} }])).toBe(false)
     expect(changesContent('widgets:bringToFront', ['w'])).toBe(false)
     expect(changesContent('widgets:update', ['w', { x: 1, y: 2, width: 3 }])).toBe(false)
     expect(changesContent('nodes:list', [])).toBe(false)
