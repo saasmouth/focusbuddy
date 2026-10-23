@@ -17,6 +17,12 @@ export interface OfficeCommand {
   /** The existing code id (the palette's, where it had one). Never renamed. */
   id: string
   label: string
+  /**
+   * The name inside a submenu whose title already says the verb: under
+   * Download ▸, "Download PDF document (.pdf)" reads "PDF document (.pdf)".
+   * Only there (menuItemOf(c, { inSubmenu: true })); every other surface shows `label`.
+   */
+  submenuLabel?: string
   /** The key it is bound to. The hint is formatted per platform (⌘ on macOS, Ctrl elsewhere); no key, no hint. */
   keys?: ShortcutKeys
   /** Non-macOS key, where the platform binds a different one. */
@@ -52,18 +58,19 @@ function offState(c: OfficeCommand): { off: boolean; reason?: string } {
 }
 
 /** Menu-bar row (menuBarKit). */
-export function menuItemOf(c: OfficeCommand, extra: Partial<MenuItem & { kind: 'item' }> = {}): MenuItem {
+export function menuItemOf(c: OfficeCommand, extra: Partial<MenuItem & { kind: 'item' }> & { inSubmenu?: boolean } = {}): MenuItem {
   const { off, reason } = offState(c)
+  const { inSubmenu, ...rest } = extra
   return {
     kind: 'item',
-    label: c.label,
+    label: inSubmenu && c.submenuLabel ? c.submenuLabel : c.label,
     ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
     ...(c.icon ? { icon: c.icon } : {}),
     run: c.run,
     ...(c.enabled ? { disabled: off } : {}),
     ...(reason ? { hint: reason } : {}),
     ...(c.checked ? { active: c.checked() } : {}),
-    ...extra
+    ...rest
   }
 }
 
@@ -157,5 +164,18 @@ export function documentCommands(ops: DocumentOps | undefined, docType: string):
     ...(typeof (ops as { print?: unknown }).print === 'function'
       ? { print: sharedCommand('file.print', 'print', () => void (ops as unknown as { print: () => unknown }).print(), { icon: 'print' }) }
       : {})
+  }
+}
+
+/** A row in a ribbon dropdown (BarMenu). */
+export function barMenuItem(c: OfficeCommand): { label: string; icon?: string; shortcut?: string; run: () => void; disabled?: boolean; active?: boolean } {
+  const { off } = offState(c)
+  return {
+    label: c.label,
+    ...(c.icon ? { icon: c.icon } : {}),
+    ...(commandHint(c) ? { shortcut: commandHint(c) } : {}),
+    run: c.run,
+    ...(c.enabled ? { disabled: off } : {}),
+    ...(c.checked ? { active: c.checked() } : {})
   }
 }

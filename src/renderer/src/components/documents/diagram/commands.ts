@@ -7,7 +7,7 @@ import * as ops from '@shared/diagram/ops'
 import { getPage, withPage, addPage, renamePage, deletePage, movePage, pageList } from '@shared/diagram/pages'
 import type { History } from '@shared/diagram/history'
 import type { LiveUndo } from '../../../lib/yjsKeyedJson'
-import type { DiagramTheme } from '@shared/diagram/style'
+import { resolveNodeStyle, type DiagramTheme } from '@shared/diagram/style'
 import { tidyConnections } from '@shared/diagram/tidy'
 import { layoutDiagram, type LayoutAlgorithm } from '@shared/diagram/layout'
 import { mermaidToMap, mapToMermaid } from '@shared/diagram/mermaid'
@@ -18,6 +18,7 @@ import { fresh } from '@shared/diagram/sharedRefs'
 import { alignBoxes, distributeBoxes, type AlignEdge } from '../map/mapAlign'
 import { mapTemplate, type MapTemplateId } from '../map/mapTemplates'
 import { shortcutKey } from './keys'
+import type { AppClipboardRead } from '@shared/appClipboard'
 import { diagramBodyFromSelection, placeDiagramSnippet } from './diagramSnippets'
 import type { DiagramSnippetBody } from '@shared/snippets'
 import type { QuickDir } from './DiagramContext'
@@ -283,6 +284,36 @@ function makeCommands(d: Deps) {
       const c = viewportCenter()
       add(lines.map((l, i) => makeNode(lines.length > 1 ? 'process' : 'note', { x: c.x, y: c.y + i * 64 }, { label: l })))
     },
+    /**
+     * Edit › Paste and right-click › Paste: the same paste as ⌘V. The system
+     * clipboard is read whole (main reads it: text, HTML, our private flavours,
+     * a picture) and handed to paste() as the DataTransfer a ⌘V would carry.
+     * The menu used to paste with no data (only Diagrams' own copies landed) and
+     * the right-click menu with text only (pictures were dropped).
+     */
+    async pasteFromClipboard(): Promise<void> {
+      const api = (globalThis as unknown as { api?: { snippets?: { readClipboard?: () => Promise<AppClipboardRead> } } }).api
+      let read: AppClipboardRead | null = null
+      try {
+        read = (await api?.snippets?.readClipboard?.()) ?? null
+      } catch {
+        read = null
+      }
+      const dt = new DataTransfer()
+      if (read && !read.error) {
+        for (const [type, value] of Object.entries(read.custom ?? {})) dt.setData(type, value)
+        if (read.html) dt.setData('text/html', read.html)
+        if (read.text) dt.setData('text/plain', read.text)
+        if (read.image) {
+          const blob = await (await fetch(read.image.dataUrl)).blob()
+          dt.items.add(new File([blob], 'pasted.png', { type: blob.type || 'image/png' }))
+        }
+      } else {
+        const text = await navigator.clipboard?.readText().catch(() => '')
+        if (text) dt.setData('text/plain', text)
+      }
+      await cmds.paste(dt)
+    },
     duplicate(): void {
       if (!sel().nodes.size) return
       const { graph, sel: s } = ops.duplicate(page(), sel())
@@ -397,6 +428,21 @@ function makeCommands(d: Deps) {
     },
 
     // ── properties (inspector) ───────────────────────────────────────────
+    /**
+     * Bold / Italic / Underline / Strikethrough on the selection: ONE
+     * implementation for the ribbon and the keys (they used to disagree: the
+     * ribbon read the theme-resolved style of every selected shape, ⌘B the raw
+     * style of the first). On when every selected shape shows it, with the
+     * theme and the shape's own defaults applied; turning it off writes false,
+     * so a shape that is bold by default really loses it.
+     */
+    textStyleOn(key: 'bold' | 'italic' | 'underline' | 'strike'): boolean {
+      const ns = page().nodes.filter((n) => sel().nodes.has(n.id))
+      return ns.length > 0 && ns.every((n) => !!resolveNodeStyle(n, d.settings.theme)[key])
+    },
+    toggleTextStyle(key: 'bold' | 'italic' | 'underline' | 'strike'): void {
+      cmds.setStyle({ [key]: !cmds.textStyleOn(key) })
+    },
     setStyle(patch: Partial<MapNodeStyle>, key?: string): void {
       d.update((g) => ops.patchStyle(g, sel().nodes, patch), key)
     },
@@ -752,9 +798,9 @@ function makeCommands(d: Deps) {
         if (k === 'l' && e.shiftKey) return cmds.toggleLock(), true
         if (k === ']') return cmds.order(e.shiftKey ? 'front' : 'forward'), true
         if (k === '[') return cmds.order(e.shiftKey ? 'back' : 'backward'), true
-        if (k === 'b') return toggleStyle('bold'), true
-        if (k === 'i') return toggleStyle('italic'), true
-        if (k === 'u') return toggleStyle('underline'), true
+        if (k === 'b') return cmds.toggleTextStyle('bold'), true
+        if (k === 'i') return cmds.toggleTextStyle('italic'), true
+        if (k === 'u') return cmds.toggleTextStyle('underline'), true
         if (k === '=' || k === '+') return cmds.zoomIn(), true
         if (k === '-') return cmds.zoomOut(), true
         if (k === '0') return cmds.zoomTo(1), true
@@ -773,12 +819,6 @@ function makeCommands(d: Deps) {
       if (k === 'l') return ui.setTool('shape:circle'), true
       return false
     }
-  }
-
-  function toggleStyle(key: 'bold' | 'italic' | 'underline'): void {
-    const n = page().nodes.find((x) => sel().nodes.has(x.id))
-    if (!n) return
-    cmds.setStyle({ [key]: n.style?.[key] ? undefined : true })
   }
 
   // Imported/added content lands to the right of what's already there.

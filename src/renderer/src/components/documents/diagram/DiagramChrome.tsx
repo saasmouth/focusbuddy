@@ -15,7 +15,8 @@ import { LayersPanel } from './LayersPanel'
 import { AiPane, DataDialog, FindPanel, MermaidDialog, ShortcutsDialog, TemplatesDialog } from './dialogs'
 import { Binding, CustomData, IconInput } from './parts'
 import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DiagramDialog, type DiagramPanel, type DiagramSidePane } from './ribbon'
-import { hint, menuAction } from '../../../lib/menus/menuAction'
+import { menuAction } from '../../../lib/menus/menuAction'
+import { barMenuItem, barProps, menuItemOf } from '../../../lib/menus/officeCommand'
 
 // The PlexiiDiagrams frame on the shared office shell (SPEC §6.1): the menu bar
 // and ribbon tabs on one row, the active tab's controls under them, the tool
@@ -173,7 +174,6 @@ export function DiagramChrome({
   }
 
   const hasSel = sel.nodes.size > 0
-  const hasAny = sel.nodes.size > 0 || sel.edges.size > 0
   const hiddenOnPage = hiddenCount(page)
 
   const ctx = useMemo(
@@ -203,6 +203,8 @@ export function DiagramChrome({
       }),
     [cmd, page, sel, settings, readOnly, singlePage, zoom, tool, setTool, togglePanel, openPanel, isOpen, sidePane, toggleSidePane, setStatus]
   )
+  // Every shared action, defined once (diagramCommands): menus, ribbon and zoom controls render from it.
+  const c = ctx.cmds
   const railItems = useMemo(() => diagramRailItems(), [])
   const [lastShape, setLastShape] = useState<string>('shape:process')
 
@@ -246,27 +248,26 @@ export function DiagramChrome({
       { kind: 'item', ...menuAction('undo'), icon: 'undo', run: cmd.undo, disabled: !canUndo },
       { kind: 'item', ...menuAction('redo'), icon: 'redo', run: cmd.redo, disabled: !canRedo },
       { kind: 'sep' },
-      { kind: 'item', ...menuAction('cut'), icon: 'content_cut', run: () => document.execCommand('cut'), disabled: !hasSel, hint: hasSel ? undefined : 'Select something first' },
-      { kind: 'item', ...menuAction('copy'), icon: 'content_copy', run: () => document.execCommand('copy'), disabled: !hasSel, hint: hasSel ? undefined : 'Select something first' },
-      { kind: 'item', ...menuAction('paste'), icon: 'content_paste', run: () => void cmd.paste(null) },
-      { kind: 'item', ...menuAction('duplicate'), icon: 'control_point_duplicate', run: cmd.duplicate, disabled: !hasSel, hint: hasSel ? undefined : 'Select something first' },
-      { kind: 'item', ...menuAction('delete'), icon: 'delete', run: cmd.deleteSelection, disabled: !hasAny, hint: hasAny ? undefined : 'Select something first' },
+      menuItemOf(c.cut),
+      menuItemOf(c.copy),
+      menuItemOf(c.paste),
+      menuItemOf(c.duplicate),
+      menuItemOf(c.remove),
       { kind: 'sep' },
-      { kind: 'item', ...menuAction('selectAll'), icon: 'select_all', run: cmd.selectAll },
-      // One panel holds both (its Replace row always shows); the two rows are the E-14 keys.
-      { kind: 'item', ...menuAction('find'), icon: 'search', run: () => setDialog('find') },
-      { kind: 'item', ...menuAction('findAndReplace'), icon: 'find_replace', run: () => setDialog('find') },
+      menuItemOf(c.selectAll),
+      menuItemOf(c.find),
+      menuItemOf(c.findAndReplace),
       ...(onSaveSnippet ? [{ kind: 'sep' as const }, { kind: 'item' as const, ...menuAction('saveAsSnippet'), icon: 'bookmark_add', run: onSaveSnippet }] : []),
       { kind: 'sep' },
-      { kind: 'item', label: 'Copy style', icon: 'format_paint', shortcut: hint(['alt', 'mod', 'c']), run: cmd.copyStyle, disabled: !hasSel },
-      { kind: 'item', label: 'Paste style', icon: 'format_color_fill', shortcut: hint(['alt', 'mod', 'v']), run: cmd.pasteStyle, disabled: !hasSel }
+      menuItemOf(c.copyStyle),
+      menuItemOf(c.pasteStyle)
     ],
     view: (): MenuItem[] => [
-      { kind: 'item', label: 'Fit to view', icon: 'fit_screen', shortcut: '⇧1', run: cmd.fit },
-      { kind: 'item', label: 'Zoom to selection', icon: 'zoom_in_map', shortcut: '⇧2', run: cmd.zoomToSelection, disabled: !hasSel },
-      { kind: 'item', label: 'Zoom in', icon: 'zoom_in', shortcut: '⌘+', run: cmd.zoomIn },
-      { kind: 'item', label: 'Zoom out', icon: 'zoom_out', shortcut: '⌘−', run: cmd.zoomOut },
-      { kind: 'item', label: 'Actual size', icon: 'crop_free', shortcut: '⌘0', run: () => cmd.zoomTo(1) },
+      menuItemOf(c.fit),
+      menuItemOf(c.zoomToSelection),
+      menuItemOf(c.zoomIn),
+      menuItemOf(c.zoomOut),
+      menuItemOf(c.actualSize),
       { kind: 'sep' },
       { kind: 'item', label: 'Shape library', icon: 'category', run: () => togglePanel('library'), active: isOpen('library') },
       { kind: 'item', label: 'Layers', icon: 'layers', run: () => togglePanel('layers'), active: isOpen('layers') },
@@ -308,15 +309,15 @@ export function DiagramChrome({
       { kind: 'item', ...menuAction('workWidgetFromDesk'), icon: 'widgets', run: () => setDialog('data-widgets') }
     ],
     arrange: (): MenuItem[] => [
-      { kind: 'item', label: 'Bring to front', icon: 'flip_to_front', shortcut: '⇧⌘]', run: () => cmd.order('front'), disabled: !hasSel },
-      { kind: 'item', label: 'Bring forward', icon: 'arrow_upward', shortcut: '⌘]', run: () => cmd.order('forward'), disabled: !hasSel },
-      { kind: 'item', label: 'Send backward', icon: 'arrow_downward', shortcut: '⌘[', run: () => cmd.order('backward'), disabled: !hasSel },
-      { kind: 'item', label: 'Send to back', icon: 'flip_to_back', shortcut: '⇧⌘[', run: () => cmd.order('back'), disabled: !hasSel },
+      menuItemOf(c.bringToFront),
+      menuItemOf(c.bringForward),
+      menuItemOf(c.sendBackward),
+      menuItemOf(c.sendToBack),
       { kind: 'sep' },
-      { kind: 'item', label: 'Group', icon: 'link', shortcut: '⌘G', run: cmd.group, disabled: sel.nodes.size < 2 },
-      { kind: 'item', label: 'Ungroup', icon: 'link_off', shortcut: '⇧⌘G', run: cmd.ungroup, disabled: !hasSel },
-      { kind: 'item', label: 'Lock / unlock', icon: 'lock', shortcut: '⇧⌘L', run: cmd.toggleLock, disabled: !hasAny },
-      { kind: 'item', label: 'Hide', icon: 'visibility_off', run: cmd.hideSelection, disabled: !sel.nodes.size },
+      menuItemOf(c.group),
+      menuItemOf(c.ungroup),
+      menuItemOf(c.lock),
+      menuItemOf(c.hide),
       { kind: 'item', label: `Show all hidden${hiddenOnPage ? ` (${hiddenOnPage})` : ''}`, icon: 'visibility', run: cmd.showAllHidden, disabled: !hiddenOnPage },
       { kind: 'sep' },
       {
@@ -482,17 +483,17 @@ export function DiagramChrome({
             }
             rightSlot={
               <>
-                <BarButton icon="search" label="Find and replace" shortcut="⌘F" onClick={() => setDialog('find')} testid="diagram-find" readOnlySafe />
-                <BarButton icon="remove" label="Zoom out" shortcut="⌘−" onClick={cmd.zoomOut} readOnlySafe />
+                <BarButton {...barProps(c.find)} onClick={c.find.run} testid="diagram-find" readOnlySafe />
+                <BarButton {...barProps(c.zoomOut)} icon="remove" onClick={c.zoomOut.run} readOnlySafe />
                 <BarMenu
                   label="Zoom"
                   testid="diagram-zoom"
                   readOnlySafe
                   valueLabel={<span className="fb-tabular w-[38px] text-center">{Math.round(zoom * 100)}%</span>}
-                  items={[...zoomItems, 'sep', { label: 'Fit page', shortcut: '⇧1', run: cmd.fit }, { label: 'Zoom to selection', shortcut: '⇧2', run: cmd.zoomToSelection, disabled: !hasSel }]}
+                  items={[...zoomItems, 'sep', barMenuItem(c.fit), barMenuItem(c.zoomToSelection)]}
                 />
-                <BarButton icon="add" label="Zoom in" shortcut="⌘+" onClick={cmd.zoomIn} readOnlySafe />
-                <BarButton icon="fit_screen" label="Fit page" shortcut="⇧1" onClick={cmd.fit} testid="diagram-fit" readOnlySafe />
+                <BarButton {...barProps(c.zoomIn)} icon="add" onClick={c.zoomIn.run} readOnlySafe />
+                <BarButton {...barProps(c.fit)} onClick={c.fit.run} testid="diagram-fit" readOnlySafe />
                 <BarToggle icon="right_panel_open" label="Side pane" pressed={sidePane !== null} onChange={(v) => setSidePane(v ? 'ai' : null)} controls={SIDE_PANE_DOM_ID} testid="diagram-sidepane-toggle" readOnlySafe />
               </>
             }

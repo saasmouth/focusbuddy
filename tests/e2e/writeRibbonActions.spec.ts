@@ -84,7 +84,11 @@ test('Review › Accessibility check opens the check', async () => {
 test('Edit › Paste keeps formatting, as ⌘V does', async () => {
   test.setTimeout(90_000)
   const w = await openDoc()
-  await launched!.app.evaluate(({ clipboard }) => clipboard.write({ html: '<p><strong>Bold words</strong> and plain</p>', text: 'Bold words and plain' }))
+  // Electron 44: one write of W3C ClipboardItems (main/drawClipboard does the same).
+  await launched!.app.evaluate(async ({ clipboard, ClipboardItem }) => {
+    const html = '<p><strong>Bold words</strong> and plain</p>'
+    await clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob(['Bold words and plain'], { type: 'text/plain' }) })])
+  })
   await w.locator('.ProseMirror p').first().click()
   await w.keyboard.press('End')
   await w.locator('[data-testid="doc-menu-edit"]').click()

@@ -1,6 +1,7 @@
 import type { CtxMenuItem } from '../../components/CanvasContextMenu'
 import { MENU, type MenuAction, type MenuActionId } from '@shared/menus/lexicon'
 import { menuAction } from './menuAction'
+import { ctxRow, type OfficeCommand } from './officeCommand'
 
 // The two kit right-click shapes of SPEC §9.3, built once so every office app
 // lays them out the same way: the same groups in the same order, the same
@@ -8,10 +9,13 @@ import { menuAction } from './menuAction'
 // really has; a group with nothing in it is left out, and so is its separator.
 // (Text is the third shape, and it is native: editableField.ts, via main.)
 
-type Act = () => void
+// A group's action: a plain function (the row takes the lexicon's label) or
+// the app's OfficeCommand for it (the row is ctxRow(command), so right-click
+// and the menu bar render the very same definition: the seam agreed with 2e).
+type Act = (() => void) | OfficeCommand
 
 /** A shared action as a right-click row: the lexicon's label and hint, the kit's icon. */
-export function sharedRow(id: MenuActionId, onClick: Act, extra: Partial<CtxMenuItem> = {}): CtxMenuItem {
+export function sharedRow(id: MenuActionId, onClick: () => void, extra: Partial<CtxMenuItem> = {}): CtxMenuItem {
   const a = menuAction(id)
   // The icon is the lexicon's (§9.3), so this row and the menu bar's look alike.
   return { label: a.label, shortcut: a.shortcut, icon: (MENU[id] as MenuAction).icon, onClick, testid: `ctx-${id}`, ...extra }
@@ -54,8 +58,14 @@ export interface ObjectMenuSpec {
 }
 
 /** Right-click on an object: a shape, an element, a node, a cell (SPEC §9.3). */
+function row(id: MenuActionId, f: Act | undefined, extra: Partial<CtxMenuItem> = {}): CtxMenuItem[] {
+  if (!f) return []
+  return typeof f === 'function' ? [sharedRow(id, f, extra)] : [ctxRow(f, extra)]
+}
+
 export function objectMenu(s: ObjectMenuSpec): CtxMenuItem[] {
-  const opt = (id: MenuActionId, f?: Act, extra?: Partial<CtxMenuItem>): CtxMenuItem[] => (f ? [sharedRow(id, f, extra)] : [])
+  const opt = (id: MenuActionId, f?: Act, extra?: Partial<CtxMenuItem>): CtxMenuItem[] =>
+    row(id, f, typeof f === 'function' ? extra : { ...(extra?.danger ? { danger: true } : {}) })
   return joinGroups([
     s.object ?? [],
     [
@@ -86,11 +96,11 @@ export interface CanvasMenuSpec {
 export function canvasMenu(s: CanvasMenuSpec): CtxMenuItem[] {
   return joinGroups([
     [
-      ...(s.paste ? [sharedRow('paste', s.paste, s.canPaste === false ? { disabled: true, hint: NOTHING_TO_PASTE } : {})] : []),
-      ...(s.insertSnippet ? [sharedRow('insertSnippet', s.insertSnippet)] : [])
+      ...row('paste', s.paste, typeof s.paste === 'function' && s.canPaste === false ? { disabled: true, hint: NOTHING_TO_PASTE } : {}),
+      ...row('insertSnippet', s.insertSnippet)
     ],
     s.create ?? [],
-    s.selectAll ? [sharedRow('selectAll', s.selectAll)] : [],
+    row('selectAll', s.selectAll),
     s.view ?? []
   ])
 }

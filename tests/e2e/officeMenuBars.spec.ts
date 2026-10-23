@@ -169,8 +169,11 @@ test('SLIDES-MB — menu bar renders all 7 buttons, Slide dropdown opens, New sl
     await window.screenshot({ path: shot })
     console.log('Slides Slide dropdown screenshot:', shot)
 
-    // Click "New slide" — the SlidesMenuBar calls a.newSlide()
+    // "New slide" is one command on every surface: the template gallery (SPEC §9,
+    // registry-41). Pick Blank there, as a person would.
     await slideList.locator('span.truncate', { hasText: 'New slide' }).click()
+    await expect(window.locator('[data-testid="slide-template-gallery"]')).toBeVisible({ timeout: 5_000 })
+    await window.locator('[data-testid="slide-template-blank"]').click()
     await window.waitForTimeout(1_600) // wait for autosave
 
     // Slide count must have increased

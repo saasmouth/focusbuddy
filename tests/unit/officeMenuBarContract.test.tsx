@@ -43,6 +43,8 @@ vi.mock('../../src/renderer/src/components/documents/editor/menuBarKit', async (
 import DocMenuBar from '../../src/renderer/src/components/documents/editor/DocMenuBar'
 import SheetMenuBar from '../../src/renderer/src/components/documents/editor/SheetMenuBar'
 import SlidesMenuBar from '../../src/renderer/src/components/documents/editor/SlidesMenuBar'
+import { buildDeckCommands } from '../../src/renderer/src/components/documents/slides/deckCommands'
+import { buildDesignCommands } from '../../src/renderer/src/components/documents/design/designCommands'
 import DesignMenuBar from '../../src/renderer/src/components/documents/editor/DesignMenuBar'
 
 // Anything an app reads off its actions, its editor or its ops: callable, and
@@ -74,8 +76,28 @@ const APPS: Record<string, { testid: string; render: () => JSX.Element }> = {
     )
   },
   Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar actions={actions({ ...live, documentOps: ops() })} /> },
-  Deck: { testid: 'slides-menubar', render: () => <SlidesMenuBar actions={actions({ ...live, documentOps: ops() })} /> },
-  Design: { testid: 'design-menubar', render: () => <DesignMenuBar actions={actions(live)} documentOps={ops()} /> }
+  Deck: {
+    testid: 'slides-menubar',
+    // Deck's menu renders its command record (slides/deckCommands); the real one, on stubs.
+    render: () => (
+      <SlidesMenuBar
+        actions={actions({
+          ...live,
+          documentOps: ops(),
+          cmds: buildDeckCommands(actions({ selected: 2, anyGrouped: true, canUndo: true, canRedo: true, canPaste: true, singleSlide: false, textMarks: {} }))
+        })}
+      />
+    )
+  },
+  Design: {
+    testid: 'design-menubar',
+    render: () => (
+      <DesignMenuBar
+        actions={actions({ ...live, cmds: buildDesignCommands(actions({ selected: 2, grouped: true, canPaste: true, textMarks: {} })) })}
+        documentOps={ops()}
+      />
+    )
+  }
 }
 
 // §9.2 — the shared Edit actions, in contract order.

@@ -6,6 +6,8 @@ import { useState } from 'react'
 import { MenuBarShell, MenuModal, type MenuDef } from './menuBarKit'
 import type { DocumentOps } from './documentOps'
 import { menuAction } from '../../../lib/menus/menuAction'
+import { menuItemOf } from '../../../lib/menus/officeCommand'
+import type { DesignCommands } from '../design/designCommands'
 
 // A menu bar for PlexiDesign — the free-form page designer. Its menus fit what a
 // layout program does: place text frames, shapes, lines and images anywhere on
@@ -14,6 +16,8 @@ import { menuAction } from '../../../lib/menus/menuAction'
 // Every item is wired to a real DesignEditor op or a documents-store action.
 
 export interface DesignMenuActions {
+  /** The shared actions, defined once (design/designCommands). */
+  cmds: DesignCommands
   title: string
   undo: () => void
   redo: () => void
@@ -176,7 +180,7 @@ export default function DesignMenuBar({
         },
         { kind: 'item', label: 'Line', icon: 'horizontal_rule', run: a.addLine },
         { kind: 'sep' },
-        { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
+        // Add page lives once in the bar, with the other page actions (Layout).
         { kind: 'item', label: 'Page-number frame', icon: 'tag', run: a.insertPageNumber },
         { kind: 'sep' },
         { kind: 'item', ...menuAction('insertSnippet'), icon: 'bookmarks', run: a.insertSnippet },
@@ -216,7 +220,7 @@ export default function DesignMenuBar({
           ]
         },
         { kind: 'sep' },
-        { kind: 'item', label: 'Add page', icon: 'note_add', run: a.addPage },
+        menuItemOf(a.cmds.addPage),
         { kind: 'item', label: 'Duplicate this page', icon: 'file_copy', run: () => a.duplicatePage(a.activePage) },
         { kind: 'sep' },
         { kind: 'item', label: 'Link text frames into one story', icon: 'link', run: a.linkFrames, disabled: !a.canLink },
@@ -227,7 +231,7 @@ export default function DesignMenuBar({
       id: 'tools',
       label: 'Tools',
       build: () => [
-        { kind: 'item', label: 'Remove image background', icon: 'auto_awesome', run: a.removeBgSelected },
+        menuItemOf(a.cmds.removeBackground),
         { kind: 'sep' },
         // Before the export, because it is what you do before the export.
         { kind: 'item', label: 'Preflight for print…', icon: 'fact_check', hint: a.preflightHint, run: a.openPreflight },
