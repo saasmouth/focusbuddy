@@ -46,14 +46,29 @@ test.afterEach(async () => {
   }
 })
 
+/**
+ * Open Settings and select a tab.
+ *
+ * f03087b07 made Settings a TABBED shell instead of one long-scroll popover,
+ * so a section only mounts while its own tab is selected. Specs written against
+ * the popover opened Settings and reached straight for a control that is no
+ * longer in the DOM, and waited out their timeout on it.
+ *
+ * Kept local to this spec rather than added to _helpers: d1 is changing the
+ * shared launch fixture for the hermetic-net work and a second edit there would
+ * collide.
+ */
+async function openSettingsTab(window: Page, tab: 'account' | 'organisation'): Promise<void> {
+  await window.getByRole('button', { name: /appearance settings/i }).click()
+  const tabBtn = window.locator(`[data-testid="settings-tab-${tab}"]`)
+  await expect(tabBtn).toBeVisible({ timeout: 5_000 })
+  await tabBtn.click()
+  await expect(window.locator(`[data-testid="settings-pane-${tab}"]`)).toBeVisible({ timeout: 5_000 })
+}
+
 async function openSignInModal(window: Page): Promise<void> {
-  const settingsBtn = window.getByRole('button', { name: /appearance settings/i })
-  await settingsBtn.click()
-  const settingsPanel = window.locator('.fixed.z-\\[200\\].overflow-y-auto').first()
-  await expect(settingsPanel).toBeVisible({ timeout: 5_000 })
-  await window.evaluate(() => {
-    document.querySelector('[data-testid="account-signin"]')?.scrollIntoView({ block: 'nearest' })
-  })
+  await openSettingsTab(window, 'account')
+  await window.locator('[data-testid="account-signin"]').scrollIntoViewIfNeeded()
   await window.locator('[data-testid="account-signin"]').click()
   await expect(window.locator('[data-testid="signin-close"]')).toBeVisible({ timeout: 5_000 })
 }
@@ -154,7 +169,7 @@ test('signup persists first/last name; Settings identity + name editor round-tri
   // pre-existing SettingsPanel behavior, unrelated to the identity change.
   // Reopen Settings fresh now that the modal is gone.
   await window.getByRole('button', { name: /appearance settings/i }).click()
-  await expect(window.locator('.fixed.z-\\[200\\].overflow-y-auto').first()).toBeVisible({ timeout: 5_000 })
+  await expect(window.locator('[data-testid="settings-pane-account"]')).toBeVisible({ timeout: 5_000 })
 
   // --- Settings -> Account shows the full name as identity (personDisplayName) ---
   await window.evaluate(() => {

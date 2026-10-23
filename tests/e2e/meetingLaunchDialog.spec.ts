@@ -41,9 +41,16 @@ async function openDocInsertMenu(window: import('@playwright/test').Page): Promi
     w.__fbView?.getState().goDocument(id)
   }, docId)
 
-  // Wait for the Insert menu to be in the doc editor toolbar.
-  await expect(window.locator('text=Insert').first()).toBeVisible({ timeout: 8_000 })
-  await window.locator('text=Insert').first().click()
+  // BY TESTID, NOT BY TEXT. `text=Insert` matches three elements in the doc
+  // editor and .first() resolved to one that is never visible, so this waited
+  // 8s for the wrong node and reported the menu missing when it was right
+  // there. The menu bar carries data-testid per menu (doc-menu-file,
+  // -edit, -insert, …) from the SPEC §9 menu contract; widgetEmbed.spec.ts
+  // drives the same menu this way and has stayed green.
+  await expect(window.locator('[data-testid="doc-editor-surface"]')).toBeVisible({ timeout: 8_000 })
+  const insert = window.locator('[data-testid="doc-menu-insert"]')
+  await expect(insert).toBeVisible({ timeout: 8_000 })
+  await insert.click()
   await expect(window.locator('text=Meeting').first()).toBeVisible({ timeout: 3_000 })
 }
 
