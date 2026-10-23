@@ -42,6 +42,14 @@ export interface OfficeCommand {
    * `label` — and the forms live in ONE definition, so they cannot drift.
    */
   barLabel?: string
+  /**
+   * Who binds the key, when it is not the app's own key handler: 'menubar'
+   * (MenuBarShell binds ⌘F, ⇧⌘H, ⌘P, ⌘/ to the bar's own row) or 'clipboard'
+   * (⌘X / ⌘C / ⌘V arrive as the platform's cut/copy/paste events). The
+   * registry's key matcher (commandKeys) leaves these alone, so a key is never
+   * handled twice; sharedCommand sets it for the lexicon actions it applies to.
+   */
+  keyOwner?: 'menubar' | 'clipboard'
   /** Palette row hint ("Format", "Insert") and extra words its fuzzy match should know. */
   group?: string
   keywords?: string
@@ -55,9 +63,13 @@ export interface OfficeCommand {
 }
 
 /** A shared lexicon action as a command: its label, key and icon come from MENU. */
+const MENUBAR_KEYS: MenuActionId[] = ['find', 'findAndReplace', 'print', 'keyboardShortcuts']
+const CLIPBOARD_KEYS: MenuActionId[] = ['cut', 'copy', 'paste', 'pasteAsPlainText']
+
 export function sharedCommand(id: string, action: MenuActionId, run: () => void, extra: Partial<OfficeCommand> = {}): OfficeCommand {
   const a = MENU[action] as MenuAction
-  return { id, label: a.label, keys: a.keys, otherKeys: a.otherKeys, icon: a.icon, run, ...extra }
+  const keyOwner = MENUBAR_KEYS.includes(action) ? 'menubar' : CLIPBOARD_KEYS.includes(action) ? 'clipboard' : undefined
+  return { id, label: a.label, keys: a.keys, otherKeys: a.otherKeys, icon: a.icon, ...(keyOwner ? { keyOwner } : {}), run, ...extra }
 }
 
 /** The command's key hint on this platform, if it has a key. */

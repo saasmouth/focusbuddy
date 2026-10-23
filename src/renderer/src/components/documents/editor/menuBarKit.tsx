@@ -63,6 +63,7 @@ export function MenuBarShell({
   // (a hidden editor's bar must not answer for the visible one).
   //  - ⌘/ opens this app's shortcut sheet. App's global ⌘/ reference listens on
   //    the same window, so the bar claims the press in the capture phase.
+  //  - ⌘P runs File › Print… where the host can print (19's engine);
   //  - ⌘F opens this app's Find… and ⇧⌘H its Find and replace… (E-14), unless
   //    the editor already handled the press (Write's text editor does) or the
   //    caret is in a form field.
@@ -89,7 +90,7 @@ export function MenuBarShell({
     function onBubble(e: KeyboardEvent): void {
       if (e.defaultPrevented || !(e.metaKey || e.ctrlKey) || e.altKey) return
       const k = e.key.toLowerCase()
-      const id: MenuActionId | null = k === 'f' && !e.shiftKey ? 'find' : k === 'h' && e.shiftKey ? 'findAndReplace' : null
+      const id: MenuActionId | null = k === 'f' && !e.shiftKey ? 'find' : k === 'h' && e.shiftKey ? 'findAndReplace' : k === 'p' && !e.shiftKey ? 'print' : null
       if (!id) return
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return

@@ -54,15 +54,22 @@ const EVENT_KEY: Record<string, string> = {
 /** Only what a match needs, so a test does not have to build a real event. */
 export interface KeyLikeEvent {
   key: string
+  /** The physical key. Brackets and digits are read by it: Shift turns ] into } and 1 into ! (so ⇧⌘] and ⇧1 would never match by `key`). */
+  code?: string
   metaKey?: boolean
   ctrlKey?: boolean
   altKey?: boolean
   shiftKey?: boolean
 }
 
+const BY_CODE: Record<string, string> = { ']': 'BracketRight', '[': 'BracketLeft', '/': 'Slash', '\\': 'Backslash' }
+
 function keyMatches(keys: ShortcutKeys, e: KeyLikeEvent): boolean {
   const raw = String(keys[keys.length - 1]).toLowerCase()
-  return (EVENT_KEY[raw] ?? raw) === e.key.toLowerCase()
+  if ((EVENT_KEY[raw] ?? raw) === e.key.toLowerCase()) return true
+  if (!e.code) return false
+  if (BY_CODE[raw] === e.code) return true
+  return /^[0-9]$/.test(raw) && e.code === `Digit${raw}`
 }
 
 /**
@@ -77,6 +84,8 @@ export function matchCommand(
 ): OfficeCommand | null {
   const mac = platform === 'darwin' || platform === 'mac'
   for (const c of commands) {
+    // Bound elsewhere (the menu bar, the platform's clipboard events): never twice.
+    if (c.keyOwner) continue
     const keys = actionKeys({ label: c.label, keys: c.keys, otherKeys: c.otherKeys }, platform)
     if (!keys) continue
     if (!keyMatches(keys, e)) continue
