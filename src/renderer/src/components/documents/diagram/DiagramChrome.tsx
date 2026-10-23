@@ -635,7 +635,9 @@ function PagesBar({
             ) : (
               <button
                 type="button"
-                onClick={() => (i === pageIdx ? setMenu(menu === i ? null : i) : cmd.gotoPage(i))}
+                // The active page's menu edits pages (rename, duplicate, move, delete); a
+                // read-only diagram has no such menu.
+                onClick={() => (i === pageIdx ? !readOnly && setMenu(menu === i ? null : i) : cmd.gotoPage(i))}
                 onDoubleClick={() => !readOnly && setRenaming(i)}
                 data-testid={`diagram-page-${i}`}
                 className={`h-6 px-2.5 rounded inline-flex items-center gap-1 whitespace-nowrap ${i === pageIdx ? 'bg-[var(--surface-raised)] shadow-sm font-semibold text-[var(--ink-90)]' : 'text-[var(--ink-60)] hover:text-[var(--ink-90)]'}`}

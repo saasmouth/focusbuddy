@@ -157,29 +157,43 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
     setHistoryTick((t) => t + 1)
   }, [])
 
+  // Where each page was looking, for a read-only editor. An editor saves a
+  // page's viewport into the body (reopening a diagram lands where you left
+  // it); a viewer must never change the content it is shown, so its viewports
+  // are view state, kept here and gone when it unmounts.
+  const viewViewports = useRef<Record<number, { x: number; y: number; zoom: number }>>({})
   const setPageIdx = useCallback(
     (i: number) => {
       // Remember where this page was looking before leaving it.
       const vp = rf.getViewport()
       const b = bodyRef.current
-      setBody(withPage(b, pageIdxRef.current, { ...getPage(b, pageIdxRef.current), viewport: vp }))
+      if (readOnly) viewViewports.current[pageIdxRef.current] = vp
+      else setBody(withPage(b, pageIdxRef.current, { ...getPage(b, pageIdxRef.current), viewport: vp }))
       pageIdxRef.current = i
       setPageIdxState(i)
       setSel(ops.emptySel())
       const target = getPage(bodyRef.current, i)
+      const targetVp = (readOnly ? viewViewports.current[i] : undefined) ?? target.viewport
       window.setTimeout(() => {
-        if (target.viewport) rf.setViewport(target.viewport)
+        if (targetVp) rf.setViewport(targetVp)
         else rf.fitView({ padding: 0.2 })
       }, 30)
     },
-    [rf, setBody, setSel]
+    [rf, setBody, setSel, readOnly]
   )
 
   // ── emit changes (debounced) ────────────────────────────────────────────
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   const lastEmitted = useRef(JSON.stringify(normalizeMapBody(bodyProp)))
+  // A read-only diagram never emits: not a page switch, not a normalisation of
+  // the body it was given, nothing. Its host may be a shared desk, a viewer
+  // link or a live snippet instance, and any of those wired to persistence
+  // would write content the viewer was only shown.
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
   useEffect(() => {
+    if (readOnly) return
     const json = JSON.stringify(body)
     if (json === lastEmitted.current) return
     const t = window.setTimeout(() => {
@@ -187,10 +201,11 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
       onChangeRef.current(body)
     }, 350)
     return () => window.clearTimeout(t)
-  }, [body])
+  }, [body, readOnly])
 
   // Write any pending local edit now (live undo boundaries, and before undo).
   flushRef.current = () => {
+    if (readOnlyRef.current) return
     const json = JSON.stringify(bodyRef.current)
     if (json === lastEmitted.current) return
     lastEmitted.current = json

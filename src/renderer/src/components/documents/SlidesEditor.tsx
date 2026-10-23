@@ -86,9 +86,17 @@ interface Props {
   body: SlidesBody
   title: string
   onChange: (body: SlidesBody) => void
+  /**
+   * Show the deck without letting it change: no edit commits (commit, undo,
+   * redo and import are the only ways out, and all four refuse), the stage is
+   * the static slide face, the shell disables every control that is not
+   * readOnlySafe, and the navigator offers no move/duplicate/delete/add.
+   * onChange is never called.
+   */
+  readOnly?: boolean
 }
 
-export default function SlidesEditor({ body: rawBody, title, onChange }: Props): JSX.Element {
+export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false }: Props): JSX.Element {
   const [body, setBody] = useState<SlidesBody>(() => migrateSlidesBody(rawBody))
   // Accept live external updates (co-editing): fold a new body prop into the
   // deck without disturbing the current slide selection or any active element
@@ -218,6 +226,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   }, [])
 
   function commit(next: SlidesBody): void {
+    if (readOnly) return
     undo.current.push(body)
     if (undo.current.length > 80) undo.current.shift()
     redo.current = [] // a fresh edit invalidates the redo branch
@@ -235,6 +244,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
   }
 
   function undoLast(): void {
+    if (readOnly) return
     const prev = undo.current.pop()
     if (!prev) return
     redo.current.push(body)
@@ -242,6 +252,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     onChange(prev)
   }
   function redoLast(): void {
+    if (readOnly) return
     const next = redo.current.pop()
     if (!next) return
     undo.current.push(body)
@@ -580,6 +591,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     }
   }
   async function importFile(): Promise<void> {
+    if (readOnly) return
     setStatus('Importing…')
     try {
       const res = await window.api.slides.import()
@@ -653,7 +665,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
       canvas: { w: body.size?.w ?? DECK_PAGE.w, h: body.size?.h ?? DECK_PAGE.h },
       topZ: (slides[slideIdx]?.elements ?? []).reduce((m, e) => Math.max(m, e.z ?? 0), 0),
       newId: elementId,
-      readOnly: presenting
+      readOnly: presenting || readOnly
     })
     if (!els) return false
     mutateSlide((s) => els.reduce((acc, el) => addElement(acc, el), s))
@@ -848,7 +860,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
     selected: selectedEls,
     el: selectedEl,
     anyGrouped,
-    readOnly: false,
+    readOnly,
     tool,
     setTool,
     isPanelOpen,
@@ -1013,17 +1025,17 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
                   <SlideFace slide={s} theme={theme} width={140} />
                 </button>
                 <span className="absolute top-1 left-1 text-[9px] font-semibold text-white bg-black/40 rounded px-1">{i + 1}</span>
-                <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex flex-col gap-0.5">
+                {!readOnly && <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex flex-col gap-0.5">
                   <button onClick={() => moveSlide(i, -1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move up"><Icon name="keyboard_arrow_up" size={12} /></button>
                   <button onClick={() => moveSlide(i, 1)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Move down"><Icon name="keyboard_arrow_down" size={12} /></button>
                   <button onClick={() => duplicateSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5" title="Duplicate this slide" data-testid={`slides-duplicate-${i}`}><Icon name="file_copy" size={12} /></button>
                   <button onClick={() => deleteSlide(i)} className="bg-[color-mix(in_oklab,var(--surface-raised)_90%,transparent)] rounded p-0.5 text-red-500" title="Delete" data-testid={`slides-delete-${i}`}><Icon name="close" size={12} /></button>
-                </div>
+                </div>}
               </div>
             ))}
-            <button onClick={() => setGalleryOpen(true)} className="w-full aspect-video rounded-md border-2 border-dashed border-[var(--edge-firm)] text-[var(--ink-40)] hover:text-accent hover:border-accent flex items-center justify-center" data-testid="slides-add" aria-label="New slide">
+            {!readOnly && <button onClick={() => setGalleryOpen(true)} className="w-full aspect-video rounded-md border-2 border-dashed border-[var(--edge-firm)] text-[var(--ink-40)] hover:text-accent hover:border-accent flex items-center justify-center" data-testid="slides-add" aria-label="New slide">
               <Icon name="add" size={20} />
-            </button>
+            </button>}
           </div>
         }
         panels={
@@ -1142,6 +1154,11 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
             </div>
           )}
           <div className="flex justify-center" data-tool={tool}>
+            {readOnly ? (
+              <div data-testid="slides-readonly-stage">
+                <SlideFace slide={slide} theme={theme} width={canvasW} />
+              </div>
+            ) : (
             <SlideCanvas
               slide={slide}
               theme={theme}
@@ -1160,6 +1177,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
               placing={tool === 'select' ? null : { kind: tool, defaultW: TOOL_DEFAULT[tool].w, defaultH: TOOL_DEFAULT[tool].h }}
               onPlace={placeTool}
             />
+            )}
           </div>
           {/* Speaker notes stay under the canvas (owner ruling, SPEC §6.4). */}
           <div className="max-w-3xl mx-auto mt-3">
@@ -1170,6 +1188,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange }: Props):
               data-testid="slides-notes-editor"
               value={slide.notes}
               onChange={(e) => mutateSlide((s) => ({ ...s, notes: e.target.value }))}
+              readOnly={readOnly}
               rows={2}
               placeholder="What to actually say on this slide"
               className="fb-field w-full bg-[var(--surface-raised)] px-3 py-2 text-[13px] resize-none"
