@@ -17,13 +17,22 @@ import { SIDE_PANE_DOM_ID } from './layout'
 //    onKeyDown on its own buttons (roving focus), so letters, arrows and Enter
 //    on the canvas still belong to the app's keymap.
 
-export type RailKind = 'tool' | 'action' | 'panel'
+export type RailKind = 'tool' | 'action' | 'panel' | 'toggle'
+
+/**
+ * Where an item sits in the one rail order every app shares (SPEC §3.9): the
+ * contract test reads these, never labels. Navigate (select, other selection
+ * tools, hand) · Create (text, the shapes flyout, other create tools) · Insert
+ * (image first) · App · bottom: panels, then AI last.
+ */
+export type RailRole = 'select' | 'navigate' | 'hand' | 'text' | 'shape' | 'create' | 'image' | 'insert' | 'app' | 'panel' | 'ai'
 
 export interface RailItem<C> {
   id: string
   label: string
   icon: string
   kind: RailKind
+  role?: RailRole
   group: number
   order: number
   shortcut?: string
@@ -38,6 +47,10 @@ export interface RailItem<C> {
   controls?: string
   /** For kind 'panel': it toggles a pane in the right ShellSidePane, not an overlay ShellPanel. The host lists the item id in openPanels while that pane shows. */
   sidePane?: boolean
+  /** For kind 'toggle': on/off host state (Cells' Filter). The rail shows it pressed exactly when the host says so (SPEC §3.7). */
+  pressed?: (c: C) => boolean
+  /** A modal opener (an action that opens a dialog): announced with aria-haspopup="dialog", never aria-controls (there is no shell panel to point at). */
+  dialog?: boolean
   onSelect: (c: C) => void
   onOptions?: (c: C) => void
   /** Tooltip hint for the double-click (default "double-click for options"); e.g. armed shapes say "double-click to keep it selected" (SPEC §3.2). */
@@ -180,7 +193,9 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
   const renderSlot = (slot: Slot<C>, idx: number, prev: Slot<C> | undefined): ReactNode => {
     const item = slot.shown
     const { disabled, reason } = stateOf(item)
-    const pressed = slot.members.some((m) => (m.kind === 'panel' ? openPanels.includes(m.id) : m.kind === 'tool' && m.id === activeId))
+    const pressed = slot.members.some((m) =>
+      m.kind === 'panel' ? openPanels.includes(m.id) : m.kind === 'toggle' ? !!m.pressed?.(ctx) : m.kind === 'tool' && m.id === activeId
+    )
     const shownActive = slot.members.find((m) => m.id === activeId) ?? item
     const tip = railTooltip(shownActive.label, shownActive.shortcut, { options: !!shownActive.onOptions, optionsHint: shownActive.optionsHint, disabledReason: reason })
     const sep = prev && (prev.group !== slot.group || prev.pinned !== slot.pinned)
@@ -195,12 +210,13 @@ export default function ToolRail<C>({ items, ctx, activeId, openPanels = [], las
             tabIndex={idx === focusIdx ? 0 : -1}
             aria-label={tip}
             aria-pressed={item.kind === 'action' ? undefined : pressed}
-            aria-haspopup={isFlyout ? 'menu' : undefined}
-            aria-controls={shownActive.kind === 'panel' ? (shownActive.sidePane ? SIDE_PANE_DOM_ID : `shell-panel-${shownActive.controls ?? shownActive.id}`) : undefined}
+            aria-haspopup={isFlyout ? 'menu' : shownActive.dialog ? 'dialog' : undefined}
+            aria-controls={shownActive.kind === 'panel' && !shownActive.dialog ? (shownActive.sidePane ? SIDE_PANE_DOM_ID : `shell-panel-${shownActive.controls ?? shownActive.id}`) : undefined}
             aria-expanded={isFlyout ? openFlyout === slot.key : undefined}
             disabled={disabled}
             data-testid={shownActive.testid ?? `${testid}-${shownActive.id}`}
             data-rail-kind={item.kind}
+            data-rail-role={shownActive.role}
             onFocus={() => setFocusIdx(idx)}
             onKeyDown={(e) => onKeyDown(e, idx, slot)}
             onPointerDown={() => startHold(slot)}

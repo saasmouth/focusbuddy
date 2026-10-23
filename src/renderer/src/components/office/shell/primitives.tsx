@@ -13,7 +13,20 @@ export const READ_ONLY_REASON = 'not available: this document is read-only'
 
 export const BarContext = createContext<{ readOnly: boolean }>({ readOnly: false })
 
+/**
+ * What a text-formatting control MEANS, so the control-type contract (SPEC
+ * §3.9, `controlViolations`) can find it without reading labels: font size is
+ * a BarNumber, colours are BarColor, alignment is three BarToggles, B/I/U are
+ * BarToggles, the family is the FontPicker. Rendered as data-bar-semantic.
+ */
+export type BarSemantic = 'font-family' | 'font-size' | 'bold' | 'italic' | 'underline' | 'text-color' | 'align-left' | 'align-center' | 'align-right'
+
+/** The primitive a control is, rendered as data-bar-kind (read by the contract, never by apps). */
+export type BarKind = 'button' | 'toggle' | 'dialog' | 'select' | 'number' | 'color' | 'menu' | 'custom' | 'font'
+
 export interface BarCommon {
+  /** See BarSemantic. */
+  semantic?: BarSemantic
   disabled?: boolean
   disabledReason?: string
   readOnlySafe?: boolean
@@ -109,7 +122,7 @@ export function BarButton({ icon, label, showLabel, onClick, ...common }: IconLa
   const tip = barTip(label, common.shortcut, reason)
   return (
     <Tooltip content={tip} placement="bottom">
-      <button type="button" aria-label={tip} aria-controls={common.controls} disabled={disabled} data-testid={common.testid} onClick={onClick} className={`${BTN} ${IDLE}`}>
+      <button type="button" aria-label={tip} aria-controls={common.controls} disabled={disabled} data-testid={common.testid} data-bar-kind="button" data-bar-semantic={common.semantic} onClick={onClick} className={`${BTN} ${IDLE}`}>
         {icon && <Icon name={icon} size={16} />}
         {(showLabel || !icon) && <span>{label}</span>}
       </button>
@@ -129,6 +142,8 @@ export function BarToggle({ icon, label, showLabel, pressed, onChange, ...common
         aria-controls={common.controls}
         disabled={disabled}
         data-testid={common.testid}
+        data-bar-kind="toggle"
+        data-bar-semantic={common.semantic}
         onClick={() => onChange(!pressed)}
         className={`${BTN} ${pressed ? ON : IDLE}`}
       >
@@ -146,7 +161,7 @@ export function BarDialogButton({ icon, label, onOpen, ...common }: Omit<IconLab
   const tip = barTip(text, common.shortcut, reason)
   return (
     <Tooltip content={tip} placement="bottom">
-      <button type="button" aria-label={tip} aria-haspopup="dialog" disabled={disabled} data-testid={common.testid} onClick={onOpen} className={`${BTN} ${IDLE}`}>
+      <button type="button" aria-label={tip} aria-haspopup="dialog" disabled={disabled} data-testid={common.testid} data-bar-kind="dialog" onClick={onOpen} className={`${BTN} ${IDLE}`}>
         {icon && <Icon name={icon} size={16} />}
         <span>{text}</span>
       </button>
@@ -170,6 +185,8 @@ export function BarSelect<T extends string>({ label, value, options, onChange, w
         value={value}
         disabled={disabled}
         data-testid={common.testid}
+        data-bar-kind="select"
+        data-bar-semantic={common.semantic}
         onChange={(e) => onChange(e.target.value as T)}
         onKeyDown={(e) => e.stopPropagation()}
         style={{ width }}
@@ -218,6 +235,8 @@ export function BarNumber({ label, value, onChange, min, max, step = 1, suffix, 
           placeholder="—"
           disabled={disabled}
           data-testid={common.testid}
+          data-bar-kind="number"
+          data-bar-semantic={common.semantic}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
@@ -238,13 +257,21 @@ export function BarNumber({ label, value, onChange, min, max, step = 1, suffix, 
   )
 }
 
-export function BarColor({ icon = 'palette', label, value, onChange, palette, allowNone, ...common }: BarCommon & {
+export function BarColor({ icon = 'palette', label, value, onChange, palette, allowNone, popover, swatch, ...common }: BarCommon & {
   icon?: string
   label: string
   value: string | undefined
   onChange: (v: string | undefined) => void
   palette: string[]
   allowNone?: boolean
+  /**
+   * An app's own picker body in place of the palette (Draw's paints: swatches,
+   * gradients, none). The trigger, its look and its aria stay BarColor's, so a
+   * colour control looks and behaves the same in every app (SPEC §3.9).
+   */
+  popover?: (close: () => void) => ReactNode
+  /** CSS background for the swatch under the icon when `value` is not a plain colour (a gradient). */
+  swatch?: string
 }): JSX.Element {
   const { disabled, reason } = useBarState(common)
   const tip = barTip(label, common.shortcut, reason)
@@ -261,15 +288,18 @@ export function BarColor({ icon = 'palette', label, value, onChange, palette, al
           aria-expanded={open}
           disabled={disabled}
           data-testid={common.testid}
+          data-bar-kind="color"
+          data-bar-semantic={common.semantic}
           onClick={() => setOpen((v) => !v)}
           className={`${BTN} ${IDLE} flex-col !gap-0`}
         >
           <Icon name={icon} size={15} />
-          <span className="block w-4 h-[3px] rounded-sm" style={{ background: value ?? 'transparent', outline: value ? undefined : '1px dashed var(--ink-30)' }} />
+          <span className="block w-4 h-[3px] rounded-sm" style={{ background: swatch ?? value ?? 'transparent', outline: swatch ?? value ? undefined : '1px dashed var(--ink-30)' }} />
         </button>
       </Tooltip>
       {open && (
         <BarPopover anchor={btn.current} onClose={() => setOpen(false)} label={label} testid={common.testid ? `${common.testid}-popover` : undefined}>
+          {popover ? popover(() => setOpen(false)) : (
           <div className="p-2 w-[176px]">
             <div className="grid grid-cols-8 gap-1">
               {palette.map((c) => (
@@ -302,6 +332,7 @@ export function BarColor({ icon = 'palette', label, value, onChange, palette, al
               )}
             </div>
           </div>
+          )}
         </BarPopover>
       )}
     </span>
@@ -327,7 +358,7 @@ export function BarMenu({ icon, label, showLabel = true, valueLabel, items, ...c
   return (
     <span className="relative inline-flex">
       <Tooltip content={tip} placement="bottom">
-        <button ref={btn} type="button" aria-label={tip} aria-haspopup="menu" aria-expanded={open} disabled={disabled} data-testid={common.testid} onClick={() => setOpen((v) => !v)} className={`${BTN} ${IDLE}`}>
+        <button ref={btn} type="button" aria-label={tip} aria-haspopup="menu" aria-expanded={open} disabled={disabled} data-testid={common.testid} data-bar-kind="menu" data-bar-semantic={common.semantic} onClick={() => setOpen((v) => !v)} className={`${BTN} ${IDLE}`}>
           {icon && <Icon name={icon} size={16} />}
           {valueLabel ?? (showLabel && <span>{label}</span>)}
           <Icon name="expand_more" size={14} />
@@ -382,10 +413,48 @@ export function BarSep(): JSX.Element {
 }
 
 /** App widgets (FontPicker, arrow pickers, the nine-point reference) at bar height. */
-export function BarCustom({ children, label, testid }: { children: ReactNode; label?: string; testid?: string }): JSX.Element {
+export function BarCustom({ children, label, testid, semantic }: { children: ReactNode; label?: string; testid?: string; semantic?: BarSemantic }): JSX.Element {
   return (
-    <span role={label ? 'group' : undefined} aria-label={label} data-testid={testid} className="inline-flex items-center gap-1 shrink-0 h-7">
+    <span role={label ? 'group' : undefined} aria-label={label} data-testid={testid} data-bar-kind="custom" data-bar-semantic={semantic} className="inline-flex items-center gap-1 shrink-0 h-7">
       {children}
     </span>
+  )
+}
+
+/**
+ * Font size, the same control in every app (SPEC §3.9): a BarNumber, plus the
+ * app's preset sizes in a menu beside it when it has them (Deck's pattern,
+ * which kept Write's old size list reachable when its select became a number).
+ */
+export function BarFontSize({ label = 'Font size', value, onChange, onClear, min = 1, max, suffix, width = 48, presets, ...common }: Omit<BarCommon, 'semantic'> & {
+  label?: string
+  value: number | undefined
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  suffix?: string
+  width?: number
+  presets?: number[]
+  /** Clear back to the app's default size (Write's old "Size" choice); offered first in the presets menu. */
+  onClear?: () => void
+}): JSX.Element {
+  return (
+    <>
+      <BarNumber label={label} value={value} onChange={onChange} min={min} max={max} suffix={suffix} width={width} semantic="font-size" {...common} />
+      {presets && presets.length > 0 && (
+        <BarMenu
+          icon="format_size"
+          label="Font size presets"
+          showLabel={false}
+          disabled={common.disabled}
+          disabledReason={common.disabledReason}
+          readOnlySafe={common.readOnlySafe}
+          items={[
+            ...(onClear ? [{ label: 'Default', run: onClear, active: value === undefined }, 'sep' as const] : []),
+            ...presets.map((p) => ({ label: `${p}`, run: () => onChange(p), active: value === p }))
+          ]}
+        />
+      )}
+    </>
   )
 }
