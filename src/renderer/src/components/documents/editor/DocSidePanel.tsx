@@ -62,6 +62,12 @@ interface Props {
   // the honest empty state with the add affordance disabled.
   comments: PanelCommentThread[]
   canComment: boolean
+  /**
+   * Open the sign-in dialog. Shown in place of "Add a comment" when the person
+   * is signed out, because commenting needs an account — absent in a surface
+   * that has no way to sign in, where the footer is simply not rendered.
+   */
+  onSignIn?: () => void
   onAddComment?: () => void
   onReply?: (threadId: string, body: string) => void
   onJumpComment?: (threadId: string) => void
@@ -425,6 +431,7 @@ function Thread({
 function CommentsTab({
   comments,
   canComment,
+  onSignIn,
   onAddComment,
   onReply,
   onJumpComment,
@@ -433,6 +440,12 @@ function CommentsTab({
 }: {
   comments: PanelCommentThread[]
   canComment: boolean
+  /**
+   * Open the sign-in dialog. Shown in place of "Add a comment" when the person
+   * is signed out, because commenting needs an account — absent in a surface
+   * that has no way to sign in, where the footer is simply not rendered.
+   */
+  onSignIn?: () => void
   onAddComment?: () => void
   onReply?: (threadId: string, body: string) => void
   onJumpComment?: (threadId: string) => void
@@ -465,7 +478,7 @@ function CommentsTab({
           </div>
         )}
       </div>
-      {canComment && (
+      {canComment ? (
         <div className="shrink-0 border-t border-[var(--edge-soft)] p-3">
           <button
             onClick={onAddComment}
@@ -477,7 +490,26 @@ function CommentsTab({
             <span>Add a comment</span>
           </button>
         </div>
-      )}
+      ) : onSignIn ? (
+        // SIGNED OUT, not unavailable. Commenting needs an account because a
+        // comment is attributed to a person (4.3.41) — so the action stays
+        // where it was and explains itself, rather than vanishing and leaving
+        // someone to wonder whether this document supports comments at all.
+        // Existing comments above remain readable.
+        <div className="shrink-0 border-t border-[var(--edge-soft)] p-3">
+          <button
+            onClick={onSignIn}
+            className="fb-btn-surface flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[12.5px] text-[var(--ink-80)] hover:border-[rgb(var(--accent)/0.5)] hover:bg-[rgb(var(--accent)/0.06)]"
+            data-testid="doc-comments-signin"
+          >
+            <Icon name="add_comment" size={15} />
+            <span>Sign in to comment</span>
+          </button>
+          <p className="mt-1.5 text-center text-[11px] text-[var(--ink-40)]">
+            Comments show who wrote them.
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -492,6 +524,7 @@ export default function DocSidePanel({
   onCollapse,
   comments,
   canComment,
+  onSignIn,
   onAddComment,
   onReply,
   onJumpComment,
@@ -561,6 +594,7 @@ export default function DocSidePanel({
           <CommentsTab
             comments={comments}
             canComment={canComment}
+            onSignIn={onSignIn}
             onAddComment={onAddComment}
             onReply={onReply}
             onJumpComment={onJumpComment}
@@ -618,6 +652,7 @@ export function docSidePanes(p: Omit<Props, 'tab' | 'onTab' | 'onCollapse'>): Si
       <CommentsTab
         comments={p.comments}
         canComment={p.canComment}
+        onSignIn={p.onSignIn}
         onAddComment={p.onAddComment}
         onReply={p.onReply}
         onJumpComment={p.onJumpComment}

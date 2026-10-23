@@ -34,7 +34,7 @@ import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStud
 import Icon from '../Icon'
 import { PlexiiDocIcon } from '../PlexiiIcon'
 import CollaboratorBar from './CollaboratorBar'
-import { collaborators } from '../../lib/presence'
+import { collaborators, displayNameFor } from '../../lib/presence'
 import * as Y from 'yjs'
 import { getSchema } from '@tiptap/core'
 import { buildDocExtensions } from '../documents/editor/extensions'
@@ -457,7 +457,22 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   }
 
   // Resolve an author id to a handle for the panel (members cover comment authors).
-  const handleOf = (id: string): string => people.find((p) => p.accountId === id)?.handle ?? id
+  /**
+   * The name to SHOW for an account — real name first, handle only when there
+   * is no name.
+   *
+   * This used to read `.handle`, which is why a comment by someone who HAD
+   * entered their first and last name still showed a handle, and why an
+   * account with neither showed the server's 'Someone'. The name was already
+   * here: the members payload carries firstName/lastName beside the handle and
+   * `collaborators()` folds them into `.name` through personDisplayName.
+   * Nothing was missing but the field being read.
+   *
+   * The handle stays what it is for — routing, keys and @mentions — and
+   * `mentionHandles` still uses it.
+   */
+  const displayNameOf = (id: string): string => displayNameFor(people, id)
+
 
   // Shape the real server comment threads for the in-editor side panel. Roots are
   // threads; replies nest under their root. Nothing here is fabricated, it is the
@@ -467,7 +482,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     .sort((a, b) => a.createdAt - b.createdAt)
     .map((root) => ({
       id: root.id,
-      author: handleOf(root.authorAccountId),
+      author: displayNameOf(root.authorAccountId),
       createdAt: root.createdAt,
       body: root.body,
       resolved: !!root.resolved,
@@ -477,7 +492,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
         .sort((a, b) => a.createdAt - b.createdAt)
         .map((r) => ({
           id: r.id,
-          author: handleOf(r.authorAccountId),
+          author: displayNameOf(r.authorAccountId),
           createdAt: r.createdAt,
           body: r.body,
           you: r.authorAccountId === myId
@@ -891,7 +906,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
           <CommentsPanel
             comments={comments}
             myId={myId ?? null}
-            handleOf={handleOf}
+            displayNameOf={displayNameOf}
             focusId={focusComment}
             onReply={(rootId, body) => void replyToComment(rootId, body)}
             onResolve={(rootId, resolved) => void resolveThread(rootId, resolved)}

@@ -5,6 +5,7 @@ import { useDocumentsStore } from '../../stores/documents'
 import { useViewStore } from '../../stores/view'
 import { useMessagingStore } from '../../stores/messaging'
 import { useAccountStore } from '../../stores/account'
+import { useSignInPrompt } from '../../stores/signInPrompt'
 import { personDisplayName } from '../../lib/personName'
 import { DocEditor, SheetEditor, SlidesEditor, MapEditor, DesignEditor, DrawStudio } from '@office'
 import { createDocumentOps } from '../documents/editor/documentOps'
@@ -64,6 +65,15 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
   // The signed-in user's name greets them in the AI Assistant panel. Omitted when
   // signed out, so the panel falls back to a neutral greeting (no fabricated name).
   const account = useAccountStore((s) => s.account)
+  // Commenting needs an account, on a LOCAL document too (owner's ruling,
+  // 4.3.41). A comment is attributed to a person, and an unattributed one
+  // helps nobody once the document is shared — which a local document can be
+  // at any time, carrying its comments with it.
+  //
+  // Reading is NOT gated: comments already written stay visible signed out,
+  // and the action is replaced by "Sign in to comment" rather than hidden, so
+  // nobody is left wondering whether this document supports comments.
+  const requestSignIn = useSignInPrompt((s) => s.requestOpen)
   const userName = account ? personDisplayName(account, account.email) : null
 
   useEffect(() => {
@@ -156,6 +166,14 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
 
   async function addComment(): Promise<void> {
     if (!editor) return
+    // The button is already replaced by "Sign in to comment" when signed out,
+    // so this is the second line rather than the first — for a keyboard path
+    // or a future caller that does not go through the panel. A comment with
+    // no account behind it cannot be attributed to anyone.
+    if (!account) {
+      requestSignIn()
+      return
+    }
     const { from, to, empty } = editor.state.selection
     if (empty) {
       void promptText({
@@ -343,7 +361,8 @@ export default function DocumentEditorView({ documentId, onBack }: Props): JSX.E
             userName={userName}
             onEditorReady={setEditor}
             comments={panelThreads}
-            canComment
+            canComment={!!account}
+            onSignIn={requestSignIn}
             onAddComment={() => void addComment()}
             onReplyComment={(threadId, body) => void replyComment(threadId, body)}
             onJumpComment={jumpToComment}

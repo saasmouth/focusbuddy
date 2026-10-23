@@ -21,6 +21,12 @@
  *   COMMENT_LIVE_BASE=https://localhost:8798 COMMENT_LIVE_API=http://localhost:8799 \
  *   npx playwright test tests/e2e/_commentAnchorsLive.spec.ts
  *
+ *
+ * ONE AT A TIME. Signup is rate-limited per IP (five a minute), and the live
+ * specs share that budget — running this back-to-back with the other one
+ * exhausts it and fails in a way that looks like a product fault: the sign-up
+ * response never arrives and the modal is simply gone from the page snapshot.
+ * Leave a minute between them.
  * NEVER against production: it creates accounts. Self-skips without
  * COMMENT_LIVE_BASE so it cannot run by accident, and `_`-prefixed so
  * `npm run test:e2e` excludes it.
@@ -149,6 +155,11 @@ async function signUpInApp(app: LaunchedApp, email: string): Promise<Who> {
   await w.getByRole('button', { name: 'Sign up' }).click()
   await w.getByPlaceholder('you@example.com').fill(email)
   await w.getByPlaceholder('at least 8 characters').fill('password12345')
+  // A first and last name are required to hold an account (4.3.41), so the
+  // Create account button stays disabled without them. Derived from the email
+  // so each account in a run is distinguishable in a screenshot.
+  await w.locator('[data-testid="signup-first-name"]').fill('Test')
+  await w.locator('[data-testid="signup-last-name"]').fill(email.split('@')[0]!.replace(/[^a-z]/gi, '') || 'Person')
   // Signup is rate-limited to 5 a minute per IP (RL_SIGNUP on the server), and
   // this file creates five accounts across three tests. That limit is real
   // production behaviour and not something to weaken for a test, so the spec

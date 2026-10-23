@@ -228,6 +228,13 @@ interface Props {
   comments?: PanelCommentThread[]
   canComment?: boolean
   /**
+   * Open the sign-in dialog. Shown where "Add a comment" would be when the
+   * person is signed out: commenting needs an account because a comment is
+   * attributed to a person (4.3.41), and hiding the action would leave
+   * someone unsure whether the document supports comments at all.
+   */
+  onSignIn?: () => void
+  /**
    * A reader, not an editor. Live-doc viewers were getting a full editor,
    * because this was hard-coded false where WriteChrome is mounted.
    *
@@ -298,6 +305,7 @@ export default function DocEditor({
   onCommentClick,
   comments = [],
   canComment = false,
+  onSignIn,
   readOnly = false,
   onAddComment,
   onReplyComment,
@@ -820,6 +828,7 @@ export default function DocEditor({
         showAiTab: !hasGlobalAssistant,
         comments,
         canComment,
+        onSignIn,
         onAddComment,
         onReply: onReplyComment,
         onJumpComment,
@@ -827,7 +836,7 @@ export default function DocEditor({
         myHandle
       })
         : [],
-    [editor, ai, userName, hasGlobalAssistant, comments, canComment, onAddComment, onReplyComment, onJumpComment, mentionHandles, myHandle]
+    [editor, ai, userName, hasGlobalAssistant, comments, canComment, onSignIn, onAddComment, onReplyComment, onJumpComment, mentionHandles, myHandle]
   )
 
 

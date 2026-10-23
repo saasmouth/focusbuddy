@@ -9,7 +9,8 @@ import type { DocComment } from '../../lib/docCollabClient'
 interface Props {
   comments: DocComment[]
   myId: string | null
-  handleOf: (accountId: string) => string
+  /** The name to SHOW for an account: real name, falling back to handle. */
+  displayNameOf: (accountId: string) => string
   // When set, that thread is highlighted and scrolled into view (clicked text).
   focusId?: string | null
   onReply: (rootId: string, body: string) => void
@@ -28,7 +29,7 @@ function Thread({
   root,
   replies,
   myId,
-  handleOf,
+  displayNameOf,
   focused,
   onReply,
   onResolve,
@@ -38,7 +39,7 @@ function Thread({
   root: DocComment
   replies: DocComment[]
   myId: string | null
-  handleOf: (id: string) => string
+  displayNameOf: (id: string) => string
   focused: boolean
   onReply: (rootId: string, body: string) => void
   onResolve: (rootId: string, resolved: boolean) => void
@@ -65,7 +66,7 @@ function Thread({
       <div className="flex items-start gap-2">
         <button onClick={() => onJump(root.id)} className="min-w-0 flex-1 text-left" title="Jump to the highlighted text">
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-semibold text-[var(--ink-90)]">{handleOf(root.authorAccountId)}</span>
+            <span className="text-[12px] font-semibold text-[var(--ink-90)]">{displayNameOf(root.authorAccountId)}</span>
             <span className="text-[10px] text-[var(--ink-40)]">{fmtTime(root.createdAt)}</span>
             {root.resolved && <span className="text-[10px] px-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Resolved</span>}
           </div>
@@ -91,7 +92,7 @@ function Thread({
       {replies.map((r) => (
         <div key={r.id} className="ml-3 mt-1.5 pl-2 border-l border-[var(--edge-soft)]">
           <div className="flex items-center gap-1.5">
-            <span className="text-[11.5px] font-medium text-[var(--ink-70)]">{handleOf(r.authorAccountId)}</span>
+            <span className="text-[11.5px] font-medium text-[var(--ink-70)]">{displayNameOf(r.authorAccountId)}</span>
             <span className="text-[10px] text-[var(--ink-40)]">{fmtTime(r.createdAt)}</span>
             {r.authorAccountId === myId && (
               <button onClick={() => onDelete(r.id)} className="icon-btn ml-auto" title="Delete">
@@ -124,7 +125,7 @@ function Thread({
   )
 }
 
-export default function CommentsPanel({ comments, myId, handleOf, focusId, onReply, onResolve, onDelete, onJump, onClose }: Props): JSX.Element {
+export default function CommentsPanel({ comments, myId, displayNameOf, focusId, onReply, onResolve, onDelete, onJump, onClose }: Props): JSX.Element {
   const roots = comments.filter((c) => !c.parentId).sort((a, b) => a.createdAt - b.createdAt)
   const repliesOf = (id: string): DocComment[] =>
     comments.filter((c) => c.parentId === id).sort((a, b) => a.createdAt - b.createdAt)
@@ -153,7 +154,7 @@ export default function CommentsPanel({ comments, myId, handleOf, focusId, onRep
               root={root}
               replies={repliesOf(root.id)}
               myId={myId}
-              handleOf={handleOf}
+              displayNameOf={displayNameOf}
               focused={root.id === focusId}
               onReply={onReply}
               onResolve={onResolve}

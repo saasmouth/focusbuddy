@@ -91,6 +91,30 @@ async function getJson<T>(path: string, token?: string): Promise<{ res: Response
 
 // ── Auth ────────────────────────────────────────────────────────────────
 
+/**
+ * The sentence a failed response actually offers, or null.
+ *
+ * Two envelopes reach us and they disagree about which field holds the
+ * sentence. OUR routes answer `{ ok: false, error: 'A plain sentence.' }`.
+ * FASTIFY's own errors — the rate limiter, a 404, a schema refusal — answer
+ * `{ statusCode, error: 'Too Many Requests', message: 'Rate limit exceeded,
+ * retry in 1 minute' }`, where `error` is the HTTP reason phrase and the
+ * useful part is in `message`. Reading `error` from both shows a person
+ * "Too Many Requests" and hides the sentence telling them to wait a minute.
+ *
+ * Returns null when the body is not JSON at all — a gateway's plain-text 502,
+ * an HTML error page, a captive portal — so the caller can say something
+ * truthful about the STATUS instead of guessing at a cause.
+ */
+function serverSentence(json: unknown): string | null {
+  if (!json || typeof json !== 'object') return null
+  const o = json as { statusCode?: unknown; error?: unknown; message?: unknown }
+  if ('statusCode' in o && typeof o.message === 'string' && o.message.trim()) return o.message
+  if (typeof o.error === 'string' && o.error.trim()) return o.error
+  if (typeof o.message === 'string' && o.message.trim()) return o.message
+  return null
+}
+
 export async function signup(input: {
   email: string
   password: string
@@ -112,7 +136,7 @@ export async function signup(input: {
         res.status === 409 ? 'EMAIL_EXISTS' : res.status === 400 ? 'BAD_INPUT' : 'SERVER'
       return {
         ok: false,
-        error: json?.error || `Signup failed (${res.status}).`,
+        error: serverSentence(json) || `Signup failed (${res.status}).`,
         code
       }
     }
@@ -174,7 +198,20 @@ export async function login(input: {
         res.status === 401 ? 'INVALID_CREDENTIALS' : 'SERVER'
       return {
         ok: false,
-        error: json?.error || 'Invalid email or password.',
+        // ONLY A 401 MAY BLAME THE CREDENTIALS. This used to fall back to
+        // "Invalid email or password." for ANY non-ok response, so a
+        // bad-gateway page, a 500, or a restarting server all told the person
+        // their password was wrong — and a plain-text body has no `error`
+        // field to override it. Found when the real app said exactly that
+        // while the same email and password worked over curl a second later:
+        // a TLS proxy had answered `502 proxy error: ECONNREFUSED`, and
+        // nothing about that is specific to a test harness. People change
+        // passwords that were fine over messages like this.
+        error:
+          serverSentence(json) ||
+          (res.status === 401
+            ? 'Invalid email or password.'
+            : `The server could not sign you in (error ${res.status}). Please try again in a moment.`),
         code
       }
     }
