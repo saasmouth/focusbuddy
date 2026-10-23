@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, waitForReady } from './_helpers'
+import { gotoView, launchApp, waitForReady } from './_helpers'
 
 // PlexiMarketplace verification.
 // Priority: opening the view creates nothing; each Apply creates real store objects.
@@ -12,7 +12,9 @@ test('1. view renders all template cards; opening creates nothing', async () => 
     await waitForReady(window)
 
     // Navigate to Marketplace
-    await window.getByRole('button', { name: 'Marketplace' }).first().click()
+    // STALE: no "Marketplace" button to click; view.ts has goMarketplace
+    // ({ kind: 'marketplace' }), which MainPane renders.
+    await gotoView(window, 'goMarketplace')
     await expect(window.locator('[data-testid="pleximarketplace-view"]')).toBeVisible({ timeout: 8_000 })
 
     // All 6 template cards must be visible
@@ -45,7 +47,9 @@ test('2. apply sprint-board: real table + 3 real rows', async () => {
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'Marketplace' }).first().click()
+    // STALE: no "Marketplace" button to click; view.ts has goMarketplace
+    // ({ kind: 'marketplace' }), which MainPane renders.
+    await gotoView(window, 'goMarketplace')
     await expect(window.locator('[data-testid="template-apply-sprint-board"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="template-apply-sprint-board"]').click()
@@ -76,7 +80,9 @@ test('3. apply weekly-report: real table + real report referencing it', async ()
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'Marketplace' }).first().click()
+    // STALE: no "Marketplace" button to click; view.ts has goMarketplace
+    // ({ kind: 'marketplace' }), which MainPane renders.
+    await gotoView(window, 'goMarketplace')
     await expect(window.locator('[data-testid="template-apply-weekly-report"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="template-apply-weekly-report"]').click()
@@ -105,7 +111,9 @@ test('4. apply daily-standup: real flow with schedule + 2 actions', async () => 
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'Marketplace' }).first().click()
+    // STALE: no "Marketplace" button to click; view.ts has goMarketplace
+    // ({ kind: 'marketplace' }), which MainPane renders.
+    await gotoView(window, 'goMarketplace')
     await expect(window.locator('[data-testid="template-apply-daily-standup"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="template-apply-daily-standup"]').click()
@@ -135,7 +143,9 @@ test('5. apply team-wiki: 2 real knowledge entries with expected titles', async 
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'Marketplace' }).first().click()
+    // STALE: no "Marketplace" button to click; view.ts has goMarketplace
+    // ({ kind: 'marketplace' }), which MainPane renders.
+    await gotoView(window, 'goMarketplace')
     await expect(window.locator('[data-testid="template-apply-team-wiki"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="template-apply-team-wiki"]').click()
@@ -163,7 +173,10 @@ test('6. suite launcher: PlexiMarketplace tile opens the view', async () => {
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
+    // STALE: there is no "PlexiiSuite" button to click — the object-based IA
+    // dropped the literal sidebar entries, so this waited out the full 30s
+    // timeout. goSuite ({ kind: 'suite' }) is the view store's own route to it.
+    await gotoView(window, 'goSuite')
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="product-tile-pleximarketplace"]').click()

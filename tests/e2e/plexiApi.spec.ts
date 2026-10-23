@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { openProduct, launchApp, waitForReady } from './_helpers'
+import { gotoView, launchApp, openProduct, waitForReady } from './_helpers'
 
 // PlexiAPI verification.
 // HTTP calls are made from the Playwright test process (Node.js) directly to
@@ -201,7 +201,10 @@ test('10. suite launcher: PlexiAPI tile opens the view', async () => {
   try {
     await waitForReady(window)
 
-    await window.getByRole('button', { name: 'PlexiiSuite' }).first().click()
+    // STALE: there is no "PlexiiSuite" button to click — the object-based IA
+    // dropped the literal sidebar entries, so this waited out the full 30s
+    // timeout. goSuite ({ kind: 'suite' }) is the view store's own route to it.
+    await gotoView(window, 'goSuite')
     await expect(window.locator('[data-testid="plexisuite-home"]')).toBeVisible({ timeout: 8_000 })
 
     await window.locator('[data-testid="product-tile-plexiapi"]').click()

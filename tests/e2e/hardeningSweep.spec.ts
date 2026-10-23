@@ -395,16 +395,19 @@ test('10. PlexiSearch: result rows visible, Cmd+Enter shows answer card', async 
       window.api.knowledge.create({ title: 'HardeningSearchEntry', body: 'Seeded body for the hardeningspec test' })
     )
 
-    await window.getByRole('button', { name: 'PlexiiSearch' }).first().click()
-    const openBtn = window.locator('[data-testid="open-plexisearch"]')
-    if (await openBtn.isVisible({ timeout: 2000 }).catch(() => false)) await openBtn.click()
+    // Was `getByRole('button', { name: 'PlexiiSearch' }).first()`, which is
+    // ambiguous — the product's own page carries "PlexiiSearch", "Open
+    // PlexiiSearch" and "Close PlexiiSearch" — and landed on the catalog page
+    // rather than the view often enough to fail about one run in three. The
+    // accordion row goes straight to the app, so there is nothing to disambiguate
+    // and no landing page in the way.
+    await openProduct(window, 'search')
     await expect(window.locator('[data-testid="plexisearch-view"]')).toBeVisible({ timeout: 8000 })
 
     // Use the actual testid from the source: plexisearch-input
     const searchInput = window.locator('[data-testid="plexisearch-input"]')
     await expect(searchInput).toBeVisible({ timeout: 5000 })
     await searchInput.fill('HardeningSearchEntry')
-    await window.waitForTimeout(500)
 
     // Result hits use testid plexisearch-hit-<id>
     await expect(window.locator('[data-testid^="plexisearch-hit-"]').first()).toBeVisible({ timeout: 6000 })
@@ -423,9 +426,15 @@ test('11. PlexiProjects: Gantt bar renders, TaskBar has role=button + tabindex=0
   try {
     await waitForReady(window)
 
-    // Seed folder + task using the projects IPC (plan_start/planDue are ms timestamps)
+    // Seed folder + task using the projects IPC (plan_start/planDue are ms timestamps).
+    // STALE until now: created as a plain folder, so listProjectSummaries never
+    // returned it (`is_plan = 1` required) and no project card rendered, leaving
+    // the click below to wait out the whole test. A folder has been a Room
+    // rather than a Plan since 0ba19017d "Rooms/Desks Phase 1: decouple Desks
+    // from Plans via is_plan flag"; the Plans view is the only create path that
+    // sets the flag, so a spec that wants a Plan must ask for one.
     const folder = await window.evaluate(async () =>
-      window.api.nodes.create({ parentId: null, kind: 'folder', title: 'Hardening Folder' })
+      window.api.nodes.create({ parentId: null, kind: 'folder', title: 'Hardening Folder', isPlan: true })
     ) as { id: string }
 
     const task = await window.evaluate(
@@ -450,9 +459,15 @@ test('11. PlexiProjects: Gantt bar renders, TaskBar has role=button + tabindex=0
 
     // Click the project card to open the Gantt
     await window.locator(`[data-testid="project-card-${folder.id}"]`).click()
-    await window.waitForTimeout(500)
 
-    // Gantt bar for the task
+    // The plan opens on Overview; the Gantt lives behind the Timeline tab,
+    // which the tabbed Plan view introduced at 9f72888e8 ("Object-based IA:
+    // three segments + Plans not Projects"). Without this the bars are simply
+    // not rendered.
+    await window.locator('[data-testid="projects-view-gantt"]').click()
+
+    // Gantt bar for the task. No sleep between the clicks and this: the
+    // assertion already waits on the state the sleep was guessing at.
     const bar = window.locator(`[data-testid="gantt-bar-${task.id}"]`)
     await expect(bar).toBeVisible({ timeout: 6000 })
 

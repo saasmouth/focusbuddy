@@ -3,7 +3,7 @@
 // reorder/remove, delete, and launcher status.
 
 import { test, expect } from '@playwright/test'
-import { openProduct, launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { gotoView, launchApp, openProduct, waitForReady, type LaunchedApp } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -299,7 +299,11 @@ test('8 — PlexiBuild shows as ready in the PlexiSuite launcher (Open button, n
   await waitForReady(window)
 
   // Open PlexiSuite home.
-  await window.locator('button').filter({ hasText: 'PlexiiSuite' }).first().click()
+  // STALE: no button contains "PlexiiSuite" — the object-based IA dropped the
+  // literal sidebar entries, so the filtered click waited out the full 30s
+  // timeout. goSuite ({ kind: 'suite' }) is the view store's own route, and is
+  // also where a fresh profile already lands (see plexiSearch.spec.ts:257).
+  await gotoView(window, 'goSuite')
   await window.waitForSelector('[data-testid="plexisuite-home"]', { timeout: 8_000 })
 
   const tile = window.locator('[data-testid="product-tile-plexibuild"]')

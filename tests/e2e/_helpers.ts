@@ -444,6 +444,7 @@ const SEGMENT_OF: Record<string, ProductRoute> = {
   // area switcher, then click the app's menu row.
   flow: { mode: 'seg', switch: 'plexibrain', app: 'flows' },
   api: { mode: 'seg', switch: 'plexibrain', app: 'api' },
+  search: { mode: 'seg', switch: 'plexibrain', app: 'search' },
   chat: { mode: 'comms', app: 'chat' },
   inbox: { mode: 'comms', app: 'inbox' },
   // PlexiiCall is a PlexiiApps tile (office-sideapp-*), not a Tools one.
@@ -482,6 +483,10 @@ export async function openProduct(window: Page, product: keyof typeof SEGMENT_OF
   // The area's apps are rows in the side menu's accordion (nav-<area>-<app>)
   // since b7dae811; the segment-app-* tiles went with the per-area menus.
   await switchArea(window, route.switch)
+  // The old `segment-app-${app}` was never a control: SegmentShell passes that
+  // string to PageEnter as `id`, and PageEnter uses `id` only as a React key
+  // (chrome/pageEnter.tsx), so the click matched nothing and waited out the
+  // full 30s timeout.
   await window.locator(`[data-testid="nav-${route.switch}-${route.app}"]`).first().click()
 }
 
@@ -493,6 +498,9 @@ export async function gotoView(
   window: Page,
   fn:
     | 'goHome'
+    | 'goSuite'
+    | 'goSign'
+    | 'goMarketplace'
     | 'goDocuments'
     | 'goCalendar'
     | 'goVault'
