@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, shiftClickWidgetHeader, waitForReady } from './_helpers'
 
 // Canvas multi-select:
 //   • Shift+click a widget toggles it in the selection.
@@ -35,8 +35,11 @@ async function seedStickiesAndOpen(
         content: `s${i}`,
         x: pts[i].x,
         y: pts[i].y,
-        width: 160,
-        height: 120
+        // The sticky's catalogue default. This used 160 x 120, below the
+        // 180 x 120 floor every kind is clamped to (shared/widgetSizing.ts),
+        // where the header action row leaves no grab point on the header.
+        width: 240,
+        height: 200
       })
       ids.push(w.id)
     }
@@ -54,21 +57,13 @@ async function seedStickiesAndOpen(
   return seeded
 }
 
+// Real Shift+mousedown→mouseup on the HEADER (react-rnd's drag handle), the
+// exact gesture a user makes, exercising react-rnd's onDragStart path (where
+// header shift-select is wired). The point is hit-tested rather than a fixed
+// `left + 26`, which now lands on the header's "Rewrite with AI" button; see
+// shiftClickWidgetHeader in _helpers.ts.
 async function shiftClick(l: LaunchedApp, id: string): Promise<void> {
-  // Real Shift+mousedown→mouseup on the HEADER (react-rnd's drag handle), at the
-  // title (left) area — the header CENTRE is an icon button, so we target the
-  // left. This is the exact gesture a user makes and, unlike a synthetic click,
-  // exercises react-rnd's onDragStart path (where header shift-select is wired).
-  const pt = await l.window.evaluate((wid: string) => {
-    const h = document.querySelector(`[data-widget-id="${wid}"] .widget-handle`)
-    const target = h ?? document.querySelector(`[data-widget-id="${wid}"]`)
-    const b = (target as HTMLElement).getBoundingClientRect()
-    return { x: b.left + 26, y: b.top + (h ? b.height / 2 : 44) }
-  }, id)
-  await l.window.keyboard.down('Shift')
-  await l.window.mouse.click(pt.x, pt.y)
-  await l.window.keyboard.up('Shift')
-  await l.window.waitForTimeout(150)
+  await shiftClickWidgetHeader(l.window, id)
 }
 
 async function stickiesOf(
@@ -94,7 +89,7 @@ test('shift+click selects two widgets and the toolbar shows the count', async ()
   await waitForReady(window)
   const { ids } = await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
-    { x: 360, y: 120 }
+    { x: 400, y: 120 }
   ])
 
   await shiftClick(launched, ids[0])
@@ -110,7 +105,7 @@ test('Group into section wraps the shift-selected widgets in a new section', asy
   await waitForReady(window)
   const { taskId, ids } = await seedStickiesAndOpen(launched, [
     { x: 140, y: 140 },
-    { x: 380, y: 160 }
+    { x: 420, y: 160 }
   ])
 
   await shiftClick(launched, ids[0])
@@ -143,7 +138,7 @@ test('Delete removes every selected widget', async () => {
   await waitForReady(window)
   const { taskId, ids } = await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
-    { x: 360, y: 120 }
+    { x: 400, y: 120 }
   ])
 
   await shiftClick(launched, ids[0])
@@ -156,6 +151,17 @@ test('Delete removes every selected widget', async () => {
     return true
   })
   expect(clicked).toBe(true)
+
+  // Since f019f6e3 ("Delete / Backspace on selected work widgets asks Remove
+  // from this desk or Delete") the selection bar's delete asks the × question
+  // for the whole selection (lib/widgetRemoval removeWorkWidgets). Stickies are
+  // work widget files, so it offers Remove from this desk / Delete N. This spec
+  // used to expect an immediate delete; answer Delete, the destructive choice.
+  const dialog = window.locator('[data-testid="prompt-dialog"]')
+  await expect(dialog).toHaveAttribute('aria-label', 'Remove or delete 2 work widgets?')
+  await expect(dialog.locator('[data-testid="prompt-choice-delete"]')).toContainText('Delete 2 work widgets')
+  await dialog.locator('[data-testid="prompt-choice-delete"]').click()
+  await expect(dialog).toBeHidden()
   await window.waitForTimeout(500)
 
   const widgets = await stickiesOf(launched, taskId)
@@ -168,8 +174,8 @@ test('Cmd+A selects all desk widgets; Esc clears the selection', async () => {
   await waitForReady(window)
   await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
-    { x: 360, y: 120 },
-    { x: 600, y: 120 }
+    { x: 400, y: 120 },
+    { x: 680, y: 120 }
   ])
 
   await window.evaluate(() => {
@@ -192,28 +198,36 @@ test('shift+drag marquee selects the widgets it overlaps', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
-  await seedStickiesAndOpen(launched, [
+  const { ids } = await seedStickiesAndOpen(launched, [
     { x: 120, y: 120 },
-    { x: 360, y: 140 }
+    { x: 400, y: 140 }
   ])
 
-  // Drag a Shift+marquee from an empty top-left corner across both stickies.
-  await window.evaluate(() => {
+  // Drag a Shift+marquee from empty desk above-left of the first sticky to a
+  // point INSIDE the second one, so the second is overlapped, not contained.
+  //
+  // Placed from the stickies' rendered rects, not fixed surface offsets: since
+  // fad098e8 ("the desk runs beneath the dock") the surface starts under the
+  // side dock and the camera opens at panX = dock inset (272 px here). The old
+  // fixed (20,20)→(600,420) began under the dock and, in canvas space, ended
+  // at x≈328, short of the second sticky, so only one was selected.
+  await window.evaluate((wids: string[]) => {
     const surf = document.querySelector('[data-canvas-surface="true"]') as HTMLElement
-    const r = surf.getBoundingClientRect()
-    const opts = (cx: number, cy: number, shift: boolean) => ({
+    const a = document.querySelector(`[data-widget-id="${wids[0]}"]`)!.getBoundingClientRect()
+    const b = document.querySelector(`[data-widget-id="${wids[1]}"]`)!.getBoundingClientRect()
+    const opts = (x: number, y: number, shift: boolean) => ({
       bubbles: true,
       cancelable: true,
       button: 0,
       pointerId: 1,
       shiftKey: shift,
-      clientX: r.left + cx,
-      clientY: r.top + cy
+      clientX: x,
+      clientY: y
     })
-    surf.dispatchEvent(new PointerEvent('pointerdown', opts(20, 20, true)))
-    surf.dispatchEvent(new PointerEvent('pointermove', opts(600, 420, true)))
-    surf.dispatchEvent(new PointerEvent('pointerup', opts(600, 420, false)))
-  })
+    surf.dispatchEvent(new PointerEvent('pointerdown', opts(a.left - 30, a.top - 30, true)))
+    surf.dispatchEvent(new PointerEvent('pointermove', opts(b.left + 40, b.top + 40, true)))
+    surf.dispatchEvent(new PointerEvent('pointerup', opts(b.left + 40, b.top + 40, false)))
+  }, ids)
   await window.waitForTimeout(200)
 
   expect(await window.evaluate(() => document.body.innerText)).toContain('2 selected')

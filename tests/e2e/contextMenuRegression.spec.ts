@@ -16,7 +16,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { launchApp, type LaunchedApp, shiftClickWidgetHeader, waitForReady } from './_helpers'
 
 let launched: LaunchedApp | null = null
 
@@ -29,6 +29,10 @@ test.afterEach(async () => {
 
 // ---------------------------------------------------------------------------
 // Helper: seed two stickies, reload, open desk, return ids
+//
+// At the sticky's catalogue default size (240 x 200). This used 160 x 120,
+// below the 180 x 120 floor every kind is clamped to (shared/widgetSizing.ts),
+// where the header action row covers the whole header.
 // ---------------------------------------------------------------------------
 
 async function seedTwoStickiesAndOpen(
@@ -42,11 +46,11 @@ async function seedTwoStickiesAndOpen(
     const task = await api.nodes.create({ parentId: null, kind: 'task', title })
     const a = await api.widgets.create({
       taskId: task.id, kind: 'sticky', title: 'A',
-      content: 'first sticky', x: 100, y: 100, width: 160, height: 120
+      content: 'first sticky', x: 100, y: 100, width: 240, height: 200
     })
     const b = await api.widgets.create({
       taskId: task.id, kind: 'sticky', title: 'B',
-      content: 'second sticky', x: 350, y: 100, width: 160, height: 120
+      content: 'second sticky', x: 400, y: 100, width: 240, height: 200
     })
     return { taskId: task.id, ids: [a.id, b.id] }
   }, label)
@@ -66,17 +70,10 @@ async function seedTwoStickiesAndOpen(
 // Helper: shift-click a widget's handle to add it to multi-selection
 // ---------------------------------------------------------------------------
 
+// Hit-tests a grab point on the header; see shiftClickWidgetHeader in
+// _helpers.ts for why a fixed offset (the old `left + 26`) no longer works.
 async function shiftClick(l: LaunchedApp, id: string): Promise<void> {
-  const pt = await l.window.evaluate((wid: string) => {
-    const h = document.querySelector(`[data-widget-id="${wid}"] .widget-handle`)
-    const target = h ?? document.querySelector(`[data-widget-id="${wid}"]`)
-    const b = (target as HTMLElement).getBoundingClientRect()
-    return { x: b.left + 26, y: b.top + (h ? b.height / 2 : 44) }
-  }, id)
-  await l.window.keyboard.down('Shift')
-  await l.window.mouse.click(pt.x, pt.y)
-  await l.window.keyboard.up('Shift')
-  await l.window.waitForTimeout(150)
+  await shiftClickWidgetHeader(l.window, id)
 }
 
 // ---------------------------------------------------------------------------
@@ -111,18 +108,21 @@ test('CTX-REG-1 — right-clicking a widget header in a 2-item selection opens t
 
   console.log('[CTX-REG-1] bulk menu text:', menuText)
 
-  // The bulk menu must contain at minimum a delete / bring-to-front style entry.
-  // We look for any mention of "2" (widget count) or "all" (bulk action) or
-  // "front" (Bring all to front) or "Delete" — any one of these proves the bulk
-  // menu path fired rather than the single-widget path.
-  const hasBulkContent =
-    menuText.includes('2') ||
-    /all/i.test(menuText) ||
-    /front/i.test(menuText) ||
-    /delete/i.test(menuText) ||
-    /copy/i.test(menuText)
-
-  expect(hasBulkContent, `Expected bulk menu content, got: "${menuText}"`).toBe(true)
+  // The bulk menu, not the single-widget one. This used to accept any of
+  // "2" / "all" / "front" / "delete" / "copy" anywhere in the text, which the
+  // single-widget menu also satisfies (Copy text, Remove > Delete), so it could
+  // not tell the two paths apart. Assert the labels only the multi-selection
+  // path produces, with the selection count in them (universal.ts buildAttention
+  // multi branch, buildShare "Copy all text", buildDestructive multi row).
+  const labels = await window
+    .locator('[data-canvas-ctx-menu]')
+    .first()
+    .locator(':scope > div > button[role="menuitem"] > span.flex-1')
+    .allInnerTexts()
+  expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Add 2 to Focus…')
+  expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Copy all text')
+  expect(labels, `bulk menu: ${JSON.stringify(labels)}`).toContain('Delete 2 work widgets')
+  expect(labels, 'single-widget rows must not appear on the bulk menu').not.toContain('Add to Focus…')
 })
 
 // ---------------------------------------------------------------------------

@@ -48,8 +48,40 @@ async function seedStickyWidget(
   await window.getByRole('button', { name: /StickyTest/ }).first().click()
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 8_000 })
   await window.waitForSelector(`[data-widget-id="${seeded.widgetId}"]`, { timeout: 6_000 })
+  await waitForDeskEntrance(window, seeded.widgetId)
 
   return seeded
+}
+
+// Let the desk's entrance animation finish before touching anything on it.
+//
+// Opening a desk plays a ~250 ms entrance on an ancestor of the canvas surface,
+// which slides the whole surface (and every checkbox on it) up ~5 px. A click
+// fired in that window fails Playwright's "stable" check, and Playwright's
+// RETRY then calls scrollIntoView with a different alignment. The surface is
+// overflow-hidden but still scrollable, so that scroll shifts the desk
+// sideways; Playwright computes the click point on the shifted layout (it
+// clicked at x=288 instead of x=392), and Canvas's pinSurfaceScroll puts the
+// scroll back a frame later. The cursor is now ~16 px from the visible left
+// edge (dock inset 272 px) — inside the 80 px edge-pan zone — so useEdgePan
+// pans the desk at ~750 px/s for as long as the mouse rests there. The next
+// checkbox never holds still, is virtualised off-screen, and the test sits in
+// "element is not stable" until the 30 s test timeout closes the page: the
+// "page closed" failure. Measured alone at f4a5c9c4: 3 of 6 runs hung (30.2 s,
+// 30.3 s, 30.3 s; check2 click alone 27.9 s) while passing runs took 3.9-8.1 s.
+// Not load: an ordering race against the entrance. Waiting for the finite
+// animations that move this widget (its own, or an ancestor's) removes it.
+async function waitForDeskEntrance(window: import('@playwright/test').Page, widgetId: string): Promise<void> {
+  await window.evaluate(async (wid: string) => {
+    const w = document.querySelector(`[data-widget-id="${wid}"]`)
+    if (!w) throw new Error(`waitForDeskEntrance: widget ${wid} not mounted`)
+    const moving = document.getAnimations().filter((a) => {
+      const t = (a.effect as KeyframeEffect | null)?.target
+      const timing = a.effect?.getComputedTiming()
+      return t instanceof Element && timing?.iterations !== Infinity && (t.contains(w) || w.contains(t))
+    })
+    await Promise.all(moving.map((a) => a.finished.catch(() => undefined)))
+  }, widgetId)
 }
 
 // Read widget.content directly from the store/DB via the IPC api.

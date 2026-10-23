@@ -816,3 +816,38 @@ export async function selectBarTab(window: Page, bar: string, tab: string): Prom
   await el.click()
   await expect(el).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
 }
+
+// Shift+click a work widget's HEADER (react-rnd's drag handle) to toggle it in
+// the multi-selection — a real Shift+mousedown/mouseup, the gesture a user makes.
+//
+// Most of the header is the header action row (Rewrite with AI, Rename,
+// Connect, Pin, Shrink, Grow, Expand, Remove: eight 24px buttons, revealed on
+// hover, laid out from the left once the title truncates). A fixed offset into
+// the header lands on one of them: specs that used `left + 26` hit "Rewrite
+// with AI", whose click opened a full-window dialog (fixed inset-0 z-[300])
+// that swallowed the next shift-click, so the selection stopped at
+// "1 selected". This hit-tests instead: it walks the header's centre line and
+// clicks the first point whose topmost element is the header's own grab
+// surface (the handle, its title or kind chip), never a control. It throws
+// when the header has no such point, so a layout that leaves nothing to grab
+// fails loudly here rather than as a misleading count further down.
+export async function shiftClickWidgetHeader(window: Page, widgetId: string): Promise<void> {
+  const pt = await window.evaluate((wid: string) => {
+    const h = document.querySelector(`[data-widget-id="${wid}"] .widget-handle`) as HTMLElement | null
+    if (!h) return { error: `no .widget-handle in widget ${wid}` }
+    const b = h.getBoundingClientRect()
+    const y = b.top + b.height / 2
+    for (let x = Math.ceil(b.left) + 1; x < b.right - 1; x++) {
+      const hit = document.elementFromPoint(x, y)
+      if (!hit || hit.closest('.widget-handle') !== h) continue
+      if (hit.closest('button, input, textarea, select, a, [role="button"], [contenteditable="true"]')) continue
+      return { x, y }
+    }
+    return { error: `header of ${wid} has no grab point that is not a control (width ${b.width})` }
+  }, widgetId)
+  if ('error' in pt) throw new Error(`shiftClickWidgetHeader: ${pt.error}`)
+  await window.keyboard.down('Shift')
+  await window.mouse.click(pt.x, pt.y)
+  await window.keyboard.up('Shift')
+  await window.waitForTimeout(150)
+}
