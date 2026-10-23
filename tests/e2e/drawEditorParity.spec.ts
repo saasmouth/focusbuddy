@@ -153,8 +153,8 @@ test('EP-2 the menus list the same items, with the same enabled states', async (
     'Select all on active artboard',
     // Saved snippets (51a43502): off with nothing selected, the reason under it.
     'Save selection as snippet…Select something to save as a snippet. (off)',
-    'Insert snippet…',
-    'Keyboard shortcuts…'
+    'Insert snippet…'
+    // Keyboard shortcuts is in Help, as in every office app (SPEC §9.2, E-16).
   ])
   expect(await read('layer')).toEqual(['New vector layer', 'New paint layer'])
   expect(await read('view')).toEqual([
