@@ -31,14 +31,14 @@ export interface DesignCommandDeps {
 export type DesignCommands = ReturnType<typeof buildDesignCommands>
 
 export function buildDesignCommands(d: DesignCommandDeps) {
-  const sel = { enabled: () => d.selected > 0, reason: () => 'Select something first' }
+  const sel = { enabled: () => d.selected > 0, reason: () => 'Select something first.' }
   const mark = (m: 'bold' | 'italic' | 'underline', label: string, icon: string, key: string): OfficeCommand => ({
     id: `ds-${m}`,
     label,
     icon,
     keys: ['mod', key],
     enabled: () => d.textMarks !== null,
-    reason: () => 'Select a text frame first',
+    reason: () => 'Select a text frame first.',
     checked: () => !!d.textMarks?.[m],
     run: () => d.toggleMark(m)
   })
@@ -47,12 +47,12 @@ export function buildDesignCommands(d: DesignCommandDeps) {
     redo: sharedCommand('ds-redo', 'redo', d.redo),
     cut: sharedCommand('ds-cut', 'cut', d.cut, sel),
     copy: sharedCommand('ds-copy', 'copy', d.copy, sel),
-    paste: sharedCommand('ds-paste', 'paste', d.paste, { enabled: () => d.canPaste, reason: () => 'Nothing to paste' }),
+    paste: sharedCommand('ds-paste', 'paste', d.paste, { enabled: () => d.canPaste, reason: () => 'Nothing to paste.' }),
     duplicate: sharedCommand('ds-duplicate', 'duplicate', d.duplicate, sel),
     remove: sharedCommand('ds-delete', 'delete', d.remove, sel),
     selectAll: sharedCommand('ds-select-all', 'selectAll', d.selectAll),
-    group: sharedCommand('ds-group', 'group', d.group, { enabled: () => d.selected >= 2, reason: () => 'Select two or more things' }),
-    ungroup: sharedCommand('ds-ungroup', 'ungroup', d.ungroup, { enabled: () => d.grouped, reason: () => 'Select a group to ungroup' }),
+    group: sharedCommand('ds-group', 'group', d.group, { enabled: () => d.selected >= 2, reason: () => 'Select two or more things.' }),
+    ungroup: sharedCommand('ds-ungroup', 'ungroup', d.ungroup, { enabled: () => d.grouped, reason: () => 'Select a group to ungroup.' }),
     bringToFront: sharedCommand('ds-front', 'bringToFront', () => d.reorder('front'), sel),
     // One step each way. The ribbon called the second "Send back" with the
     // send-to-back icon, and moved only the first selected frame.

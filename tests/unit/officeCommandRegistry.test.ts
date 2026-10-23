@@ -21,6 +21,9 @@ import { commandHint, documentCommands, type OfficeCommand } from '../../src/ren
 import { MENU } from '../../src/shared/menus/lexicon'
 import { drawOfficeCommands } from '../../src/renderer/src/components/documents/draw/commands/officeAdapter'
 import { blank, harness, withDocument } from './drawTools/harness'
+import { stubEditor, writeCommandsFor } from './_writeCommands'
+import { cellsCommandsFor } from './_cellsCommands'
+import { READ_ONLY_REASON } from '../../src/renderer/src/components/office/shell'
 
 vi.stubGlobal('window', Object.assign(globalThis.window ?? {}, { api: { platform: 'darwin' } }))
 
@@ -35,9 +38,30 @@ const APPS: Record<string, OfficeCommand[]> = {
   Diagrams: Object.values(buildDiagramCommands({ cmd: cmdStub, nodes: 3, edges: 1, locked: false, grouped: true, openFind: () => undefined })),
   File: Object.values(documentCommands(stub({ id: 'doc-1', print: () => undefined }), 'doc')!).filter(Boolean) as OfficeCommand[],
   // PlexiiDraw keeps its command registry; the adapter shows it as OfficeCommands.
-  Draw: drawOfficeCommands(withDocument(harness(blank())).ed.ctx)
+  Draw: drawOfficeCommands(withDocument(harness(blank())).ed.ctx),
+  // Write and Cells were missing from this map, which is exactly why their
+  // lowercase "nothing to undo" reached the integration unnoticed: their own
+  // registry tests check them app by app, and only this file compares apps.
+  Write: Object.values(writeCommandsFor(stubEditor())),
+  Cells: Object.values(cellsCommandsFor())
+}
+
+// The same two again as a VIEWER. Write's and Cells' reasons are conditional
+// (`readOnly ? READ_ONLY_REASON : 'Nothing to undo'`), unlike every other app's,
+// so one state only ever shows one of the two strings each can return.
+const READ_ONLY_APPS: Record<string, OfficeCommand[]> = {
+  'Write (view-only)': Object.values(writeCommandsFor(stubEditor(), { readOnly: true })),
+  'Cells (view-only)': Object.values(cellsCommandsFor({ readOnly: true }))
 }
 const all = Object.entries(APPS).flatMap(([app, cs]) => cs.map((c) => ({ app, c })))
+
+/** Every reason an app can actually show, with the app and command it came from. */
+const REASONS = [...Object.entries(APPS), ...Object.entries(READ_ONLY_APPS)].flatMap(([app, cs]) =>
+  cs.flatMap((c) => {
+    const text = c.reason?.()
+    return typeof text === 'string' && text ? [{ app, id: c.id, text }] : []
+  })
+)
 
 describe('one definition per action', () => {
   it('every id is unique within its app', () => {
@@ -86,6 +110,34 @@ describe('one definition per action', () => {
     expect(silent).toEqual([])
   })
 
+  // 9d's ruling: every reason is a SENTENCE — a capital and a terminator —
+  // suite-wide. It matches PlexiiDraw's 83 and the read-only wording 82 is
+  // moving to ("This document is read-only."), and an imperative reads fine as
+  // a sentence ("Select two or more things."). The census that produced the
+  // ruling: 147 reasons, 147 capitalised, 83 terminated (Draw) against 64 not
+  // (Deck 27, Design 15, Diagrams 18, Write 2, Cells 2). Draw did not change;
+  // the other five gained full stops.
+  //
+  // READ_ONLY_REASON is matched by identity rather than exempted by pattern,
+  // because it belongs to the office shell and 82 is changing it right now. By
+  // value, so this needs no edit either way: once it reads "This document is
+  // read-only." it satisfies the shape too, and the identity arm goes quiet.
+  it('every reason is a sentence: a capital and a terminator', () => {
+    expect(REASONS.length, 'there are reasons to check').toBeGreaterThan(100)
+    const bad = REASONS.filter((r) => r.text !== READ_ONLY_REASON && !/^[A-Z].*[.!?]$/.test(r.text))
+    expect(bad.map((r) => `${r.app} ${r.id}: "${r.text}"`)).toEqual([])
+  })
+
+  it('shows a reason for every app in the map, so none is silently uncovered', () => {
+    // Non-vacuity per app: a registry that built no commands, or whose reasons
+    // all returned undefined, would otherwise pass the rule above by default.
+    const covered = new Set(REASONS.map((r) => r.app))
+    for (const app of Object.keys(READ_ONLY_APPS)) expect(covered, `${app} contributes a reason`).toContain(app)
+    for (const app of ['Deck', 'Design', 'Diagrams', 'Write', 'Cells']) {
+      expect(covered, `${app} contributes a reason`).toContain(app)
+    }
+  })
+
   it('labels use the owner’s spelling: centre, colour', () => {
     const labels = [...all.map(({ app, c }) => [app, c.label] as const), ...Object.values(MENU).map((m) => ['lexicon', m.label] as const)]
     // The US stems, with any ending ("centers", "colored"); "centre" and "colour" never match.
@@ -98,6 +150,45 @@ describe('one definition per action', () => {
     expect(mac).toEqual([])
     // And they exist where a key is bound.
     expect(commandHint(APPS.Deck!.find((c) => c.id === 'sl-group')!, 'win32')).toBe('Ctrl+G')
+  })
+})
+
+// A tooltip and its menu row must never differ in voice (9d). The ribbons'
+// remaining hand-written `disabledReason` props are JSX string literals, so
+// building commands cannot see them — this reads the source instead.
+//
+// None of them is a duplicate of a command's reason: checked control by
+// control, every one sits on a BarButton with its own label and onClick, not on
+// a `{...barProps(cmd)}` spread, and the actions they belong to (Design's align
+// and distribute, Diagrams' "Show all hidden") have no command at all. So
+// deleting one would leave a disabled control saying nothing, which is the
+// §9.5 defect rather than the fix.
+describe('the ribbons’ hand-written reasons read like the commands’', () => {
+  const RIBBONS = [
+    'documents/design/ribbon.tsx',
+    'documents/diagram/ribbon.tsx',
+    'documents/slides/ribbon.tsx',
+    'documents/editor/writeRibbon.tsx',
+    'documents/sheet/cellsRibbon.tsx',
+    'documents/draw/bar/home.tab.tsx',
+    'documents/draw/bar/object.tab.tsx'
+  ]
+
+  it.each(RIBBONS)('%s', (rel) => {
+    const src = readFileSync(join(process.cwd(), 'src/renderer/src/components', rel), 'utf8')
+    const props = [...src.matchAll(/disabledReason="([^"]*)"/g)].map((m) => m[1])
+    // Reason CONSTANTS in the same file, which the expression forms pass in.
+    const consts = [...src.matchAll(/const (?:NOTHING|NONE_SELECTED|NO_STROKE|nothing) = '([^']*)'/g)].map((m) => m[1])
+    const bad = [...props, ...consts].filter((t) => t && !/^[A-Z].*[.!?]$/.test(t))
+    expect(bad, `${rel}: a hand-written reason must read as a sentence, like the commands’`).toEqual([])
+  })
+
+  it('reads ribbons that really carry hand-written reasons, so this is not vacuous', () => {
+    const counted = RIBBONS.map((rel) => {
+      const src = readFileSync(join(process.cwd(), 'src/renderer/src/components', rel), 'utf8')
+      return [...src.matchAll(/disabledReason="[^"]*"/g)].length
+    })
+    expect(counted.reduce((a, b) => a + b, 0), 'the sweep found props to check').toBeGreaterThan(15)
   })
 })
 

@@ -280,13 +280,13 @@ const arrangeTab: BarTab<DesignCtx> = {
               icon={icon}
               label={label}
               disabled={n < 2}
-              disabledReason="select two or more things"
+              disabledReason="Select two or more things."
               onClick={() => c.cmd.align(edge)}
               testid={`design-align-${String(edge)}`}
             />
           ))}
-          <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="select three or more things" onClick={() => c.cmd.distribute('h')} testid="design-distribute-h" />
-          <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="select three or more things" onClick={() => c.cmd.distribute('v')} testid="design-distribute-v" />
+          <BarButton icon="horizontal_distribute" label="Distribute horizontally" disabled={n < 3} disabledReason="Select three or more things." onClick={() => c.cmd.distribute('h')} testid="design-distribute-h" />
+          <BarButton icon="vertical_distribute" label="Distribute vertically" disabled={n < 3} disabledReason="Select three or more things." onClick={() => c.cmd.distribute('v')} testid="design-distribute-v" />
         </BarGroup>
         <BarSep />
         <BarGroup label="Group and order">

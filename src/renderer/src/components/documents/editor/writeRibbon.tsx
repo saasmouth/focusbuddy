@@ -336,8 +336,8 @@ const reviewTab: BarTab<WCtx> = {
   render: (c) => (
     <>
       <BarToggle icon="edit_note" label="Suggesting — track every change" pressed={c.suggesting} onChange={c.setSuggesting} showLabel testid="doc-suggest-toggle" />
-      <BarButton icon="done_all" label="Accept all changes" disabled={!c.hasTracked} disabledReason="no tracked changes" onClick={c.acceptAll} testid="doc-accept-all" />
-      <BarButton icon="close" label="Reject all changes" disabled={!c.hasTracked} disabledReason="no tracked changes" onClick={c.rejectAll} testid="doc-reject-all" />
+      <BarButton icon="done_all" label="Accept all changes" disabled={!c.hasTracked} disabledReason="No tracked changes." onClick={c.acceptAll} testid="doc-accept-all" />
+      <BarButton icon="close" label="Reject all changes" disabled={!c.hasTracked} disabledReason="No tracked changes." onClick={c.rejectAll} testid="doc-reject-all" />
       <BarSep />
       <BarToggle
         icon="comment"
