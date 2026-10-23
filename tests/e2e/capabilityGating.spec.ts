@@ -165,3 +165,48 @@ test('Free tier: someone already over the limit keeps every desk and can open th
 })
 
 // ── CommandCenter spawn gate (second table-creation path) ──────────────
+
+test('Free tier: desks INSIDE rooms count toward the three', async () => {
+  // The owner's correction (2026-10-24): "3 desks" is every desk, not every
+  // top-level one. Counting only top-level desks would have let someone make
+  // desks inside rooms forever — the cap would have looked enforced and done
+  // nothing for anybody who organises their work into rooms.
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await window.waitForFunction(() => typeof (window as unknown as { api?: unknown }).api === 'object', null, {
+    timeout: 10_000
+  })
+
+  // One desk at the top level and two tucked inside rooms: three in total.
+  await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const roomA = await api.nodes.create({ parentId: null, kind: 'folder', title: 'Room A' })
+    const roomB = await api.nodes.create({ parentId: null, kind: 'folder', title: 'Room B' })
+    await api.nodes.create({ parentId: null, kind: 'task', title: 'Loose desk' })
+    await api.nodes.create({ parentId: (roomA as { id: string }).id, kind: 'task', title: 'Desk in A' })
+    await api.nodes.create({ parentId: (roomB as { id: string }).id, kind: 'task', title: 'Desk in B' })
+  })
+  await window.reload()
+  await waitForReady(window)
+  await window.waitForFunction(() => typeof (window as unknown as { api?: unknown }).api === 'object', null, {
+    timeout: 10_000
+  })
+
+  await window.getByRole('button', { name: /New desk/i }).first().click()
+  const nameField = window.locator('[data-testid="newnode-name"]')
+  await expect(nameField).toBeVisible({ timeout: 5_000 })
+  await nameField.fill('Desk 4')
+  await window.getByRole('button', { name: /^Create / }).click()
+
+  await expect(window.locator('[data-testid="upgrade-prompt-modal"]')).toBeVisible({ timeout: 8_000 })
+  await expect(window.locator('[data-testid="upgrade-reason"]')).toContainText(/desk limit/i)
+
+  // Nothing was persisted: still three desks, wherever they live.
+  const desks = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const all = await api.nodes.list()
+    return all.filter((n: { kind: string; archived?: boolean }) => n.kind === 'task' && !n.archived).length
+  })
+  expect(desks).toBe(3)
+})

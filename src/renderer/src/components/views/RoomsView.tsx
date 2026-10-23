@@ -10,6 +10,7 @@ import RoomThumb from '../RoomThumb'
 import Icon from '../Icon'
 import SharedBadge from '../SharedBadge'
 import { useSharesStore } from '../../stores/shares'
+import { activeSharedOutIds } from '../../lib/sharedOut'
 import { promptText } from '../plexi/PromptDialog'
 import { shareToOrgOrGroup } from '../../lib/shareScope'
 import ShareDialog from '../ShareDialog'
@@ -117,17 +118,10 @@ export default function RoomsView(): JSX.Element {
   // Which of these are shared OUT: an entity with a live outgoing link. The
   // sidebar derived this before 24a61f93d; the store still has it.
   const outgoing = useSharesStore((s) => s.outgoing)
-  // ACTIVE links only. `outgoing` keeps revoked ones (ShareLink.revoked is a
-  // flag, not a deletion), so mapping the lot marked a room as shared out
-  // after its link had been revoked — which the revoke test caught.
-  // Expiry is deliberately not folded in here: an expired link probably should
-  // not read as "shared with others" either, but that is a product call nobody
-  // has made, and quietly inventing one in a render path is how the last three
-  // of these got lost.
-  const sharedOutIds = useMemo(
-    () => new Set(outgoing.filter((l) => !l.revoked).map((l) => l.entityId)),
-    [outgoing]
-  )
+  // LIVE links only — not revoked, not expired. `outgoing` keeps both, because
+  // a revoke is a soft delete and an expiry is just a timestamp going by. See
+  // lib/sharedOut, which holds the rule and its boundary cases.
+  const sharedOutIds = useMemo(() => activeSharedOutIds(outgoing, Date.now()), [outgoing])
 
   const config: IndexConfig<FbNode> = {
     storageKey: 'rooms-index',
