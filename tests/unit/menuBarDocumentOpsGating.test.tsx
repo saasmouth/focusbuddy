@@ -12,6 +12,7 @@
 // six menu items and the typechecker says nothing.
 
 import { act } from 'react'
+import { documentCommands } from '../../src/renderer/src/lib/menus/officeCommand'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentOps } from '../../src/renderer/src/components/documents/editor/documentOps'
@@ -78,7 +79,7 @@ describe('PlexiiWrite', () => {
   const mount = async (documentOps?: DocumentOps): Promise<void> => {
     await act(async () => {
       root.render(
-        <DocMenuBar commands={writeCommandsFor(stubEditor())} documentOps={documentOps} />
+        <DocMenuBar commands={writeCommandsFor(stubEditor())} doc={documentCommands(documentOps, 'doc')} />
       )
     })
   }
@@ -182,7 +183,7 @@ describe('PlexiiCells', () => {
   })
   const mount = async (documentOps?: DocumentOps): Promise<void> => {
     await act(async () => {
-      root.render(<SheetMenuBar commands={cellsCommandsFor()} documentOps={documentOps} />)
+      root.render(<SheetMenuBar commands={cellsCommandsFor()} doc={documentCommands(documentOps, 'sheet')} />)
     })
   }
 

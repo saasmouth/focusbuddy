@@ -1,7 +1,7 @@
 import type { SheetCellFormat, SheetNumberFormat } from '@shared/types'
 import type { DocumentOps } from './documentOps'
 import { MenuBarShell, type MenuDef, type MenuItem } from './menuBarKit'
-import { documentCommands, menuItemOf, menuRow, type OfficeCommand } from '../../../lib/menus/officeCommand'
+import { menuItemOf, menuRow, type DocumentCommands, type OfficeCommand } from '../../../lib/menus/officeCommand'
 import type { CellsCommands } from '../sheet/cellsCommands'
 
 // A Google-Sheets-style menu bar for the spreadsheet editor. It declares the
@@ -80,16 +80,20 @@ export interface SheetMenuActions {
 
 export default function SheetMenuBar({
   commands,
-  documentOps
+  doc
 }: {
   /** PlexiiCells' commands, built by SheetEditor from the live sheet. */
   commands: CellsCommands
   /**
-   * The spreadsheet on screen, bound to its id by whichever host mounted this
-   * editor. Absent where there is no document — a snippet session — and then
-   * none of the document items are shown at all.
+   * File's document actions, built by SheetEditor from the ops the host bound.
+   * Null where there is no document — a snippet session — and then none of the
+   * document rows are shown at all.
+   *
+   * Built by the HOST, not here, because the keyboard has to match the very
+   * same commands: Print carries ⌘P, and a copy built in this file would show
+   * the hint while nothing bound the key.
    */
-  documentOps?: DocumentOps
+  doc: DocumentCommands | null
 }): JSX.Element {
   // A missing id is a programming error, not an empty menu.
   const c = (id: string): OfficeCommand => {
@@ -102,8 +106,6 @@ export default function SheetMenuBar({
   const row = (id: string): MenuItem => menuRow(c(id))
   /** A row that is there only where the host added the op (Download ▸ PDF). */
   const maybe = (id: string): MenuItem[] => (commands[id] ? [row(id)] : [])
-
-  const doc = documentCommands(documentOps, 'sheet')
 
   const menus: MenuDef[] = [
     {

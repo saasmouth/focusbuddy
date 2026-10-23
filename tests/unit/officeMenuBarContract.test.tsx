@@ -15,6 +15,7 @@
 // these, by real clicks.
 
 import { act } from 'react'
+import { documentCommands } from '../../src/renderer/src/lib/menus/officeCommand'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MenuDef, MenuItem } from '../../src/renderer/src/components/documents/editor/menuBarKit'
@@ -70,11 +71,11 @@ const APPS: Record<string, { testid: string; render: () => JSX.Element }> = {
     render: () => (
       <DocMenuBar
         commands={writeCommandsFor(actions({ state: { selection: { empty: false } } }), { title: 'Doc', pageView: false })}
-        documentOps={ops()}
+        doc={documentCommands(ops(), 'doc')}
       />
     )
   },
-  Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar commands={cellsCommandsFor()} documentOps={ops()} /> },
+  Cells: { testid: 'sheet-menubar', render: () => <SheetMenuBar commands={cellsCommandsFor()} doc={documentCommands(ops(), 'sheet')} /> },
   Deck: { testid: 'slides-menubar', render: () => <SlidesMenuBar actions={actions({ ...live, documentOps: ops() })} /> },
   Design: { testid: 'design-menubar', render: () => <DesignMenuBar actions={actions(live)} documentOps={ops()} /> }
 }
