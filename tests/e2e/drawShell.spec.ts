@@ -81,30 +81,30 @@ test('SH-1 rail: flyouts show the last tool used (kept for the profile), Alt-cli
 test('SH-2 top bar: contextual tabs come and go with the selection and never take over; a vanished tab falls back to Home', async () => {
   await openDocument(window, await seedDrawDoc(window, mixed()))
   await barTab(window, 'home')
-  expect(await tabIds()).toEqual(['home', 'object', 'align'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align'])
   await click(120, 100)
-  expect(await tabIds()).toEqual(['home', 'object', 'align', 'path'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align', 'path'])
   await expect(t('draw-bar-tab-path')).toHaveAttribute('data-contextual', 'true')
   await expect(t('draw-bar-tab-home')).toHaveAttribute('aria-selected', 'true')
   await barTab(window, 'path')
   await expect(t('draw-bool-union')).toBeDisabled()
   // The star: Shape (and Path); the type: Type; the picture: Image.
   await click(400, 180)
-  expect(await tabIds()).toEqual(['home', 'object', 'align', 'shape', 'path'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align', 'shape', 'path'])
   await expect(t('draw-bar-tab-path')).toHaveAttribute('aria-selected', 'true')
   await click(100, 380)
-  expect(await tabIds()).toEqual(['home', 'object', 'align', 'type'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align', 'type'])
   // Path vanished while active: Home again.
   await expect(t('draw-bar-tab-home')).toHaveAttribute('aria-selected', 'true')
   await click(640, 420)
-  expect(await tabIds()).toEqual(['home', 'object', 'align', 'image'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align', 'image'])
   // Several objects: Group (and Path for the paths among them).
   await window.keyboard.press('Meta+a')
-  expect(await tabIds()).toEqual(['home', 'object', 'align', 'path', 'group'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align', 'path', 'group'])
   await window.keyboard.press('Meta+Shift+a')
   // Tools: Brush with a painting tool, Anchors with an anchor tool on a path, Artboard with ⇧O.
   await window.keyboard.press('b')
-  expect(await tabIds()).toEqual(['home', 'object', 'align', 'brush'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align', 'brush'])
   await window.keyboard.press('v')
   await click(120, 100)
   await window.keyboard.press('a')
@@ -113,7 +113,7 @@ test('SH-2 top bar: contextual tabs come and go with the selection and never tak
   expect(await tabIds()).toContain('artboard')
   await window.keyboard.press('v')
   await window.keyboard.press('Meta+Shift+a')
-  expect(await tabIds()).toEqual(['home', 'object', 'align'])
+  expect(await tabIds()).toEqual(['home', 'insert', 'object', 'align'])
 })
 
 test('SH-3 Home edits the selection or, with nothing selected, the next shape; Undo and Redo are pinned', async () => {

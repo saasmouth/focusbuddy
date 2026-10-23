@@ -185,6 +185,7 @@ function ObjectTab({ ctx }: { ctx: EditorCtx }): JSX.Element {
   )
 }
 
-const object: DrawBarTab = { id: 'object', label: 'Object', order: 20, component: ObjectTab }
+// Object is Illustrator's name for the Arrange slot of the shared tab order (SPEC §3.9).
+const object: DrawBarTab = { id: 'object', label: 'Object', role: 'arrange', order: 20, component: ObjectTab }
 
 export default object

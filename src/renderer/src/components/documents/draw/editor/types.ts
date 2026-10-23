@@ -39,6 +39,11 @@ export interface EditorState {
   past: HistoryEntry[]
   future: HistoryEntry[]
   tool: string
+  /**
+   * The tool a double-click on the rail locked (SPEC §3.2): it stays armed
+   * after placing, until Esc or another tool. Null when none is locked.
+   */
+  toolLocked: string | null
   selection: string[]
   zoom: number
   /** Defaults for the next shape (Illustrator's "set the fill, then draw"). */
@@ -468,6 +473,8 @@ export interface DrawBarTab {
   id: string
   label: string
   order: number
+  /** A permanent tab's place in the shared tab order (SPEC §3.9); contextual tabs have `when` instead. */
+  role?: import('../../../office/shell').TabRole
   /** A contextual tab: shown only while this returns true, with the contextual marker. */
   when?(state: EditorState): boolean
   component: FC<{ ctx: EditorCtx }>

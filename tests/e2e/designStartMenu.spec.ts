@@ -24,6 +24,10 @@ async function openDesign(window: Page): Promise<void> {
 async function openMenu(window: Page): Promise<void> {
   if (await window.locator('[data-testid="design-start-menu"]').isVisible().catch(() => false)) return
   await selectBarTab(window, 'design-toolbar', 'layout')
+  // The first visit to Layout on an empty design opens the menu by itself:
+  // clicking the button then would toggle it shut.
+  await window.waitForTimeout(300)
+  if (await window.locator('[data-testid="design-start-menu"]').isVisible().catch(() => false)) return
   await window.locator('[data-testid="design-start-btn"]').click()
   await expect(window.locator('[data-testid="design-start-menu"]')).toBeVisible({ timeout: 5_000 })
 }
@@ -38,7 +42,7 @@ async function savedSize(window: Page): Promise<{ w: number; h: number }> {
   })
 }
 
-test('SM-1 — the chip grid is gone and the control opens itself on a new design', async () => {
+test('SM-1 — the chip grid is gone, a new design opens on Home, and the control opens itself the first time Layout shows', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -49,8 +53,13 @@ test('SM-1 — the chip grid is gone and the control opens itself on a new desig
     await expect(window.locator('[data-testid="design-templates-btn"]')).toHaveCount(0)
     await expect(window.locator('[data-testid="design-size-btn"]')).toHaveCount(0)
 
-    // On a brand-new empty design the menu opens by itself: the same first-run
-    // help the grid gave by always being there, without the canvas cost.
+    // Every office app opens on Home (SPEC §3.9); nothing pops open over it.
+    await expect(window.locator('[data-testid="design-toolbar-tab-home"]')).toHaveAttribute('aria-selected', 'true')
+    await expect(window.locator('[data-testid="design-start-menu"]')).toHaveCount(0)
+    // On a brand-new empty design the menu opens by itself the first time
+    // Layout shows: the same first-run help the grid gave by always being
+    // there, without the canvas cost.
+    await selectBarTab(window, 'design-toolbar', 'layout')
     await expect(window.locator('[data-testid="design-start-menu"]')).toBeVisible({ timeout: 8_000 })
 
     // Escape closes it, and the canvas is clear.
@@ -182,8 +191,7 @@ test('SM-6 — both menus close on an outside click, so neither is left over the
     await clickAway()
     await expect(edit).toHaveCount(0)
 
-    await selectBarTab(window, 'design-toolbar', 'layout')
-  await window.locator('[data-testid="design-start-btn"]').click()
+    await openMenu(window)
     const start = window.locator('[data-testid="design-start-menu"]')
     await expect(start).toBeVisible()
     await clickAway()

@@ -50,17 +50,23 @@ function star(id: string): Record<string, unknown> {
 }
 
 describe('the rail is the tool registry', () => {
-  it('keeps the toolbox order exactly, and only drops dividers inside the Create group (paths, shapes, type)', () => {
+  it('keeps the shared rail order (SPEC §3.9): Select, the selection tools and Hand; Type, Shapes, the path tools; then Draw\'s own sections in toolbox order', () => {
     const items = drawRailItems().filter((i) => i.kind === 'tool')
     const tools = drawTools().filter((t) => !t.hidden)
-    expect(items.map((i) => i.id)).toEqual(tools.map((t) => t.id))
-    // Sorting the rail by (group, order) gives the same order: the sections never reorder tools.
-    const sorted = [...items].sort((a, b) => a.group - b.group || a.order - b.order)
-    expect(sorted.map((i) => i.id)).toEqual(tools.map((t) => t.id))
+    expect(new Set(items.map((i) => i.id))).toEqual(new Set(tools.map((t) => t.id)))
+    const sorted = [...items].sort((a, b) => a.group - b.group || a.order - b.order).map((i) => i.id)
+    expect(sorted).toEqual([
+      'select', 'direct', 'groupSelect', 'lasso', 'hand',
+      'text', 'rect', 'roundRect', 'ellipse', 'polygon', 'star', 'line',
+      'pen', 'curvature', 'addAnchor', 'deleteAnchor', 'anchorConvert', 'scissors', 'knife', 'pencil', 'smooth', 'pathEraser', 'join',
+      'rotate', 'reflect', 'scale', 'shear', 'reshape', 'freeTransform', 'brush', 'eraser', 'bucket', 'eyedropper', 'artboard'
+    ])
     const rank = sectionRanks(tools)
     expect(rank.get(1)).toBe(rank.get(2))
     expect(rank.get(2)).toBe(rank.get(3))
-    expect(new Set(items.map((i) => i.group)).size).toBe(new Set(tools.map((t) => t.group)).size - 2)
+    // Navigate is one section and Create is one section: no dividers inside either.
+    expect(new Set(items.filter((i) => ['select', 'direct', 'groupSelect', 'lasso', 'hand'].includes(i.id)).map((i) => i.group)).size).toBe(1)
+    expect(new Set(items.filter((i) => ['text', 'rect', 'pen', 'pencil', 'scissors'].includes(i.id)).map((i) => i.group)).size).toBe(1)
     // No tool is hidden from the rail except the Place cursor (a mode, not a button).
     expect(drawTools().filter((t) => t.hidden).map((t) => t.id)).toEqual(['place'])
   })
@@ -83,7 +89,9 @@ describe('the rail is the tool registry', () => {
     const panels = drawRailItems().filter((i) => i.kind === 'panel')
     expect(panels.map((p) => [p.id, p.pinned, p.shortcut, p.testid])).toEqual([
       ['layers', 'bottom', 'F7', 'draw-rail-layers'],
-      ['artboards', 'bottom', undefined, 'draw-rail-artboards']
+      ['artboards', 'bottom', undefined, 'draw-rail-artboards'],
+      // PlexiiAssist (the right side pane), last, as in every app.
+      ['ai', 'bottom', undefined, 'draw-rail-ai']
     ])
   })
 
@@ -94,7 +102,7 @@ describe('the rail is the tool registry', () => {
     expect(fly('scissors')).toEqual(['scissors', 'knife'])
     expect(fly('rotate')).toEqual(['rotate', 'reflect'])
     expect(fly('scale')).toEqual(['scale', 'shear', 'reshape'])
-    expect(fly('direct')).toEqual(['groupSelect', 'direct'])
+    expect(fly('direct')).toEqual(['direct', 'groupSelect'])
     expect(fly('pencil')).toEqual(['pencil', 'smooth', 'pathEraser', 'join'])
     expect(nextInFlyout('line')?.id).toBe('rect')
     expect(nextInFlyout('hand')).toBeNull()
@@ -172,7 +180,7 @@ describe('panels: one state whichever way it is toggled', () => {
 describe('the top bar\'s tabs', () => {
   it('Home, Object and Align always; contextual tabs only while their context holds', () => {
     const always = drawBarTabs().filter((t) => !t.when).map((t) => t.id)
-    expect(always).toEqual(['home', 'object', 'align'])
+    expect(always).toEqual(['home', 'insert', 'object', 'align'])
     const h = harness(blank([rect('r', 0, 0, 50, 50), star('s'), { id: 't', type: 'text', x: 0, y: 200, w: 100, text: 'Hi', fontSize: 20, fill: { type: 'solid', color: '#000000' } }]))
     const showing = (): string[] => drawBarTabs().filter((t) => t.when && t.when(h.state())).map((t) => t.id)
     expect(showing()).toEqual([])

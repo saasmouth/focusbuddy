@@ -64,7 +64,8 @@ export function shapeTool(spec: { id: string; kind: DrawShapeKind; label: string
       const doc = ctx.doc()
       ctx.history.commit(addObject(doc, obj, targetLayerId(doc)), spec.undoLabel)
       ctx.select([obj.id])
-      ctx.setTool('select')
+      // Back to Select after placing, unless a double-click locked the tool (SPEC §3.2).
+      if (ctx.get().toolLocked !== id) ctx.setTool('select')
     },
 
     Overlay({ state, k }) {

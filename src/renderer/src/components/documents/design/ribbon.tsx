@@ -2,6 +2,7 @@ import {
   BarButton,
   BarColor,
   BarCustom,
+  BarFontSize,
   BarDialogButton,
   BarGroup,
   BarMenu,
@@ -13,6 +14,7 @@ import {
 } from '../../office/shell'
 import type { ReactNode } from 'react'
 import { familyLabel, fontFamilyValue } from '../../../lib/googleFonts'
+import FontPicker from '../editor/FontPicker'
 import type { SlideElement, SlideTextElement } from '@shared/types'
 import { BASE_LAYER_ID, type DesignBody } from '@shared/design'
 import { LAYOUT_STYLES } from '@shared/designAutoLayout'
@@ -115,50 +117,51 @@ const ALIGNS: Array<[DesignCtx['cmd'] extends { align: (e: infer E) => void } ? 
   ['bottom', 'align_vertical_bottom', 'Align bottom']
 ]
 
-/** Text properties, shown on Home for text and again on the Text tab. */
+/**
+ * Text properties, shown on Home for text and again on the Text tab, with the
+ * controls every office app uses (SPEC §3.9): the FontPicker, a BarNumber for
+ * the size, B/I/U toggles, the text colour, and alignment as three toggles.
+ */
 function TextControls({ c, el, ids }: { c: DesignCtx; el: SlideTextElement; ids: boolean }): JSX.Element {
   const run = firstRun(el)
+  const align = el.paragraphs?.[0]?.align ?? 'left'
   return (
     <BarGroup label="Text">
       {/* The element stores a full CSS stack; the picker shows the family's
           name. Converting in both directions is what the inspector did, and
-          skipping it leaves the select showing nothing for every font. */}
-      <BarSelect
-        label="Font"
-        value={familyLabel(el.fontFamily) || c.fonts[0] || 'Inter'}
-        options={c.fonts.map((f) => ({ value: f, label: f }))}
-        onChange={(v) => c.cmd.patchText({ fontFamily: fontFamilyValue(v) })}
-        testid={ids ? 'design-font-family' : undefined}
-      />
-      <BarNumber
-        label="Font size"
+          skipping it leaves the picker showing nothing for every font. */}
+      <BarCustom label="Font" semantic="font-family">
+        <FontPicker
+          value={fontFamilyValue(familyLabel(el.fontFamily) || c.fonts[0] || 'Inter')}
+          allowDefault={false}
+          compact
+          onChange={(v) => v && c.cmd.patchText({ fontFamily: fontFamilyValue(familyLabel(v)) })}
+          testid={ids ? 'design-font-family' : undefined}
+        />
+      </BarCustom>
+      <BarFontSize
         value={run.fontSize ?? 24}
         min={6}
         onChange={(v) => c.cmd.patchText({ fontSize: v })}
         testid={ids ? 'design-font-size' : undefined}
       />
+      <BarToggle icon="format_bold" semantic="bold" label="Bold" pressed={run.bold === true} onChange={(v) => c.cmd.patchText({ bold: v })} testid={ids ? 'design-bold' : undefined} />
+      <BarToggle icon="format_italic" semantic="italic" label="Italic" pressed={run.italic === true} onChange={(v) => c.cmd.patchText({ italic: v })} testid={ids ? 'design-italic' : undefined} />
+      <BarToggle icon="format_underlined" semantic="underline" label="Underline" pressed={run.underline === true} onChange={(v) => c.cmd.patchText({ underline: v })} testid={ids ? 'design-underline' : undefined} />
       <BarColor
         icon="format_color_text"
+        semantic="text-color"
         label="Text colour"
         value={run.color ?? '#1c1917'}
         palette={c.palette}
         onChange={(v) => v && c.cmd.patchText({ color: v })}
         testid={ids ? 'design-text-color' : undefined}
       />
-      <BarToggle icon="format_bold" label="Bold" pressed={run.bold === true} onChange={(v) => c.cmd.patchText({ bold: v })} testid={ids ? 'design-bold' : undefined} />
-      <BarToggle icon="format_italic" label="Italic" pressed={run.italic === true} onChange={(v) => c.cmd.patchText({ italic: v })} testid={ids ? 'design-italic' : undefined} />
-      <BarToggle icon="format_underlined" label="Underline" pressed={run.underline === true} onChange={(v) => c.cmd.patchText({ underline: v })} testid={ids ? 'design-underline' : undefined} />
-      <BarMenu
-        icon="format_align_left"
-        label="Alignment"
-        showLabel={false}
-        testid={ids ? 'design-align-text' : undefined}
-        items={[
-          { label: 'Left', icon: 'format_align_left', run: () => c.cmd.setAlign('left') },
-          { label: 'Centre', icon: 'format_align_center', run: () => c.cmd.setAlign('center') },
-          { label: 'Right', icon: 'format_align_right', run: () => c.cmd.setAlign('right') }
-        ]}
-      />
+      <BarGroup label="Alignment" testid={ids ? 'design-align-text' : undefined}>
+        <BarToggle icon="format_align_left" semantic="align-left" label="Align left" pressed={align === 'left'} onChange={() => c.cmd.setAlign('left')} testid={ids ? 'design-align-text-left' : undefined} />
+        <BarToggle icon="format_align_center" semantic="align-center" label="Align centre" pressed={align === 'center'} onChange={() => c.cmd.setAlign('center')} testid={ids ? 'design-align-text-center' : undefined} />
+        <BarToggle icon="format_align_right" semantic="align-right" label="Align right" pressed={align === 'right'} onChange={() => c.cmd.setAlign('right')} testid={ids ? 'design-align-text-right' : undefined} />
+      </BarGroup>
     </BarGroup>
   )
 }
@@ -166,6 +169,7 @@ function TextControls({ c, el, ids }: { c: DesignCtx; el: SlideTextElement; ids:
 const homeTab: BarTab<DesignCtx> = {
   id: 'home',
   label: 'Home',
+  role: 'home',
   render: (c) => {
     const { first, selected } = c
     if (selected.length === 0) {
@@ -237,6 +241,7 @@ const homeTab: BarTab<DesignCtx> = {
 const insertTab: BarTab<DesignCtx> = {
   id: 'insert',
   label: 'Insert',
+  role: 'insert',
   render: (c) => (
     <>
       <BarGroup label="Page">
@@ -245,8 +250,8 @@ const insertTab: BarTab<DesignCtx> = {
       </BarGroup>
       <BarSep />
       <BarGroup label="From a library">
-        <BarButton icon="photo_library" label="Stock photos…" showLabel onClick={() => c.cmd.openPanel('stock')} testid="design-stock-btn" />
-        <BarButton icon="dashboard_customize" label="Templates…" showLabel onClick={() => c.cmd.openPanel('templates')} testid="design-templates-open" />
+        <BarDialogButton icon="photo_library" label="Stock photos…" onOpen={() => c.cmd.openPanel('stock')} testid="design-stock-btn" />
+        <BarDialogButton icon="dashboard_customize" label="Templates…" onOpen={() => c.cmd.openPanel('templates')} testid="design-templates-open" />
         <BarDialogButton icon="bookmarks" label="Saved snippet" onOpen={c.cmd.insertSnippet} testid="design-insert-snippet" />
       </BarGroup>
       <span className="shrink-0 px-1.5 text-[11px] text-[var(--ink-50)]">
@@ -259,6 +264,7 @@ const insertTab: BarTab<DesignCtx> = {
 const arrangeTab: BarTab<DesignCtx> = {
   id: 'arrange',
   label: 'Arrange',
+  role: 'arrange',
   render: (c) => {
     const n = c.selected.length
     return (
@@ -334,13 +340,14 @@ const arrangeTab: BarTab<DesignCtx> = {
 const layoutTab: BarTab<DesignCtx> = {
   id: 'layout',
   label: 'Layout',
+  role: 'layout',
   render: (c) => (
     <>
       <BarCustom label="Start from" testid="design-start-slot">
         {c.startFrom}
       </BarCustom>
       <BarSep />
-      <BarButton icon="grid_on" label="Margins, columns & layers…" showLabel onClick={() => c.cmd.openPanel('layout')} testid="design-layout-btn" />
+      <BarDialogButton icon="grid_on" label="Margins, columns & layers…" onOpen={() => c.cmd.openPanel('layout')} testid="design-layout-btn" />
       <BarToggle icon="visibility" label="Layout guides" pressed={c.guidesVisible} onChange={c.cmd.toggleGuides} testid="design-aids-toggle" />
       <BarToggle icon="auto_stories" label="Facing pages" pressed={c.facing} onChange={c.cmd.toggleFacing} testid="design-facing-toggle-bar" />
       <BarSep />
@@ -362,14 +369,15 @@ const layoutTab: BarTab<DesignCtx> = {
 const brandTab: BarTab<DesignCtx> = {
   id: 'brand',
   label: 'Brand',
+  role: 'app',
   render: (c) => (
     <>
       <BarButton icon="palette" label="Brandify" showLabel onClick={c.cmd.brandify} testid="design-brandify" />
-      <BarButton icon="tune" label="Brand kit…" showLabel onClick={c.cmd.openBrandKit} testid="design-brand-kit-btn" />
+      <BarDialogButton icon="tune" label="Brand kit…" onOpen={c.cmd.openBrandKit} testid="design-brand-kit-btn" />
       <BarSep />
-      <BarButton icon="format_paint" label="Paragraph styles…" showLabel onClick={() => c.cmd.openPanel('styles')} testid="design-styles-btn" />
-      <BarButton icon="invert_colors" label="Swatches & spot inks…" showLabel onClick={() => c.cmd.openPanel('swatches')} testid="design-swatches-btn" />
-      <BarButton icon="auto_fix_high" label="Redesign…" showLabel onClick={() => c.cmd.openPanel('redesign')} testid="design-redesign-btn" />
+      <BarDialogButton icon="format_paint" label="Paragraph styles…" onOpen={() => c.cmd.openPanel('styles')} testid="design-styles-btn" />
+      <BarDialogButton icon="invert_colors" label="Swatches & spot inks…" onOpen={() => c.cmd.openPanel('swatches')} testid="design-swatches-btn" />
+      <BarDialogButton icon="auto_fix_high" label="Redesign…" onOpen={() => c.cmd.openPanel('redesign')} testid="design-redesign-btn" />
     </>
   )
 }
@@ -377,9 +385,10 @@ const brandTab: BarTab<DesignCtx> = {
 const reviewTab: BarTab<DesignCtx> = {
   id: 'review',
   label: 'Review',
+  role: 'review',
   render: (c) => (
     <>
-      <BarButton icon="fact_check" label="Preflight for print…" showLabel onClick={() => c.cmd.openPanel('preflight')} testid="design-preflight-btn" />
+      <BarDialogButton icon="fact_check" label="Preflight for print…" onOpen={() => c.cmd.openPanel('preflight')} testid="design-preflight-btn" />
       <BarButton icon="accessibility_new" label="Check accessibility" showLabel onClick={c.cmd.checkA11y} testid="design-a11y-check" />
       <BarSep />
       <BarMenu

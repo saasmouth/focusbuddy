@@ -55,7 +55,8 @@ const text: DrawTool = {
     ctx.history.commit(addObject(doc, obj, targetLayerId(doc)), 'Type')
     ctx.select([obj.id])
     ctx.set({ editingText: obj.id })
-    ctx.setTool('select')
+    // Back to Select after placing, unless a double-click locked Type (SPEC §3.2).
+    if (ctx.get().toolLocked !== 'text') ctx.setTool('select')
   }
 }
 

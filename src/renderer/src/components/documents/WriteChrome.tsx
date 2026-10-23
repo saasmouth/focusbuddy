@@ -10,6 +10,7 @@ import {
   ShellSidePane,
   SIDE_PANE_DOM_ID,
   ToolRail,
+  useShellChrome,
   type SidePane
 } from '../office/shell'
 import StylesPanel from './editor/StylesPanel'
@@ -27,8 +28,6 @@ import { officeMenuItems, WRITE_TABS, writeRailItems, type WCtx, type WriteDialo
 // every flow that touches a file or the store stay with DocEditor and arrive
 // here as props: this component places chrome, it does not own the document.
 
-const TAB_KEY = 'plexii.doc.ribbonTab'
-const COLLAPSE_KEY = 'plexii.doc.ribbonCollapsed'
 const PINS_KEY = 'plexii.doc.pinnedPanels'
 
 function readPref<T>(k: string, fallback: T): T {
@@ -136,19 +135,12 @@ export default function WriteChrome(props: WriteChromeProps): JSX.Element {
     }
   }, [editor])
 
-  const [tab, setTabState] = useState<string>(() => readPref<string>(TAB_KEY, 'home'))
-  const [collapsed, setCollapsedState] = useState<boolean>(() => readPref<boolean>(COLLAPSE_KEY, false))
+  // Tab (opens on Home) and collapse (remembered): the same host state as
+  // every office app (SPEC §3.9).
+  const { tab, setTab: changeTab, collapsed, setCollapsed: changeCollapsed } = useShellChrome('doc')
   const [open, setOpen] = useState<WritePanel[]>([])
   const [pinned, setPinned] = useState<WritePanel[]>(() => readPref<WritePanel[]>(PINS_KEY, []))
 
-  const changeTab = useCallback((id: string) => {
-    setTabState(id)
-    writePref(TAB_KEY, id)
-  }, [])
-  const changeCollapsed = useCallback((v: boolean) => {
-    setCollapsedState(v)
-    writePref(COLLAPSE_KEY, v)
-  }, [])
 
   const isPanelOpen = useCallback((p: WritePanel) => open.includes(p), [open])
   const togglePanel = useCallback(

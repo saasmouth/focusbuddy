@@ -296,8 +296,11 @@ test('DHS-4 — named H2 style wins over prior inline font-size on heading text'
     // dropdown. This creates a <span style="font-size:12px"> inside the <h2>.
     await selectAll(window)
     // The shell's bar fields expose their name through aria-label, not a title
-    // attribute, so address this one by role and name.
-    await window.getByRole('combobox', { name: 'Font size' }).selectOption('12')
+    // attribute, so address this one by role and name. Font size is a number
+    // field in every office app (SPEC §3.9): type it and commit with Enter.
+    const size = window.getByRole('textbox', { name: 'Font size' })
+    await size.fill('12')
+    await size.press('Enter')
     await window.waitForTimeout(300)
 
     // Now set the H2 named style size to 40 in the Styles panel.
