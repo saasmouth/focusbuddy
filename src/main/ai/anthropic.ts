@@ -2710,11 +2710,8 @@ export async function sendChatStream(
       }
     }
 
-    // The grounding check always runs here, once, on the complete reply of
-    // record — never on a streamed delta, where a specific could be split
-    // across two chunks. A Stop leaves no final message to name the model, so
-    // the engine the call was routed to stands in: an on-device reply cut
-    // short is still repaired, not merely highlighted.
+    // Grounded once, on the complete reply, never per delta. After a Stop the
+    // routed engine names the model, so a cut-short local reply is repaired.
     const groundingModel = answeredModel || String(resolveModel('chat'))
     const built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
     if (built) {
@@ -2723,7 +2720,7 @@ export async function sendChatStream(
       void maybeExtractChatMemory(req, grounded)
       return
     }
-    // Prose outside the envelope (or salvaged after a Stop) is checked too.
+    // Prose outside the envelope is checked too.
     const fallback = withFitNotice(
       groundChatResponse(unparseableChatResponse(text, stopReason, prepared.sources, prepared.mentions), prepared.groundingSupplied, groundingModel),
       prepared.fitNotice
