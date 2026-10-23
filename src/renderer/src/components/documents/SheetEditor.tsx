@@ -53,6 +53,7 @@ import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import RecordFindReplace from './editor/RecordFindReplace'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { joinGroups, objectMenu } from '../../lib/menus/officeContextMenu'
+import { ctxRow } from '../../lib/menus/officeCommand'
 import type { DocumentOps } from './editor/documentOps'
 import { usePrintSource } from './editor/printSource'
 import { sheetPrintModel } from '../../lib/sheetPrintModel'
@@ -2221,23 +2222,24 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             x={cellMenu.x}
             y={cellMenu.y}
             onClose={() => setCellMenu(null)}
+            // The same command definitions as the menu bar, ribbon and palette
+            // (cellsCommands, through ctxRow): one label, hint and read-only
+            // reason per action on every surface (SPEC §9.9; the 2e seam).
             items={objectMenu({
-              cut: readOnly ? undefined : sheetActions.cut,
-              copy: sheetActions.copy,
-              paste: readOnly ? undefined : sheetActions.paste,
-              saveAsSnippet: sheetActions.saveSnippet,
-              more: readOnly
-                ? undefined
-                : [
-                    { label: 'Insert row above', icon: 'add', onClick: sheetActions.insertRowAbove },
-                    { label: 'Insert row below', icon: 'add', onClick: sheetActions.insertRowBelow },
-                    { label: 'Insert column left', icon: 'add', onClick: sheetActions.insertColLeft },
-                    { label: 'Insert column right', icon: 'add', onClick: sheetActions.insertColRight },
-                    { separator: true },
-                    { label: 'Sort sheet A → Z', icon: 'sort', onClick: () => sheetActions.sort('asc') },
-                    { label: 'Sort sheet Z → A', onClick: () => sheetActions.sort('desc') }
-                  ],
-              del: readOnly ? undefined : clearSelection
+              cut: commands['sheet-cut'],
+              copy: commands['sheet-copy'],
+              paste: commands['sheet-paste'],
+              saveAsSnippet: commands['sheet-save-snippet'],
+              more: [
+                ctxRow(commands['sheet-row-above']!),
+                ctxRow(commands['sheet-row-below']!),
+                ctxRow(commands['sheet-col-left']!),
+                ctxRow(commands['sheet-col-right']!),
+                { separator: true },
+                ctxRow(commands['sheet-sort-asc']!),
+                ctxRow(commands['sheet-sort-desc']!)
+              ],
+              del: commands['sheet-delete']
             })}
           />
         )}

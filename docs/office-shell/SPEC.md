@@ -656,6 +656,10 @@ Per app: Deck `slides/deckCommands.ts`, Diagrams `diagram/diagramCommands.ts`, D
 | Deck, Design | stacking | `reorderZ` wrote through to the undo snapshot (Undo after a reorder did nothing); a multi-selection lost its order | copies; `reorderMany` keeps the selection's order |
 | Write, Cells | Find, Highlight, Heading, Select all, Clear formatting, save-snippet body | two or three code paths each | ec's slice |
 
+**A key shown is a key bound (9d: the class closed).** Each editor's key handler runs its commands by their `keys` (`lib/menus/commandKeys`: `runCommandKey`, Write, Cells, Deck, Design, Diagrams); hand-written branches for the same keys are gone, so the hint and the binding are one definition. Keys owned elsewhere are marked `keyOwner` and never matched by the editor: the menu bar binds ⌘F, ⇧⌘H, ⌘P and ⌘/ to its own rows (MenuBarShell, only while the row shows that key), and ⌘X/⌘C/⌘V arrive as the platform's clipboard events. Draw's keymap is both its hint and its binding. Guard: `officeCommandKeys.test.ts` (every keyed command reached by the event a real keyboard sends, on macOS and Windows; every editor dispatches its registry; Draw resolves each shown key) and `printKeys.spec.ts` (real ⌘P in each app).
+
+**Right-click from the registry.** Deck, Design, Diagrams and Cells build their object and canvas menus from their commands (`objectMenu`/`canvasMenu` take OfficeCommands and render them with `ctxRow`), so a right-click row and the menu bar cannot disagree on label, hint, enabled state or reason (`officeContextMenus.test.ts`). Cells' column/row header menus act on the clicked header, not the selection, so they stay header actions with the same labels. Write's text keeps the native menu (2e).
+
 Labels taken to the majority: Fit page, Zoom to selection, Lock/Unlock (icon shows the action), Hide, Deck's align names, Download (not Export), Remove background, centre/colour (9d), Present (no fake ▶ hint). Keys that menus showed and nothing bound are bound: Deck and Design ⌘B/⌘I/⌘U on the selected text box or frame (through commit, so read-only cannot write).
 
 ## 10. Delivery and estimate (re-estimated for D1 and D4)
