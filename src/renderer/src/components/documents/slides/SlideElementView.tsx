@@ -4,6 +4,7 @@
 // editor, present and export sizes.
 
 import type { SlideElement, SlideTextElement } from '@shared/types'
+import { splitByMarks, type ElementMarks, type Mark } from '../design/designFindHighlights'
 import { fillToCss } from '@shared/fills'
 import { cropStyle } from './slideOps'
 import WidgetEmbed from '../embed/WidgetEmbed'
@@ -28,7 +29,41 @@ function borderCss(b?: { width: number; style?: string; color: string }): string
   return b ? `${b.width}px ${b.style ?? 'solid'} ${b.color}` : undefined
 }
 
-function TextContent({ el }: { el: SlideTextElement }): JSX.Element {
+/**
+ * The find marks for one piece of rendered text, as spans.
+ *
+ * A DECORATION: it changes nothing in the element, so searching a document
+ * never makes it dirty and a read-only design can still be searched. Inline
+ * spans carry a background and no metrics of their own, so a marked line wraps
+ * and justifies exactly as an unmarked one does — which matters here, because
+ * these lines were positioned by the flow engine and must not move.
+ */
+function Marked({ text, marks }: { text: string; marks: Mark[] | undefined }): JSX.Element {
+  const parts = splitByMarks(text, marks)
+  if (parts.length === 1 && !parts[0]!.mark) return <>{text}</>
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.mark ? (
+          <span
+            key={i}
+            data-find-mark={p.mark.current ? 'current' : 'hit'}
+            style={{
+              background: p.mark.current ? 'rgba(249, 168, 37, 0.85)' : 'rgba(250, 204, 21, 0.38)',
+              borderRadius: 2
+            }}
+          >
+            {p.text}
+          </span>
+        ) : (
+          <span key={i}>{p.text}</span>
+        )
+      )}
+    </>
+  )
+}
+
+function TextContent({ el, marks }: { el: SlideTextElement; marks?: ElementMarks }): JSX.Element {
   // A PlexiDesign threaded frame shows the lines the flow engine measured and
   // placed for it. Rendering the engine's own output — rather than re-wrapping
   // here — is what guarantees the exported page breaks exactly where the screen
@@ -108,7 +143,7 @@ function TextContent({ el }: { el: SlideTextElement }): JSX.Element {
                   textAlignLast: justified ? 'justify' : undefined
                 }}
               >
-                {ln.text || '\u200b'}
+                {ln.text ? <Marked text={ln.text} marks={marks?.get(i)} /> : '\u200b'}
               </div>
             </div>
           )
@@ -134,20 +169,35 @@ function TextContent({ el }: { el: SlideTextElement }): JSX.Element {
           {p.listStyle === 'bullet' && <span style={{ opacity: 0.7 }}>•</span>}
           {p.listStyle === 'number' && <span style={{ opacity: 0.7 }}>{i + 1}.</span>}
           <span>
-            {p.runs.map((r, j) => (
-              <span
-                key={j}
-                style={{
-                  fontWeight: r.bold ? 700 : undefined,
-                  fontStyle: r.italic ? 'italic' : undefined,
-                  textDecoration: r.underline ? 'underline' : undefined,
-                  color: r.color,
-                  fontSize: r.fontSize
-                }}
-              >
-                {r.text || '​'}
-              </span>
-            ))}
+            {(() => {
+              // Marks are in PARAGRAPH coordinates — the runs joined — so each
+              // run takes the slice of them that falls inside it, shifted to
+              // its own offsets. A match spanning two runs is therefore marked
+              // in both, which is what it looks like on the page.
+              const paraMarks = marks?.get(i)
+              let at = 0
+              return p.runs.map((r, j) => {
+                const from = at
+                at += r.text.length
+                const mine = paraMarks
+                  ?.filter((m) => m.end > from && m.start < at)
+                  .map((m) => ({ ...m, start: Math.max(m.start, from) - from, end: Math.min(m.end, at) - from }))
+                return (
+                  <span
+                    key={j}
+                    style={{
+                      fontWeight: r.bold ? 700 : undefined,
+                      fontStyle: r.italic ? 'italic' : undefined,
+                      textDecoration: r.underline ? 'underline' : undefined,
+                      color: r.color,
+                      fontSize: r.fontSize
+                    }}
+                  >
+                    {r.text ? <Marked text={r.text} marks={mine} /> : '​'}
+                  </span>
+                )
+              })
+            })()}
           </span>
         </div>
       ))}
@@ -155,7 +205,16 @@ function TextContent({ el }: { el: SlideTextElement }): JSX.Element {
   )
 }
 
-export default function SlideElementView({ el, transitionMs }: { el: SlideElement; transitionMs?: number }): JSX.Element {
+export default function SlideElementView({
+  el,
+  transitionMs,
+  marks
+}: {
+  el: SlideElement
+  transitionMs?: number
+  /** Find marks for this element's text. Absent everywhere but Design's canvas. */
+  marks?: ElementMarks
+}): JSX.Element {
   const base: React.CSSProperties = {
     position: 'absolute',
     left: el.x,
@@ -179,7 +238,7 @@ export default function SlideElementView({ el, transitionMs }: { el: SlideElemen
           border: borderCss(el.border)
         }}
       >
-        <TextContent el={el} />
+        <TextContent el={el} marks={marks} />
       </div>
     )
   }

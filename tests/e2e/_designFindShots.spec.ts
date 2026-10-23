@@ -95,7 +95,19 @@ test('Design: Edit ▸ Find…, and ⌘F opening the panel', async () => {
   // Two hits proves it searched the STORY: this text is in stories.st1, and
   // the frame showing it has no paragraphs of its own at all.
   await expect(w.locator('[data-testid="design-find-count"]')).toContainText('/2')
+
+  // The hits are marked IN THE TEXT, not merely implied by selecting the
+  // frame. Both are marked; exactly one is the current one, drawn stronger.
+  const marks = w.locator('[data-find-mark]')
+  await expect(marks, 'both hits are marked in the laid-out text').toHaveCount(2)
+  await expect(w.locator('[data-find-mark="current"]'), 'and one is the current hit').toHaveCount(1)
+  await expect(marks.first()).toHaveText(/region/i)
   await w.screenshot({ path: `${SHOTS}/03-cmd-f-two-hits-in-the-story.png` })
+
+  // Stepping to the next hit moves the emphasis rather than adding a second.
+  await w.keyboard.press('Enter')
+  await expect(w.locator('[data-find-mark="current"]'), 'still exactly one current').toHaveCount(1)
+  await w.screenshot({ path: `${SHOTS}/05-current-hit-moved.png` })
 
   // 3. ⇧⌘H shows the Replace row.
   await w.keyboard.press('Escape')
@@ -105,4 +117,9 @@ test('Design: Edit ▸ Find…, and ⌘F opening the panel', async () => {
   await expect(panel.getByPlaceholder('Replace with').first()).toBeVisible()
   await w.locator('[data-testid="design-find-input"]').fill('region')
   await w.screenshot({ path: `${SHOTS}/04-shift-cmd-h-replace-row.png` })
+
+  // Closing the panel takes the marks with it: a decoration, not a change.
+  await w.keyboard.press('Escape')
+  await expect(panel).toBeHidden()
+  await expect(w.locator('[data-find-mark]'), 'marks never outlive the panel').toHaveCount(0)
 })

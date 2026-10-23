@@ -80,6 +80,8 @@ import DesignMenuBar from './editor/DesignMenuBar'
 import RecordFindReplace from './editor/RecordFindReplace'
 import { applyDesignReplacements, designFindRecords, frameForRecord } from './design/designFind'
 import type { FindRecord, RecordHit } from '../../lib/recordFind'
+import type { FindOptions } from '../../lib/docFind'
+import { marksForElement } from './design/designFindHighlights'
 import type { DocumentOps } from './editor/documentOps'
 import { usePrintSource } from './editor/printSource'
 import { useAccountStore } from '../../stores/account'
@@ -210,6 +212,15 @@ export default function DesignEditor({
   // decides whether the Replace row shows. Design was the last office app
   // without them (SPEC §9.6).
   const [findOpen, setFindOpen] = useState<false | 'find' | 'replace'>(false)
+  // What the panel is searching for, and the hit it is on, so the canvas can
+  // MARK them in the text it draws. A decoration: nothing here is written to
+  // the design, so searching never makes a document dirty and a read-only
+  // design can still be searched.
+  const [findMark, setFindMark] = useState<{ query: string; opts: FindOptions; current: RecordHit | null }>({
+    query: '',
+    opts: {},
+    current: null
+  })
   // A brand-new, empty design: the Start-from menu opens itself once, which is
   // the first-run help the permanent chip grid used to provide.
   const [startEmpty, setStartEmpty] = useState(() => normalizeDesignBody(content).elements.length === 0)
@@ -491,7 +502,9 @@ export default function DesignEditor({
   const findRecords = useMemo(() => designFindRecords(design), [design])
 
   /** Show a hit: switch to its page, select its frame, bring it on screen. */
-  function goToHit(key: string): void {
+  function goToHit(hit: RecordHit): void {
+    setFindMark((m) => ({ ...m, current: hit }))
+    const key = hit.key
     const target = frameForRecord(designRef.current, key)
     if (!target) return
     // goToPage clears the selection, so select after it rather than before.
@@ -2175,6 +2188,11 @@ export default function DesignEditor({
                 logicalW={design.width}
                 logicalH={design.height}
                 selectedIds={selectedIds}
+                marksFor={(el) =>
+                  findMark.query && el.type === 'text'
+                    ? marksForElement(designRef.current, el, findMark.query, findMark.opts, findMark.current)
+                    : undefined
+                }
                 underlay={underlay}
                 lockedIds={lockedIds}
                 extraSnapX={snaps.xs}
@@ -2342,9 +2360,14 @@ export default function DesignEditor({
           scope="Find in this design"
           replace={findOpen === 'replace'}
           records={findRecords}
-          onGo={(h) => goToHit(h.key)}
+          onGo={goToHit}
+          onSearch={(query, opts) => setFindMark((m) => ({ ...m, query, opts }))}
           onReplace={replaceText}
-          onClose={() => setFindOpen(false)}
+          onClose={() => {
+            setFindOpen(false)
+            // Marks never outlive the panel.
+            setFindMark({ query: '', opts: {}, current: null })
+          }}
         />
       )}
 

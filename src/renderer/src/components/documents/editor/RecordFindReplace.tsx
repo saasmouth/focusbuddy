@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../../Icon'
-import { isValidRegex } from '../../../lib/docFind'
+import { isValidRegex, type FindOptions } from '../../../lib/docFind'
 import { findInRecords, replaceHits, type FindRecord, type RecordHit } from '../../../lib/recordFind'
 
 interface Props {
@@ -20,6 +20,15 @@ interface Props {
    */
   onReplace: (changes: FindRecord[], hits: RecordHit[], replacement: string) => void
   onClose: () => void
+  /**
+   * What is being searched for right now, whenever it changes.
+   *
+   * Only Design uses it, to MARK the hits in the text it draws itself — the
+   * other apps' hits are already visible in a cell or a text box the panel
+   * selects. Optional, so nothing else is affected, and advisory: the panel
+   * remains the authority on what matches.
+   */
+  onSearch?: (query: string, opts: FindOptions) => void
   /** Prefix for the testids: `${testid}`, `${testid}-input`, `-count`, `-replace-input`, `-replace`, `-replace-all`. */
   testid: string
   /** What is searched, said in the field's placeholder ("Find in this sheet"). */
@@ -28,7 +37,7 @@ interface Props {
   replace?: boolean
 }
 
-export default function RecordFindReplace({ records, onGo, onReplace, onClose, testid, scope, replace = false }: Props): JSX.Element {
+export default function RecordFindReplace({ records, onGo, onReplace, onClose, onSearch, testid, scope, replace = false }: Props): JSX.Element {
   const [query, setQuery] = useState('')
   const [replacement, setReplacement] = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
@@ -50,6 +59,12 @@ export default function RecordFindReplace({ records, onGo, onReplace, onClose, t
   useEffect(() => {
     setIndex(0)
   }, [query, opts])
+  // Tell a host that draws its own text what to mark. Cleared on close by the
+  // host, so marks never outlive the panel.
+  useEffect(() => {
+    onSearch?.(regexBad ? '' : query, opts)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, opts, regexBad])
   useEffect(() => {
     if (current >= 0) onGo(hits[current]!)
     // Only when the hit being shown changes, not on every records edit.
