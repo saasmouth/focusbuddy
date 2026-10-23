@@ -61,15 +61,20 @@ let root: ReturnType<typeof createRoot>
  */
 function StubEditor({
   body,
-  onChange
+  onChange,
+  requestSave
 }: {
   body: SnippetBody
   onChange: (next: SnippetBody) => void
+  requestSave?: () => void
 }): JSX.Element {
   const [seeded] = useState(() => (body as { text?: string }).text ?? '')
   return (
     <>
       <span data-testid="stub-seeded">{seeded}</span>
+      <button data-testid="stub-request-save" onClick={() => requestSave?.()}>
+        the editor's own Save
+      </button>
       <button
         data-testid="stub-change"
         onClick={() =>
@@ -94,7 +99,9 @@ function StubEditor({
 }
 
 const stubEditor = (): SnippetKindEditor => ({
-  render: ({ body, onChange }) => <StubEditor body={body} onChange={onChange} />
+  render: ({ body, onChange, requestSave }) => (
+    <StubEditor body={body} onChange={onChange} requestSave={requestSave} />
+  )
 })
 
 beforeEach(() => {
@@ -173,6 +180,44 @@ describe('typing does not write', () => {
     expect(save.disabled).toBe(true)
     await click('stub-change')
     expect((host.querySelector('[data-testid="snippet-session-save"]') as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
+describe("an editor's own Save asks the host, under the host's guard", () => {
+  // PlexiiDraw has a File > Save and a ⌘S of its own, and inside a session they
+  // must pull this trigger rather than write: the studio has nothing to write
+  // to. The guard is the same one the Save button carries, and it matters more
+  // here because a keypress can arrive at any moment.
+
+  it('saves when there is something to save', async () => {
+    await mount()
+    await click('stub-change')
+    await click('stub-request-save')
+    expect(update).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing when nothing has changed', async () => {
+    // Not merely wasteful: a save with no change still bumps the master's
+    // revision, and every OTHER open session then fails its compare-and-set
+    // over a change that never happened — a conflict prompt out of thin air.
+    await mount()
+    await click('stub-request-save')
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('does not stack a second write on top of one in flight', async () => {
+    // Two writes racing the same base revision: the second carries a revision
+    // the first has already superseded, so one of them is refused for no reason
+    // the user can see.
+    let release: (v: unknown) => void = () => {}
+    update.mockImplementation(() => new Promise((r) => (release = r)))
+    await mount()
+    await click('stub-change')
+    await click('stub-request-save')
+    await click('stub-request-save')
+    await click('stub-request-save')
+    expect(update).toHaveBeenCalledTimes(1)
+    await act(async () => release({ ok: true, snippet: { ...master, revision: 4 } }))
   })
 })
 
