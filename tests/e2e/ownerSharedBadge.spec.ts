@@ -196,3 +196,47 @@ test('revoking the share link removes the shared-out badge', async () => {
   const badge = window.locator('[data-testid="shared-out-badge"]')
   await expect(badge).toHaveCount(0)
 })
+
+// ---------------------------------------------------------------------------
+// Negative: a link that has EXPIRED does not read as shared either
+// ---------------------------------------------------------------------------
+test('an expired share link shows no shared-out badge', async () => {
+  // The same shape as revoke, and for the same reason: `outgoing` keeps the
+  // link either way. An expired link no longer grants anyone access, so the
+  // room is not shared with others (owner's ruling, 2026-10-24).
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+
+  const { liveId, expiredId } = await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    const live = await api.nodes.create({ parentId: null, kind: 'folder', title: 'Still Shared Room' })
+    const expired = await api.nodes.create({ parentId: null, kind: 'folder', title: 'Expired Share Room' })
+    await api.shares.create({
+      token: 'tok-live-xyz', kind: 'folder', entityId: (live as { id: string }).id,
+      label: 'Still Shared Room', scope: 'view', expiresAt: null
+    })
+    await api.shares.create({
+      token: 'tok-expired-xyz', kind: 'folder', entityId: (expired as { id: string }).id,
+      label: 'Expired Share Room', scope: 'view',
+      // An hour ago.
+      expiresAt: Date.now() - 60 * 60 * 1000
+    })
+    return { liveId: (live as { id: string }).id, expiredId: (expired as { id: string }).id }
+  })
+
+  await window.reload()
+  await waitForReady(window)
+  await openRoomsIndex(window)
+
+  // POSITIVE CONTROL: the room whose link is still good IS badged, so an
+  // absence below means expiry and not a page that never rendered.
+  await expect(
+    window.locator(`[data-testid="index-card-${liveId}"] [data-testid="shared-out-badge"]`)
+  ).toBeVisible({ timeout: 8_000 })
+
+  await expect(window.locator(`[data-testid="index-card-${expiredId}"]`)).toBeVisible()
+  await expect(
+    window.locator(`[data-testid="index-card-${expiredId}"] [data-testid="shared-out-badge"]`)
+  ).toHaveCount(0)
+})
