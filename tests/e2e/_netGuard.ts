@@ -49,6 +49,7 @@ import { tmpdir } from 'os'
 import { basename, join } from 'path'
 import { ACTIVE } from '../../src/shared/productDomains'
 import { PRODUCTION_ALLOWED_SPECS } from './_netGuardAllowlist'
+import { bundledModelsEnv } from './_bundledModels'
 import { productionHostRules, refusedUrlRegExp, urlIsRefused } from './_netGuardHosts'
 
 export interface NetViolation {
@@ -136,6 +137,12 @@ export async function launchGuarded(
      * the failing guard; the failing path is proven by mutation (see that spec).
      */
     selfTest?: boolean
+    /**
+     * See the staged on-device models (resources/models). Default: only the
+     * specs named in _bundledModels.ts; everyone else launches as an install
+     * without the model, whatever the worktree staged.
+     */
+    bundledModels?: boolean
   } = {}
 ): Promise<{ app: ElectronApplication; guard: NetGuard }> {
   const spec = currentSpec()
@@ -202,6 +209,9 @@ export async function launchGuarded(
       // locally, as it would offline. A spec that runs a local signal server
       // passes its own FB_SIGNAL_URL and wins.
       FB_SIGNAL_URL: 'http://127.0.0.1:9',
+      // The result must not depend on whether this worktree staged the 2.5 GB
+      // on-device models (_bundledModels.ts). A spec's own value still wins.
+      ...bundledModelsEnv(spec, guardOptions.bundledModels),
       ...(options.env ?? {}),
       PLEXII_E2E_NETGUARD_RULES: JSON.stringify(rules.map((r) => r.host)),
       PLEXII_E2E_NETGUARD_LOG: logFile,
