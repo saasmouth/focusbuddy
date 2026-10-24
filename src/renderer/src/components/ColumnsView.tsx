@@ -447,7 +447,7 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
                     >
                       <div
                         className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[var(--edge-soft)] bg-[var(--surface-sunken)]"
-                        data-testid={`column-card-header-${w.id}`}
+                        data-testid={`columns-card-header-${w.id}`}
                         onContextMenu={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
