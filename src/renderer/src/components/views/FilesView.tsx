@@ -40,6 +40,7 @@ import {
 import { moveFilesInto } from '../../lib/filesDrop'
 import { nextSelection } from '../../lib/filesSelection'
 import { confirmTrashWidgetFile } from '../../lib/widgetRemoval'
+import { fileEntryMenu, filesAreaMenu, isTextFieldTarget } from '../../lib/fileEntryMenu'
 import type { FileTypeFilter } from '../../stores/fileManager'
 import { filesUndoAction } from '../../lib/filesUndoScope'
 
@@ -231,83 +232,71 @@ export default function FilesView(): JSX.Element {
     }
   }
 
+  // One builder for this view and the flyout (lib/fileEntryMenu.ts), so the
+  // same entry says the same thing in both.
   function entryContextItems(entry: FileEntry): CtxMenuItem[] {
-    const items: CtxMenuItem[] = [{ label: 'Open', icon: 'open_in_new', onClick: () => openEntry(entry) }]
-    items.push({ label: 'Rename', icon: 'edit', onClick: () => setRenaming(entry.id) })
-    // A widget file is its own thing, not a pointer to an office document: it
-    // exports as its .plexii-* type and deletes to the Trash, file and all.
-    if (isWidgetFileEntry(entry) && entry.docId) {
-      const docId = entry.docId
-      items.push({
-        label: 'Export…',
-        icon: 'ios_share',
-        onClick: () => void window.api.widgetFiles.export(docId)
-      })
-      items.push({ separator: true })
-      items.push({
-        label: 'Move to Trash',
-        icon: 'delete',
-        onClick: () => {
-          // Deleting the file takes its desk instances too; asks first when it is placed.
-          void confirmTrashWidgetFile(docId).then(() => store.refresh())
-        }
-      })
-      return items
-    }
-    if (entry.kind === 'folder') {
-      // Promote a whole folder to a live, checked-out shared folder. Uploads
-      // its files to the server so members can open them; documents come across
-      // as live-openable copies. Members organise it one at a time.
-      items.push({
-        label: 'Collaborate live',
-        icon: 'group',
-        onClick: () => {
+    return fileEntryMenu(
+      entry,
+      'view',
+      { signedIn: !!sessionToken, canShareWithTeam: canShare, platform: window.api?.platform ?? 'darwin' },
+      {
+        open: () => openEntry(entry),
+        rename: () => setRenaming(entry.id),
+        exportWidgetFile: (docId) => void window.api.widgetFiles.export(docId),
+        reveal: () => void window.api.fileManager.reveal(entry.id),
+        collaborateLive: () => {
+          // Promote a whole folder to a live, checked-out shared folder. Uploads
+          // its files to the server so members can open them; documents come across
+          // as live-openable copies. Members organise it one at a time.
           if (!sessionToken) return
           void promoteFolderToLive(entry.id, entry.name, sessionToken).then((res) => {
             if (res) goLiveFolder(res.liveId)
           })
-        }
-      })
-    }
-    if (entry.kind === 'file') {
-      items.push({ label: 'Reveal in Finder', icon: 'folder_open', onClick: () => void window.api.fileManager.reveal(entry.id) })
-    }
-    // Share a file or folder (and its contents) with the team, optionally a group.
-    // Doc pointers sync as their own document, so sharing them here is a no-op — omit.
-    if (canShare && entry.kind !== 'doc') {
-      items.push({
-        label: 'Share with team or group',
-        icon: 'group_add',
-        onClick: () => {
+        },
+        share: () => {
+          // Anyone with the link views it in the browser. A folder shares its
+          // documents (docfolder), an office doc as itself, a raw file with its
+          // bytes hosted against the token. A doc pointer needs its docId.
+          const kind: ShareableKind = entry.kind === 'folder' ? 'docfolder' : entry.kind === 'doc' ? 'document' : 'file'
+          const id = entry.kind === 'doc' ? entry.docId : entry.id
+          if (id) setLinkTarget({ kind, id, name: entry.name })
+        },
+        shareWithTeam: () =>
           void shareToOrgOrGroup({
             name: entry.name,
             kindLabel: entry.kind === 'folder' ? 'folder and its contents' : 'file',
             sharedOrgs,
             move: (org, team) => store.moveToOrg(entry.id, org, team)
-          })
-        }
+          }),
+        // Deleting a work widget file takes its desk instances too; asks first when it is placed.
+        moveToTrash: () =>
+          void (isWidgetFileEntry(entry) && entry.docId ? confirmTrashWidgetFile(entry.docId).then(() => store.refresh()) : store.remove(entry.id)),
+        removeFromFolder: () => void store.remove(entry.id)
+      }
+    )
+  }
+
+  // Right-click on the empty part of the listing.
+  function onAreaContext(e: React.MouseEvent): void {
+    if (e.defaultPrevented || isTextFieldTarget(e.target)) return
+    e.preventDefault()
+    setCtx({
+      x: e.clientX,
+      y: e.clientY,
+      items: filesAreaMenu({
+        newFolder: () => void store.createFolder('New folder'),
+        addFiles: () => void store.importFiles(),
+        importFolder: () => void store.importFolder(),
+        addDocument: () => void openDocPicker(),
+        selectAll: sorted.length ? () => store.setSelection(sorted.map((x) => x.id), sorted[0]!.id) : undefined
       })
-    }
-    // Public link — anyone with the URL views it in the browser. A folder shares
-    // its documents (docfolder), an office doc as itself, a raw file with its
-    // bytes hosted against the token. A doc pointer needs its docId as the entity.
-    const publicKind: ShareableKind | null =
-      entry.kind === 'folder' ? 'docfolder' : entry.kind === 'doc' ? 'document' : 'file'
-    const publicEntityId = entry.kind === 'doc' ? entry.docId ?? null : entry.id
-    if (publicKind && publicEntityId) {
-      items.push({
-        label: 'Create public link',
-        icon: 'link',
-        onClick: () => setLinkTarget({ kind: publicKind, id: publicEntityId, name: entry.name })
-      })
-    }
-    items.push({ separator: true })
-    items.push({
-      label: entry.kind === 'folder' ? 'Delete folder and contents' : entry.kind === 'doc' ? 'Remove from folder' : 'Delete',
-      icon: 'delete',
-      onClick: () => void store.remove(entry.id)
     })
-    return items
+  }
+
+  function onEntryContext(e: React.MouseEvent, entry: FileEntry): void {
+    if (isTextFieldTarget(e.target)) return
+    e.preventDefault()
+    setCtx({ x: e.clientX, y: e.clientY, items: entryContextItems(entry) })
   }
 
   async function openDocPicker(): Promise<void> {
@@ -341,7 +330,11 @@ export default function FilesView(): JSX.Element {
 
       <Breadcrumbs crumbs={store.crumbs} onOpen={(id) => void store.openFolder(id)} onMove={(id, target) => void store.move(id, target)} onMoveRefs={moveRefs} />
 
-      <div className={`flex-1 overflow-auto px-4 py-3 relative ${dropActive ? 'ring-2 ring-accent ring-inset' : ''}`}>
+      <div
+        className={`flex-1 overflow-auto px-4 py-3 relative ${dropActive ? 'ring-2 ring-accent ring-inset' : ''}`}
+        data-testid="files-view-area"
+        onContextMenu={onAreaContext}
+      >
         {store.loading ? (
           <div className="text-[13px] text-[var(--ink-40)] py-10 text-center">Loading…</div>
         ) : sorted.length === 0 && store.entries.length > 0 ? (
@@ -376,10 +369,7 @@ export default function FilesView(): JSX.Element {
               setRenaming(null)
             }}
             onRenameCancel={() => setRenaming(null)}
-            onContext={(e, entry) => {
-              e.preventDefault()
-              setCtx({ x: e.clientX, y: e.clientY, items: entryContextItems(entry) })
-            }}
+            onContext={onEntryContext}
             onMove={(id, target) => void store.move(id, target)}
             onDropOsFiles={(files, folderId) => void ingestOsFiles(files, folderId)}
           />
@@ -400,10 +390,7 @@ export default function FilesView(): JSX.Element {
               setRenaming(null)
             }}
             onRenameCancel={() => setRenaming(null)}
-            onContext={(e, entry) => {
-              e.preventDefault()
-              setCtx({ x: e.clientX, y: e.clientY, items: entryContextItems(entry) })
-            }}
+            onContext={onEntryContext}
             onMove={(id, target) => void store.move(id, target)}
             onDropOsFiles={(files, folderId) => void ingestOsFiles(files, folderId)}
           />

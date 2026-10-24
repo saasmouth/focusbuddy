@@ -17,6 +17,7 @@ import BrowserSurface, {
 import Icon from '../Icon'
 import PlexiiIcon from '../PlexiiIcon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { isTextContextTarget, webViewMenuExtras } from './bodyMenus'
 import { useAppNotifications } from '../../stores/appNotifications'
 import { useSignInWatch } from '../../lib/signInWatch'
 
@@ -69,7 +70,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   // own their own context menu). Captures clicks on the chrome / URL
   // bar area; we ALWAYS suppress the chrome's native menu so the
   // create-and-connect entry is reachable.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; cellText?: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   // Live preview shown in the header — tracks the CURRENT page while navigating.
   const [livePreview, setLivePreview] = useState<{ url: string; title: string } | null>(null)
   // Last URL we persisted into widget.content — avoids redundant DB writes on rapid navs
@@ -543,13 +544,14 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
         // inside the webview element.
         const t = e.target as HTMLElement
         if (t.closest && t.closest('webview')) return
-        if (e.shiftKey) return
+        // The URL bar and the Change URL form are text: the text menu's.
+        if (isTextContextTarget(e.target)) return
         e.preventDefault()
-        // For webview widgets, the most useful seed is the URL — passes
-        // through as content for sticky/note/markdown so the user has
-        // the URL handy in the new tool too.
-        const seed = widget.content || ''
-        setCtxMenu({ x: e.clientX, y: e.clientY, cellText: seed })
+        // No selection: the URL is the widget's content, not something the
+        // person selected, so it must not pose as one (AI Assist "about this
+        // selection" was answering about the address). The menu's own Open /
+        // Copy link rows carry the URL.
+        setCtxMenu({ x: e.clientX, y: e.clientY })
       }}
     >
       {editing ? (
@@ -600,7 +602,6 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
           sourceWidgetId={widget.id}
           x={ctxMenu.x}
           y={ctxMenu.y}
-          selectionContext={{ selectionText: ctxMenu.cellText }}
           onClose={() => setCtxMenu(null)}
         />
       )}
@@ -609,50 +610,25 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
 
   if (inline) return body
 
-  // Build the kind-specific context menu extras. WidgetFrame's generic menu
-  // (Make-this-a-task / Duplicate / Bring-to-front / Archive) sits beneath
-  // these; we surface webview-only actions like "Pin to Apps" and "Reload"
-  // at the top so they're a single right-click away.
-  const headerMenuExtras: { label: string; icon: string; onClick: () => void }[] = []
-  // Pin to Apps — only meaningful for a freeform widget with a URL that
-  // isn't already bound to a Connected App. Once bound, the entry stays
-  // hidden because re-pinning would be a no-op.
-  if (!sourceApp && widget.content) {
-    headerMenuExtras.push({
-      label: 'Pin to Apps',
-      icon: 'push_pin',
-      onClick: () => void handlePinToApps()
-    })
-  }
-  // Reload — duplicates the toolbar button so it's reachable when the user
-  // is already in a right-click context.
-  headerMenuExtras.push({
-    label: 'Reload',
-    icon: 'refresh',
-    onClick: () => {
-      try {
-        wvEl?.reload?.()
-      } catch {
-        // ignore
-      }
+  // The browser work widget's own rows in its menu (object actions, §9.3
+  // group 1), built in bodyMenus.ts so the guard checks them. Reload repeats
+  // the toolbar button, Change URL… opens the hint-rich form the ✎ button opens,
+  // and Pin to Apps is offered only while it would do something.
+  const headerMenuExtras = webViewMenuExtras(
+    { hasUrl: !!widget.content, boundToApp: !!sourceApp },
+    {
+      pinToApps: () => void handlePinToApps(),
+      reload: () => {
+        try {
+          wvEl?.reload?.()
+        } catch {
+          // ignore
+        }
+      },
+      openFullScreen,
+      changeUrl: () => setEditing(true)
     }
-  })
-  // Open full screen — the unification hand-off, also reachable by right-click.
-  if (widget.content) {
-    headerMenuExtras.push({
-      label: 'Open full screen',
-      icon: 'fullscreen',
-      onClick: openFullScreen
-    })
-  }
-  // Change URL (full form) — same path as the existing "edit" button in
-  // the top-right cluster. Useful when the user wants the hint-rich form
-  // instead of the inline URL bar.
-  headerMenuExtras.push({
-    label: 'Change URL…',
-    icon: 'edit',
-    onClick: () => setEditing(true)
-  })
+  )
 
   return (
     <WidgetFrame

@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import { Rnd } from 'react-rnd'
-import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import UnifiedWidgetMenu from '../contextMenu/UnifiedWidgetMenu'
+import { sectionMenuContext } from '../../lib/contextMenu/buildContext'
 import MakeTaskDialog from '../MakeTaskDialog'
 import ShareDialog from '../ShareDialog'
 import type { SectionLayout, Widget } from '@shared/types'
@@ -64,9 +65,6 @@ export default function SectionWidget({
   const dragJustEnded = useRef(0)
   const setFocused = useWidgetStore((s) => s.setFocused)
   const togglePin = useWidgetStore((s) => s.togglePin)
-  const archive = useWidgetStore((s) => s.archive)
-  const createWidget = useWidgetStore((s) => s.create)
-  const bringToFront = useWidgetStore((s) => s.bringToFront)
   const bumpLayout = useWidgetStore((s) => s.bumpLayoutVersion)
   const zoom = useWidgetStore((s) => s.zoom)
   const allWidgets = useWidgetStore((s) => s.widgets)
@@ -475,85 +473,20 @@ export default function SectionWidget({
         </div>
       </div>
       {headerCtxMenu && (
-        <CanvasContextMenu
-          x={headerCtxMenu.x}
-          y={headerCtxMenu.y}
-          items={(() => {
-            const items: CtxMenuItem[] = []
-            items.push({
-              label: 'Share section…',
-              icon: 'share',
-              onClick: () => setShareOpen(true)
-            })
-            items.push({
-              label: 'Make this a task…',
-              icon: 'task_alt',
-              onClick: () => setMakeTaskOpen(true)
-            })
-            items.push({ separator: true })
-            items.push({
-              label: 'Duplicate (empty)',
-              icon: 'content_copy',
-              onClick: () => {
-                // Duplicate the section container only — children stay in
-                // the original. Cloning children would imply moving them
-                // (children belong to one parent at a time) which is not
-                // what "duplicate" usually means. The new section opens
-                // empty so the user can drop different content into it.
-                void createWidget({
-                  taskId: widget.taskId,
-                  kind: 'section',
-                  title: widget.title ? `${widget.title} (copy)` : 'Section',
-                  content: '',
-                  x: widget.x + 30,
-                  y: widget.y + 30,
-                  width: widget.width,
-                  height: widget.height,
-                  color: widget.color
-                })
-              }
-            })
-            items.push({
-              label: 'Section layout',
-              icon: 'dashboard_customize',
-              children: LAYOUT_OPTIONS.map((opt) => ({
-                label: opt.value === layout ? `${opt.label} ✓` : opt.label,
-                icon: opt.icon,
-                onClick: () => {
-                  void update(widget.id, { layout: opt.value })
-                  bumpLayout()
-                }
-              }))
-            })
-            items.push({
-              label: 'Bring to front',
-              icon: 'flip_to_front',
-              onClick: () => {
-                void bringToFront(widget.id)
-              }
-            })
-            items.push({ separator: true })
-            items.push({
-              label: 'Archive (keep children on desk)',
-              icon: 'inventory_2',
-              onClick: () => {
-                // Eject children back to the canvas first, then archive
-                // the section. Otherwise archiving would also "lose" the
-                // children (they'd be invisible because their parent is
-                // archived, not because they were intentionally removed).
-                const childs = allWidgets.filter((c) => c.parentSectionId === widget.id)
-                for (const c of childs) {
-                  void update(c.id, {
-                    parentSectionId: null,
-                    x: Math.round(widget.x + SECTION_PADDING + c.x),
-                    y: Math.round(widget.y + SECTION_PADDING + c.y)
-                  })
-                }
-                void archive(widget.id)
-              }
-            })
-            return items
-          })()}
+        // The section handle's menu comes out of the one resolver (S1 used to
+        // be hand-built here and drifted from every other widget menu, F-14).
+        // Its kind rows (layout, an empty duplicate, archive that keeps the
+        // children) are the 'section' provider's (lib/contextMenu/providers.ts);
+        // the dialogs they open live here.
+        <UnifiedWidgetMenu
+          menuContext={sectionMenuContext(widget, { clientX: headerCtxMenu.x, clientY: headerCtxMenu.y }, {
+            onShare: () => setShareOpen(true),
+            onMakeTask: () => setMakeTaskOpen(true),
+            onRename: () => {
+              setDraft(widget.title || 'Section')
+              setEditing(true)
+            }
+          })}
           onClose={() => setHeaderCtxMenu(null)}
         />
       )}

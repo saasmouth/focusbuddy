@@ -7,6 +7,7 @@ import { usePresenceStore } from '../../stores/presence'
 import { useCapabilityEnabled } from '../../stores/capabilities'
 import { presenceColor } from '../../lib/presence'
 import ShareDialog from '../ShareDialog'
+import { MENU } from '@shared/menus/lexicon'
 
 // Where you are and who is here — ONE menu, in vertical lists.
 //
@@ -271,7 +272,7 @@ export default function DeskContextMenu({
             ) : (
               <Row
                 icon="edit"
-                label="Rename"
+                label={MENU.rename.label}
                 testid="desk-context-rename"
                 onClick={() => {
                   setDraft(current.title || '')
@@ -281,7 +282,7 @@ export default function DeskContextMenu({
             )}
             <Row
               icon="ios_share"
-              label="Share…"
+              label={MENU.share.label}
               testid="desk-context-share"
               onClick={() => {
                 setOpen(false)

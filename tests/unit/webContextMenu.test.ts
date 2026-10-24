@@ -14,19 +14,21 @@ const desks = (n: number): NonNullable<WebMenuContext['desks']> => {
 }
 
 describe('web right-click menu', () => {
-  it('empty page: Back / Forward / Reload, history-aware', () => {
-    const m = buildWebMenu(base, ctx('browser'))
-    expect(labels(m)).toEqual(['Back', 'Forward', 'Reload', '—', 'Select all'])
-    expect(m.find((x) => 'id' in x && x.id === 'forward')).toMatchObject({ enabled: false })
+  it('empty page: Select all, then Back / Forward / Reload (SPEC §9.3 empty shape), history-aware with a reason', () => {
+    const m = buildWebMenu(base, ctx('browser'), 'darwin')
+    expect(labels(m)).toEqual(['Select all', '—', 'Back', 'Forward', 'Reload'])
+    expect(m.find((x) => 'id' in x && x.id === 'forward')).toMatchObject({ enabled: false, hint: 'Nothing to go forward to' })
+    expect(m.find((x) => 'id' in x && x.id === 'select-all')).toMatchObject({ accelerator: 'CommandOrControl+A' })
   })
 
   it('a link: open here in the standalone browser, as a new work widget on a desk', () => {
     const p = { ...base, linkURL: 'https://example.com/a' }
-    expect(labels(buildWebMenu(p, ctx('browser')))).toEqual(['Open link', 'Open link in default browser', 'Copy link address'])
+    expect(labels(buildWebMenu(p, ctx('browser')))).toEqual(['Open link', 'Open link in default browser', '—', 'Copy link'])
     expect(labels(buildWebMenu(p, ctx('desk')))).toEqual([
       'Open link as a new browser work widget',
       'Open link in default browser',
-      'Copy link address',
+      '—',
+      'Copy link',
       '—',
       'More work widget actions…'
     ])
@@ -34,22 +36,25 @@ describe('web right-click menu', () => {
 
   it('an image', () => {
     const p = { ...base, mediaType: 'image' as const, srcURL: 'https://example.com/i.png' }
-    expect(labels(buildWebMenu(p, ctx('connected-app')))).toEqual(['Save image as…', 'Copy image', 'Copy image address'])
+    expect(labels(buildWebMenu(p, ctx('connected-app')))).toEqual(['Save image as…', '—', 'Copy image', 'Copy image address'])
   })
 
   it('an image inside a link gets both', () => {
     const p = { ...base, linkURL: 'https://example.com/a', mediaType: 'image' as const, srcURL: 'https://example.com/i.png' }
-    expect(labels(buildWebMenu(p, ctx('popup')))).toEqual(['Open link', 'Open link in default browser', 'Copy link address', '—', 'Save image as…', 'Copy image', 'Copy image address'])
+    expect(labels(buildWebMenu(p, ctx('popup')))).toEqual(['Open link', 'Open link in default browser', 'Save image as…', '—', 'Copy link', 'Copy image', 'Copy image address'])
   })
 
-  it('selected text: Copy, then PlexiiAssist and AI Assist on the browser surfaces only', () => {
+  it('selected text: the text shape, then PlexiiAssist and AI Assist on the browser surfaces only', () => {
     const p = { ...base, selectionText: 'hello' }
-    expect(labels(buildWebMenu(p, ctx('browser')))).toEqual(['Copy', '—', 'Ask PlexiiAssist about this', 'AI Assist'])
-    for (const s of ['connected-app', 'popup'] as const) expect(labels(buildWebMenu(p, ctx(s)))).toEqual(['Copy'])
+    expect(labels(buildWebMenu(p, ctx('browser')))).toEqual(['Copy', '—', 'Select all', '—', 'Ask PlexiiAssist about this', 'AI Assist'])
+    for (const s of ['connected-app', 'popup'] as const) expect(labels(buildWebMenu(p, ctx(s)))).toEqual(['Copy', '—', 'Select all'])
     const ai = flattenWebMenu(buildWebMenu(p, ctx('browser'))).filter((e) => e.path[0] === 'AI Assist')
-    expect(ai.filter((e) => e.path.length === 1).map((e) => e.label)).toEqual(['Summarise', 'Explain', 'Simplify', 'Rewrite', 'Custom Prompt…'])
+    // One AI set of eight everywhere (E-12): the work widget menu's set, in its order.
+    expect(ai.filter((e) => e.path.length === 1).map((e) => e.label)).toEqual([
+      'Expand', 'Simplify', 'Summarise', 'Rewrite', 'Fix grammar', 'Improve clarity', 'Continue writing', 'Explain', 'Custom prompt…'
+    ])
     expect(ai.find((e) => e.id === 'ai:translate:French')?.path).toEqual(['AI Assist', 'Translate'])
-    expect(ai.find((e) => e.id === 'ai:tone:Formal')?.path).toEqual(['AI Assist', 'Change Tone'])
+    expect(ai.find((e) => e.id === 'ai:tone:Formal')?.path).toEqual(['AI Assist', 'Change tone'])
   })
 
   it('Add to desk: one submenu per thing clicked, New desk… first, then recent desks', () => {
@@ -96,12 +101,16 @@ describe('web right-click menu', () => {
     expect(deskCommandFor('desk:page:d2', p, { url: 'about:blank', title: '' })).toBeNull()
   })
 
-  it('an editable field: spelling first, then edit items enabled by editFlags', () => {
+  it('an editable field: spelling first, then the text shape (SPEC §9.3), enabled by editFlags, with key hints', () => {
     const p = { ...base, isEditable: true, misspelledWord: 'teh', dictionarySuggestions: ['the', 'ten'] }
-    const m = buildWebMenu(p, ctx('browser'))
-    expect(labels(m)).toEqual(['the', 'ten', 'Add to dictionary', '—', 'Undo', 'Redo', '—', 'Cut', 'Copy', 'Paste', 'Select all'])
-    expect(m.find((x) => 'id' in x && x.id === 'redo')).toMatchObject({ enabled: false })
+    const m = buildWebMenu(p, ctx('browser'), 'darwin')
+    expect(labels(m)).toEqual(['the', 'ten', 'Add to dictionary', '—', 'Cut', 'Copy', 'Paste', 'Paste as plain text', '—', 'Select all'])
+    // Nothing selected: Cut and Copy are off, and say why (SPEC §9.5).
+    expect(m.find((x) => 'id' in x && x.id === 'cut')).toMatchObject({ enabled: false, hint: 'Select some text first', accelerator: 'CommandOrControl+X' })
+    expect(m.find((x) => 'id' in x && x.id === 'paste-plain')).toMatchObject({ enabled: true, accelerator: 'Alt+Shift+CommandOrControl+V' })
     expect(m.find((x) => 'id' in x && x.id === 'spelling:the')).toBeTruthy()
+    // A selection in a field on a browser surface adds Ask PlexiiAssist about this.
+    expect(labels(buildWebMenu({ ...p, selectionText: 'teh' }, ctx('browser'))).slice(-2)).toEqual(['—', 'Ask PlexiiAssist about this'])
   })
 
   it('desk-only items never leak to other surfaces; Inspect only in development', () => {

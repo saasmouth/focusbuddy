@@ -14,11 +14,9 @@ import Icon from '../Icon'
 import SharedBadge from '../SharedBadge'
 import { useSharesStore } from '../../stores/shares'
 import { activeSharedOutIds } from '../../lib/sharedOut'
-import { promptText } from '../plexi/PromptDialog'
-import { shareToOrgOrGroup } from '../../lib/shareScope'
 import ShareDialog from '../ShareDialog'
 import RoomsDesksIndex, { type IndexConfig } from './RoomsDesksIndex'
-import { lifecycleIndexActions } from '../../lib/deskLifecycleMenu'
+import { deskMenuItems, renameNode, shareNodeToTeam } from '../../lib/deskLifecycleMenu'
 import { bulkArchive, bulkMoveToRoom, bulkTrash } from '../../lib/deleteDeskFlow'
 
 // The All Desks index. A Desk is a task node (a canvas). Optionally scoped to a
@@ -46,8 +44,6 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
   const move = useNodeStore((s) => s.move)
   const setActive = useNodeStore((s) => s.setActive)
   const create = useNodeStore((s) => s.create)
-  const update = useNodeStore((s) => s.update)
-  const moveToOrg = useNodeStore((s) => s.moveToOrg)
   // Lifecycle L1: the archived shelf. Off = the live index (archived hidden,
   // as always); on = archived desks only. Persisted like the index's own modes.
   const [showArchived, setShowArchived] = useState(
@@ -286,9 +282,9 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
         }
       })()
     },
-    // One declarative list drives both the hover icon strip and the right-click
-    // context menu. "Open desk" is menu-only (inStrip: false) — clicking the
-    // card already opens it, so the strip stays as it was.
+    // The hover strip: share, public link, rename. The right-click menu is the
+    // shared desk menu (lib/deskLifecycleMenu): the same one the gallery shows.
+    // Both call the same functions, so the strip and the menu cannot drift.
     itemActions: (d) => [
       ...(canShare
         ? [
@@ -297,14 +293,7 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
               icon: 'group_add',
               label: 'Share with team or group',
               title: 'Share with your team or a group',
-              onClick: () => {
-                void shareToOrgOrGroup({
-                  name: d.title || 'this desk',
-                  kindLabel: 'desk and its work widgets',
-                  sharedOrgs,
-                  move: (org, team) => moveToOrg(d.id, org, team)
-                })
-              }
+              onClick: () => shareNodeToTeam(d)
             }
           ]
         : []),
@@ -315,37 +304,9 @@ export default function DesksView({ roomId }: { roomId?: string }): JSX.Element 
         title: 'Create a public link — anyone with it can view this desk',
         onClick: () => setLinkTarget({ id: d.id, title: d.title || 'this desk' })
       },
-      {
-        key: 'rename',
-        icon: 'edit',
-        label: 'Rename desk',
-        onClick: () => {
-          void (async () => {
-            const next = await promptText({
-              title: 'Rename desk',
-              label: 'Desk name',
-              initial: d.title || '',
-              confirmLabel: 'Rename'
-            })
-            const trimmed = next?.trim()
-            if (trimmed && trimmed !== (d.title || '')) await update(d.id, { title: trimmed })
-          })()
-        }
-      },
-      {
-        key: 'open',
-        icon: 'chevron_right',
-        label: 'Open desk',
-        inStrip: false,
-        onClick: () => {
-          setActive(d.id)
-          goTask(d.id)
-        }
-      },
-      // Lifecycle (DEC-021): the ONE shared definition — archive/trash for
-      // personal desks; Archive-for-me / Leave-share + the reason for shared.
-      ...lifecycleIndexActions(d)
+      { key: 'rename', icon: 'edit', label: 'Rename desk', onClick: () => void renameNode(d) }
     ],
+    itemMenu: (d) => deskMenuItems(d, { onShare: (n) => setLinkTarget({ id: n.id, title: n.title || 'this desk' }) }),
     // DEC-022: selection-mode bulk actions. Ids resolve against the live
     // store at click time; shared desks are skipped from trash with a count.
     bulkActions: (ids, done) => {

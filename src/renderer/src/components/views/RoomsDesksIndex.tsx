@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Icon from '../Icon'
 import { DashboardHeader, PLEXI_CARD } from '../plexi'
+import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { focusInvoker } from '../../lib/objectMenu'
 
 // The shared engine behind the All Rooms and All Desks index pages. One item
 // type (a Room or a Desk) rendered five ways — gallery, list, kanban, table and
@@ -31,22 +33,17 @@ export interface FilterOption<T> {
   predicate: (item: T) => boolean
 }
 
-// One item action, declared once and rendered two ways: as an icon button in the
-// hover strip (tooltip = title ?? label) and as an icon + label row in the
-// right-click context menu. The strip teaches by hover; the menu teaches by
-// reading — same list, so they can never drift apart.
+// One hover-strip action: an icon button (tooltip = title ?? label). The
+// right-click menu is NOT built from these any more: it is the shared desk/room
+// menu (lib/deskLifecycleMenu, via `itemMenu`), drawn by the context-menu kit,
+// so a desk reads the same here as in the gallery. The strip's buttons call the
+// same functions that menu does.
 export interface IndexAction {
   key: string
   icon: string
   label: string
-  // Longer tooltip for the hover strip; the menu always shows `label`.
+  // Longer tooltip for the hover strip.
   title?: string
-  // Set false for actions that should only live in the context menu (e.g. Open,
-  // which clicking the card already does) so the strip stays uncluttered.
-  inStrip?: boolean
-  // Informational row (e.g. the D1 shared-desk reason): rendered muted in the
-  // context menu, never in the strip, and clicks do nothing.
-  disabled?: boolean
   onClick: () => void
 }
 
@@ -68,7 +65,10 @@ export interface IndexConfig<T> {
   onOpen: (item: T) => void
   onNew?: () => void
   newLabel?: string
+  // The hover strip.
   itemActions?: (item: T) => IndexAction[]
+  // The right-click menu (SPEC §9.3), drawn by the context-menu kit.
+  itemMenu?: (item: T) => CtxMenuItem[]
   // Persist a manual order. Given the ids in their new order; the page writes it
   // through to the node sortOrder. Absent = reorder disabled.
   onReorder?: (orderedIds: string[]) => void
@@ -132,6 +132,7 @@ export default function RoomsDesksIndex<T>({ config }: { config: IndexConfig<T> 
     onNew,
     newLabel,
     itemActions,
+    itemMenu,
     onReorder,
     headerActions,
     badge,
@@ -149,11 +150,8 @@ export default function RoomsDesksIndex<T>({ config }: { config: IndexConfig<T> 
   const [filterKey, setFilterKey] = usePersistedString(`${storageKey}.filter`, 'all')
   const [search, setSearch] = useState('')
   const [dragId, setDragId] = useState<string | null>(null)
-  // Right-click context menu: same actions as the hover strip, but with labels
-  // so the icons are discoverable. Available in every view mode.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; actions: IndexAction[] } | null>(
-    null
-  )
+  // Right-click context menu (every view mode): the shared desk/room menu.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null)
 
   // DEC-022 selection mode: clicking toggles membership instead of opening;
   // the bar under the toolbar carries the bulk actions the page defined.
@@ -183,12 +181,15 @@ export default function RoomsDesksIndex<T>({ config }: { config: IndexConfig<T> 
   }, [selecting, selectable])
 
   function openCtxMenu(e: React.MouseEvent, it: T): void {
-    if (!itemActions) return
-    const acts = itemActions(it)
-    if (acts.length === 0) return
+    if (!itemMenu) return
+    const items = itemMenu(it)
+    if (items.length === 0) return
     e.preventDefault()
     e.stopPropagation()
-    setCtxMenu({ x: e.clientX, y: e.clientY, actions: acts })
+    // The kit returns focus to whatever had it when the menu opened, so give it
+    // to the card or row first: Escape then lands back on what was clicked.
+    focusInvoker(e)
+    setCtxMenu({ x: e.clientX, y: e.clientY, items })
   }
 
   const stripOf = (it: T): ReactNode =>
@@ -530,7 +531,9 @@ export default function RoomsDesksIndex<T>({ config }: { config: IndexConfig<T> 
           </div>
         )}
       </div>
-      {ctxMenu && <IndexContextMenu menu={ctxMenu} onClose={() => setCtxMenu(null)} />}
+      {ctxMenu && (
+        <CanvasContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />
+      )}
     </div>
   )
 }
@@ -538,7 +541,7 @@ export default function RoomsDesksIndex<T>({ config }: { config: IndexConfig<T> 
 // The hover icon strip, rendered from the same IndexAction list as the context
 // menu. Visuals match the previous hand-rolled buttons exactly.
 function ActionStrip({ actions }: { actions: IndexAction[] }): JSX.Element | null {
-  const strip = actions.filter((a) => a.inStrip !== false && !a.disabled)
+  const strip = actions
   if (strip.length === 0) return null
   return (
     <div className="flex items-center gap-1">
@@ -555,84 +558,6 @@ function ActionStrip({ actions }: { actions: IndexAction[] }): JSX.Element | nul
           <Icon name={a.icon} size={14} />
         </button>
       ))}
-    </div>
-  )
-}
-
-function IndexContextMenu({
-  menu,
-  onClose
-}: {
-  menu: { x: number; y: number; actions: IndexAction[] }
-  onClose: () => void
-}): JSX.Element {
-  const ref = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: menu.x, top: menu.y })
-
-  // Clamp to the viewport once the menu has a measured size, so a right-click
-  // near the bottom or right edge never spawns a half-offscreen menu.
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    setPos({
-      left: Math.max(8, Math.min(menu.x, window.innerWidth - r.width - 8)),
-      top: Math.max(8, Math.min(menu.y, window.innerHeight - r.height - 8))
-    })
-  }, [menu])
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-[80]"
-      onMouseDown={onClose}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        onClose()
-      }}
-    >
-      <div
-        ref={ref}
-        style={{ left: pos.left, top: pos.top }}
-        onMouseDown={(e) => e.stopPropagation()}
-        data-testid="index-context-menu"
-        className="absolute min-w-[200px] rounded-[var(--radius-row)] fb-glass-panel fb-pop-in py-1"
-      >
-        {menu.actions.map((a) =>
-          a.disabled ? (
-            // Informational row (e.g. the D1 shared-desk reason) — readable,
-            // never clickable.
-            <div
-              key={a.key}
-              data-testid={`index-context-menu-${a.key}`}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left fb-t-caption text-[var(--ink-50)]"
-            >
-              <Icon name={a.icon} size={14} className="text-[var(--ink-40)] shrink-0" />
-              <span className="whitespace-normal leading-snug">{a.label}</span>
-            </div>
-          ) : (
-            <button
-              key={a.key}
-              onClick={() => {
-                onClose()
-                a.onClick()
-              }}
-              data-testid={`index-context-menu-${a.key}`}
-              className="w-full flex items-center gap-2.5 px-3 h-8 text-left fb-t-body text-[var(--ink-90)] hover:bg-[var(--surface-sunken)] fb-press"
-            >
-              <Icon name={a.icon} size={15} className="text-[var(--ink-60)] shrink-0" />
-              <span className="truncate">{a.label}</span>
-            </button>
-          )
-        )}
-      </div>
     </div>
   )
 }

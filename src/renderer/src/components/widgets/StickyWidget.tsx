@@ -5,6 +5,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
+import { isTextContextTarget } from './bodyMenus'
 import Icon from '../Icon'
 import { useTextWidgetSnippets } from './useWidgetSnippets'
 import {
@@ -46,7 +47,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
   textRef.current = text
   const saveTimerRef = useRef<number | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; selectionText?: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
   // A sticky shows a rendered view (bold, bullets, tickable checkboxes) and
   // flips to a raw textarea while the user is editing. New / empty stickies
   // start in edit mode so they are immediately typeable.
@@ -278,12 +279,6 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
       }}
       onPaste={snippets.onTextareaPaste}
       placeholder="Write a note… **bold**, - bullet, [ ] task"
-      onContextMenu={(e) => {
-        if (e.shiftKey) return
-        e.preventDefault()
-        const sel = window.getSelection()?.toString() ?? ''
-        setCtxMenu({ x: e.clientX, y: e.clientY, selectionText: sel })
-      }}
       // field-sizing: content (fb-sticky-textarea, globals.css) grows the
       // textarea with its text so the sticky auto-grows instead of scrolling.
       className={`fb-sticky-textarea w-full min-h-[2.5rem] resize-none bg-transparent text-stone-900 font-hand placeholder:text-stone-700/40 ${
@@ -320,6 +315,13 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
   const content = (
     <div
       data-fb-sticky-body
+      onContextMenu={(e) => {
+        // Text (the textarea while editing, or a selection) is the text
+        // menu's (§9.3); the rest of the body opens the work widget's menu.
+        if (isTextContextTarget(e.target)) return
+        e.preventDefault()
+        setCtxMenu({ x: e.clientX, y: e.clientY })
+      }}
       className="fb-sticky-body min-h-full w-full p-3 flex flex-col gap-2"
       style={{ backgroundColor: bgColor, '--fb-sticky-tint': bgColor } as React.CSSProperties}
     >
@@ -375,7 +377,6 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
           sourceWidgetId={widget.id}
           x={ctxMenu.x}
           y={ctxMenu.y}
-          selectionContext={{ selectionText: ctxMenu.selectionText }}
           onClose={() => setCtxMenu(null)}
         />
       )}

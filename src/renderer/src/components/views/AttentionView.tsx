@@ -14,6 +14,9 @@ import { useCaptureConsole } from '../../stores/captureConsole'
 import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import AttentionItemEditor from '../AttentionItemEditor'
+import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { focusRowMenuItems, focusSourceLabel } from '../../lib/focusRowMenu'
+import { focusInvoker } from '../../lib/objectMenu'
 import CompleteCircle from '../attention/CompleteCircle'
 import { useWidgetStore } from '../../stores/widgets'
 import { parseMentions, mentionKey, MENTION_ICON } from '../../lib/itemMentions'
@@ -379,6 +382,8 @@ export default function AttentionView(): JSX.Element {
   // shows the untouched title + notes; Copy puts them on the clipboard.
   // DEC-036 — double-click opens the whole item for editing.
   const [editing, setEditing] = useState<FbNode | null>(null)
+  // A row's right-click menu (lib/focusRowMenu): the row's own doors, on the kit.
+  const [rowMenu, setRowMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null)
   // In a team workspace a task can be assigned; the row offers it directly
   // rather than only behind double-click (owner: "I can't seem to assign a task").
   const inTeam = useOrgStore((s) => s.activeOrgId !== PERSONAL_ORG_ID)
@@ -637,6 +642,46 @@ export default function AttentionView(): JSX.Element {
   // PlexiiMessage tab, the conversation on that person, landed on the
   // message), so the way back follows you page to page.
 
+  /** The source door (C5 round, DEC-091, DEC-127): an internal plexii:// URL
+   *  is a MOMENT and opens the meeting at the quoted line; a message link
+   *  opens the floating assistant at the message; anything else is the web
+   *  deep link frozen at mark time — the widget may have browsed away; this
+   *  has not. */
+  function openSourceUrl(i: FbNode): void {
+    const moment = parseMeetingMomentUrl(i.sourceUrl)
+    if (moment) openMeeting(moment.meetingId, moment.segmentId)
+    else if (!openMessageLink(i.sourceUrl)) void window.api.files.openExternal(i.sourceUrl!)
+  }
+
+  function openRowMenu(e: React.MouseEvent, i: FbNode, inDetached: boolean, isChild: boolean): void {
+    // A control inside the row with a menu of its own keeps it.
+    if (e.defaultPrevented) return
+    e.preventDefault()
+    focusInvoker(e)
+    const deskIsTask = !!(i.parentId && nodes.some((n) => n.id === i.parentId && n.kind === 'task'))
+    const items = focusRowMenuItems(
+      inDetached
+        ? { open: () => setEditing(i), moveToDesk: () => void moveDetached(i), copy: () => void copyItem(i) }
+        : {
+            open: () => setEditing(i),
+            openDesk: deskIsTask ? () => openSource(i) : undefined,
+            openSource: i.sourceUrl
+              ? {
+                  label: focusSourceLabel(parseMeetingMomentUrl(i.sourceUrl) ? 'meeting' : parseMessageUrl(i.sourceUrl) ? 'message' : 'page'),
+                  run: () => openSourceUrl(i)
+                }
+              : undefined,
+            snooze: () => void snoozeTomorrow(i.id),
+            assign: inTeam ? () => setEditing(i) : undefined,
+            detach: isChild ? () => void ungroup(i.id) : undefined,
+            copy: () => void copyItem(i),
+            askAssist: () => startWithPlexii([i]),
+            archive: () => void setState(i.id, 'archived')
+          }
+    )
+    setRowMenu({ x: e.clientX, y: e.clientY, items })
+  }
+
   function openSource(i: FbNode): void {
     if (i.parentId && nodes.some((n) => n.id === i.parentId && n.kind === 'task')) {
       setActive(i.parentId)
@@ -708,6 +753,7 @@ export default function AttentionView(): JSX.Element {
         key={i.id}
         data-item-row
         data-item-id={inDetached ? undefined : i.id}
+        onContextMenu={(e) => openRowMenu(e, i, inDetached, !!group?.isChild)}
         onDoubleClick={(e) => {
           // Only the ACTION cluster is off-limits — double-clicking Archive
           // should archive, not open an editor behind it. The title and the
@@ -1186,16 +1232,7 @@ export default function AttentionView(): JSX.Element {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    // C5 round — an internal plexii:// URL is a MOMENT: it
-                    // opens the meeting with the Thread scrolled to the
-                    // quoted line. Anything else is DEC-091's web deep link
-                    // (the Slack thread, the ticket), frozen at mark time —
-                    // the widget may have browsed away; this has not.
-                    const moment = parseMeetingMomentUrl(i.sourceUrl)
-                    if (moment) openMeeting(moment.meetingId, moment.segmentId)
-                    // DEC-127 — a message link opens the floating assistant on
-                    // PlexiiMessage, on that person, at the exact message.
-                    else if (!openMessageLink(i.sourceUrl)) void window.api.files.openExternal(i.sourceUrl!)
+                    openSourceUrl(i)
                   }}
                   data-row-action
                   title={
@@ -1210,7 +1247,9 @@ export default function AttentionView(): JSX.Element {
                   <Icon name={parseMeetingMomentUrl(i.sourceUrl) ? 'my_location' : parseMessageUrl(i.sourceUrl) ? 'forum' : 'link'} size={14} />
                 </button>
               )}
-              {hasDesk && i.sourceRef && i.sourceType !== 'note' && (
+              {/* Not for a marked desk or room: there is no widget to focus, and
+                  "Open the whole desk" beside it already goes there. */}
+              {hasDesk && i.sourceRef && i.sourceType !== 'note' && i.sourceType !== 'desk' && i.sourceType !== 'room' && (
                 <button
                   onClick={() => openHere(i)}
                   title="Open it here — the object itself, full screen inside Plexii"
@@ -1920,6 +1959,9 @@ export default function AttentionView(): JSX.Element {
             if (changed) void refresh()
           }}
         />
+      )}
+      {rowMenu && (
+        <CanvasContextMenu x={rowMenu.x} y={rowMenu.y} items={rowMenu.items} onClose={() => setRowMenu(null)} />
       )}
     </div>
   )

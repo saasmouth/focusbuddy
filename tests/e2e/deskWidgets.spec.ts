@@ -67,8 +67,9 @@ test('DW-1 dragging a Widgets tile onto the desk creates that widget', async () 
 // Superseded 4.3.32: "the widget palette is desk-only". The palette is gone;
 // the Widgets section is in the menu everywhere, because a widget no longer
 // needs a desk — clicking one makes a widget file. What stays desk-only is
-// putting one ON a desk: "Add to this desk" is offered only when a desk is open.
-test('DW-2 Widgets work without a desk; "Add to this desk" appears only on a desk', async () => {
+// putting one ON a desk: "Add to this desk" only works when a desk is open (off
+// a desk it is shown disabled with the reason, SPEC §9.5).
+test('DW-2 Widgets work without a desk; "Add to this desk" works only on a desk', async () => {
   const { window, dispose } = await launchApp()
   try {
     await waitForReady(window)
@@ -78,7 +79,11 @@ test('DW-2 Widgets work without a desk; "Add to this desk" appears only on a des
     await tile.click({ button: 'right' })
     const menu = window.locator('[data-canvas-ctx-menu]')
     await expect(menu.getByText('New sticky work widget')).toBeVisible()
-    await expect(menu.getByText('Add to this desk')).toHaveCount(0)
+    // SPEC §9.5 (menu contract): an action that applies but not right now stays
+    // in the menu, disabled, saying why — it used to be left out.
+    const add = menu.locator('[data-testid="ctx-add-to-this-desk"]')
+    await expect(add).toBeDisabled()
+    await expect(add).toContainText('Open a desk first')
   } finally {
     await dispose()
   }

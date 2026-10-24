@@ -42,5 +42,6 @@ describe('expectMenuContract', () => {
     fails([{ label: 'Open' }, { separator: true }, { separator: true }, { label: 'Rename' }])
   })
   it('fails a hint on a shared action with no bound key', () => fails([{ label: 'Rename', shortcut: '⌘R' }]))
+  it('allows a menu that is only destructive rows', () => expectMenuContract([{ label: 'Remove from Home', danger: true }]))
   it('checks submenus too', () => fails([{ label: 'Share', children: [{ label: 'Copy URL' }] }]))
 })

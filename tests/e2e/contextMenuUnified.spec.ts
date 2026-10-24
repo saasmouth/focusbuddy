@@ -68,12 +68,10 @@ test('CM-1 — unified menu opens on a note with the canonical sections', async 
   const widgetId = await seedNote(launched, 'the quick brown fox jumps', 'CtxMenuTest')
   await openTask(launched, 'CtxMenuTest')
 
-  // Enter edit mode (the textarea is what carries the content context menu).
+  // A right-click on the note being read opens its work widget menu; the
+  // editing textarea is text, and text gets the text menu (SPEC §9.3, E-5).
   await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { timeout: 8_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`)
-  await window.waitForSelector(`[data-widget-id="${widgetId}"] textarea`, { timeout: 4_000 })
-
-  await window.click(`[data-widget-id="${widgetId}"] textarea`, { button: 'right' })
+  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
   const menuText = await window.evaluate(
@@ -81,7 +79,8 @@ test('CM-1 — unified menu opens on a note with the canonical sections', async 
   )
   console.log('[CM-1] menu text:', JSON.stringify(menuText))
   expect(menuText).toContain('AI Assist')
-  expect(menuText).toContain('Create')
+  // §9.3: Create & link lives under More actions (the eight-row ceiling, E-6).
+  expect(menuText).toContain('More actions')
   // Destructive present (Archive or Delete or a Remove parent).
   expect(/Archive|Delete|Remove/.test(menuText)).toBe(true)
 })
@@ -102,9 +101,9 @@ test('CM-2 — AI Assist runs a transform and Apply writes it back in place', as
   })
 
   await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { timeout: 8_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`)
-  await window.waitForSelector(`[data-widget-id="${widgetId}"] textarea`, { timeout: 4_000 })
-  await window.click(`[data-widget-id="${widgetId}"] textarea`, { button: 'right' })
+  // A right-click on the note being read opens its work widget menu; the
+  // editing textarea is text, and text gets the text menu (SPEC §9.3, E-5).
+  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
 
   // Open the AI Assist submenu and pick a preset action.

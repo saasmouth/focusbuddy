@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { clickWidgetTool, expectWidgetTool, launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { clickWidgetTool, expectWidgetTool, launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow } from './_helpers'
 
 // Phase 1 "widget-link overhaul" (plexi-4.0):
 //   (a)/(b) drawing a link creates it immediately as a passive `context` wire
@@ -288,12 +288,10 @@ test('(e) right-click "Automate with an agent" spawns an agent widget wired from
   // DEC-041 (e846113e: "the wire IS the feature — every entry here spawns a
   // widget AND links it to this one — so the label finally says so"). Hover it
   // to open the submenu.
+  // §9.3: Create & link sits under More actions (the eight-row ceiling).
   const ctxMenu = window.locator('[data-canvas-ctx-menu]')
   await expect(ctxMenu.getByText('Create', { exact: true }), 'no bare "Create" parent remains').toHaveCount(0)
-  await ctxMenu.getByText('Create & link', { exact: true }).hover()
-  const menuItem = ctxMenu.getByText('Automate with an agent', { exact: true }).first()
-  await expect(menuItem, 'Automate with an agent appears in the Create & link menu').toBeVisible({ timeout: 4_000 })
-  await menuItem.click()
+  await clickWidgetMenuRow(window, 'Automate with an agent', ['Create & link'])
   await window.waitForTimeout(500)
 
   const widgets = await widgetsOf(window, taskId)

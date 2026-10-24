@@ -7,6 +7,7 @@ import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
 import type { WebMenuCommand } from '@shared/webMenu'
+import type { TextMenuCommand } from '@shared/textMenu'
 import type {
   ActionProposal,
   AnswerGrounding,
@@ -24,7 +25,6 @@ import type {
   ConnectedApp,
   ConnectedAppDraft,
   ConnectedAppPatch,
-  ContextMenuPayload,
   EnergyLevel,
   EnergyLogEntry,
   TimeBlock,
@@ -1239,12 +1239,17 @@ const api = {
       return () => ipcRenderer.removeListener('webMenu:command', handler)
     }
   },
+  textMenu: {
+    // "Ask PlexiiAssist about this" / "Save selection as snippet…" chosen in
+    // the app window's native text menu (main/webContextMenu.ts): the surface
+    // that owns the focused text handles it (renderer lib/textMenuHandlers.ts).
+    onAction: (cb: (cmd: TextMenuCommand) => void): (() => void) => {
+      const handler = (_: unknown, cmd: TextMenuCommand): void => cb(cmd)
+      ipcRenderer.on('textMenu:action', handler)
+      return () => ipcRenderer.removeListener('textMenu:action', handler)
+    }
+  },
   contextMenu: {
-    onAction: (cb: (payload: ContextMenuPayload) => void): (() => void) => {
-      const handler = (_: unknown, payload: ContextMenuPayload): void => cb(payload)
-      ipcRenderer.on('context-menu:action', handler)
-      return () => ipcRenderer.removeListener('context-menu:action', handler)
-    },
     // Fired when a NON-editable right-click happens inside a browser widget. The
     // renderer opens the unified PlexiDesk menu for the classified target.
     onWebviewContextMenu: (

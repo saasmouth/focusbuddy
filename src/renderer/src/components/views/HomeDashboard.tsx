@@ -85,6 +85,12 @@ import {
   conversationName
 } from './homeWidgets'
 import type { DashboardSurface } from './homeWidgetDefs'
+import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
+import { homeCardMenuItems, removeFromDashboardLabel } from '../../lib/homeCardMenu'
+import { focusInvoker } from '../../lib/objectMenu'
+import { askAssistAboutNode, openNode } from '../../lib/deskLifecycleMenu'
+import { useWidgetStore } from '../../stores/widgets'
+import { useAppNotifications } from '../../stores/appNotifications'
 import PeopleHomeView from './PeopleHomeView'
 import {
   AttentionWidget,
@@ -455,6 +461,8 @@ export default function HomeDashboard({
     initial?: HomeWidgetConfig
     apply: (config: HomeWidgetConfig) => void
   } | null>(null)
+  // A card's right-click menu (lib/homeCardMenu).
+  const [cardMenu, setCardMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null)
 
   // Imperative drag machinery. flatRef mirrors `flat` for the window-level
   // pointer handlers; dragInfoRef carries one drag's constants; the motion
@@ -833,6 +841,112 @@ export default function HomeDashboard({
     })
   }
 
+  // Re-point an embed card at a different object. One route per card, shared
+  // by the card's own "Choose another" and its right-click menu.
+  const mergeConfig = (key: string) => (cfg: HomeWidgetConfig): void =>
+    commitFlat(flatRef.current.map((it) => (it.key === key ? { ...it, config: { ...it.config, ...cfg } } : it)))
+  const pinPage = (inst: SizedInstance): void => {
+    const next = window.prompt('Pin which page?', inst.config?.url ?? 'https://')
+    if (!next) return
+    const url = /^https?:\/\//i.test(next) ? next : `https://${next}`
+    mergeConfig(inst.key)({ url })
+  }
+  const chooseAnotherFor = (inst: SizedInstance): (() => void) | undefined => {
+    switch (inst.widget) {
+      case 'desk-widget':
+        return () => setPicker({ widget: 'desk-widget', kind: 'desk-widget', apply: mergeConfig(inst.key) })
+      case 'office-document':
+        return () => setPicker({ widget: 'office-document', kind: 'document', apply: mergeConfig(inst.key) })
+      case 'work-widget':
+        return () => setPicker({ widget: 'work-widget', kind: 'desk-widget', apply: mergeConfig(inst.key) })
+      case 'app-browser':
+        return () => pinPage(inst)
+      default:
+        return widgetDef(inst.widget).config ? () => editInstance(inst.key) : undefined
+    }
+  }
+
+  // What a card opens: the place its own Open button (or the side menu row for
+  // the same app) goes. Cards that summarise many things have no single Open.
+  const openFor = (inst: SizedInstance): (() => void) | undefined => {
+    const c = inst.config
+    const node = (id?: string): FbNode | undefined =>
+      id ? useNodeStore.getState().nodes.find((n) => n.id === id && !n.archived) : undefined
+    switch (inst.widget) {
+      case 'pinned-desk':
+      case 'room-portal': {
+        const n = node(inst.widget === 'pinned-desk' ? c?.deskId : c?.roomId)
+        return n ? () => openNode(n) : undefined
+      }
+      case 'desk-widget':
+        if (!c?.widgetId) return undefined
+        // DeskObjectHeader's "Open ↗": the desk the object lives on is
+        // authoritative, then the object itself.
+        return () => {
+          const widgetId = c.widgetId as string
+          const known = useWidgetStore.getState().widgets.find((w) => w.id === widgetId)
+          void (known ? Promise.resolve(known) : window.api.widgets.get(widgetId)).then((w) => {
+            setActive(w?.taskId || c.deskId || null)
+            useWidgetStore.getState().setFocused(widgetId)
+          })
+        }
+      case 'office-document':
+        return c?.documentId ? () => v.goDocument(c.documentId as string) : undefined
+      case 'work-widget':
+        return c?.widgetFileId ? () => v.goDocument(c.widgetFileId as string) : undefined
+      case 'connected-app':
+        return c?.appId
+          ? () => {
+              useAppNotifications.getState().clear(c.appId as string)
+              v.goConnectedApp(c.appId as string)
+            }
+          : undefined
+      case 'app-mail':
+        return () => v.goOffice('mail')
+      case 'app-chat':
+        return () => v.goOffice('chat')
+      case 'app-calendar':
+        return () => v.goOffice('calendar')
+      case 'app-files':
+        return () => v.goOffice('files')
+      case 'app-vault':
+        return () => v.goOffice('vault')
+      default:
+        return undefined
+    }
+  }
+
+  const openCardMenu = (e: React.MouseEvent, inst: SizedInstance): void => {
+    // A widget inside the card that has its own menu (an embedded work
+    // widget, Files' rows) keeps it, and text fields and web pages keep theirs.
+    if (e.defaultPrevented) return
+    const t = e.target as HTMLElement
+    if (t.closest('input, textarea, [contenteditable="true"], webview')) return
+    e.preventDefault()
+    focusInvoker(e)
+    const def = widgetDef(inst.widget)
+    const deskOrRoom =
+      inst.widget === 'pinned-desk' || inst.widget === 'room-portal'
+        ? useNodeStore.getState().nodes.find((n) => n.id === (inst.widget === 'pinned-desk' ? inst.config?.deskId : inst.config?.roomId) && !n.archived)
+        : undefined
+    setCardMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: homeCardMenuItems({
+        open: openFor(inst),
+        chooseAnother: chooseAnotherFor(inst),
+        sizes: {
+          options: def.sizes.map((size) => ({ size, label: SIZE_LABEL[size] })),
+          current: inst.size,
+          set: (size) => commitFlat(flatRef.current.map((it) => (it.key === inst.key ? { ...it, size: size as WidgetSize } : it)))
+        },
+        askAssist: deskOrRoom ? () => askAssistAboutNode(deskOrRoom) : undefined,
+        remove: () => removeInstance(inst.key),
+        removeLabel: removeFromDashboardLabel(surface)
+      })
+    })
+  }
+
   const isPlaced = (id: HomeWidgetId): boolean => flat.some((it) => it.widget === id)
 
   const resetLayout = (): void => {
@@ -879,18 +993,7 @@ export default function HomeDashboard({
           <DeskWidgetCard
             deskId={inst.config?.deskId}
             widgetId={inst.config?.widgetId}
-            onPick={() =>
-              setPicker({
-                widget: 'desk-widget',
-                kind: 'desk-widget',
-                apply: (cfg) =>
-                  commitFlat(
-                    flatRef.current.map((it) =>
-                      it.key === inst.key ? { ...it, config: { ...it.config, ...cfg } } : it
-                    )
-                  )
-              })
-            }
+            onPick={chooseAnotherFor(inst)}
           />
         )
       case 'office-document':
@@ -898,18 +1001,7 @@ export default function HomeDashboard({
           <OfficeDocumentCard
             documentId={inst.config?.documentId}
             documentTitle={inst.config?.documentTitle}
-            onPick={() =>
-              setPicker({
-                widget: 'office-document',
-                kind: 'document',
-                apply: (cfg) =>
-                  commitFlat(
-                    flatRef.current.map((it) =>
-                      it.key === inst.key ? { ...it, config: { ...it.config, ...cfg } } : it
-                    )
-                  )
-              })
-            }
+            onPick={chooseAnotherFor(inst)}
           />
         )
       case 'work-widget':
@@ -919,18 +1011,7 @@ export default function HomeDashboard({
         return (
           <WorkWidgetCard
             fileId={inst.config?.widgetFileId}
-            onPick={() =>
-              setPicker({
-                widget: 'work-widget',
-                kind: 'desk-widget',
-                apply: (cfg) =>
-                  commitFlat(
-                    flatRef.current.map((it) =>
-                      it.key === inst.key ? { ...it, config: { ...it.config, ...cfg } } : it
-                    )
-                  )
-              })
-            }
+            onPick={chooseAnotherFor(inst)}
           />
         )
       case 'connected-app':
@@ -970,19 +1051,7 @@ export default function HomeDashboard({
         )
       case 'app-browser':
         return (
-          <BrowserCard
-            url={inst.config?.url}
-            onPick={() => {
-              const next = window.prompt('Pin which page?', inst.config?.url ?? 'https://')
-              if (!next) return
-              const url = /^https?:\/\//i.test(next) ? next : `https://${next}`
-              commitFlat(
-                flatRef.current.map((it) =>
-                  it.key === inst.key ? { ...it, config: { ...it.config, url } } : it
-                )
-              )
-            }}
-          />
+          <BrowserCard url={inst.config?.url} onPick={() => pinPage(inst)} />
         )
       case 'room-portal':
         return <RoomPortalWidget roomId={inst.config?.roomId} size={size} />
@@ -1443,6 +1512,7 @@ export default function HomeDashboard({
               data-widget-key={inst.key}
               data-widget-kind={inst.widget}
               onPointerDown={(e) => beginCardDrag(e, inst)}
+              onContextMenu={(e) => openCardMenu(e, inst)}
             >
               {lifted ? (
                 /* The gap: a soft slot marking exactly where the widget lands. */
@@ -1751,6 +1821,9 @@ export default function HomeDashboard({
         )}
       </AnimatePresence>
 
+      {cardMenu && (
+        <CanvasContextMenu x={cardMenu.x} y={cardMenu.y} items={cardMenu.items} onClose={() => setCardMenu(null)} />
+      )}
       {/* The two embed pickers run their own flows (desk then object, or a
           document list), so they are separate components rather than two more
           branches in an already-crowded conditional. */}

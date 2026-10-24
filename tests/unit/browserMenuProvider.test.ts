@@ -62,22 +62,22 @@ function allLabels(items: CtxMenuItem[]): string[] {
 describe('browser-target provider — actions per right-click target', () => {
   it('offers open-link and copy-link for a link target', () => {
     const labels = allLabels(resolveMenu(browserCtx({ linkURL: 'https://news.example.com' })))
-    expect(labels).toContain('Open link in new browser')
+    expect(labels).toContain('Open link as a new browser work widget')
     expect(labels).toContain('Copy link')
   })
 
-  it('offers save-image for an image target', () => {
+  it('offers add-image for an image target', () => {
     const labels = allLabels(
       resolveMenu(browserCtx({ srcURL: 'https://img.example.com/a.png', mediaType: 'image' }))
     )
-    expect(labels).toContain('Save image to desk')
+    expect(labels).toContain('Add image to this desk')
   })
 
-  it('offers save-video for a video target', () => {
+  it('offers add-video for a video target', () => {
     const labels = allLabels(
       resolveMenu(browserCtx({ srcURL: 'https://v.example.com/a.mp4', mediaType: 'video' }))
     )
-    expect(labels).toContain('Save video to desk')
+    expect(labels).toContain('Add video to this desk')
   })
 
   it('offers AI Assist and Create seeded from a text selection in the page', () => {
@@ -88,8 +88,8 @@ describe('browser-target provider — actions per right-click target', () => {
 
   it('shows no target-specific rows when right-clicking empty page space', () => {
     const labels = allLabels(resolveMenu(browserCtx({})))
-    expect(labels).not.toContain('Open link in new browser')
-    expect(labels).not.toContain('Save image to desk')
+    expect(labels).not.toContain('Open link as a new browser work widget')
+    expect(labels).not.toContain('Add image to this desk')
     // Still a usable menu (Create at least).
     expect(labels).toContain('Create & link')
   })

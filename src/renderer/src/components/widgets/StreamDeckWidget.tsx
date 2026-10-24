@@ -29,6 +29,8 @@ import Icon from '../Icon'
 import StreamDeckButtonConfig from './streamdeck/StreamDeckButtonConfig'
 import StreamDeckAI from './streamdeck/StreamDeckAI'
 import AccessibilityPrompt from './streamdeck/AccessibilityPrompt'
+import CanvasContextMenu from '../CanvasContextMenu'
+import { menuPlatform, speedDeckDeckMenuItems, speedDeckKeyAction, speedDeckTileMenuItems } from './bodyMenus'
 
 interface Props {
   widget: Widget
@@ -45,7 +47,9 @@ type Scope = 'task' | 'universal'
 //
 // Edit mode adds:
 //   - drag-and-drop between slots (swap, move, drop into folders)
-//   - right-click → Copy / Cut / Paste / Duplicate / Make folder / Remove
+//   - right-click → Cut / Copy / Paste / Duplicate / New folder here / Delete
+//     (the tile menu works outside edit mode too; so do ⌘X/⌘C/⌘V/⌘D on a
+//     focused tile, the keys the menu's hints name)
 //   - cross-deck clipboard (copy from task deck, paste to universal, etc.)
 //
 // All editor changes route through `mutate(scope, mutator)` which writes
@@ -791,9 +795,27 @@ export default function StreamDeckWidget({ widget, inline = false }: Props): JSX
                 glow={liveDeck.settings.glow}
                 onClick={() => handleSlotClick(slot)}
                 onContextMenu={(e) => {
-                  if (!editing) return
+                  // In and out of edit mode: a tile is an object, and a
+                  // right-click on it was silent outside edit mode. Focus the
+                  // tile first so the kit returns focus to it on close.
                   e.preventDefault()
+                  e.currentTarget.focus({ preventScroll: true })
                   setCtxMenu({ slot, x: e.clientX, y: e.clientY, button })
+                }}
+                onKeyDown={(e) => {
+                  // The keys the tile menu's hints name, bound for real
+                  // (SPEC §9.4: a hint only for a key that is bound). Handled
+                  // here and prevented, so the app's Edit menu never sees them.
+                  const action = speedDeckKeyAction(e, menuPlatform())
+                  if (!action) return
+                  if ((action === 'cut' || action === 'copy' || action === 'duplicate') && !button) return
+                  if (action === 'paste' && !clipboard) return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (action === 'cut') cutButton(slot)
+                  else if (action === 'copy') copyButton(slot)
+                  else if (action === 'paste') pasteButton(slot)
+                  else duplicateButton(slot)
                 }}
                 onDragStart={(e) => handleDragStart(slot, e)}
                 onDragOver={(e) => handleDragOver(slot, e)}
@@ -809,7 +831,7 @@ export default function StreamDeckWidget({ widget, inline = false }: Props): JSX
 
       {editing && (
         <div className="text-[10px] text-stone-400 px-1 leading-snug">
-          Click any slot to configure. Drag to reorder. Right-click for copy / paste / duplicate / make folder.
+          Click any slot to configure. Drag to reorder. Right-click for cut, copy, paste, duplicate or a new folder.
           {content.scope === 'universal' && (
             <span className="text-accent/80">
               {' '}Editing the Universal deck — these buttons appear in every SpeedDeck across every task.
@@ -878,47 +900,58 @@ export default function StreamDeckWidget({ widget, inline = false }: Props): JSX
         />
       )}
 
-      {/* Right-click menu — copy/cut/paste/duplicate/make folder/remove */}
+      {/* Right-click menus, on the kit: a tile's, and the deck background's
+          (also the ⋯ button's). Built in bodyMenus.ts so the guard checks
+          exactly these. */}
       {ctxMenu && (
-        <SlotContextMenu
+        <CanvasContextMenu
           x={ctxMenu.x}
           y={ctxMenu.y}
-          hasButton={!!ctxMenu.button}
-          hasClipboard={!!clipboard}
           onClose={() => setCtxMenu(null)}
-          onCopy={() => copyButton(ctxMenu.slot)}
-          onCut={() => cutButton(ctxMenu.slot)}
-          onPaste={() => pasteButton(ctxMenu.slot)}
-          onDuplicate={() => duplicateButton(ctxMenu.slot)}
-          onMakeFolder={() => {
-            const pageId = makePageId()
-            const folder: FolderButton = {
-              id: makeButtonId(),
-              kind: 'folder',
-              label: 'Folder',
-              style: { icon: 'folder', color: '#8b5cf6' },
-              pageId
-            }
-            handleSaveButton(ctxMenu.slot, folder)
-          }}
-          onRemove={() => handleSaveButton(ctxMenu.slot, null)}
-          onConfigure={() => setEditingSlot(ctxMenu.slot)}
+          items={speedDeckTileMenuItems(
+            { hasButton: !!ctxMenu.button, hasClipboard: !!clipboard },
+            {
+              configure: () => setEditingSlot(ctxMenu.slot),
+              makeFolder: () => {
+                const pageId = makePageId()
+                const folder: FolderButton = {
+                  id: makeButtonId(),
+                  kind: 'folder',
+                  label: 'Folder',
+                  style: { icon: 'folder', color: '#8b5cf6' },
+                  pageId
+                }
+                handleSaveButton(ctxMenu.slot, folder)
+              },
+              cut: () => cutButton(ctxMenu.slot),
+              copy: () => copyButton(ctxMenu.slot),
+              paste: () => pasteButton(ctxMenu.slot),
+              duplicate: () => duplicateButton(ctxMenu.slot),
+              remove: () => handleSaveButton(ctxMenu.slot, null)
+            },
+            menuPlatform()
+          )}
         />
       )}
-
-      {/* Deck-level right-click menu — share, export, import, reset.
-          Fires when the user right-clicks the deck background (not a tile). */}
       {deckCtxMenu && (
-        <DeckContextMenu
+        <CanvasContextMenu
           x={deckCtxMenu.x}
           y={deckCtxMenu.y}
-          scope={content.scope}
           onClose={() => setDeckCtxMenu(null)}
-          onExport={exportDeck}
-          onCopyJson={() => void copyDeckJson()}
-          onImport={importDeck}
-          onReset={resetDeck}
-          onOpenAccessibility={() => setNeedsAccessibility(true)}
+          items={speedDeckDeckMenuItems(
+            { editing },
+            {
+              toggleEditing: () => {
+                setEditing((v) => !v)
+                setEditingSlot(null)
+              },
+              copyJson: () => void copyDeckJson(),
+              exportFile: exportDeck,
+              importFile: importDeck,
+              accessibility: () => setNeedsAccessibility(true),
+              reset: () => void resetDeck()
+            }
+          )}
         />
       )}
     </div>
@@ -930,279 +963,6 @@ export default function StreamDeckWidget({ widget, inline = false }: Props): JSX
       {body}
     </WidgetFrame>
   )
-}
-
-// ─── Deck-level right-click menu (share / export / import / reset) ────
-
-interface DeckCtxMenuProps {
-  x: number
-  y: number
-  scope: Scope
-  onClose: () => void
-  onExport: () => void
-  onCopyJson: () => void
-  onImport: () => void
-  onReset: () => void
-  onOpenAccessibility: () => void
-}
-
-function DeckContextMenu(props: DeckCtxMenuProps): JSX.Element {
-  useEffect(() => {
-    const handle = (e: MouseEvent | KeyboardEvent): void => {
-      if ('key' in e && e.key === 'Escape') {
-        props.onClose()
-        return
-      }
-      if ('clientX' in e) {
-        const el = document.getElementById('fb-speeddeck-deck-ctxmenu')
-        if (el && !el.contains(e.target as Node)) props.onClose()
-      }
-    }
-    document.addEventListener('mousedown', handle, true)
-    document.addEventListener('keydown', handle, true)
-    return () => {
-      document.removeEventListener('mousedown', handle, true)
-      document.removeEventListener('keydown', handle, true)
-    }
-  }, [props])
-
-  const run = (fn: () => void): void => {
-    fn()
-    props.onClose()
-  }
-
-  const scopeLabel = props.scope === 'universal' ? 'Universal deck' : 'Task deck'
-
-  return (
-    <div
-      id="fb-speeddeck-deck-ctxmenu"
-      className="fixed z-[260] rounded-md py-1 min-w-[220px]"
-      style={{
-        left: props.x,
-        top: props.y,
-        background: 'rgba(20, 28, 48, 0.96)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow:
-          'inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(139, 92, 246, 0.12), 0 16px 48px -12px rgba(0,0,0,0.6)'
-      }}
-    >
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-stone-500 font-semibold border-b border-white/[0.04] mb-1">
-        {scopeLabel}
-      </div>
-      <DeckMenuItem
-        icon="share"
-        label="Copy deck JSON"
-        sub="Paste-share with another PlexiiDesk user"
-        onClick={() => run(props.onCopyJson)}
-      />
-      <DeckMenuItem
-        icon="download"
-        label="Export deck to file…"
-        sub="Save as .json to share or back up"
-        onClick={() => run(props.onExport)}
-      />
-      <DeckMenuItem
-        icon="upload"
-        label="Import deck from file…"
-        sub="Replaces the current deck"
-        onClick={() => run(props.onImport)}
-      />
-      <div className="h-px bg-white/[0.06] my-1" />
-      <DeckMenuItem
-        icon="key"
-        label="Accessibility permission…"
-        sub="Re-open the macOS permission prompt"
-        onClick={() => run(props.onOpenAccessibility)}
-      />
-      <div className="h-px bg-white/[0.06] my-1" />
-      <DeckMenuItem
-        icon="restart_alt"
-        label="Reset deck…"
-        sub="Wipe every button and folder"
-        destructive
-        onClick={() => run(props.onReset)}
-      />
-    </div>
-  )
-}
-
-function DeckMenuItem({
-  icon,
-  label,
-  sub,
-  destructive,
-  onClick
-}: {
-  icon: string
-  label: string
-  sub?: string
-  destructive?: boolean
-  onClick: () => void
-}): JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full px-3 py-1.5 text-left flex items-center gap-2 text-[12px] transition-colors ${
-        destructive
-          ? 'text-rose-300 hover:bg-rose-500/10'
-          : 'text-stone-200 hover:bg-white/[0.06]'
-      }`}
-    >
-      <Icon name={icon} size={12} className="opacity-80 shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <div>{label}</div>
-        {sub && <div className="text-[10px] text-stone-500">{sub}</div>}
-      </div>
-    </button>
-  )
-}
-
-// ─── Right-click menu ─────────────────────────────────────────────────
-
-interface ContextMenuProps {
-  x: number
-  y: number
-  hasButton: boolean
-  hasClipboard: boolean
-  onClose: () => void
-  onCopy: () => void
-  onCut: () => void
-  onPaste: () => void
-  onDuplicate: () => void
-  onMakeFolder: () => void
-  onRemove: () => void
-  onConfigure: () => void
-}
-
-function SlotContextMenu(props: ContextMenuProps): JSX.Element {
-  useEffect(() => {
-    const handle = (e: MouseEvent | KeyboardEvent): void => {
-      if ('key' in e && e.key === 'Escape') {
-        props.onClose()
-        return
-      }
-      if ('clientX' in e) {
-        const el = document.getElementById('fb-speeddeck-ctxmenu')
-        if (el && !el.contains(e.target as Node)) props.onClose()
-      }
-    }
-    document.addEventListener('mousedown', handle, true)
-    document.addEventListener('keydown', handle, true)
-    return () => {
-      document.removeEventListener('mousedown', handle, true)
-      document.removeEventListener('keydown', handle, true)
-    }
-  }, [props])
-
-  const run = (fn: () => void): void => {
-    fn()
-    props.onClose()
-  }
-
-  return (
-    <div
-      id="fb-speeddeck-ctxmenu"
-      className="fixed z-[260] rounded-md py-1 min-w-[180px]"
-      style={{
-        left: props.x,
-        top: props.y,
-        background: 'rgba(20, 28, 48, 0.96)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow:
-          'inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(139, 92, 246, 0.12), 0 16px 48px -12px rgba(0,0,0,0.6)'
-      }}
-    >
-      <MenuItem
-        icon="tune"
-        label={props.hasButton ? 'Configure…' : 'Add button…'}
-        onClick={() => run(props.onConfigure)}
-      />
-      <Divider />
-      {props.hasButton && (
-        <>
-          <MenuItem
-            icon="content_copy"
-            label="Copy"
-            shortcut="⌘C"
-            onClick={() => run(props.onCopy)}
-          />
-          <MenuItem
-            icon="content_cut"
-            label="Cut"
-            shortcut="⌘X"
-            onClick={() => run(props.onCut)}
-          />
-        </>
-      )}
-      {props.hasClipboard && (
-        <MenuItem
-          icon="content_paste"
-          label="Paste"
-          shortcut="⌘V"
-          onClick={() => run(props.onPaste)}
-        />
-      )}
-      {props.hasButton && (
-        <MenuItem
-          icon="auto_awesome_motion"
-          label="Duplicate"
-          shortcut="⌘D"
-          onClick={() => run(props.onDuplicate)}
-        />
-      )}
-      <Divider />
-      {!props.hasButton && (
-        <MenuItem
-          icon="folder"
-          label="New folder here"
-          onClick={() => run(props.onMakeFolder)}
-        />
-      )}
-      {props.hasButton && (
-        <MenuItem
-          icon="delete"
-          label="Remove"
-          destructive
-          onClick={() => run(props.onRemove)}
-        />
-      )}
-    </div>
-  )
-}
-
-function MenuItem({
-  icon,
-  label,
-  shortcut,
-  destructive,
-  onClick
-}: {
-  icon: string
-  label: string
-  shortcut?: string
-  destructive?: boolean
-  onClick: () => void
-}): JSX.Element {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full px-3 py-1.5 text-left flex items-center gap-2 text-[12px] transition-colors ${
-        destructive
-          ? 'text-rose-300 hover:bg-rose-500/10'
-          : 'text-stone-200 hover:bg-white/[0.06]'
-      }`}
-    >
-      <Icon name={icon} size={12} className="opacity-80 shrink-0" />
-      <span className="flex-1">{label}</span>
-      {shortcut && (
-        <span className="text-[10px] text-stone-500 font-mono">{shortcut}</span>
-      )}
-    </button>
-  )
-}
-
-function Divider(): JSX.Element {
-  return <div className="h-px bg-white/[0.06] my-0.5" />
 }
 
 // ─── Single tile ──────────────────────────────────────────────────────
@@ -1218,6 +978,7 @@ interface TileProps {
   glow: number
   onClick: () => void
   onContextMenu: (e: React.MouseEvent<HTMLButtonElement>) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void
   onDragStart: (e: React.DragEvent<HTMLButtonElement>) => void
   onDragOver: (e: React.DragEvent<HTMLButtonElement>) => void
   onDragLeave: () => void
@@ -1235,6 +996,7 @@ function SlotTile({
   glow,
   onClick,
   onContextMenu,
+  onKeyDown,
   onDragStart,
   onDragOver,
   onDragLeave,
@@ -1250,6 +1012,7 @@ function SlotTile({
     <button
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onKeyDown={onKeyDown}
       draggable={editing && hasContent}
       onDragStart={onDragStart}
       onDragOver={onDragOver}

@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { widgetDraftFor, placeBesideExisting, STICKY_MAX_CHARS, type AddToDeskCommand } from '../../src/renderer/src/lib/addToDesk'
 import { askAboutPrompt } from '../../src/renderer/src/components/browser/WebMenuCommandHost'
-import { resolveAiCommand, AI_DIRECT_ACTIONS, WEB_SELECTION_AI_ACTIONS, aiTextAction } from '../../src/shared/aiTextActions'
+import { resolveAiCommand, AI_DIRECT_ACTIONS, AI_TEXT_ACTIONS, aiTextAction } from '../../src/shared/aiTextActions'
 
 const cmd = (o: Partial<AddToDeskCommand>): AddToDeskCommand => ({
   command: 'add-to-desk',
@@ -58,8 +58,9 @@ describe('Ask PlexiiAssist about this', () => {
 })
 
 describe('the AI actions are one catalogue', () => {
-  it('the web menu offers known actions only, with the work widget menu\'s words', () => {
-    for (const id of WEB_SELECTION_AI_ACTIONS) expect(aiTextAction(id)).not.toBeNull()
+  it('one set of eight (E-12), every one runnable from the web menu, with the work widget menu\'s words', () => {
+    expect(AI_TEXT_ACTIONS.map((a) => a.id)).toEqual(['expand', 'simplify', 'summarise', 'rewrite', 'grammar', 'clarity', 'continue', 'explain'])
+    for (const a of AI_TEXT_ACTIONS) expect(resolveAiCommand(a.id)).toEqual({ label: a.label, instruction: aiTextAction(a.id)!.instruction, awaitInput: false })
     expect(resolveAiCommand('summarise')).toEqual({ label: 'Summarise', instruction: AI_DIRECT_ACTIONS.find((a) => a.id === 'summarise')!.instruction, awaitInput: false })
     expect(resolveAiCommand('explain')?.instruction).toMatch(/do not add facts/i)
     expect(resolveAiCommand('translate:French')?.label).toBe('Translate to French')

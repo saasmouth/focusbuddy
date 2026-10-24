@@ -1,40 +1,35 @@
-// The universal AI Assist submenu (deliverable 7). It is identical wherever it
-// appears: the same actions, the same tone and language submenus, the same
-// Custom Prompt. It is the one sanctioned three-level exception to the
-// two-level rule, because Change Tone and Translate need leaf children; every
-// other section stays within two levels.
+// The AI Assist submenu (E-12: ONE action set of eight, everywhere). The set is
+// @shared/aiTextActions (WP3's): AI_TEXT_ACTIONS, the seven rewrites plus the
+// reading action (Explain), in that order, then Change tone ▸, Translate ▸ and
+// Custom prompt…, with the submenu's own words from AI_MENU_LABELS. Nothing is
+// written without the preview (AiAssistPreview): Explain's result can be
+// copied or applied there like any other.
 //
-// Cognitive load: the brief listed ten tones and a long language list. Per the
-// critic, the defaults here are trimmed to a focused set and the long tail
-// lives behind Custom tone / Custom language, which the editable preview field
-// makes free-form anyway.
+// The one sanctioned third level: Change tone and Translate need leaf children.
 
-import { MenuSection, type MenuContribution, type MenuContext } from './types'
+import type { MenuContribution, MenuContext } from './types'
 import { runAiAssist, hasWorkableText } from './actions'
 import {
-  AI_DIRECT_ACTIONS,
   AI_LANGUAGES,
+  AI_MENU_LABELS,
+  AI_TEXT_ACTIONS,
   AI_TONES,
   CUSTOM_LANGUAGE_INSTRUCTION,
   CUSTOM_TONE_INSTRUCTION,
   toneInstruction,
-  translateInstruction
+  translateInstruction,
 } from '@shared/aiTextActions'
 
-// The actions, tones and languages live in @shared/aiTextActions so the
-// native right-click menu on web pages offers the same words and instructions.
-const DIRECT_ACTIONS = AI_DIRECT_ACTIONS
-const TONES = AI_TONES
-const LANGUAGES = AI_LANGUAGES
+/** The eight, in menu order. Exported so the guard can hold the set to its source. */
+export const AI_ACTION_SET = AI_TEXT_ACTIONS
 
-// Build the single AI Assist contribution. Returns null when there is no text
-// to work on, so the section collapses rather than showing a dead row.
+// Returns null when there is no text to work on, so the row is absent rather
+// than dead.
 export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | null {
   if (!hasWorkableText(ctx)) return null
 
-  const direct: MenuContribution[] = DIRECT_ACTIONS.map((a, i) => ({
+  const direct: MenuContribution[] = AI_ACTION_SET.map((a, i) => ({
     id: `core/ai/${a.id}`,
-    section: MenuSection.AiAssist,
     priority: i,
     label: a.label,
     onSelect: (c) => runAiAssist(c, a.label, a.instruction)
@@ -42,23 +37,22 @@ export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | 
 
   const changeTone: MenuContribution = {
     id: 'core/ai/tone',
-    section: MenuSection.AiAssist,
+    separatorBefore: true,
     priority: 20,
-    label: 'Change Tone',
+    label: AI_MENU_LABELS.changeTone,
     icon: 'campaign',
     children: [
-      ...TONES.map<MenuContribution>((tone) => ({
+      ...AI_TONES.map<MenuContribution>((tone) => ({
         id: `core/ai/tone/${tone.toLowerCase()}`,
-        section: MenuSection.AiAssist,
         priority: 0,
         label: tone,
         onSelect: (c) => runAiAssist(c, `Tone ${tone}`, toneInstruction(tone))
       })),
       {
         id: 'core/ai/tone/custom',
-        section: MenuSection.AiAssist,
+        separatorBefore: true,
         priority: 99,
-        label: 'Custom tone...',
+        label: AI_MENU_LABELS.customTone,
         onSelect: (c) => runAiAssist(c, 'Custom tone', CUSTOM_TONE_INSTRUCTION, true)
       }
     ]
@@ -66,23 +60,21 @@ export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | 
 
   const translate: MenuContribution = {
     id: 'core/ai/translate',
-    section: MenuSection.AiAssist,
     priority: 21,
-    label: 'Translate',
+    label: AI_MENU_LABELS.translate,
     icon: 'translate',
     children: [
-      ...LANGUAGES.map<MenuContribution>((lang) => ({
+      ...AI_LANGUAGES.map<MenuContribution>((lang) => ({
         id: `core/ai/translate/${lang.toLowerCase()}`,
-        section: MenuSection.AiAssist,
         priority: 0,
         label: lang,
         onSelect: (c) => runAiAssist(c, `Translate to ${lang}`, translateInstruction(lang))
       })),
       {
         id: 'core/ai/translate/custom',
-        section: MenuSection.AiAssist,
+        separatorBefore: true,
         priority: 99,
-        label: 'Custom language...',
+        label: AI_MENU_LABELS.customLanguage,
         onSelect: (c) => runAiAssist(c, 'Translate', CUSTOM_LANGUAGE_INSTRUCTION, true)
       }
     ]
@@ -90,18 +82,18 @@ export function buildAiAssistContribution(ctx: MenuContext): MenuContribution | 
 
   const custom: MenuContribution = {
     id: 'core/ai/custom',
-    section: MenuSection.AiAssist,
+    separatorBefore: true,
     priority: 30,
-    label: 'Custom Prompt...',
+    label: AI_MENU_LABELS.customPrompt,
     icon: 'auto_awesome',
     onSelect: (c) => runAiAssist(c, 'Custom prompt', '', true)
   }
 
   return {
     id: 'core/ai-assist',
-    section: MenuSection.AiAssist,
-    priority: 0,
-    label: 'AI Assist',
+    group: 'plexii',
+    priority: 30,
+    label: AI_MENU_LABELS.aiAssist,
     icon: 'auto_awesome',
     children: [...direct, changeTone, translate, custom]
   }

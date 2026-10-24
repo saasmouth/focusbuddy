@@ -47,9 +47,18 @@ async function headerMenuText(l: LaunchedApp, widgetId: string): Promise<string>
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 8_000 })
   await window.click(`[data-widget-id="${widgetId}"]`, { button: 'right', position: { x: 110, y: 8 } })
   await window.waitForSelector('[data-canvas-ctx-menu]', { timeout: 4_000 })
-  const text = await window.evaluate(
+  let text = await window.evaluate(
     () => (document.querySelector('[data-canvas-ctx-menu]') as HTMLElement)?.innerText ?? ''
   )
+  // §9.3 keeps eight rows at the top (E-6); a kind's later rows fold into More
+  // actions, so read that submenu too.
+  const more = window.locator('[data-canvas-ctx-menu]').first().getByRole('menuitem', { name: 'More actions' })
+  if (await more.count()) {
+    await more.hover()
+    const sub = window.locator('[data-canvas-ctx-menu]').nth(1)
+    await sub.waitFor({ timeout: 3_000 })
+    text += '\n' + (await sub.innerText())
+  }
   // Close before the next assertion so menus don't stack.
   await window.keyboard.press('Escape')
   await window.waitForSelector('[data-canvas-ctx-menu]', { state: 'detached', timeout: 4_000 }).catch(() => {})

@@ -67,18 +67,12 @@ test('deleting from the desk removes the widget from the canvas', async () => {
   const sticky = window.locator('[data-widget-kind="sticky"]').first()
   await expect(sticky).toBeVisible({ timeout: 8_000 })
 
-  // Right-click the widget, then Remove -> Delete, which is the real path.
-  await sticky.click({ button: 'right', position: { x: 30, y: 30 } })
-  const remove = window.getByRole('menuitem', { name: /^Remove$/ }).first()
-  await expect(remove).toBeVisible({ timeout: 5_000 })
-  await remove.click()
-  const del = window.getByRole('menuitem', { name: /^Delete$/ }).first()
-  await expect(del).toBeVisible({ timeout: 5_000 })
-  await del.click()
-  // 4.3.32: a sticky is a work widget file, so Delete asks which is meant —
-  // this desk only, or everywhere (docs/widget-files.md, "Remove or delete").
+  // Right-click the widget, then Remove from this desk, which is the real path.
+  // E-2: a sticky is a work widget file, so its menu names the two removals as
+  // rows (Remove from this desk · Move to Trash) instead of asking in a dialog.
   // Removing it from the desk is the path this spec has always pinned.
-  const removeHere = window.locator('[data-testid="prompt-choice-remove"]')
+  await sticky.click({ button: 'right', position: { x: 30, y: 30 } })
+  const removeHere = window.getByRole('menuitem', { name: /^Remove from this desk$/ }).first()
   await expect(removeHere).toBeVisible({ timeout: 5_000 })
   await removeHere.click()
 

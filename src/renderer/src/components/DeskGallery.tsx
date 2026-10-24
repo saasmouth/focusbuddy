@@ -6,7 +6,9 @@ import { useViewStore } from '../stores/view'
 import DeskMiniature from './DeskMiniature'
 import Icon from './Icon'
 import CanvasContextMenu from './CanvasContextMenu'
-import { deskLifecycleMenuItems } from '../lib/deskLifecycleMenu'
+import ShareDialog from './ShareDialog'
+import { deskMenuItems } from '../lib/deskLifecycleMenu'
+import { focusInvoker } from '../lib/objectMenu'
 import { DashboardHeader, PLEXI_CARD } from './plexi'
 
 // Shown when no desk is open (Canvas has no active node). A "desk" is a canvas —
@@ -22,6 +24,8 @@ export default function DeskGallery(): JSX.Element {
   const goTask = useViewStore((s) => s.goTask)
   const [widgetsByDesk, setWidgetsByDesk] = useState<Record<string, Widget[]>>({})
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; desk: FbNode } | null>(null)
+  // The universal ShareDialog, opened from the menu's Share….
+  const [shareTarget, setShareTarget] = useState<FbNode | null>(null)
 
   const desks = useMemo(
     () =>
@@ -55,6 +59,10 @@ export default function DeskGallery(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deskIdsKey])
 
+  // A click keeps the gallery's own behaviour (a top-level room opens on its
+  // canvas, which the gallery has always done). The menu's Open is the shared
+  // node opener (lib/deskLifecycleMenu openNode: a room opens as its desks),
+  // the same Open the index pages offer.
   function openDesk(n: FbNode): void {
     setActive(n.id)
     if (n.kind === 'folder') goProject(n.id)
@@ -106,9 +114,10 @@ export default function DeskGallery(): JSX.Element {
                 key={d.id}
                 onClick={() => openDesk(d)}
                 onContextMenu={(e) => {
-                  // Lifecycle L1/S6: the same Archive/Trash set the index pages
-                  // carry, on right-click. Shared desks hold both (D1 pending).
+                  // The one desk/room menu (lib/deskLifecycleMenu): identical
+                  // to the All Desks and All Rooms index pages.
                   e.preventDefault()
+                  focusInvoker(e)
                   setCtxMenu({ x: e.clientX, y: e.clientY, desk: d })
                 }}
                 data-testid={`desk-card-${d.id}`}
@@ -148,8 +157,16 @@ export default function DeskGallery(): JSX.Element {
           <CanvasContextMenu
             x={ctxMenu.x}
             y={ctxMenu.y}
-            items={deskLifecycleMenuItems(ctxMenu.desk)}
+            items={deskMenuItems(ctxMenu.desk, { onShare: setShareTarget })}
             onClose={() => setCtxMenu(null)}
+          />
+        )}
+        {shareTarget && (
+          <ShareDialog
+            kind={shareTarget.kind === 'folder' ? 'folder' : 'task'}
+            entityId={shareTarget.id}
+            label={shareTarget.title || (shareTarget.kind === 'folder' ? 'this room' : 'this desk')}
+            onClose={() => setShareTarget(null)}
           />
         )}
       </div>

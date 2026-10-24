@@ -75,16 +75,18 @@ test('HM-1 — header right-click opens the unified menu with frame actions, and
   )
   console.log('[HM-1] header menu top-level:', JSON.stringify(menuText))
   // The unified spine is present on a non-content widget too.
-  expect(menuText).toContain('Create')
-  expect(menuText).toContain('Share')
-  expect(menuText).toContain('Advanced')
-  expect(/Archive|Delete|Remove/.test(menuText)).toBe(true)
+  // §9.3 groups: object (Share…), clipboard (Duplicate), More actions, and the
+  // explicit removal rows (E-2) last.
+  expect(menuText).toContain('Share…')
+  expect(menuText).toContain('Duplicate')
+  expect(menuText).toContain('More actions')
+  expect(/Archive/.test(menuText) && /Delete|Move to Trash/.test(menuText)).toBe(true)
 
   expect(await timerCount(launched)).toBe(1)
 
-  // Open Advanced and use the synced duplicate (a key preserved action).
-  await window.locator('[data-canvas-ctx-menu]').getByText('Advanced', { exact: true }).hover()
-  await window.getByText('Duplicate (keep synced)', { exact: true }).click()
+  // Open More actions and use the synced duplicate (a key preserved action).
+  await window.locator('[data-canvas-ctx-menu]').getByText('More actions', { exact: true }).hover()
+  await window.getByText('Duplicate, keep synced', { exact: true }).click()
 
   await window.waitForFunction(
     async () => {

@@ -25,6 +25,8 @@ import PlexiiIcon from './PlexiiIcon'
 import { attentionFilterEntity, viewKindEntity, type EntityRef } from '../lib/plexiiIconMap'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import AreaAccordion from './nav/AreaAccordion'
+import { useRowMenu } from './nav/useRowMenu'
+import { navRowMenuItems } from '../lib/navRowMenu'
 import { WidgetsRail } from './nav/WidgetsSection'
 import { materializeSuggestion } from '../lib/materializeSuggestion'
 import AppLogo from './AppLogo'
@@ -679,9 +681,12 @@ function CollapsedNavIcon({ icon, label, tone, active, onClick, entity }: Collap
   // because the sidebar is collapsed. Here the hue matters MORE, not less:
   // collapsed there is no label, so the colour is the only thing telling two
   // glyphs apart at 16px.
+  const { open, menu } = useRowMenu()
   return (
+    <>
     <button
       onClick={onClick}
+      onContextMenu={(e) => open(e, () => navRowMenuItems(onClick))}
       title={label}
       className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 fb-press ${
         active
@@ -691,6 +696,8 @@ function CollapsedNavIcon({ icon, label, tone, active, onClick, entity }: Collap
     >
       {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={16} filled />}
     </button>
+    {menu}
+    </>
   )
 }
 
@@ -728,9 +735,13 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid, entity }: N
   // these two render as one list and an outlined icon beside a filled one reads
   // as a different kind of thing. An outline at this size also reads as grey
   // whatever colour it is given.
+  // Right-click: the place's menu, which is what a click does (lib/navRowMenu).
+  const { open, menu } = useRowMenu()
   return (
+    <>
     <button
       onClick={onClick}
+      onContextMenu={(e) => open(e, () => navRowMenuItems(onClick))}
       data-testid={testid}
       className={`fb-nav-item fb-nav-row group text-[13px] mb-0.5 fb-press ${
         active
@@ -752,5 +763,7 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid, entity }: N
         <span className="ml-auto text-[10px] fb-tabular text-[var(--ink-50)]">{badge}</span>
       )}
     </button>
+    {menu}
+    </>
   )
 }

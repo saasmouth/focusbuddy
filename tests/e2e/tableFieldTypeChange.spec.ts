@@ -451,7 +451,7 @@ function expectsExplicitTextColour(className: string | null, label: string): voi
 }
 
 test('T3 — text-color fix: four table controls carry explicit text-color classes', async () => {
-  // Before the fix, the AI assistant textarea had no text color class, causing text to
+  // Before the fix, the AI Assistant textarea had no text color class, causing text to
   // appear black (invisible) on dark/futuristic surfaces. The fix added
   // text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500
   // to (a) the AI panel textarea, (b) the column-header rename input,

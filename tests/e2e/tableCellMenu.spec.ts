@@ -84,44 +84,37 @@ test('right-click a table cell → Create + connect menu seeded with the cell te
   const cell = cellInput.locator('xpath=ancestor::td[1]')
   await cell.click({ button: 'right' })
 
-  // The cell opens the unified menu: the cell's real row actions plus Create
-  // seeded from the cell text.
-  //
-  // WHERE the row actions sit changed deliberately in 163b8914 ("Focus is
-  // always on", DEC-144): the always-on "Add to Focus…" row is first on every
-  // object menu and takes one of the Context band's two slots, so the band's
-  // budget is ONE slot. A table cell has three context rows (Add row from the
-  // table provider, Duplicate row + Delete row from the cell provider), so all
-  // three fold under a single "More actions" parent — nothing is inlined
-  // (resolve.ts contextSlots with max=1; pinned by the unit test "folds context
-  // rows into the band budget"). This spec used to expect "Add row" inlined at
-  // the top level, which held only while the Attention row was flag-gated off.
+  // The cell opens the unified menu (SPEC §9.3): Open / Add to Focus… first, the
+  // table's first row action (Add row) in the object group, the cell text in
+  // the clipboard and Plexii groups, Delete row in the destructive group (it
+  // is marked danger, F-11), and the rest under More actions, which keeps the
+  // eight-row ceiling (E-6).
   const menu = window.locator('[data-canvas-ctx-menu]').first()
-  const topLevel = menu.locator(':scope > div > button[role="menuitem"]')
+  const topLevel = menu.locator(':scope > div > button[role^="menuitem"]')
   await expect(topLevel.first()).toBeVisible({ timeout: 4_000 })
   // The label span, not the button's innerText: icons are ligature text.
-  const topLabels = await menu.locator(':scope > div > button[role="menuitem"] > span.flex-1').allInnerTexts()
-  expect(topLabels[0], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add to Focus…')
-  expect(topLabels[1], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('More actions')
-  expect(topLabels, 'row actions are folded, never top-level').not.toContain('Add row')
-  expect(topLabels.includes('Create & link'), `top-level menu: ${JSON.stringify(topLabels)}`).toBe(true)
+  const topLabels = await menu.locator(':scope > div > button[role^="menuitem"] > span.flex-1').evaluateAll((els) =>
+    els.map((e) => (e.firstChild?.textContent ?? '').trim())
+  )
+  // E-1 (owner ruling): an Open row (a filed table's "Open file") leads, then Add to Focus….
+  const lead = topLabels[0] === 'Open file' ? 1 : 0
+  expect(topLabels[lead], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add to Focus…')
+  expect(topLabels[lead + 1], `top-level menu: ${JSON.stringify(topLabels)}`).toBe('Add row')
+  expect(topLabels, `top-level menu: ${JSON.stringify(topLabels)}`).toContain('More actions')
+  const dangerRows = await menu.locator(':scope > div > button.text-red-600 > span.flex-1').evaluateAll((els) =>
+    els.map((e) => (e.firstChild?.textContent ?? '').trim())
+  )
+  expect(dangerRows[0], `destructive rows: ${JSON.stringify(dangerRows)}`).toBe('Delete row')
 
-  // Every row action is real and reachable under More actions, in priority
-  // order: Add row (0), Duplicate row (1), Delete row (2).
+  // Duplicate row and Create & link are real and reachable under More actions.
   await menu.getByRole('menuitem', { name: /More actions/ }).hover()
   const sub = window.locator('[data-canvas-ctx-menu]').nth(1)
   await expect(sub).toBeVisible({ timeout: 3_000 })
-  await expect(sub.locator(':scope > div > button[role="menuitem"] > span.flex-1')).toHaveText([
-    'Add row',
-    'Duplicate row',
-    'Delete row'
-  ])
+  await expect(sub.getByRole('menuitem', { name: /Duplicate row/ })).toBeVisible()
 
-  // Create a sticky from the cell via Create > Sticky (seeds the cell text).
-  // The create group's label carries its own wording now ("Create a sticky
-  // from this cell" and friends live under it), so match the prefix rather
-  // than an exact "Create".
-  await menu.getByText(/^Create/).first().hover()
+  // Create a sticky from the cell via More actions › Create & link › Sticky
+  // (seeds the cell text).
+  await sub.getByText('Create & link', { exact: true }).hover()
   await window.locator('[data-canvas-ctx-menu]').getByText('Sticky', { exact: true }).first().click()
   await window.waitForTimeout(700)
 

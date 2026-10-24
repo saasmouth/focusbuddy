@@ -64,11 +64,10 @@ test('KB-1 — drive the unified menu by keyboard to create a sticky', async () 
   const widgetId = await seedNote(launched, 'keyboard nav test', 'MenuKeyboardTest')
   await openTask(launched, 'MenuKeyboardTest')
 
-  // Open the menu from the note content.
+  // Open the menu from the note as read (not its editing textarea: text gets
+  // the native text menu, SPEC §9.3, E-5).
   await window.waitForSelector(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { timeout: 8_000 })
-  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`)
-  await window.waitForSelector(`[data-widget-id="${widgetId}"] textarea`, { timeout: 4_000 })
-  await window.click(`[data-widget-id="${widgetId}"] textarea`, { button: 'right' })
+  await window.click(`[data-widget-id="${widgetId}"] .fb-note-rendered`, { button: 'right' })
   await window.waitForSelector('[data-canvas-ctx-menu][role="menu"]', { timeout: 4_000 })
 
   // Make sure the menu panel has keyboard focus.
@@ -78,10 +77,15 @@ test('KB-1 — drive the unified menu by keyboard to create a sticky', async () 
 
   expect(await stickyCount(launched)).toBe(0)
 
-  // Type-ahead to "Create", open it, type-ahead to "Sticky", activate.
+  // Type-ahead to "More actions" and open it (§9.3: Create & link lives
+  // there), then to "Create & link", open it, type-ahead to "Sticky", activate.
+  await window.keyboard.type('more')
+  await window.waitForTimeout(120)
+  await window.keyboard.press('ArrowRight') // open More actions
+  await window.waitForTimeout(700) // the type-ahead buffer clears after 600ms
   await window.keyboard.type('create')
   await window.waitForTimeout(120)
-  await window.keyboard.press('ArrowRight') // open the Create submenu
+  await window.keyboard.press('ArrowRight') // open the Create & link submenu
   await window.waitForTimeout(200)
   await window.keyboard.type('sticky')
   await window.waitForTimeout(120)

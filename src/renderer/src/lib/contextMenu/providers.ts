@@ -1,12 +1,17 @@
-// Core widget context-action providers. These contribute the section-1
-// (Context band) rows that are specific to a widget. The universal sections
-// (AI Assist, Create, Convert, Organise, Share, Advanced, Destructive) are
-// added by the resolver for every widget, so a provider only declares what is
-// genuinely specific to its kind. Importing this module once registers them.
+// Core widget context-action providers: the rows specific to a kind, each in
+// its §9.3 group (types.ts). The universal rows (Add to Focus…, Copy, Paste,
+// Duplicate, Bring to front, Ask PlexiiAssist, AI assist ▸, More actions ▸, the
+// removal rows) are added by the resolver for every widget, so a provider only
+// declares what is genuinely specific to its kind. Importing this module once
+// registers them.
 
-import { MenuSection, type MenuContribution } from './types'
+import type { SectionLayout } from '@shared/types'
+import { MENU } from '@shared/menus/lexicon'
+import type { MenuContribution } from './types'
 import { registerWidgetContextActions } from './registry'
 import { useWidgetStore } from '../../stores/widgets'
+import { effectiveLayout, SECTION_PADDING } from '../sectionGeometry'
+import { DUPLICATE_EMPTY_LABEL } from './labels'
 import { useWidgetSetup } from '../../stores/widgetSetup'
 import { useTablesStore } from '../../stores/tables'
 import { createConnectedTool } from '../createConnectedTool'
@@ -19,7 +24,7 @@ import { hasChecklist, toggleChecklist } from '../stickyText'
 function buildWithAiRow(widgetId: string): MenuContribution {
   return {
     id: 'core/build-with-ai',
-    section: MenuSection.Context,
+    group: 'object',
     priority: -1, // sits at the very top of the context band
     label: 'Build with AI',
     icon: 'auto_awesome',
@@ -39,7 +44,7 @@ registerWidgetContextActions('sticky', (ctx) => {
       buildWithAiRow(w.id),
       {
         id: 'sticky/checklist',
-        section: MenuSection.Context,
+        group: 'object',
         priority: 0,
         label: checklist ? 'Remove checkboxes' : 'Make a checklist',
         icon: 'checklist',
@@ -68,7 +73,7 @@ registerWidgetContextActions('living-doc', (ctx) => {
     context: [
       {
         id: 'living-doc/regenerate',
-        section: MenuSection.Context,
+        group: 'object',
         priority: 0,
         label: 'Regenerate now',
         icon: 'autorenew',
@@ -89,7 +94,7 @@ registerWidgetContextActions('table', (ctx) => {
     context: [
       {
         id: 'table/add-row',
-        section: MenuSection.Context,
+        group: 'object',
         priority: 0,
         label: 'Add row',
         icon: 'add',
@@ -111,7 +116,7 @@ registerWidgetContextActions('table', 'cell', (ctx) => {
     context: [
       {
         id: 'table/duplicate-row',
-        section: MenuSection.Context,
+        group: 'object',
         priority: 1,
         label: 'Duplicate row',
         icon: 'content_copy',
@@ -123,9 +128,11 @@ registerWidgetContextActions('table', 'cell', (ctx) => {
         }
       },
       {
+        // A row is content inside the table: Delete, in the destructive group
+        // (danger routes it there; F-11 found it buried in the Context band).
         id: 'table/delete-row',
-        section: MenuSection.Context,
-        priority: 2,
+        group: 'destructive',
+        priority: -10, // the clicked row first, before the rows that remove the whole widget
         label: 'Delete row',
         icon: 'delete',
         danger: true,
@@ -149,17 +156,18 @@ for (const kind of LINK_KINDS) {
       context: [
         {
           id: `${kind}/open-external`,
-          section: MenuSection.Context,
+          opens: true,
+          group: 'object',
           priority: 0,
-          label: isHttp ? 'Open in browser' : 'Open',
+          label: isHttp ? 'Open in browser' : MENU.open.label,
           icon: 'open_in_new',
           onSelect: () => void window.api.files.openExternal(url)
         },
         {
           id: `${kind}/copy-url`,
-          section: MenuSection.Context,
-          priority: 1,
-          label: isHttp ? 'Copy URL' : 'Copy path',
+          group: 'clipboard',
+          priority: 15,
+          label: isHttp ? MENU.copyLink.label : 'Copy path',
           icon: 'content_copy',
           onSelect: () => {
             void navigator.clipboard.writeText(url).catch(() => {})
@@ -178,8 +186,8 @@ registerWidgetContextActions('color', (ctx) => {
     context: [
       {
         id: 'color/copy',
-        section: MenuSection.Context,
-        priority: 0,
+        group: 'clipboard',
+        priority: 15,
         label: `Copy ${hex}`,
         icon: 'content_copy',
         onSelect: () => {
@@ -190,43 +198,94 @@ registerWidgetContextActions('color', (ctx) => {
   }
 })
 
-// Section container: switch the child layout.
+// Section container (the section handle's menu, SectionWidget). The section is
+// a frame for other widgets, so its rows are its own: the layout choice, an
+// EMPTY duplicate (children belong to one parent at a time, so copying them
+// would mean moving them), and Archive that first puts the children back on
+// the desk (archiving with them inside would hide them too). The universal
+// rows that make no sense for a frame are switched off.
+const SECTION_LAYOUTS: Array<{ value: SectionLayout; label: string; icon: string }> = [
+  { value: 'free', label: 'Free', icon: 'open_with' },
+  { value: 'grid', label: 'Grid', icon: 'grid_view' },
+  { value: 'stacks', label: 'Stacks', icon: 'layers' },
+  { value: 'icons', label: 'Icons', icon: 'apps' },
+  { value: 'list', label: 'List', icon: 'view_list' }
+]
+
 registerWidgetContextActions('section', (ctx) => {
   if (ctx.object.type !== 'widget') return { context: [] }
   const w = ctx.object.widget
-  const setLayout = (layout: 'free' | 'grid' | 'stacks' | 'list'): void => {
-    void useWidgetStore.getState().update(w.id, { layout })
-    useWidgetStore.getState().bumpLayoutVersion()
-  }
-  const opt = (
-    value: 'free' | 'grid' | 'stacks' | 'list',
-    label: string,
-    icon: string,
-    priority: number
-  ): MenuContribution => ({
-    id: `section/layout/${value}`,
-    section: MenuSection.Context,
-    priority,
-    label,
-    icon,
-    onSelect: () => setLayout(value)
-  })
+  const current = effectiveLayout(w.layout)
+  const store = (): ReturnType<typeof useWidgetStore.getState> => useWidgetStore.getState()
   return {
     context: [
       {
         id: 'section/layout',
-        section: MenuSection.Context,
+        group: 'object',
         priority: 0,
         label: 'Section layout',
         icon: 'dashboard_customize',
-        children: [
-          opt('free', 'Free', 'open_with', 0),
-          opt('grid', 'Grid', 'grid_view', 1),
-          opt('stacks', 'Stacks', 'view_agenda', 2),
-          opt('list', 'List', 'format_list_bulleted', 3)
-        ]
+        children: SECTION_LAYOUTS.map<MenuContribution>((opt, i) => ({
+          id: `section/layout/${opt.value}`,
+          priority: i,
+          label: opt.label,
+          icon: opt.icon,
+          checked: opt.value === current,
+          onSelect: () => {
+            void store().update(w.id, { layout: opt.value })
+            store().bumpLayoutVersion()
+          }
+        }))
+      },
+      {
+        id: 'section/duplicate-empty',
+        group: 'clipboard',
+        priority: 30,
+        fold: 1,
+        label: DUPLICATE_EMPTY_LABEL,
+        icon: 'control_point_duplicate',
+        onSelect: () =>
+          void store().create({
+            taskId: w.taskId,
+            kind: 'section',
+            title: w.title ? `${w.title} (copy)` : 'Section',
+            content: '',
+            x: w.x + 30,
+            y: w.y + 30,
+            width: w.width,
+            height: w.height,
+            color: w.color
+          })
+      },
+      {
+        id: 'section/archive',
+        group: 'destructive',
+        priority: 0,
+        danger: true,
+        label: MENU.archive.label,
+        icon: 'archive',
+        onSelect: () => {
+          for (const c of store().widgets.filter((c) => c.parentSectionId === w.id)) {
+            void store().update(c.id, {
+              parentSectionId: null,
+              x: Math.round(w.x + SECTION_PADDING + c.x),
+              y: Math.round(w.y + SECTION_PADDING + c.y)
+            })
+          }
+          void store().archive(w.id)
+        }
       }
-    ]
+    ],
+    suppress: {
+      duplicate: true,
+      create: true,
+      convert: true,
+      pin: true,
+      recolor: true,
+      flag: true,
+      snippet: true,
+      destructive: true
+    }
   }
 })
 
@@ -244,17 +303,17 @@ registerWidgetContextActions('webview', 'browser-target', (ctx) => {
   if (linkURL) {
     rows.push({
       id: 'webview/open-link',
-      section: MenuSection.Context,
+      group: 'object',
       priority: 0,
-      label: 'Open link in new browser',
+      label: 'Open link as a new browser work widget',
       icon: 'open_in_new',
       onSelect: () => void createConnectedTool({ sourceWidgetId: w.id, kind: 'webview', content: linkURL })
     })
     rows.push({
       id: 'webview/copy-link',
-      section: MenuSection.Context,
-      priority: 3,
-      label: 'Copy link',
+      group: 'clipboard',
+      priority: 15,
+      label: MENU.copyLink.label,
       icon: 'link',
       onSelect: () => {
         void navigator.clipboard.writeText(linkURL).catch(() => {})
@@ -264,9 +323,9 @@ registerWidgetContextActions('webview', 'browser-target', (ctx) => {
   if (srcURL && mediaType === 'image') {
     rows.push({
       id: 'webview/save-image',
-      section: MenuSection.Context,
+      group: 'object',
       priority: 1,
-      label: 'Save image to desk',
+      label: 'Add image to this desk',
       icon: 'image',
       onSelect: () => void createConnectedTool({ sourceWidgetId: w.id, kind: 'image', content: srcURL })
     })
@@ -274,9 +333,9 @@ registerWidgetContextActions('webview', 'browser-target', (ctx) => {
   if (srcURL && mediaType === 'video') {
     rows.push({
       id: 'webview/save-video',
-      section: MenuSection.Context,
+      group: 'object',
       priority: 1,
-      label: 'Save video to desk',
+      label: 'Add video to this desk',
       icon: 'movie',
       onSelect: () => void createConnectedTool({ sourceWidgetId: w.id, kind: 'video', content: srcURL })
     })

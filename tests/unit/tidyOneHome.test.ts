@@ -27,10 +27,15 @@ describe('one home', () => {
     expect(canvas).not.toContain("label: 'Tidy'")
     expect(canvas).not.toContain("label: 'Square grid'")
     expect(canvas).not.toContain("label: 'Columns…'")
-    // Auto-arrange itself stays — only Tidy moved.
-    expect(canvas).toContain("label: 'Auto-arrange'")
-    expect(canvas).toContain("label: 'Group by type'")
-    expect(canvas).toContain("label: 'Stack by type'")
+    // Auto-arrange itself stays — only Tidy moved. The menu's rows are built
+    // in lib/contextMenu/emptyCanvas.ts (SPEC §9.3 empty-canvas shape), which
+    // Canvas calls.
+    const menu = read('src/renderer/src/lib/contextMenu/emptyCanvas.ts')
+    expect(canvas).toContain('buildEmptyCanvasMenu(')
+    expect(menu).not.toContain("label: 'Tidy'")
+    expect(menu).toContain("label: 'Auto-arrange'")
+    expect(menu).toContain("label: 'Group by type'")
+    expect(menu).toContain("label: 'Stack by type'")
   })
 
   it('the pill owns Tidy, and passes the chosen mode through', () => {
