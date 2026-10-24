@@ -98,9 +98,13 @@ describe('Privacy settings', () => {
   it('names what leaves the computer and makes none of the retired claims', () => {
     mount()
     const text = host.textContent ?? ''
-    for (const host of ['OpenStreetMap', 'DuckDuckGo', 'dl.plexiidesk.com', 'Anthropic', 'OpenAI']) {
+    for (const host of ['OpenStreetMap', 'DuckDuckGo', 'dl.plexiidesk.com', 'Anthropic', 'OpenAI', 'huggingface.co']) {
       expect(text).toContain(host)
     }
+    // The Whisper download (network-inventory.md): asked for by nobody, so the
+    // page says when it happens and that meetings always trigger it.
+    expect(text).toMatch(/Meeting and call recordings are always transcribed on this computer/)
+    expect(text).toMatch(/Only the model is downloaded; your audio and transcripts stay here\./)
     // Icons no longer go through Google's favicon service (4.3.34).
     expect(text).not.toMatch(/Google/)
     expect(text).toMatch(/fetched from the linked site itself/)
