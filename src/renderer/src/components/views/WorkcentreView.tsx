@@ -24,6 +24,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import { useAccountStore } from '../../stores/account'
 import { useDeskViewStore } from '../../stores/deskView'
 import ViewSelector from './ViewSelector'
+import { attachDragGlide } from '../../lib/dragGlide'
 import Icon from '../Icon'
 import { FILES_DRAG_MIME, readFilesDrag } from '../../lib/filesDrag'
 import { placeFilesOnDesk } from '../../lib/filesDrop'
@@ -218,6 +219,18 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
     for (const w of res.created) useDeskViewStore.getState().setPendingTile(w.id, cell)
   }
 
+
+  // Grab the empty grid and drag to scroll; let go and it glides on. Tiles,
+  // their controls and anything editable keep their own press.
+  useEffect(() => {
+    const el = hostRef.current
+    if (!el) return
+    return attachDragGlide(
+      el,
+      (t) => !t.closest('[data-testid^="workcentre-tile-"], button, a, input, textarea, select, [contenteditable="true"], [role="slider"]')
+    )
+  }, [])
+
   return (
     <div
       className={`absolute inset-0 flex flex-col bg-[var(--surface-sunken)] ${preview ? 'select-none' : ''}`}
@@ -237,7 +250,7 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
         </span>
         <ViewSelector taskId={taskId} />
       </div>
-      <div ref={hostRef} className="flex-1 min-h-0 min-w-0 overflow-auto" data-testid="workcentre-scroll">
+      <div ref={hostRef} className="flex-1 min-h-0 min-w-0 overflow-auto cursor-grab" data-testid="workcentre-scroll">
         {!layout ? (
           <div className="p-6 text-[12px] text-[var(--ink-50)]" role="status">
             Laying out the Workcentre…

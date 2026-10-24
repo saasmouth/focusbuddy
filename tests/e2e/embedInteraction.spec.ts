@@ -266,3 +266,49 @@ test('EI-5 the grip still moves an embedded widget on a slide', async () => {
     }, deckId), { timeout: 5_000 })
     .toBeGreaterThan(220)
 })
+
+test('EI-6 a drag on empty Workcentre space scrolls it, and it glides on after release', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  const taskId = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Api }).api
+    const task = await api.nodes.create({ parentId: null, kind: 'task', title: 'Glide desk' })
+    for (let i = 0; i < 40; i++) {
+      await api.widgets.create({ taskId: task.id, kind: 'sticky', content: `Note ${i}`, x: (i % 4) * 260, y: Math.floor(i / 4) * 220, width: 240, height: 200 } as never)
+    }
+    return task.id
+  })
+  await suppressFeatureSpotlights(window)
+  await window.reload()
+  await waitForReady(window)
+  await open(window, 'task', taskId)
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 15_000 })
+  await window.locator('[data-testid="view-selector-btn"]').first().click()
+  await window.locator('[data-testid="view-opt-workcentre"]').click()
+  const scroller = window.locator('[data-testid="workcentre-scroll"]')
+  await expect(window.locator('[data-testid="workcentre-grid"]')).toBeVisible({ timeout: 10_000 })
+
+  // A point on empty space inside the scroller: not on any tile.
+  const spot = await scroller.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    for (let y = r.top + 20; y < r.bottom - 20; y += 10) {
+      for (let x = r.left + 4; x < r.right - 4; x += 10) {
+        const hit = document.elementFromPoint(x, y)
+        if (hit && el.contains(hit) && !hit.closest('[data-testid^="workcentre-tile-"]')) return { x, y }
+      }
+    }
+    return null
+  })
+  expect(spot, 'no empty space found to grab').not.toBeNull()
+  const top0 = await scroller.evaluate((el) => el.scrollTop)
+  await window.mouse.move(spot!.x, spot!.y)
+  await window.mouse.down()
+  for (let i = 1; i <= 8; i++) await window.mouse.move(spot!.x, spot!.y - i * 30)
+  await window.mouse.up()
+  const atRelease = await scroller.evaluate((el) => el.scrollTop)
+  expect(atRelease - top0, 'dragging did not scroll').toBeGreaterThan(150)
+  await window.waitForTimeout(600)
+  const afterGlide = await scroller.evaluate((el) => el.scrollTop)
+  expect(afterGlide, 'it did not glide on after release').toBeGreaterThan(atRelease + 20)
+})
