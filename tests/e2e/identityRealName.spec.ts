@@ -36,6 +36,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { answerAsServerForUnknownToken } from './_fakeSignal'
 
 let launched: LaunchedApp | null = null
 
@@ -102,6 +103,36 @@ test('signup persists first/last name; Settings identity + name editor round-tri
   const accountId = 'acc_test_identity'
   let profileCallCount = 0
 
+  // EVERYTHING ELSE THE SIGNED-IN APP ASKS FOR, answered here.
+  //
+  // This spec stubs the two routes it asserts on and let the rest go wherever
+  // they went. Once the stub session exists the app also fetches its inbox,
+  // conversations and so on — against PRODUCTION with a fake token. d1's net
+  // guard (c750404d) now fails the spec for it, and it was right to: the
+  // failure says "https://api.plexiidesk.com/inbox".
+  //
+  // answerAsServerForUnknownToken replies exactly as the deployed server does
+  // to an unknown token (401 { ok: false, error: 'Not authenticated.' }), so
+  // the app sees what it would really see. Registered FIRST on purpose:
+  // Playwright tries the most recently added route first, so the two stubs
+  // below still answer their own calls.
+  await answerAsServerForUnknownToken(window)
+
+  // AND CAPABILITIES MUST ANSWER PROPERLY, or the catch-all signs the user
+  // straight back out. capabilities.ts:210 treats a 401 from
+  // /account/capabilities as a dead session and clears it on purpose — "the
+  // user silently stranded on whatever plan we last cached" is the thing it
+  // is preventing — so with only the catch-all in place the modal reappeared
+  // the moment signup succeeded, and this spec failed on the modal still
+  // being there rather than on anything about names.
+  await window.route('**/account/capabilities*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, tier: 'free', capabilities: { multiple_desks: 3 } })
+    })
+  })
+
   await window.route('**/accounts/signup', async (route) => {
     const body = route.request().postDataJSON() as { firstName?: string; lastName?: string }
     currentFirst = body.firstName ?? ''
@@ -167,9 +198,12 @@ test('signup persists first/last name; Settings identity + name editor round-tri
   // click (including clicks landing inside the sign-in modal's own
   // document.body portal, which sits outside the popover's DOM subtree) --
   // pre-existing SettingsPanel behavior, unrelated to the identity change.
-  // Reopen Settings fresh now that the modal is gone.
-  await window.getByRole('button', { name: /appearance settings/i }).click()
-  await expect(window.locator('[data-testid="settings-pane-account"]')).toBeVisible({ timeout: 5_000 })
+  // Reopen Settings fresh now that the modal is gone — and select the Account
+  // tab, because Settings opens on Appearance and a pane only mounts while
+  // its own tab is chosen (f03087b07). My own first pass swapped the dead
+  // class selector for the pane's testid and forgot the tab, which fails the
+  // same way the original did.
+  await openSettingsTab(window, 'account')
 
   // --- Settings -> Account shows the full name as identity (personDisplayName) ---
   await window.evaluate(() => {
