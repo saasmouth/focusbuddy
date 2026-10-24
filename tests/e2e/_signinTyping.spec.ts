@@ -8,6 +8,11 @@
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 
+// THIS SPEC IS ABOUT THE SIGN-IN MODAL, so it opts out of the suppression
+// waitForReady now applies by default. Everything else wants that modal gone
+// deterministically (it mounts late and eats clicks through its scrim); this
+// one came for it, so it passes { keepSignIn: true }.
+
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
   await launched?.app.close()
@@ -37,10 +42,10 @@ function pwField(window: Page) {
 test('the sign-in password field keeps every typed character', async () => {
   launched = await launchApp()
   const { window } = launched
-  await waitForReady(window)
+  await waitForReady(window, { keepSignIn: true })
   const pageErrors: string[] = []
   window.on('pageerror', (e) => pageErrors.push(e.message))
-  await waitForReady(window)
+  await waitForReady(window, { keepSignIn: true })
   await openSignIn(window)
   const pw = pwField(window)
 
@@ -62,7 +67,7 @@ test('the sign-in password field keeps every typed character', async () => {
 test('Shift held across several characters is not swallowed', async () => {
   launched = await launchApp()
   const { window } = launched
-  await waitForReady(window)
+  await waitForReady(window, { keepSignIn: true })
   await openSignIn(window)
   const pw = pwField(window)
   await pw.click()
@@ -104,7 +109,7 @@ test('Shift held across several characters is not swallowed', async () => {
 test('characters survive typing while the renderer is busy', async () => {
   launched = await launchApp()
   const { window } = launched
-  await waitForReady(window)
+  await waitForReady(window, { keepSignIn: true })
   await openSignIn(window)
   const pw = pwField(window)
   await pw.click()
