@@ -45,6 +45,8 @@ export async function launchApp(opts?: {
   preArgs?: string[]
   // netGuard.spec.ts only — see launchGuarded's selfTest.
   netGuardSelfTest?: boolean
+  /** See the worktree's staged on-device models (default: only specs named in _bundledModels.ts). */
+  bundledModels?: boolean
 }): Promise<LaunchedApp> {
   const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'plexii-e2e-'))
   const ownsDir = !opts?.userDataDir
@@ -84,7 +86,7 @@ export async function launchApp(opts?: {
       ...(opts?.env ?? {})
     },
     timeout: 20_000
-  }, { selfTest: opts?.netGuardSelfTest })
+  }, { selfTest: opts?.netGuardSelfTest, bundledModels: opts?.bundledModels })
   // Forward main-process stdout/stderr to test stdout so debugging "page
   // closed" failures actually shows the real Electron error.
   app.process().stdout?.on('data', (b) => process.stdout.write(`[main] ${b}`))
