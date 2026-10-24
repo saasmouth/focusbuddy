@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { clickWidgetTool, expectWidgetTool, launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow } from './_helpers'
+import { clickWidgetTool, expectWidgetTool, launchApp, type LaunchedApp, waitForReady, clickWidgetMenuRow, suppressFeatureSpotlights } from './_helpers'
 
 // Phase 1 "widget-link overhaul" (plexi-4.0):
 //   (a)/(b) drawing a link creates it immediately as a passive `context` wire
@@ -51,6 +51,10 @@ async function openTask(window: Page, taskTitleRe: RegExp): Promise<void> {
 // task tile (there isn't one; the breadcrumb title renders as plain text,
 // not a button, once inside the canvas). Just reload and re-wait for canvas.
 async function reloadIntoSameTask(window: Page): Promise<void> {
+  // The feature-spotlight card mounts ~750ms after a reload and docks
+  // bottom-right, over the 'br' pinned widgets (g) and (g-target) use: (g)
+  // failed 1 run in 5 on its header being covered.
+  await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
@@ -126,6 +130,11 @@ async function armAndDrop(
   // At narrow widths the hub folds into the header's "…" menu
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
   await clickWidgetTool(window, sourceId, 'Link to another work widget')
+  // Wait for the arm to take: Canvas registers the click that completes the
+  // link in an effect after linkSourceId commits, and the "Linking from …"
+  // banner renders in that same commit. Clicking straight after the menu row
+  // could beat the effect and land as a plain click (g-target failed 1 run in 3).
+  await expect(window.getByRole('button', { name: 'Cancel linking' })).toBeVisible({ timeout: 3_000 })
   await window.mouse.click(drop.x, drop.y)
   await window.waitForTimeout(150)
   return drop
