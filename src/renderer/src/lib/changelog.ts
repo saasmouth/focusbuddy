@@ -38,14 +38,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '4.3.41',
-    date: '2026-10-23T22:00:00Z',
-    title: 'PlexiiDesk 4.3.41 \u2014 one layout for every office app, Workcentre, Files beside your work, and snippets everywhere',
+    version: '4.3.42',
+    date: '2026-10-24T06:00:00Z',
+    title: 'PlexiiDesk 4.3.42 \u2014 one layout and the same menus in every office app, printing, Workcentre, Files beside your work, and snippets everywhere',
     tag: 'feature',
     summary:
       'Write, Cells, Deck, Design, Draw and Diagrams share one layout. A new Workcentre view, Files that opens beside your work, snippets and paste that work across every app, AI drawing in PlexiiDraw, comments that stay put and can come from viewers, new icons, and many fixes.',
     highlights: [
       'Every office app has the same layout. Tools sit in a rail of icons on the left, and settings sit in tabs along the top that change with what you select, like Canva or Microsoft Office. Panels such as Layers and Styles can be pinned, and PlexiiAssist sits in the same right-hand panel in every app.',
+      'The same menus everywhere: in every office app the menu bar, the toolbar, right-click and the command palette offer the same commands with the same names and shortcuts, and every shortcut shown works. Anything greyed out says why.',
+      'Right-click works on everything: desks, rooms, every work widget, Files, chat messages, web pages and text fields, in the same order everywhere \u2014 Open first, Delete last in red.',
+      'Print: File \u203a Print\u2026 (\u2318P) in PlexiiWrite, PlexiiCells, PlexiiDeck, PlexiiDesign and PlexiiDiagrams prints exactly what Download \u203a PDF gives you. PlexiiCells can now save a PDF and has Page setup for a print area, gridlines and header rows repeated on every page.',
+      'Find and Find and replace in PlexiiDesign, with every match highlighted in the text.',
+      'Accounts now have a first and last name, and comments are signed with it. You need to be signed in to comment or reply.',
+      'The Free plan allows three desks; rooms are unlimited, and desks you already have are all kept.',
+      'Fixed: shortcuts that were shown but did nothing in PlexiiCells, PlexiiWrite, PlexiiDeck and PlexiiDesign; PlexiiWrite\u2019s Link, Word count and Accessibility buttons; @mentions not suggesting people; doubled column letters in PlexiiCells; a blank second page in every PlexiiDiagrams PDF; pop-ups covering the minimap and corner buttons; and the share dialog calling a desk a \u201ctask\u201d.',
       'Workcentre: a new desk view that lays out every work widget, file and tool as a tile on a dashboard grid, each showing its full content. Drag to move, pull an edge to resize. Work widgets can now be resized to any size everywhere. Workcentre layouts are saved on this computer.',
       'Files opens beside your work: click Files in the side menu (or press \u2325\u2318F) and drag files and folders straight onto a desk, into the Workcentre, into a folder, or into a document, slide or sheet. Pin it to keep it open, or float it. Full screen Files is on the tile\u2019s right-click menu.',
       'Saved snippets work everywhere: save a selection in PlexiiWrite, PlexiiCells, PlexiiDeck, PlexiiDesign, PlexiiDraw, PlexiiDiagrams or on a desk, and insert it into any document, work widget or tool. A spreadsheet range becomes a table, a drawing or diagram a picture, and PlexiiDesk tells you when something is converted. A placed snippet shows as its content, with its frame on hover; live snippets follow the original, and Open original edits it in its own app. Snippets marked for your organisation are saved on this computer for now.',

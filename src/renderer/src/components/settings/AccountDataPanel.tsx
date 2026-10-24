@@ -151,7 +151,7 @@ export default function AccountDataPanel(): JSX.Element | null {
           </>
         )}
         <p className="fb-t-caption text-[var(--ink-50)] leading-relaxed">
-          Your work saved on this computer was not touched, and stays usable here without an account.
+          Your work saved on this computer was not touched. PlexiiDesk needs an account to open, so sign in or create a new one to keep using it here.
         </p>
       </div>
     )
