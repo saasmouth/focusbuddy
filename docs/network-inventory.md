@@ -29,7 +29,7 @@ out" in practice means the gate itself, or after signing out.
 | `api.anthropic.com` | AI with your own Anthropic key; the **title backfill** at launch only with Background AI tasks on | Own key: on AI use | Remove the key / use credits. Background: **Background AI tasks** (off by default) |
 | `api.openai.com` | Own OpenAI key: cloud transcription, image generation, key test; embeddings only with Background AI tasks on | On use; embeddings on save, view open, a 5-min sweep and search, **only with Background AI tasks on** | Remove the OpenAI key; **Background AI tasks** (off by default) |
 | `html.duckduckgo.com` | Chat web search: the person's chat message | Each chat message of 15+ characters while the globe is on | Yes: globe toggle, **off by default**, last choice remembered |
-| `huggingface.co` (+ its CDN) | Download of the local Whisper speech model (`Xenova/whisper-tiny` / `-base`). Model files only: no audio, transcript or account data is sent | Once, the first time anything is transcribed on this device, then cached. This happens **without asking** whenever the AI source is "Local on this device", which is the **default for a new profile**: that source always transcribes with local Whisper. It also happens when you pick local transcription yourself | **Only by not transcribing yet**: either choose a cloud AI source in Settings → AI before the first recording or meeting transcription, or don't transcribe. Choosing cloud transcription alone doesn't avoid it while the source is Local. A prompt that asks before downloading is planned |
+| `huggingface.co` (+ its CDN) | Download of the local Whisper speech model (`Xenova/whisper-tiny` / `-base`). Model files only: no audio, transcript or account data is sent | Once, the first time anything is transcribed on this device, then cached, **without asking**. Meeting and call recordings are **always** transcribed on the computer, whatever the AI source, so the first one starts the download. While the AI source is "Local on this device" (where a new install starts when the on-device model is already on the computer), voice notes and hold-to-talk do too | **Only partly, today**: choose a cloud AI source and Cloud transcription in Settings › AI before the first voice note, and don't record or transcribe meetings or calls. A prompt that asks before downloading is planned |
 | `localhost:11434` | Ollama, if the person runs it | Probed every 5 min by the local-AI sweep | Local only; nothing leaves the computer |
 | Your mail server (IMAP/SMTP) | Mail you connected | Startup, then every 90 s; on send | Disconnect the account |
 | `accounts.google.com`, `oauth2.googleapis.com`, `www.googleapis.com`, `login.microsoftonline.com`, `graph.microsoft.com`, ICS/webcal URLs | Calendars you connected | 20 s after launch, then every 15 min; on edit | Disconnect the calendar |
@@ -232,11 +232,21 @@ Base URL: `ACTIVE.api` (`src/shared/productDomains.ts:28`, read by
   (`src/main/ai/localWhisper.ts:60`) fetches `Xenova/whisper-tiny` or
   `Xenova/whisper-base` (`src/main/ai/whisperCore.ts:21-22`) from `huggingface.co`
   the first time local transcription runs, then caches it in userData.
-  Local transcription runs whenever the AI source is "Local on this device"
-  (`voiceProviderPref.getTranscriptionProvider` → `localOnlyActive()`), and that is
-  the default source for a new profile (`settingsStore.getAiMode`, `DEFAULT_AI_MODE`
-  = 'local'). So a new user's first transcription downloads the model from this
-  third-party host without asking. Nothing but the model files is fetched: audio and
+  Local transcription runs:
+  - always, for meeting and call recordings: `lib/transcribeRecording.ts:81,108`
+    passes `forceProvider: 'local'` (used by the meeting wrap-up, record notes and
+    record external), and the live view's `liveDecode.ts` calls `transcribeLocal`
+    directly;
+  - for voice notes and hold-to-talk, whenever the AI source is "Local on this
+    device" (`voiceProviderPref.getTranscriptionProvider` → `localOnlyActive()`).
+    That is where a new install starts when it has never chosen a source and a
+    verified on-device model is present (`settingsStore.ts:46-50`,
+    `DEFAULT_AI_MODE = 'local'`). Otherwise `migrateAiMode` keeps the previous
+    source (update zip, Windows, low-memory Mac).
+
+  So a user's first meeting or call recording downloads the model from this
+  third-party host without asking, whatever the AI source, and on an install that
+  starts on Local so does the first voice note. Nothing but the model files is fetched: audio and
   transcripts stay on the computer. An ask-first prompt is on the 4.3.43 backlog.
 - OCR (Tesseract) uses bundled data; no download.
 - No embedding model is downloaded by the app; local embeddings need an

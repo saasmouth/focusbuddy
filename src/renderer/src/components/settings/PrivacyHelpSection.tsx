@@ -32,6 +32,7 @@ const LEAVES: string[] = [
   'Sharing, PlexiiChat, PlexiiCall, live desks and workspaces you share with other people go through our server to the people you include.',
   'AI on Plexii AI credits goes through our server to Anthropic. With your own key, requests go straight to Anthropic or OpenAI when you use an AI feature, and in the background only if you turn on Background AI tasks. Chat web search sends your message to DuckDuckGo only while the globe in the chat is on; it starts off.',
   'Mail and calendars you connect talk straight to your provider.',
+  'The first time something is transcribed on this computer, the Whisper speech model downloads from Hugging Face (huggingface.co), without asking. Meeting and call recordings are always transcribed on this computer, so the first one starts it whatever your AI settings; while AI runs on this device, where a new install starts when the on-device model is already on the computer, voice notes do too. Only the model is downloaded; your audio and transcripts stay here. To avoid it, choose a cloud AI source and Cloud transcription before your first voice note, and don’t record or transcribe meetings or calls. We plan to ask before downloading.',
   'Icons for links and connected apps are fetched from the linked site itself and kept on this computer. Map work widgets load map tiles from OpenStreetMap. Fonts ship with the app.',
   'Update checks download a small version file from dl.plexiidesk.com (PlexiiOffice: GitHub), unless you turn them off.'
 ]
