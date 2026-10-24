@@ -3,6 +3,7 @@ import type { Widget, WidgetKind } from '../../src/shared/types'
 import { isUntitled } from '../../src/shared/titles'
 import {
   WIDGET_FILE_TYPES,
+  isWidgetFileKind,
   appendTaskItems,
   buildWidgetFileExport,
   cardContent,
@@ -85,6 +86,19 @@ describe('file types: one per kind, stable', () => {
   it('desk-only kinds and documents are not file types', () => {
     for (const k of ['section', 'portal', 'task-link', 'agent', 'webhook', 'inbound-hook', 'living-doc', 'minimap', 'contacts', 'attention', 'doc', 'sheet', 'webview'] as WidgetKind[]) {
       expect(isStandaloneWidgetKind(k), k).toBe(false)
+    }
+  })
+
+  it('a placed tool may be a file, but is still not auto-filed on a desk', () => {
+    // 4.3.43: a calendar, inbox or browser dropped into a document is a file;
+    // on a desk it stays a plain desk row (isStandaloneWidgetKind decides that).
+    for (const k of ['contacts', 'inbox', 'calendar', 'attention', 'webview', 'pdf', 'image', 'portal', 'task-link', 'living-doc'] as WidgetKind[]) {
+      expect(isWidgetFileKind(k), k).toBe(true)
+      expect(isStandaloneWidgetKind(k), k).toBe(false)
+    }
+    // Only the kinds that act on the desk itself, and the office documents, are never files.
+    for (const k of ['section', 'minimap', 'agent', 'webhook', 'inbound-hook', 'doc', 'sheet', 'slides', 'map', 'design', 'draw'] as WidgetKind[]) {
+      expect(isWidgetFileKind(k), k).toBe(false)
     }
   })
 

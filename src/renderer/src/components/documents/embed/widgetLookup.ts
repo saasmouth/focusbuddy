@@ -7,6 +7,8 @@
 
 import type { FbNode, Widget } from '@shared/types'
 import { isWidgetFilePaneId, widgetFileIdFromGroup, widgetFileGroupId, widgetFromFile } from '@shared/widgetFiles'
+import { documentIdFromEmbed } from '@shared/documentEmbedId'
+import { officeKindForDocType } from '../../../lib/officeDocKinds'
 
 export interface ResolvedWidget {
   widget: Widget
@@ -40,6 +42,27 @@ export async function resolveWidget(widgetId: string): Promise<ResolvedWidget | 
   // Checked FIRST: a file id would never be found by the desk scan below, and
   // falling through would render "this work widget no longer exists" about a
   // file that is sitting in Files perfectly intact.
+  // An OFFICE DOCUMENT embed: the same live editor a desk shows for that
+  // document (renderWidget's office kinds take the document id as content).
+  // A document in the Trash is not returned at all, so it reads as missing,
+  // not faked; an archived one still exists and still shows.
+  const documentId = documentIdFromEmbed(widgetId)
+  if (documentId) {
+    const doc = await window.api.documents.get(documentId)
+    const kind = doc ? officeKindForDocType(doc.docType) : null
+    if (!doc || !kind) return null
+    const now = Date.now()
+    return {
+      widget: {
+        ...widgetFromFile({ id: documentId, kind, title: doc.title, content: doc.id, color: null, createdAt: now, updatedAt: now } as never),
+        id: widgetId,
+        kind,
+        content: doc.id
+      },
+      deskTitle: ''
+    }
+  }
+
   if (isWidgetFilePaneId(widgetId)) {
     const fileId = widgetFileIdFromGroup(widgetId)
     if (!fileId) return null

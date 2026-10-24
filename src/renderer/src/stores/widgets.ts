@@ -1,3 +1,4 @@
+import { documentIdFromEmbed } from '@shared/documentEmbedId'
 import { create } from 'zustand'
 import { fitNewWidgetToView } from '../lib/fitDroppedWidget'
 import { catalogFor } from '../lib/widgetCatalog'
@@ -465,6 +466,20 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     // widgets table, so its edits go to the file — which fans them out to every
     // desk instance. Every widget component works full-pane because of this one
     // branch.
+    // An embedded OFFICE DOCUMENT (`doc:<document id>`) has no widget row
+    // either. Its content is the document, which its editor saves itself; a
+    // title change renames the document. Nothing else (desk position, colour)
+    // applies to it, so nothing else is written.
+    const embeddedDocId = documentIdFromEmbed(id)
+    if (embeddedDocId) {
+      // Through the documents store, so a rename here syncs like any other.
+      // Loaded on demand: the documents store already depends on this one.
+      if (typeof patch.title === 'string') {
+        const { useDocumentsStore } = await import('./documents')
+        await useDocumentsStore.getState().renameById(embeddedDocId, patch.title)
+      }
+      return
+    }
     if (isWidgetFilePaneId(id)) {
       await updateWidgetFileFromPane(id, patch)
       return

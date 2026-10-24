@@ -14,6 +14,7 @@ import { create } from 'zustand'
 import type { Widget, WidgetFile, WidgetFilePatch, WidgetKind, WidgetPatch } from '@shared/types'
 import {
   isStandaloneWidgetKind,
+  isWidgetFileKind,
   widgetFileGroupId,
   widgetFileIdFromGroup,
   widgetFileTypeLabel
@@ -174,7 +175,9 @@ export const useWidgetFilesStore = create<WidgetFilesState>((set, get) => ({
   },
 
   create: async (kind, opts = {}) => {
-    if (!isStandaloneWidgetKind(kind)) return null
+    // A placed tool (a calendar dropped into a document) may be a file too;
+    // createAndPlace below stays standalone-only, so desks file nothing new.
+    if (!isWidgetFileKind(kind)) return null
     const entry = catalogFor(kind)
     try {
       const file = await window.api.widgetFiles.create(

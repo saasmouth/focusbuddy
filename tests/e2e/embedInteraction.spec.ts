@@ -312,3 +312,96 @@ test('EI-6 a drag on empty Workcentre space scrolls it, and it glides on after r
   const afterGlide = await scroller.evaluate((el) => el.scrollTop)
   expect(afterGlide, 'it did not glide on after release').toBeGreaterThan(atRelease + 20)
 })
+
+// "We should be able to drag and drop Plexii apps to a document, sheet, deck,
+// design or draw and work on it in the embed state." A drop of PlexiiCells was
+// refused with "arranges a desk, so it only lives on one" — untrue of every
+// office app and every tool. Only five kinds act on the desk itself.
+const KIND_MIME = 'application/x-fb-widget-kind'
+
+async function openBlankDoc(window: Page): Promise<string> {
+  const id = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Api }).api
+    const d = (await api.documents.create({ docType: 'doc', title: 'Host doc', body: { type: 'doc', content: [{ type: 'paragraph' }] } } as never)) as { id: string }
+    return d.id
+  })
+  await open(window, 'document', id)
+  await expect(window.locator('.ProseMirror').first()).toBeVisible({ timeout: 10_000 })
+  return id
+}
+
+async function dropKind(window: Page, kind: string): Promise<void> {
+  await window.evaluate(
+    ([mime, k]) => {
+      const dom = document.querySelector('.ProseMirror')!
+      const r = dom.getBoundingClientRect()
+      const dt = new DataTransfer()
+      dt.setData(mime, k)
+      const at = { clientX: Math.round(r.left + 40), clientY: Math.round(r.top + 20), dataTransfer: dt, bubbles: true, cancelable: true }
+      dom.dispatchEvent(new DragEvent('dragover', at))
+      dom.dispatchEvent(new DragEvent('drop', at))
+    },
+    [KIND_MIME, kind] as const
+  )
+}
+
+test('EI-7 PlexiiCells dropped into a document becomes a live, editable spreadsheet', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  const before = await window.evaluate(async () => {
+    const api = (window as unknown as { api: Api }).api
+    return (await api.documents.list()).filter((d) => d.docType === 'sheet').map((d) => d.id)
+  })
+  await openBlankDoc(window)
+  await dropKind(window, 'sheet')
+
+  const embed = window.locator('[data-testid="widget-embed"]').first()
+  await expect(embed, 'the app was not embedded').toBeVisible({ timeout: 10_000 })
+  await expect(embed.locator('[data-testid="sheet-grid"]')).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator('[data-testid="notice-toast"]')).toHaveCount(0)
+
+  // A new spreadsheet document exists, and typing in the embed saves to it.
+  const sheetId = await expect
+    .poll(async () => window.evaluate(async (prev) => {
+      const api = (window as unknown as { api: Api }).api
+      return (await api.documents.list()).filter((d) => d.docType === 'sheet' && !prev.includes(d.id)).map((d) => d.id)[0] ?? null
+    }, before), { timeout: 5_000 })
+    .not.toBeNull()
+    .then(() => window.evaluate(async (prev) => {
+      const api = (window as unknown as { api: Api }).api
+      return (await api.documents.list()).filter((d) => d.docType === 'sheet' && !prev.includes(d.id)).map((d) => d.id)[0] as string
+    }, before))
+  await embed.locator('[data-testid="sheet-grid"]').click({ position: { x: 60, y: 30 } })
+  await window.keyboard.type('4242')
+  await window.keyboard.press('Enter')
+  await expect
+    .poll(async () => window.evaluate(async (id) => {
+      const api = (window as unknown as { api: Api }).api
+      const d = await api.documents.get(id)
+      return JSON.stringify(d?.body ?? '').includes('4242')
+    }, sheetId), { timeout: 8_000 })
+    .toBe(true)
+})
+
+test('EI-8 a tool (Calendar) dropped into a document is embedded, not refused', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openBlankDoc(window)
+  await dropKind(window, 'calendar')
+  const embed = window.locator('[data-testid="widget-embed"]').first()
+  await expect(embed, 'the tool was not embedded').toBeVisible({ timeout: 10_000 })
+  await expect(embed.locator('[data-widget-kind="calendar"], [data-testid^="calendar-"]').first()).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator('[data-testid="notice-toast"]')).toHaveCount(0)
+})
+
+test('EI-9 only a desk-structure kind is refused, and it says why truthfully', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openBlankDoc(window)
+  await dropKind(window, 'section')
+  await expect(window.locator('[data-testid="notice-toast"]')).toContainText('A section groups the work widgets on a desk', { timeout: 5_000 })
+  await expect(window.locator('[data-testid="widget-embed"]')).toHaveCount(0)
+})

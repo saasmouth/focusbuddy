@@ -27,6 +27,7 @@ import {
   deriveWidgetFileTitle,
   isPlaceholderWidgetFileTitle,
   isStandaloneWidgetKind,
+  isWidgetFileKind,
   meaningfulWidgetTitle,
   makeWidgetFileBody,
   parseWidgetFileBody,
@@ -263,7 +264,7 @@ export interface CreateWidgetFileOptions {
 }
 
 export function createWidgetFile(draft: WidgetFileDraft, opts: CreateWidgetFileOptions = {}): WidgetFile {
-  if (!isStandaloneWidgetKind(draft.kind)) {
+  if (!isWidgetFileKind(draft.kind)) {
     throw new Error(`A ${draft.kind} work widget only works on a desk, so it cannot be a file.`)
   }
   const content =

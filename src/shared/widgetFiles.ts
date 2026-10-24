@@ -89,13 +89,51 @@ export const WIDGET_FILE_TYPES: Partial<Record<WidgetKind, WidgetFileType>> = {
   streamdeck: { typeId: 'plexii.widget.speeddeck', ext: '.plexii-speeddeck', label: 'SpeedDeck', icon: 'apps' }
 }
 
+/**
+ * Tools that can be a file when someone PLACES one somewhere off a desk — drops
+ * a calendar, inbox or browser into a document (4.3.43, owner: "embed anything
+ * in anything"). Kept apart from WIDGET_FILE_TYPES on purpose: that map also
+ * decides that every new desk widget of the kind is filed automatically, and a
+ * calendar, browser or PDF on a desk must not start appearing in Files as an
+ * extra object (a PDF would show twice). Only an explicit create makes one.
+ */
+export const EMBED_TOOL_FILE_TYPES: Partial<Record<WidgetKind, WidgetFileType>> = {
+  contacts: { typeId: 'plexii.widget.contacts', ext: '.plexii-contacts', label: 'Contacts', icon: 'group' },
+  inbox: { typeId: 'plexii.widget.inbox', ext: '.plexii-inbox', label: 'Inbox', icon: 'inbox' },
+  calendar: { typeId: 'plexii.widget.calendar', ext: '.plexii-calendar', label: 'Calendar', icon: 'calendar_month' },
+  attention: { typeId: 'plexii.widget.focus', ext: '.plexii-focus', label: 'Focus', icon: 'notifications' },
+  'local-app-launcher': { typeId: 'plexii.widget.app-launcher', ext: '.plexii-app-launcher', label: 'App launcher', icon: 'desktop_mac' },
+  file: { typeId: 'plexii.widget.file-link', ext: '.plexii-file-link', label: 'File or link', icon: 'upload_file' },
+  drive: { typeId: 'plexii.widget.drive', ext: '.plexii-drive', label: 'Drive folder', icon: 'folder_open' },
+  'task-link': { typeId: 'plexii.widget.desk-link', ext: '.plexii-desk-link', label: 'Desk link', icon: 'link' },
+  webview: { typeId: 'plexii.widget.browser', ext: '.plexii-browser', label: 'Browser', icon: 'public' },
+  pdf: { typeId: 'plexii.widget.pdf', ext: '.plexii-pdf', label: 'PDF', icon: 'picture_as_pdf' },
+  gdoc: { typeId: 'plexii.widget.gdoc', ext: '.plexii-gdoc', label: 'Google Doc', icon: 'article' },
+  gsheet: { typeId: 'plexii.widget.gsheet', ext: '.plexii-gsheet', label: 'Google Sheet', icon: 'table_chart' },
+  gslide: { typeId: 'plexii.widget.gslides', ext: '.plexii-gslides', label: 'Google Slides', icon: 'slideshow' },
+  'mail-thread': { typeId: 'plexii.widget.mail-thread', ext: '.plexii-mail-thread', label: 'Email thread', icon: 'mail' },
+  'chat-thread': { typeId: 'plexii.widget.chat-thread', ext: '.plexii-chat-thread', label: 'Chat', icon: 'forum' },
+  email: { typeId: 'plexii.widget.email', ext: '.plexii-email', label: 'Email', icon: 'mail' },
+  image: { typeId: 'plexii.widget.picture', ext: '.plexii-picture', label: 'Image', icon: 'image' },
+  video: { typeId: 'plexii.widget.video', ext: '.plexii-video', label: 'Video', icon: 'movie' },
+  portal: { typeId: 'plexii.widget.portal', ext: '.plexii-portal', label: 'Portal', icon: 'picture_in_picture' },
+  'living-doc': { typeId: 'plexii.widget.living-doc', ext: '.plexii-living-doc', label: 'Living Doc', icon: 'auto_awesome' }
+}
+
+const ALL_FILE_TYPES: Partial<Record<WidgetKind, WidgetFileType>> = { ...WIDGET_FILE_TYPES, ...EMBED_TOOL_FILE_TYPES }
+
+/** May a file of this kind exist at all — a standalone kind, or a tool someone placed? */
+export function isWidgetFileKind(kind: WidgetKind | string | null | undefined): kind is WidgetKind {
+  return !!kind && Object.prototype.hasOwnProperty.call(ALL_FILE_TYPES, kind)
+}
+
 /** Can this kind exist as a file (off any desk)? */
 export function isStandaloneWidgetKind(kind: WidgetKind | string | null | undefined): kind is WidgetKind {
   return !!kind && Object.prototype.hasOwnProperty.call(WIDGET_FILE_TYPES, kind)
 }
 
 export function widgetFileType(kind: WidgetKind | string | null | undefined): WidgetFileType | null {
-  return isStandaloneWidgetKind(kind) ? (WIDGET_FILE_TYPES[kind] ?? null) : null
+  return isWidgetFileKind(kind) ? (ALL_FILE_TYPES[kind] ?? null) : null
 }
 
 /** "Table", "Task list" … or "Widget" for a kind this build cannot file. */
@@ -107,7 +145,7 @@ export function widgetFileTypeLabel(kind: WidgetKind | string | null | undefined
 export function kindForWidgetFileType(extOrTypeId: string): WidgetKind | null {
   const needle = extOrTypeId.trim().toLowerCase()
   const withDot = needle.startsWith('.') ? needle : `.${needle}`
-  for (const [kind, t] of Object.entries(WIDGET_FILE_TYPES) as Array<[WidgetKind, WidgetFileType]>) {
+  for (const [kind, t] of Object.entries(ALL_FILE_TYPES) as Array<[WidgetKind, WidgetFileType]>) {
     if (t.typeId === needle || t.ext === withDot) return kind
   }
   return null
