@@ -120,7 +120,8 @@ const stagedHere = existsSync(join(STAGED, 'qwen3-4b-instruct-2507', 'manifest.s
 test('MIG-4 — fresh install with the bundled model: checked once, then Local, with the "now built in" card', async () => {
   test.skip(!stagedHere, 'resources/models is not staged in this tree (scripts/fetch-bundled-models.mjs)')
   test.setTimeout(120_000)
-  launched = await launchApp({ env: { PLEXI_APP: 'preview3', ANTHROPIC_API_KEY: '' } })
+  // Needs the staged model, so it opts in (every other launch hides it: _bundledModels.ts).
+  launched = await launchApp({ env: { PLEXI_APP: 'preview3', ANTHROPIC_API_KEY: '' }, bundledModels: true })
   const { window } = launched
   await waitForReady(window)
   // The background sha256 check of the bundled model completes the switch.
