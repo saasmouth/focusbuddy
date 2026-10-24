@@ -122,9 +122,13 @@ const { domains: ACTIVE_DOMAINS, describe: ACTIVE_DESCRIBE } = readActiveDomains
 const MODEL_RESOURCE_DIR = 'resources/models'
 
 function bundlesModel() {
-  if (process.env.PLEXII_OMIT_MODEL === '1') return false
-  // Absent until the local-AI work lands the weights. Until then every build
-  // behaves exactly as it did before, rather than failing on a missing path.
+  // OPT-IN since 4.3.43 (owner, 2026-10-24: the local model must not ship with
+  // the app). The app downloads it from MODEL_DOWNLOAD_BASE when someone turns
+  // Local AI on, exactly as every auto-updated install already did. Bundling
+  // used to happen whenever resources/models existed, which is how a staged
+  // worktree turned a 430 MB installer into 2.9 GB, past GitHub's 2 GiB
+  // asset limit. Only an explicit PLEXII_BUNDLE_MODEL=1 puts it back.
+  if (process.env.PLEXII_BUNDLE_MODEL !== '1') return false
   return require('node:fs').existsSync(require('node:path').join(__dirname, MODEL_RESOURCE_DIR))
 }
 

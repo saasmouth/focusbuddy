@@ -91,7 +91,9 @@ node "${HERE0}/verify-build-deps.mjs" --app "$APP"
 # touch AI. It also proves the dmg and the zip are the same application, since
 # they are two separate signed builds and could otherwise drift into shipping
 # different code to fresh installs and to updaters under one version number.
-node "${HERE0}/verify-model-split.mjs" "$VERSION" --release-dir="$DIR"
+# The model ships separately from 4.3.43 (dl.plexiidesk.com/models), so the
+# gate is that neither artifact carries it, not that only the dmg does.
+node "${HERE0}/verify-no-bundled-model.mjs" "$VERSION" --release-dir="$DIR"
 
 # Sanity: the manifest must describe THIS version, otherwise we'd publish a
 # manifest that points clients at a different/older zip.

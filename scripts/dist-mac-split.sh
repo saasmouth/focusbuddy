@@ -27,6 +27,13 @@
 #
 # Usage:  scripts/dist-mac-split.sh            signed + notarised (needs creds)
 #         SKIP_SIGNING_CHECK=1 scripts/dist-mac-split.sh    local unsigned test
+# RETIRED in 4.3.43 (owner, 2026-10-24): the local model no longer ships with
+# the app, so there is nothing to split. One signed build makes the dmg and
+# the zip, both without it:  npm run dist:mac:universal:signed
+# Kept so an old habit fails loudly instead of building something unexpected.
+echo "dist-mac-split.sh is retired: the model ships separately. Run: npm run dist:mac:universal:signed" >&2
+exit 1
+
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
