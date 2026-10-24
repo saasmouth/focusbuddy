@@ -8,7 +8,8 @@ import { useWebPanel } from '../../stores/webPanel'
 import { catalogFor } from '../../lib/widgetCatalog'
 import { registerWebview, unregisterWebviewByWidgetId } from '../../lib/webviewRegistry'
 import { autofillWebview } from '../../lib/vaultAutofill'
-import { normalizeUrl, sanitizeWebviewUrl } from '../../lib/browserUrl'
+import { normalizeUrl, webviewSrc as resolveWebviewSrc } from '../../lib/browserUrl'
+import { fileSrc } from '../../lib/fileUrl'
 import BrowserSurface, {
   hostnameOf,
   type BrowserNavState,
@@ -86,7 +87,15 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   // this webview: the user typed a new URL in the edit form, or a sibling
   // widget instance (e.g. focus-mode swap) wrote a different URL. The
   // webview navigates organically for everything else.
-  const [webviewSrc, setWebviewSrc] = useState(() => sanitizeWebviewUrl(widget.content))
+  // A pdf / gdoc / file widget stores a bare fb_files id in `content`, and
+  // renderWidget sends all of those kinds here. sanitizeWebviewUrl used to
+  // hand anything it could not parse to a GOOGLE SEARCH, so those widgets
+  // loaded https://www.google.com/search?q=<file id>: the id went to a third
+  // party and the person saw search results instead of their file (d1,
+  // 2026-10-24). webviewSrc resolves the id to the local fb-file:// instead,
+  // and returns '' for anything it cannot place, which the surface below
+  // renders as an honest "can't open this" rather than a guess.
+  const [webviewSrc, setWebviewSrc] = useState(() => resolveWebviewSrc(widget.content, fileSrc))
   const headerLabel = (() => {
     const previewTitle = livePreview?.title
     const previewHost = livePreview ? hostnameOf(livePreview.url) : ''
@@ -105,7 +114,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
     setDraft(widget.content)
     setEditing(!widget.content)
     lastPersistedUrl.current = widget.content
-    setWebviewSrc(sanitizeWebviewUrl(widget.content))
+    setWebviewSrc(resolveWebviewSrc(widget.content, fileSrc))
     setLivePreview(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widget.id])
@@ -119,7 +128,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
     if (widget.content === lastPersistedUrl.current) return
     // Genuine external change — sync to webview + adopt as our new baseline.
     lastPersistedUrl.current = widget.content
-    setWebviewSrc(sanitizeWebviewUrl(widget.content))
+    setWebviewSrc(resolveWebviewSrc(widget.content, fileSrc))
     setDraft(widget.content)
   }, [widget.content])
 

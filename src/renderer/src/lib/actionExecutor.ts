@@ -767,9 +767,12 @@ async function applyCreateWidget(
   // off-topic has been seen to do exactly this), Electron resolves the
   // non-absolute src against the app's own file:// bundle directory in the
   // packaged app and can load a bundle asset, rendering its raw source as text.
-  // Normalize to a real absolute URL or a search so only a loadable address is
-  // ever stored, mirroring applyOpenUrl's scheme discipline. The WebViewWidget
-  // render path guards the same way as defence in depth.
+  // Normalize to a real absolute URL so only a loadable address is ever
+  // stored, mirroring applyOpenUrl's scheme discipline. The WebViewWidget
+  // render path guards the same way as defence in depth. NOT to a search:
+  // sanitizeWebviewUrl returns '' for anything it cannot vouch for, because
+  // free text an AI wrote into content is not a search query anybody asked
+  // for — and the same fallback sent pdf widgets' file ids to Google.
   if (p.widgetKind === 'webview' && content) {
     content = sanitizeWebviewUrl(content)
   }
