@@ -693,7 +693,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         if (!ctx || ctx.store.getState().readOnly) return
         ctx.history.commit(
           mapObjects(ctx.doc(), [id], (n) => (n.type === 'widget' ? { ...n, embedDisplay: display } : n)),
-          display === 'data' ? 'Show widget as data' : 'Show widget as original'
+          display === 'data' ? 'Show work widget as data' : 'Show work widget as original'
         )
       }
 
