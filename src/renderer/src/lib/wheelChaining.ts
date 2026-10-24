@@ -106,3 +106,18 @@ export function readScrollBox(el: Element): ScrollBox {
     scrollLeft: h.scrollLeft
   }
 }
+
+// A full-screen desk VIEW (Workcentre, Columns, the data layouts) is drawn on
+// top of the canvas surface, so its wheel events bubble to the canvas's native
+// listener — which cancels the browser's scroll and pans the hidden desk
+// instead. The view's grid then cannot be scrolled with a mouse wheel or a
+// trackpad flick at all. Such a view is its own scroller: the canvas must stand
+// aside entirely (no pan, no ⌘-zoom of a desk you cannot see) and leave the
+// gesture to the browser's ordinary scrolling.
+export const DESK_VIEW_HOST_ATTR = 'data-desk-view-host'
+
+/** Is this wheel target inside a full-screen desk view drawn over the canvas? */
+export function wheelBelongsToDeskView(target: EventTarget | null): boolean {
+  const el = target as { closest?: (sel: string) => unknown } | null
+  return typeof el?.closest === 'function' && el.closest(`[${DESK_VIEW_HOST_ATTR}]`) != null
+}

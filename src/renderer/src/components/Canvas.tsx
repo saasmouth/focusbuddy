@@ -45,7 +45,7 @@ import ZoomControls from './ZoomControls'
 import CanvasEdgeIndicators from './CanvasEdgeIndicators'
 import { useEdgePan } from '../lib/useEdgePan'
 import { useOverlayStore, selectAnyMenuOpen } from '../stores/overlay'
-import { chainCanAbsorb, collectScrollChain, readScrollBox } from '../lib/wheelChaining'
+import { chainCanAbsorb, collectScrollChain, readScrollBox, wheelBelongsToDeskView } from '../lib/wheelChaining'
 import { useNavPrefs, frictionFromGlide } from '../lib/navPrefs'
 import { getNavPrefs } from '../lib/navPrefs'
 import {
@@ -1216,6 +1216,9 @@ export default function Canvas(): JSX.Element {
   // prevented that. pinSurfaceScroll stays as a second line of defence, but
   // this is the cause.
   function handleWheel(e: WheelEvent): void {
+    // A full-screen desk view (Workcentre, Columns, data layouts) scrolls
+    // itself; panning or zooming the hidden desk under it would eat the wheel.
+    if (wheelBelongsToDeskView(e.target)) return
     // Hand the gesture to the active widget only while something inside it can
     // still scroll the way the gesture points — scroll chaining, the same rule
     // browsers use for nested scrollers. Position alone used to decide it,
@@ -3027,7 +3030,7 @@ export default function Canvas(): JSX.Element {
               the menu's right edge (--fb-dock-inset) so its toolbar and first
               column are not underneath it. */}
           {deskViewMode === 'columns' && activeTaskId && (
-            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="columns-host">
+            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="columns-host" data-desk-view-host="">
               <ColumnsView taskId={activeTaskId} widgets={widgets} />
             </div>
           )}
@@ -3044,7 +3047,7 @@ export default function Canvas(): JSX.Element {
           )}
           {/* Workcentre (the dashboard) starts at the menu's right edge, like Columns. */}
           {deskViewMode === 'workcentre' && activeTaskId && (
-            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="workcentre-host">
+            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="workcentre-host" data-desk-view-host="">
               <WorkcentreView taskId={activeTaskId} widgets={widgets} />
             </div>
           )}
