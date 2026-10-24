@@ -77,7 +77,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'PlexiiDesk 4.3.40 \u2014 AI on your Mac, Focus, a grown-up PlexiiDraw and a new diagram editor',
     tag: 'feature',
     summary:
-      'PlexiiDesk now has AI that runs on this computer, built in. Attention and your tasks are one list called Focus, which works in team workspaces. PlexiiDraw gains Illustrator\u2019s shortcuts and most of its everyday tools, Diagrams has a new editor, and the Office apps all live inside PlexiiDesk.',
+      'PlexiiDesk now has AI that runs on this computer, from a free model you download once. Attention and your tasks are one list called Focus, which works in team workspaces. PlexiiDraw gains Illustrator\u2019s shortcuts and most of its everyday tools, Diagrams has a new editor, and the Office apps all live inside PlexiiDesk.',
     links: [
       { label: 'PlexiiDraw', href: `${HELP_BASE}/draw-overview` },
       { label: 'Diagrams', href: `${HELP_BASE}/diagrams-overview` },
