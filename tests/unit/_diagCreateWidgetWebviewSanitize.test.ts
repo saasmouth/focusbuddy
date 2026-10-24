@@ -51,7 +51,7 @@ beforeEach(() => {
 })
 
 describe('diag: applyCreateWidget(kind=webview) sanitizes content (3.8.4 fix)', () => {
-  it('free-text AI content (the observed corruption) is stored as a sanitized https search, not raw text', async () => {
+  it('free-text AI content (the observed corruption) is REFUSED, not turned into a search', async () => {
     const p: ActionProposal = {
       id: 'p1',
       kind: 'create-widget',
@@ -65,11 +65,18 @@ describe('diag: applyCreateWidget(kind=webview) sanitizes content (3.8.4 fix)', 
     expect(widgetCreateSpy).toHaveBeenCalledTimes(1)
     const created = widgetCreateSpy.mock.calls[0][0]
     console.log('[DIAG-APPLIER] stored content:', created.content)
-    expect(created.content.startsWith('https://www.google.com/search?q=')).toBe(true)
+    // This asserted the prose was stored as a Google search. That was the
+    // safe answer while the alternative was a relative path resolving against
+    // the bundle — and it stopped being safe once we noticed what ELSE lands
+    // in sanitizeWebviewUrl: a pdf widget's bare file id, which went to
+    // Google with it (d1, 2026-10-24). The sanitiser refuses what it cannot
+    // vouch for now, and the widget shows an honest state.
+    expect(created.content).toBe('')
     expect(created.content).not.toContain('Origin of the Name Michael')
+    expect(created.content).not.toContain('google.com')
   })
 
-  it('a relative asset path is sanitized, never stored verbatim', async () => {
+  it('a relative asset path is refused, never stored verbatim', async () => {
     const p: ActionProposal = {
       id: 'p2',
       kind: 'create-widget',
@@ -80,8 +87,10 @@ describe('diag: applyCreateWidget(kind=webview) sanitizes content (3.8.4 fix)', 
     await applyProposal(p, { activeTaskId: 'task-1' })
     const created = widgetCreateSpy.mock.calls[0][0]
     console.log('[DIAG-APPLIER] stored content (relative asset input):', created.content)
+    // Still never stored verbatim — that is the security property this test
+    // was written for, and it holds. Refusing is now '' rather than a search.
     expect(created.content).not.toBe('assets/index-C0cjuBNQ.js')
-    expect(created.content.startsWith('https://')).toBe(true)
+    expect(created.content).toBe('')
   })
 
   it('regression: a real https URL passes through untouched', async () => {
