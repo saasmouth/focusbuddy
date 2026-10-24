@@ -7,8 +7,8 @@ import type { SlideElement, SlideTextElement } from '@shared/types'
 import { splitByMarks, type ElementMarks, type Mark } from '../design/designFindHighlights'
 import { fillToCss } from '@shared/fills'
 import { cropStyle } from './slideOps'
-import WidgetEmbed from '../embed/WidgetEmbed'
 import PlexiChart from '../../charts/PlexiChart'
+import PlacedWidgetEmbed from '../embed/PlacedWidgetEmbed'
 
 // Drop-shadow presets, soft enough to read as depth rather than a hard edge.
 const SHADOW: Record<NonNullable<SlideElement['shadow']>, string> = {
@@ -303,7 +303,7 @@ export default function SlideElementView({
     // renders honest loading / missing states, so nothing is faked here.
     return (
       <div style={{ ...base, ...frame(el) }}>
-        <WidgetEmbed widgetId={el.widgetId} />
+        <PlacedWidgetEmbed placementId={el.id} widgetId={el.widgetId} display={el.embedDisplay} />
       </div>
     )
   }

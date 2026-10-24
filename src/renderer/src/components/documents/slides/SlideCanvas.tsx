@@ -70,6 +70,12 @@ interface Props {
   onUpdateElement: (id: string, patch: Partial<SlideElement>) => void
   onMoveMany: (ids: string[], dx: number, dy: number) => void
   onSetText: (id: string, text: string) => void
+  /**
+   * The editing canvas: an embedded work widget's content takes the pointer
+   * (draw on a scratchpad, scroll a table) and the element moves from its
+   * grip. Previews and thumbnails leave it off and stay inert.
+   */
+  embedsInteractive?: boolean
   // The logical canvas size. Defaults to the 16:9 slide space so existing decks
   // are unaffected; PlexiDesign passes the design's own width/height so the same
   // interactive canvas (drag, resize, snap guides, marquee) works at any size.
@@ -144,7 +150,8 @@ export default function SlideCanvas({
   textOf,
   onEditRequest,
   placing,
-  onPlace
+  onPlace,
+  embedsInteractive = false
 }: Props): JSX.Element {
   const lw = logicalW
   const lh = logicalH
@@ -352,6 +359,10 @@ export default function SlideCanvas({
               size={{ width: el.w, height: el.h }}
               position={pos}
               disableDragging={isEditing || locked}
+              // A drag that starts in an embedded work widget's content is the
+              // widget's own (drawing, scrolling, selecting); the element moves
+              // from its grip or edge instead.
+              cancel="[data-embed-interactive]"
               enableResizing={showHandles}
               lockAspectRatio={el.type === 'image' && !!el.lockAspect}
               resizeHandleStyles={showHandles ? HANDLE_STYLES : undefined}
@@ -427,7 +438,17 @@ export default function SlideCanvas({
                   }}
                 />
               ) : (
-                <div data-testid="slide-element" data-eltype={el.type} data-element-id={el.id} style={{ width: '100%', height: '100%', pointerEvents: 'none' }}>
+                <div
+                  data-testid="slide-element"
+                  data-eltype={el.type}
+                  data-element-id={el.id}
+                  // Inert, so a press anywhere on an element selects and drags
+                  // it — except an embedded work widget on the editing canvas,
+                  // whose content is live (Rnd's `cancel` keeps a drag in it
+                  // from moving the element). Until this, an embedded
+                  // scratchpad could not be drawn on: every press moved it.
+                  style={{ width: '100%', height: '100%', pointerEvents: embedsInteractive && el.type === 'widget' ? 'auto' : 'none' }}
+                >
                   <SlideElementView el={{ ...el, x: 0, y: 0 }} marks={marksFor?.(el)} />
                 </div>
               )}

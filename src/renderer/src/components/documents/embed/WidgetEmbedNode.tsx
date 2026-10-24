@@ -10,6 +10,7 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import WidgetEmbed from './WidgetEmbed'
+import { EMBED_DISPLAY_DEFAULT, normaliseEmbedDisplay } from '../../../lib/widgetSurface'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -19,15 +20,21 @@ declare module '@tiptap/core' {
   }
 }
 
-function WidgetEmbedView({ node, selected }: NodeViewProps): JSX.Element {
+function WidgetEmbedView({ node, selected, editor, updateAttributes }: NodeViewProps): JSX.Element {
   const widgetId = (node.attrs.widgetId as string | null) ?? ''
+  const display = normaliseEmbedDisplay(node.attrs.display)
   return (
-    <NodeViewWrapper className="my-3" data-drag-handle>
+    <NodeViewWrapper className="my-3">
       <div
         className={`h-[220px] not-prose ${selected ? 'rounded-lg ring-2 ring-accent' : ''}`}
         contentEditable={false}
       >
-        <WidgetEmbed widgetId={widgetId} />
+        <WidgetEmbed
+          widgetId={widgetId}
+          display={display}
+          // A read-only document can show either form but cannot change it.
+          onDisplayChange={editor.isEditable ? (d) => updateAttributes({ display: d }) : undefined}
+        />
       </div>
     </NodeViewWrapper>
   )
@@ -45,6 +52,13 @@ export const WidgetEmbedNode = Node.create({
         default: null,
         parseHTML: (el) => el.getAttribute('data-widget-embed'),
         renderHTML: (attrs) => (attrs.widgetId ? { 'data-widget-embed': attrs.widgetId } : {})
+      },
+      // 'data' (the content alone) or 'object' (the original, with its frame).
+      // Older documents carry nothing and read as the default.
+      display: {
+        default: EMBED_DISPLAY_DEFAULT,
+        parseHTML: (el) => normaliseEmbedDisplay(el.getAttribute('data-embed-display')),
+        renderHTML: (attrs) => ({ 'data-embed-display': normaliseEmbedDisplay(attrs.display) })
       }
     }
   },
@@ -60,7 +74,16 @@ export const WidgetEmbedNode = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(WidgetEmbedView)
+    return ReactNodeViewRenderer(WidgetEmbedView, {
+      // Events inside the embedded widget's content are the widget's (a pen
+      // stroke on a scratchpad, typing in a table). ProseMirror must not treat
+      // them as a node selection or the start of a node drag. The grip, which
+      // carries data-drag-handle, stays the editor's.
+      stopEvent: ({ event }) => {
+        const t = event.target as HTMLElement | null
+        return !!t?.closest?.('[data-embed-interactive]')
+      }
+    })
   },
 
   addCommands() {

@@ -4,6 +4,7 @@
 // and dropped when not, unknown shape ids fall back to 'process', and edges that
 // point at missing nodes are removed. Runs on every load, so it must never throw.
 
+import { embedDisplayField } from '../embedDisplay'
 import type {
   MapArrowHead,
   MapBody,
@@ -163,7 +164,7 @@ export function normalizeNode(raw: unknown): MapNode | null {
     ...(num(raw.height, 1, 100000) !== undefined ? { height: raw.height as number } : {}),
     // Preserve widget references. Dropping this would silently unlink every
     // widget node on load, so it is part of the normaliser's whitelist.
-    ...(typeof raw.widgetId === 'string' && raw.widgetId ? { widgetId: raw.widgetId } : {})
+    ...(typeof raw.widgetId === 'string' && raw.widgetId ? { widgetId: raw.widgetId, ...embedDisplayField(raw.embedDisplay) } : {})
   }
   const rotation = num(raw.rotation, -36000, 36000)
   return clean<MapNode>({

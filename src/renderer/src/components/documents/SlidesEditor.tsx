@@ -63,6 +63,7 @@ import { DECK_PAGE, deckSnippetTargetId, slideBodyFromSelection, slideElementsFr
 import { officeAccepts } from '../../lib/officeSnippets'
 import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
+import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../lib/widgetSurface'
 
 // PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
 // held as v2 (element-based) in local state; legacy decks migrate on mount. The
@@ -1045,7 +1046,14 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
 
   if (!slide) return <div className="p-6 text-[var(--ink-40)]">Empty deck.</div>
 
+  // An embedded work widget's display (data or original object) is saved on
+  // its slide element. A viewer gets no writer, so no toggle is offered.
+  const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
+    ? null
+    : (id, display) => updateEl(id, { embedDisplay: display } as Partial<SlideElement>)
+
   return (
+    <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
     <div ref={rootRef} className="h-full min-w-0 flex flex-col">
       <OfficeShellLayout
         testid="slides-shell"
@@ -1319,6 +1327,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               </div>
             ) : (
             <SlideCanvas
+              embedsInteractive
               slide={slide}
               theme={theme}
               width={canvasW}
@@ -1448,5 +1457,6 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         </div>
       )}
     </div>
+    </EmbedDisplayWriterContext.Provider>
   )
 }

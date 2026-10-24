@@ -11,13 +11,13 @@
 // document holds is ever injected as markup.
 
 import { memo } from 'react'
-import WidgetEmbed from '../../embed/WidgetEmbed'
 import { isDrawImageSrc, type DrawGradientDef } from '@shared/draw'
 import { pathToSvgD } from '@shared/drawGeometry'
 import { assetSrc } from '@shared/draw/assets'
 import type { DrawArtboard, DrawAsset, DrawDocVectorLayer, DrawNode, DrawSwatch, Matrix } from '@shared/draw/model'
 import { clipId, svgDocPaint } from '@shared/draw/svg'
 import { clipGroupParts, clipSilhouette } from '@shared/draw/ops/masks'
+import PlacedWidgetEmbed from '../../embed/PlacedWidgetEmbed'
 
 type Swatches = { swatches: DrawSwatch[] }
 
@@ -231,8 +231,12 @@ export const NodeView = memo(function NodeView({ o, assets, swatches }: NodeProp
     // from its id every render, so it never holds a stale copy.
     return (
       <foreignObject x={o.x} y={o.y} width={o.w} height={o.h} transform={frameTransform(o.transform, o.rotation, o.x + o.w / 2, o.y + o.h / 2)} style={style}>
-        <div style={{ width: '100%', height: '100%' }}>
-          <WidgetEmbed widgetId={o.widgetId} />
+        {/* The vector layer ignores the pointer (the stage hit-tests by
+            position), which left an embedded widget unusable: a stroke on an
+            embedded scratchpad selected and moved the object. Its content
+            takes the pointer; the stage moves it from its grip. */}
+        <div style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}>
+          <PlacedWidgetEmbed placementId={o.id} widgetId={o.widgetId} display={o.embedDisplay} />
         </div>
       </foreignObject>
     )

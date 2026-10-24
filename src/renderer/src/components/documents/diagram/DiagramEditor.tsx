@@ -53,6 +53,7 @@ import { diagramSnippetTargetId, suggestedDiagramSnippetName, useDiagramSnippetT
 import './diagram.css'
 import { officeAccepts } from '../../../lib/officeSnippets'
 import type { DocumentOps } from '../editor/documentOps'
+import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../../lib/widgetSurface'
 
 // PlexiDiagrams — a Lucidchart-class diagram editor on React Flow. The saved
 // MapBody is the single source of truth; React Flow is only the interaction
@@ -779,7 +780,14 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   const selBounds = useMemo(() => (sel.nodes.size > 1 ? ops.selectionBounds(page, sel.nodes) : null), [sel.nodes, page])
   const pages = pageList(body)
 
+  // An embedded work widget's display (data or original object) is saved on
+  // its node, as an undoable step. A viewer gets no writer.
+  const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
+    ? null
+    : (id, display) => update((g) => ops.patchNodes(g, new Set([id]), () => ({ embedDisplay: display })), 'embed-display')
+
   return (
+    <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
     <DiagramCtx.Provider value={ctxValue}>
       <DiagramChrome
         cmd={cmd}
@@ -985,5 +993,6 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         <SnippetLibrary kinds={officeAccepts('diagram')} targetId={diagramSnippetTargetId(snippetSurface)} onClose={() => setSnippetLibraryOpen(false)} />
       )}
     </DiagramCtx.Provider>
+    </EmbedDisplayWriterContext.Provider>
   )
 }

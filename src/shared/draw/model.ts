@@ -32,6 +32,7 @@
 //     byte-identical, and it is what a Transform panel shows anyway. `transform`
 //     is the extra, general matrix, applied outside the rotation.
 
+import type { EmbedDisplay } from '../embedDisplay'
 import type { DrawBlend, DrawGradientStop, DrawShapeKind } from '../draw'
 import type { Box, DrawPath, Matrix, Pt } from '../drawGeometry'
 
@@ -210,6 +211,8 @@ export interface DrawWidgetNode extends FrameBase {
   type: 'widget'
   h: number
   widgetId: string
+  /** 'data' (the content alone, the default) or 'object' (the original, with its frame). */
+  embedDisplay?: EmbedDisplay
 }
 
 export interface DrawGroupNode extends DrawNodeBase {

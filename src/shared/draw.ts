@@ -15,6 +15,7 @@
 // Layer 0 is the BOTTOM of the stack, matching SVG and canvas paint order, so
 // "draw them in array order" is always correct and no reversal is ever needed.
 
+import { embedDisplayField, type EmbedDisplay } from './embedDisplay'
 import {
   emptyPath,
   ellipsePath,
@@ -195,6 +196,8 @@ export interface DrawWidgetObject extends DrawObjectBase {
   /** A desk widget id, or `wf:<file id>` for a work widget file. */
   widgetId: string
   rotation?: number
+  /** 'data' (the content alone, the default) or 'object' (the original, with its frame). */
+  embedDisplay?: EmbedDisplay
 }
 
 /**
@@ -655,6 +658,7 @@ function normObject(v: unknown, asset: AssetLookup = NO_ASSETS): DrawObject | nu
       w: isNum(o.w) ? Math.max(1, o.w) : 320,
       h: isNum(o.h) ? Math.max(1, o.h) : 240,
       widgetId: o.widgetId,
+      ...embedDisplayField(o.embedDisplay),
       ...(isNum(o.rotation) ? { rotation: o.rotation } : {})
     }
   }

@@ -2140,7 +2140,19 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
                   </button>
                 </div>
                 <div style={{ height: pl.h - 20 }}>
-                  <WidgetEmbed widgetId={pl.widgetId} />
+                  <WidgetEmbed
+                    widgetId={pl.widgetId}
+                    display={pl.embedDisplay}
+                    onDisplayChange={
+                      readOnly
+                        ? undefined
+                        : (d) =>
+                            mutateTab((t) => ({
+                              ...t,
+                              widgets: (t.widgets ?? []).map((w) => (w.id === pl.id ? { ...w, embedDisplay: d } : w))
+                            }))
+                    }
+                  />
                 </div>
               </div>
             )

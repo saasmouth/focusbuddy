@@ -18,9 +18,9 @@
 import type { JSX } from 'react'
 import type { Widget } from '@shared/types'
 import { renderWidget } from '../../widgets/renderWidget'
-import { WidgetRemovableContext, WidgetSurfaceContext } from '../../../lib/widgetSurface'
+import { WidgetChromeContext, WidgetRemovableContext, WidgetSurfaceContext, type EmbedDisplay } from '../../../lib/widgetSurface'
 
-export default function EmbeddedWidgetBody({ widget }: { widget: Widget }): JSX.Element {
+export default function EmbeddedWidgetBody({ widget, display }: { widget: Widget; display: EmbedDisplay }): JSX.Element {
   // 'embedded' fills the box and cannot be dragged, so nothing inside a
   // document writes desk coordinates back to the desk the object came from.
   //
@@ -31,7 +31,9 @@ export default function EmbeddedWidgetBody({ widget }: { widget: Widget }): JSX.
   // the tool (header and "…" menu alike) when told the host owns removal.
   return (
     <WidgetSurfaceContext.Provider value="embedded">
-      <WidgetRemovableContext.Provider value={false}>{renderWidget(widget)}</WidgetRemovableContext.Provider>
+      <WidgetChromeContext.Provider value={display}>
+        <WidgetRemovableContext.Provider value={false}>{renderWidget(widget)}</WidgetRemovableContext.Provider>
+      </WidgetChromeContext.Provider>
     </WidgetSurfaceContext.Provider>
   )
 }

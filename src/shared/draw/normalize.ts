@@ -15,6 +15,7 @@
 //     survives an edit by this one;
 //   - an unknown effect kind is kept verbatim and makes the document read-only.
 
+import { embedDisplayField } from '../embedDisplay'
 import {
   DRAW_ID_PATTERN,
   DRAW_SCHEMA_VERSION,
@@ -250,7 +251,7 @@ const KNOWN_KEYS: Record<string, readonly string[]> = {
   path: [...BASE_KEYS, 'path', 'fill', 'stroke', 'shapeKind', 'cornerRadius', 'sides', 'innerRatio'],
   text: [...BASE_KEYS, 'x', 'y', 'w', 'rotation', 'transform', 'text', 'fontFamily', 'fontSize', 'fontWeight', 'italic', 'align', 'lineHeight', 'letterSpacing', 'fill', 'stroke', 'lines'],
   image: [...BASE_KEYS, 'x', 'y', 'w', 'h', 'rotation', 'transform', 'assetId', 'src', 'alt'],
-  widget: [...BASE_KEYS, 'x', 'y', 'w', 'h', 'rotation', 'transform', 'widgetId'],
+  widget: [...BASE_KEYS, 'x', 'y', 'w', 'h', 'rotation', 'transform', 'widgetId', 'embedDisplay'],
   group: [...BASE_KEYS, 'children', 'clip', 'transform']
 }
 
@@ -339,7 +340,7 @@ function normNode(v: unknown, ctx: Ctx, depth: number): DrawNode | null {
   }
   if (type === 'widget') {
     if (typeof o.widgetId !== 'string' || !/^[A-Za-z0-9:_-]{1,200}$/.test(o.widgetId)) return null
-    return { ...shared, type: 'widget', ...frame, w: isNum(o.w) ? Math.max(1, o.w) : 320, h: isNum(o.h) ? Math.max(1, o.h) : 240, widgetId: o.widgetId }
+    return { ...shared, type: 'widget', ...frame, w: isNum(o.w) ? Math.max(1, o.w) : 320, h: isNum(o.h) ? Math.max(1, o.h) : 240, widgetId: o.widgetId, ...embedDisplayField(o.embedDisplay) }
   }
   const path = normDrawPath(o.path)
   if (path.subpaths.length === 0) return null

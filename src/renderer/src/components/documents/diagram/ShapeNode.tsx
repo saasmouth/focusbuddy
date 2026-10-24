@@ -7,8 +7,8 @@ import { boundView } from '@shared/diagram/data'
 import type { MapNode } from '@shared/types'
 import { ShapeSvg } from './ShapeSvg'
 import { useDiagramCtx, type QuickDir } from './DiagramContext'
-import WidgetEmbed from '../embed/WidgetEmbed'
 import Icon from '../../Icon'
+import PlacedWidgetEmbed from '../embed/PlacedWidgetEmbed'
 
 // One diagram shape on the canvas. Geometry comes from the shape registry and
 // style from the resolver, so canvas and export agree. Selection is made
@@ -95,7 +95,7 @@ function ShapeBody({ node, selected, dragging }: { node: MapNode; selected: bool
 
         {def.special === 'widget' && (
           <div className="absolute inset-0 overflow-hidden rounded-lg border" style={{ borderColor: style.stroke }}>
-            <WidgetEmbed widgetId={node.widgetId ?? ''} />
+            <PlacedWidgetEmbed placementId={node.id} widgetId={node.widgetId ?? ''} display={node.embedDisplay} />
           </div>
         )}
 

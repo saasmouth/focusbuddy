@@ -13,7 +13,7 @@ import { snapEnabled } from '../../lib/gridPref'
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Rnd } from 'react-rnd'
-import { useWidgetRemovable, useWidgetSurface } from '../../lib/widgetSurface'
+import { useWidgetChrome, useWidgetRemovable, useWidgetSurface } from '../../lib/widgetSurface'
 import { type CtxMenuItem } from '../CanvasContextMenu'
 import UnifiedWidgetMenu from '../contextMenu/UnifiedWidgetMenu'
 import WidgetSetupAffordance from './WidgetSetupAffordance'
@@ -167,6 +167,11 @@ export default function WidgetFrame({
   // tint rather than sitting inside it.
   const hasKindAsset = !!resolveEntityIcon('widget', widget.kind).asset
   const embedded = useWidgetSurface() === 'embedded'
+  // An embed placed as DATA shows the content alone: no title bar, no card
+  // edge. Only an embed can ask for that (WidgetChromeContext defaults to
+  // 'object'), so the desk always keeps its frame.
+  const chrome = useWidgetChrome()
+  const bare = embedded && chrome === 'data'
   // False inside a document embed: the host owns removal (lib/widgetSurface).
   const removable = useWidgetRemovable()
   const linkedFileId = widgetFileIdFromGroup(widget.syncGroupId)
@@ -1282,7 +1287,7 @@ export default function WidgetFrame({
           if (isPinned) setActive(widget.id)
           else setFocused(widget.id)
         }}
-        className={`relative h-full w-full flex flex-col rounded-[var(--radius-card)] overflow-hidden border bg-[var(--surface-raised)] fb-spring-snap ${
+        className={`relative h-full w-full flex flex-col overflow-hidden ${bare ? 'border-0 bg-transparent' : 'rounded-[var(--radius-card)] border bg-[var(--surface-raised)]'} fb-spring-snap ${bare ? '' :
           // Edges + Glass (2026-08-23): the widget is a material card. At rest
           // its edge comes from light (the hairline ring, cast shadow and inset
           // top highlight in the box-shadow below), not from a 1px outline; the
@@ -1306,7 +1311,9 @@ export default function WidgetFrame({
           // same-luminance surface, a light-aware cast shadow, and the inset
           // highlight on the top edge. Softer inside a section (the section
           // already lifts it), fuller on the open canvas.
-          boxShadow: isActive
+          boxShadow: bare
+            ? 'none'
+            : isActive
             ? undefined // .widget-glow owns the active state
             : isChildOfSection
               ? '0 0 0 1px var(--edge-hairline), var(--shadow-soft), var(--shadow-inset-highlight)'
@@ -1335,6 +1342,7 @@ export default function WidgetFrame({
             <span className={`h-2.5 w-2.5 rounded-full ring-2 ring-[var(--surface-raised)] ${healthStyle.dot}`} />
           </span>
         )}
+        {!bare && (
         <div
           ref={headerRef}
           data-widget-header
@@ -1638,6 +1646,7 @@ export default function WidgetFrame({
             )}
           </div>
         </div>
+        )}
         <div
           ref={bodyRef}
           // Auto-grow widgets size to their content, but cap out (e.g. a very

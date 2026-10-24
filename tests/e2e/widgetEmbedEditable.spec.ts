@@ -111,6 +111,12 @@ test('the embed offers no control that could trash the file', async () => {
   const embedded = window.locator('[data-testid="widget-embed"]')
   await expect(embedded).toBeVisible({ timeout: 5_000 })
   await expect(embedded).toContainText('do not trash me')
+  // An embed now shows the content alone by default (owner, 4.3.43); the
+  // desk frame, header and tools appear only as the "Original" object, which
+  // is where a remove tool could ever have been. So check it there.
+  await embedded.hover()
+  await embedded.locator('[data-testid="embed-display-toggle"]').click()
+  await expect(embedded).toHaveAttribute('data-embed-display', 'object')
   // Not vacuous: the frame, with its header and tools, really is in the embed.
   const header = embedded.locator('[data-widget-header]')
   await expect(header).toHaveCount(1)

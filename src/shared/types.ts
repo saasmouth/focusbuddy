@@ -1,6 +1,7 @@
 // Type-only import (erased at build, no runtime cycle) so a document body can be
 // a PlexiDesign canvas. DesignBody is owned by ./design alongside its helpers,
 // and DrawBody by ./draw.
+import type { EmbedDisplay } from './embedDisplay'
 import type { DesignBody } from './design'
 import type { DrawBody } from './draw'
 import type { FlowLine } from './designFlow'
@@ -2777,6 +2778,8 @@ export interface SheetWidgetPlacement {
   y?: number
   w: number
   h: number
+  /** 'data' (the content alone, the default) or 'object' (the original, with its frame). */
+  embedDisplay?: EmbedDisplay
 }
 
 export interface SheetChartSpec {
@@ -3099,6 +3102,8 @@ export interface SlideLineElement extends SlideElementBase {
 export interface SlideWidgetElement extends SlideElementBase {
   type: 'widget'
   widgetId: string
+  /** 'data' (the content alone, the default) or 'object' (the original, with its frame). */
+  embedDisplay?: EmbedDisplay
 }
 // A chart on a slide, rendered through the shared chart core. It carries a data
 // snapshot so the deck is self-contained (present/export never depend on a live
@@ -3262,6 +3267,8 @@ export interface MapNode {
   // Only meaningful when shape === 'widget': the desk widget this node embeds.
   // The renderer resolves the widget live; a dangling id renders a missing state.
   widgetId?: string
+  /** With widgetId: 'data' (the content alone, the default) or 'object' (the original, with its frame). */
+  embedDisplay?: EmbedDisplay
   // ── v2 (all optional; absent = v1 behaviour) ──
   rotation?: number // degrees, clockwise
   flipX?: boolean

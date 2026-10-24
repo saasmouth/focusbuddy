@@ -100,6 +100,7 @@ import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
 import { barProps, ctxRow } from '../../lib/menus/officeCommand'
 import { runCommandKey } from '../../lib/menus/commandKeys'
 import { buildDesignCommands, type DesignCommands } from './design/designCommands'
+import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../lib/widgetSurface'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -2013,7 +2014,14 @@ export default function DesignEditor({
     </>
   )
 
+  // An embedded work widget's display (data or original object) is saved on
+  // its element, as one undoable change. A viewer gets no writer.
+  const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
+    ? null
+    : (id, display) => mutate((sl) => updateElement(sl, id, { embedDisplay: display } as Partial<SlideElement>))
+
   return (
+    <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
     <div
       className="flex flex-col h-full"
       data-testid="design-editor"
@@ -2139,6 +2147,7 @@ export default function DesignEditor({
             )}
             <DesignRulers width={design.width} height={design.height} scale={canvasW / design.width} onAddGuide={addGuide}>
               <SlideCanvas
+                embedsInteractive
                 slide={{
                   id: 'design',
                   notes: '',
@@ -2380,6 +2389,7 @@ export default function DesignEditor({
         </div>
       )}
     </div>
+    </EmbedDisplayWriterContext.Provider>
   )
 }
 

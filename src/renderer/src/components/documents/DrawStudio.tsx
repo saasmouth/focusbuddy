@@ -46,6 +46,8 @@ import { panelById } from './draw/panels/registry'
 import { rememberFlyoutTool, setShellPrefs, shellPrefs } from './draw/editor/shellPrefs'
 import { fieldKeepsKey, subscribeKeyOverrides } from './draw/commands/keys'
 import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type BarTab, type ContextBarHandle } from '../office/shell'
+import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../lib/widgetSurface'
+import { mapObjects } from '@shared/draw/ops/objects'
 
 // PlexiiDraw -- the vector + painting studio. This file is only the HOST: it
 // mounts the editor (documents/draw/editor), wires real services into it
@@ -515,6 +517,9 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     // object and make the box impossible to type in.
     const target = e.target as HTMLElement | null
     if (target && (target.tagName === 'TEXTAREA' || target.closest('[data-text-editing="1"]'))) return
+    // Likewise an embedded work widget's content: a stroke on an embedded
+    // scratchpad must draw there, not select and drag the widget object.
+    if (target?.closest('[data-embed-interactive]')) return
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     editor.pointerDown(toolPointer(e))
   }
@@ -679,7 +684,21 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   // View › Hide Artboards (⇧⌘H): no page fill, edge or shadow -- the art sits on the pasteboard.
   const hideBoards = prefs.hideArtboards
 
+  // An embedded work widget's display (data or original object) is saved on
+  // its drawing object, as one history step. A viewer gets no writer.
+  const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
+    ? null
+    : (id, display) => {
+        const ctx = editorRef.current?.ctx
+        if (!ctx || ctx.store.getState().readOnly) return
+        ctx.history.commit(
+          mapObjects(ctx.doc(), [id], (n) => (n.type === 'widget' ? { ...n, embedDisplay: display } : n)),
+          display === 'data' ? 'Show widget as data' : 'Show widget as original'
+        )
+      }
+
   return (
+    <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
     <div
       ref={rootRef}
       // Host rule (office-shell SPEC §6): `w-full min-w-0 min-h-0` let the
@@ -956,5 +975,6 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         </MenuModal>
       )}
     </div>
+    </EmbedDisplayWriterContext.Provider>
   )
 }
