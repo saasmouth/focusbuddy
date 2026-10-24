@@ -169,9 +169,46 @@ export async function launchApp(opts?: {
  * "PLEXII" after the futuristic-theme rebrand — matched via regex
  * so a future rename doesn't break every spec again).
  */
+/**
+ * Make the launch sign-in modal stay away, deterministically.
+ *
+ * waitForReady used to dismiss it by CLICKING "Continue without account" if it
+ * happened to be visible at that moment. That is a race, and it lost: the
+ * modal mounts after its own boot checks, so in a long serial run it arrived
+ * a beat late, nothing dismissed it, and every later click in the spec landed
+ * on its scrim instead. mailTags "3. a message the rule missed can be filed by
+ * hand" died that way in the 4.3.42 RC run — 30s of a click being swallowed by
+ * `<div role="dialog" aria-label="Sign in to PlexiiDesk" class="fb-scrim fixed
+ * inset-0 z-[280]">` — while passing when run alone.
+ *
+ * This sets the SKIP FLAG instead, which is state rather than timing: the
+ * modal reads `skippedAt` and stands down on its own, whenever it mounts.
+ *
+ * Written through the IPC (window.api.account.setSkipped) so it lands in
+ * userData as well as in the store. That matters for ordering: the account
+ * store's init() overwrites skippedAt with whatever it loads from disk, so a
+ * renderer-only poke would be undone if init happened to run afterwards.
+ * Persisting means init loads the flag we just wrote, whichever order they
+ * run in.
+ */
+export async function suppressSignInModal(window: Page): Promise<void> {
+  await window.evaluate(async () => {
+    const api = (window as unknown as {
+      api?: { account?: { setSkipped?: (v: boolean) => Promise<void> } }
+    }).api
+    await api?.account?.setSkipped?.(true).catch(() => undefined)
+    // And the live store, for the window between this call and any init()
+    // that has not run yet.
+    const store = (window as unknown as {
+      __fbAccount?: { setState: (s: object) => void }
+    }).__fbAccount
+    store?.setState({ skippedAt: Date.now() })
+  })
+}
+
 export async function waitForReady(
   window: Page,
-  opts: { dismissModals?: boolean } = {}
+  opts: { dismissModals?: boolean; keepSignIn?: boolean } = {}
 ): Promise<void> {
   const dismissModals = opts.dismissModals ?? true
   // Wait for window.api so renderer-side IPC calls inside the test are
@@ -213,10 +250,13 @@ export async function waitForReady(
     await window.locator('[data-testid="onboarding-start-blank"]').click(BEST_EFFORT).catch(() => {})
   }
 
-  // Sign-in modal — dismiss with "Continue without account" so subsequent
-  // interactions don't get pointer-intercepted by the modal overlay.
-  // Best-effort: if the modal isn't there (account already signed in, or
-  // already dismissed within the 7-day TTL) the call is a no-op.
+  // Sign-in modal — suppressed by STATE, not by a click that has to win a
+  // race. See suppressSignInModal. Specs that are about signing in pass
+  // { keepSignIn: true } and get the modal they came for.
+  if (!opts.keepSignIn) await suppressSignInModal(window)
+
+  // The click stays as a fallback for a modal already on screen before the
+  // flag landed. Best-effort and bounded, as everything here is.
   const skip = window.getByRole('button', {
     name: /continue without account|skip|not now/i
   })
