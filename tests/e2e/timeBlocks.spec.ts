@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, type LaunchedApp, waitForReady, gotoView, openBookTimeDialog } from './_helpers'
+import { launchApp, type LaunchedApp, waitForReady, gotoView, openBookTimeDialog, chooseCloudAiSource } from './_helpers'
 
 // Calendar time-blocking. Two layers: the backend round-trip (real SQLite —
 // create, range query, reschedule, complete, delete) and the week-grid UI
@@ -108,6 +108,10 @@ test('TB-3 — dragging a task onto a day column books a block for that task', a
   })
   await window.reload()
   await waitForReady(window)
+  // The local-AI intro card is a non-modal notice at the bottom centre; the
+  // booked block can land under it (21:45 on the grid), so close it, as the
+  // other specs that drive bottom-centre content do.
+  await chooseCloudAiSource(window)
 
   await gotoView(window, 'goCalendar')
   await window.locator('[data-testid="calendar-mode-week"]').click()
