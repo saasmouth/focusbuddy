@@ -38,6 +38,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.43',
+    date: '2026-10-25T06:00:00Z',
+    title: 'PlexiiDesk 4.3.43 \u2014 embed any app or tool in anything, and a smaller download',
+    tag: 'feature',
+    summary:
+      'Drag any Plexii app or tool into a document, spreadsheet, deck, design, diagram or drawing and work on it right there. Embeds show just their content or the original object, the Workcentre scrolls properly, and the download is much smaller because the on-device AI model now downloads separately.',
+    highlights: [
+      'Embed anything in anything: drag PlexiiWrite, PlexiiCells, PlexiiDeck, PlexiiDiagrams, PlexiiDesign or PlexiiDraw into another document and a live copy of the app appears that you can work in. Tools work the same way: Calendar, Inbox, Contacts, Focus, Browser, PDF, Mail and more.',
+      'Each embed shows just its content by default. Hover it and choose Original to see the object as it looks on a desk, with its header and tools; each embed remembers its choice. Move an embed by the grip that appears in its corner.',
+      'Drawing in an embedded scratchpad now draws lines. Before, the document, slide or drawing around it took the stroke as a move, and only dots were drawn.',
+      'The Workcentre scrolls with the mouse wheel and a trackpad, and you can grab empty space and drag; let go and it glides on. The Columns view scrolls the same way.',
+      'A smaller download: the on-device AI model is no longer inside the app. It downloads once, when you turn on Local on this device.'
+    ]
+  },
+  {
     version: '4.3.42',
     date: '2026-10-24T06:00:00Z',
     title: 'PlexiiDesk 4.3.42 \u2014 one layout and the same menus in every office app, printing, Workcentre, Files beside your work, and snippets everywhere',
