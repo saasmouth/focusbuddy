@@ -26,7 +26,9 @@ function WidgetEmbedView({ node, selected, editor, updateAttributes }: NodeViewP
   return (
     <NodeViewWrapper className="my-3">
       <div
-        className={`h-[220px] not-prose ${selected ? 'rounded-lg ring-2 ring-accent' : ''}`}
+        // An embedded office app (doc:<id>) needs room for its own menus and
+        // a working area; at 220px a spreadsheet showed its header row only.
+        className={`${widgetId.startsWith('doc:') ? 'h-[480px]' : 'h-[220px]'} not-prose ${selected ? 'rounded-lg ring-2 ring-accent' : ''}`}
         contentEditable={false}
       >
         <WidgetEmbed
