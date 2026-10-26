@@ -88,7 +88,8 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
     }
   }, [taskId, userId])
 
-  const items = useMemo(() => workcentreEligible(widgets), [widgets])
+  const hidden = useMemo(() => stored?.hidden ?? [], [stored])
+  const items = useMemo(() => workcentreEligible(widgets).filter((w) => !hidden.includes(w.id)), [widgets, hidden])
   const pad = 16
   const innerW = Math.max(0, width - pad * 2)
   const cols = colsForWidth(innerW)
@@ -99,11 +100,18 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
   const layout: WorkcentreLayout | null = useMemo(() => {
     if (stored === undefined || !width) return null
     const objects = items.map((w) => ({ id: w.id, preferred: unitsFromPx({ w: w.width, h: w.height }, colPx) }))
-    return syncLayout(stored, objects, cols, mins, pendingTileAt)
+    const synced = syncLayout(stored, objects, cols, mins, pendingTileAt)
+    // Carried through, so the reconciled layout and the stored one compare
+    // equal and a hidden list never sets off a save loop.
+    return stored?.hidden ? { ...synced, hidden: stored.hidden } : synced
   }, [stored, items, cols, colPx, mins, width, pendingTileAt])
 
+  const hiddenRef = useRef<string[] | undefined>(undefined)
+  hiddenRef.current = stored?.hidden
   const persist = useCallback(
-    (l: WorkcentreLayout) => {
+    (raw: WorkcentreLayout) => {
+      // fromTiles knows nothing of the hidden list; keep it on every save.
+      const l = raw.hidden === undefined && hiddenRef.current ? { ...raw, hidden: hiddenRef.current } : raw
       setStored(l)
       void window.api.deskLayout.saveWorkcentre(userId, taskId, currentDeviceClass(), l).catch(() => undefined)
     },
@@ -248,6 +256,18 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
         <span className="flex-1 min-w-0 truncate text-[11px] text-[var(--ink-50)]" data-testid="workcentre-hint">
           Drag a tile by its title to move it; drag an edge or corner to resize. Alt+arrows move, Shift+Alt+arrows resize. Saved on this device.
         </span>
+        {hidden.length > 0 && layout && (
+          <button
+            type="button"
+            className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 h-7 text-[12px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+            onClick={() => persist({ ...layout, hidden: [] })}
+            title="Show every hidden work widget in the Workcentre again"
+            data-testid="workcentre-show-hidden"
+          >
+            <Icon name="visibility" size={14} />
+            {hidden.length} hidden · Show all
+          </button>
+        )}
         <ViewSelector taskId={taskId} />
       </div>
       <div ref={hostRef} className="flex-1 min-h-0 min-w-0 overflow-auto cursor-grab" data-testid="workcentre-scroll">
@@ -333,6 +353,21 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
                       className="icon-btn h-6 w-6 shrink-0 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
                     >
                       <Icon name="my_location" size={13} />
+                    </button>
+                    <button
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={() => {
+                        if (!layout) return
+                        const items = { ...layout.items }
+                        delete items[t.id]
+                        persist({ ...layout, items, hidden: [...hidden, t.id] })
+                      }}
+                      title="Hide from the Workcentre (it stays on the desk)"
+                      aria-label={`Hide ${widgetDisplayName(w)} from the Workcentre`}
+                      data-testid={`workcentre-hide-${t.id}`}
+                      className="icon-btn h-6 w-6 shrink-0 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
+                    >
+                      <Icon name="visibility_off" size={13} />
                     </button>
                   </header>
                   {/* The full content, filling the tile. Pointer-transparent during a gesture. */}

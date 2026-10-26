@@ -33,6 +33,12 @@ export interface WorkcentreTile {
 export interface WorkcentreLayout {
   cols: number
   items: Record<string, WorkcentreTile>
+  /**
+   * Objects taken out of this Workcentre WITHOUT being deleted: they stay on
+   * the desk and in every other view (owner, 4.3.44: "remove from Workcentre
+   * without delete being the only option"). Absent = none hidden.
+   */
+  hidden?: string[]
 }
 
 export interface DeskLayout {
