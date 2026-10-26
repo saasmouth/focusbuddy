@@ -53,7 +53,7 @@ import { diagramSnippetTargetId, suggestedDiagramSnippetName, useDiagramSnippetT
 import './diagram.css'
 import { officeAccepts } from '../../../lib/officeSnippets'
 import type { DocumentOps } from '../editor/documentOps'
-import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../../lib/widgetSurface'
+import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../../lib/widgetSurface'
 
 // PlexiDiagrams — a Lucidchart-class diagram editor on React Flow. The saved
 // MapBody is the single source of truth; React Flow is only the interaction
@@ -782,12 +782,17 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
 
   // An embedded work widget's display (data or original object) is saved on
   // its node, as an undoable step. A viewer gets no writer.
+  // Taking an embed off the diagram removes its node only, as an undo step.
+  const embedRemover: EmbedRemover | null = readOnly
+    ? null
+    : (id) => update((g) => ops.deleteSelection(g, { nodes: new Set([id]), edges: new Set() }), 'embed-remove')
   const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
     ? null
     : (id, display) => update((g) => ops.patchNodes(g, new Set([id]), () => ({ embedDisplay: display })), 'embed-display')
 
   return (
     <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
+    <EmbedRemoveContext.Provider value={embedRemover}>
     <DiagramCtx.Provider value={ctxValue}>
       <DiagramChrome
         cmd={cmd}
@@ -993,6 +998,7 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
         <SnippetLibrary kinds={officeAccepts('diagram')} targetId={diagramSnippetTargetId(snippetSurface)} onClose={() => setSnippetLibraryOpen(false)} />
       )}
     </DiagramCtx.Provider>
+    </EmbedRemoveContext.Provider>
     </EmbedDisplayWriterContext.Provider>
   )
 }

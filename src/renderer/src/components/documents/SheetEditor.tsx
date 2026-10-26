@@ -42,6 +42,8 @@ import { rewriteFormulaRefs, remapFormulaRefs, displayCell, buildSpillMap, makeW
 import { isSingleCell } from '@shared/gridClipboard'
 import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import { fitEmbedBox } from './embed/embedSize'
+
 import WidgetEmbed from './embed/WidgetEmbed'
 import SheetMenuBar, { type SheetMenuActions } from './editor/SheetMenuBar'
 import { buildCellsCommands } from './sheet/cellsCommands'
@@ -102,6 +104,9 @@ import {
   suggestedSheetSnippetName,
   useCellsSnippetTarget
 } from './sheet/cellsSnippets'
+
+// A work widget dropped on the grid: this wide, as tall as its content.
+const EMBED_BOX = { w: 320, h: 220, maxH: 520 }
 
 /** The library opened from a spreadsheet shows only what a spreadsheet can take. */
 // Every kind with a conversion into this app, derived from the builders.
@@ -2047,9 +2052,11 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
               void runContentDrop(refs, { target: 'sheet', alt: e.altKey, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
                 if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !e.altKey) {
                   const at = next
+                  const wid = widgetFileGroupId(ref.docId)
+                  const { w, h } = await fitEmbedBox(wid, EMBED_BOX)
                   mutateTab((t) => ({
                     ...t,
-                    widgets: [...(t.widgets ?? []), { id: `sw-${Date.now().toString(36)}-${ref.docId!.slice(0, 6)}`, widgetId: widgetFileGroupId(ref.docId!), mode: 'cell' as const, r: at.r, c: at.c, w: 320, h: 220 }]
+                    widgets: [...(t.widgets ?? []), { id: `sw-${Date.now().toString(36)}-${ref.docId!.slice(0, 6)}`, widgetId: wid, mode: 'cell' as const, r: at.r, c: at.c, w, h }]
                   }))
                   next = { r: at.r + 10, c: at.c }
                   return true
@@ -2072,15 +2079,16 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             const px = e.clientX - box.left + e.currentTarget.scrollLeft
             const py = e.clientY - box.top + e.currentTarget.scrollTop
             const cell = cellAtOffset(px, py)
-            void widgetIdFromDrop(e.dataTransfer).then((widgetId) => {
+            void widgetIdFromDrop(e.dataTransfer).then(async (widgetId) => {
               if (!widgetId) return
+              const { w, h } = await fitEmbedBox(widgetId, EMBED_BOX)
               mutateTab((t) => ({
                 ...t,
                 widgets: [
                   ...(t.widgets ?? []),
                   cell
-                    ? { id: `sw-${Date.now().toString(36)}`, widgetId, mode: 'cell' as const, r: cell.r, c: cell.c, w: 320, h: 220 }
-                    : { id: `sw-${Date.now().toString(36)}`, widgetId, mode: 'float' as const, x: Math.round(px), y: Math.round(py), w: 320, h: 220 }
+                    ? { id: `sw-${Date.now().toString(36)}`, widgetId, mode: 'cell' as const, r: cell.r, c: cell.c, w, h }
+                    : { id: `sw-${Date.now().toString(36)}`, widgetId, mode: 'float' as const, x: Math.round(px), y: Math.round(py), w, h }
                 ]
               }))
             })
@@ -2143,6 +2151,8 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
                   <WidgetEmbed
                     widgetId={pl.widgetId}
                     display={pl.embedDisplay}
+                    hostNoun="this sheet"
+                    onRemove={readOnly ? undefined : () => mutateTab((t) => ({ ...t, widgets: (t.widgets ?? []).filter((w) => w.id !== pl.id) }))}
                     onDisplayChange={
                       readOnly
                         ? undefined

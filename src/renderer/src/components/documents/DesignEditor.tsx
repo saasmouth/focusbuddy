@@ -72,6 +72,7 @@ import DesignRulers from './design/DesignRulers'
 import Icon from '../Icon'
 import SlideElementView from './slides/SlideElementView'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import { fitEmbedBox } from './embed/embedSize'
 import { useBrandStore } from '../../stores/brand'
 import BrandKitModal from './BrandKitModal'
 import { GOOGLE_FONTS, loadGoogleFont, familyLabel } from '../../lib/googleFonts'
@@ -100,7 +101,7 @@ import { canvasMenu, objectMenu } from '../../lib/menus/officeContextMenu'
 import { barProps, ctxRow } from '../../lib/menus/officeCommand'
 import { runCommandKey } from '../../lib/menus/commandKeys'
 import { buildDesignCommands, type DesignCommands } from './design/designCommands'
-import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../lib/widgetSurface'
+import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -987,18 +988,20 @@ export default function DesignEditor({
     if (res.ok && res.dataUrl) placeImage(res.dataUrl)
   }
 
-  // Place a live desk-widget embed on the canvas. Only the id is stored; the
-  // renderer resolves the widget's current content every time.
-  function addWidget(widgetId: string): void {
-    const w = Math.round(design.width * 0.4)
+  // Place a live desk-widget embed on the canvas, shaped like its content and
+  // centred. Only the id is stored; the renderer resolves the widget's current
+  // content every time.
+  async function addWidget(widgetId: string): Promise<void> {
+    const dw = Math.round(design.width * 0.4)
+    const { w, h } = await fitEmbedBox(widgetId, { w: dw, h: Math.round(dw * 0.7), maxH: Math.round(design.height * 0.8) })
     const el: SlideElement = {
       id: elementId(),
       type: 'widget',
       widgetId,
-      x: Math.round(design.width * 0.3),
-      y: Math.round(design.height * 0.3),
+      x: Math.round((design.width - w) / 2),
+      y: Math.round((design.height - h) / 2),
       w,
-      h: Math.round(w * 0.7),
+      h,
       z: topZ + 1
     }
     mutate((s) => addElement(s, el))
@@ -2016,12 +2019,17 @@ export default function DesignEditor({
 
   // An embedded work widget's display (data or original object) is saved on
   // its element, as one undoable change. A viewer gets no writer.
+  // Taking an embed off the page removes the element only, as one undo step.
+  const embedRemover: EmbedRemover | null = readOnly
+    ? null
+    : (id) => mutate((sl) => ({ ...sl, elements: (sl.elements ?? []).filter((e) => e.id !== id) }))
   const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
     ? null
     : (id, display) => mutate((sl) => updateElement(sl, id, { embedDisplay: display } as Partial<SlideElement>))
 
   return (
     <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
+    <EmbedRemoveContext.Provider value={embedRemover}>
     <div
       className="flex flex-col h-full"
       data-testid="design-editor"
@@ -2049,7 +2057,7 @@ export default function DesignEditor({
           const alt = e.altKey
           void runContentDrop(refs, { target: 'design', alt, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
             if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !alt) {
-              addWidget(widgetFileGroupId(ref.docId))
+              await addWidget(widgetFileGroupId(ref.docId))
               return true
             }
             return pasteConverted('design', (b) => insertSnippetHere(pastedSnippet(b), at), { read })
@@ -2059,7 +2067,7 @@ export default function DesignEditor({
         if (!acceptsWidgetDrag(e.dataTransfer)) return
         e.preventDefault()
         void widgetIdFromDrop(e.dataTransfer).then((id) => {
-          if (id) addWidget(id)
+          if (id) void addWidget(id)
         })
       }}
     >
@@ -2355,7 +2363,7 @@ export default function DesignEditor({
         <WidgetPickerDialog
           onPick={(widgetId) => {
             setWidgetPickerOpen(false)
-            addWidget(widgetId)
+            void addWidget(widgetId)
           }}
           onClose={() => setWidgetPickerOpen(false)}
         />
@@ -2389,6 +2397,7 @@ export default function DesignEditor({
         </div>
       )}
     </div>
+    </EmbedRemoveContext.Provider>
     </EmbedDisplayWriterContext.Provider>
   )
 }

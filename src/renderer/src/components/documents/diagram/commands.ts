@@ -27,6 +27,7 @@ import { readClipboardForms } from '../../../lib/clipboardForms'
 import { fromAnotherApp, pasteConverted } from '../../../lib/clipboardPaste'
 import { writeGate, type OfficeCommand } from '../../../lib/menus/officeCommand'
 import type { DiagramCommands } from './diagramCommands'
+import { fitEmbedBox } from '../embed/embedSize'
 
 // Every editor action in one place. Menus, the toolbar, keyboard shortcuts, the
 // context menu and the inspector all call these, so an action behaves the same
@@ -158,8 +159,13 @@ function makeCommands(d: Deps) {
     addImageUrl(url: string, center = viewportCenter()): void {
       add([makeNode(imageShapeId(), center, { image: url, label: '', width: 240, height: 160 })])
     },
+    // Shaped like its content (a drawing, a deck, a widget's own frame).
     addWidget(widgetId: string, at?: { x: number; y: number }): void {
-      add([makeNode('widget', at ?? viewportCenter(), { widgetId, label: '' })])
+      const center = at ?? viewportCenter()
+      const def = getShape('widget')
+      void fitEmbedBox(widgetId, { w: def.w, h: def.h, maxH: def.w * 1.6 }).then(({ w, h }) => {
+        add([makeNode('widget', center, { widgetId, label: '', width: w, height: h })])
+      })
     },
     // A batch from a dialog (apps, tools, data cards), laid out from 0,0; it is
     // moved into clear space below the existing shapes.

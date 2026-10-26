@@ -58,6 +58,14 @@ function reach(s: { points: number[][] } | undefined): number {
   return Math.max(...xs) - Math.min(...xs)
 }
 
+/** At rest an embed shows its output; editing is a mode you enter (4.3.44). */
+async function enterEdit(window: Page, scope = '[data-testid="widget-embed"]'): Promise<void> {
+  const embed = window.locator(scope).first()
+  await embed.hover()
+  await embed.locator('[data-testid="embed-edit-toggle"]').click()
+  await expect(embed).toHaveAttribute('data-embed-editing', '', { timeout: 5_000 })
+}
+
 async function drag(window: Page, x: number, y: number, dx: number): Promise<void> {
   await window.mouse.move(x, y)
   await window.mouse.down()
@@ -158,6 +166,8 @@ test('EI-3 a stroke on a scratchpad embedded in a document draws a line', async 
     return { docId: doc.id, fileId: file.id }
   })
   await open(window, 'document', docId)
+  await expect(window.locator('[data-testid="widget-embed"]')).toBeVisible({ timeout: 10_000 })
+  await enterEdit(window)
   // The scratchpad's own drawing surface (it exists before and after the fix,
   // so a red on the old build is the bug, not a missing selector).
   const body = window.locator('[data-testid="widget-embed"] .touch-none').first()
@@ -207,6 +217,8 @@ test('EI-4 a stroke on a scratchpad embedded in a deck draws a line and does not
     return { deckId: deck.id, fileId: file.id }
   })
   await open(window, 'document', deckId)
+  await expect(window.locator('[data-testid="slides-canvas"] [data-element-id="e1"] [data-testid="widget-embed"]')).toBeVisible({ timeout: 10_000 })
+  await enterEdit(window, '[data-testid="slides-canvas"] [data-element-id="e1"] [data-testid="widget-embed"]')
   const body = window.locator('[data-testid="slides-canvas"] [data-element-id="e1"] .touch-none').first()
   await expect(body).toBeVisible({ timeout: 10_000 })
   const b = (await body.boundingBox())!
@@ -358,6 +370,10 @@ test('EI-7 PlexiiCells dropped into a document becomes a live, editable spreadsh
 
   const embed = window.locator('[data-testid="widget-embed"]').first()
   await expect(embed, 'the app was not embedded').toBeVisible({ timeout: 10_000 })
+  // At rest: the spreadsheet's output only, no grid editor.
+  await expect(embed.locator('[data-testid="embed-output"]')).toBeVisible({ timeout: 10_000 })
+  await expect(embed.locator('[data-testid="sheet-grid"]')).toHaveCount(0)
+  await enterEdit(window)
   await expect(embed.locator('[data-testid="sheet-grid"]')).toBeVisible({ timeout: 10_000 })
   await expect(window.locator('[data-testid="notice-toast"]')).toHaveCount(0)
 

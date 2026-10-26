@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import WidgetEmbed from './WidgetEmbed'
-import { useEmbedDisplayWriter, type EmbedDisplay } from '../../../lib/widgetSurface'
+import { useEmbedDisplayWriter, useEmbedRemover, type EmbedDisplay } from '../../../lib/widgetSurface'
 
 // A work widget embedded as an element of a slide, design, diagram or drawing.
 // Those renderers are pure views of their element and have no update path, so
@@ -17,11 +17,13 @@ export default function PlacedWidgetEmbed({
   display: EmbedDisplay | undefined
 }): JSX.Element {
   const write = useEmbedDisplayWriter()
+  const remove = useEmbedRemover()
   return (
     <WidgetEmbed
       widgetId={widgetId}
       display={display}
       onDisplayChange={write ? (d) => write(placementId, d) : undefined}
+      onRemove={remove ? () => remove(placementId) : undefined}
     />
   )
 }

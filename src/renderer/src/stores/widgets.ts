@@ -1,4 +1,5 @@
 import { documentIdFromEmbed } from '@shared/documentEmbedId'
+import { publishWidgetWrite } from '../lib/widgetWrites'
 import { create } from 'zustand'
 import { fitNewWidgetToView } from '../lib/fitDroppedWidget'
 import { catalogFor } from '../lib/widgetCatalog'
@@ -544,6 +545,9 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
       if (!updated) return
       nudgeSync()
       const server = updated
+      // A widget from a desk that is not open (shown in an embed): nothing here
+      // follows it, so hand its saved copy to whatever is showing it.
+      if (!target) publishWidgetWrite(server)
       // Reconcile with the server copy, then re-assert any overlay-destined
       // geometry so the server's (unchanged) base geometry never clobbers the
       // optimistic move that was deliberately not written to the base.

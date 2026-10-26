@@ -76,7 +76,7 @@ export async function dropFromFiles(
   ctx: EditorCtx,
   refs: FileDragRef[],
   at: Pt,
-  opts: { alt: boolean; ownDocumentId: string | null; addWidget: (widgetId: string) => void }
+  opts: { alt: boolean; ownDocumentId: string | null; addWidget: (widgetId: string) => void | Promise<void> }
 ): Promise<void> {
   const readOnly = ctx.get().readOnly
   const placeable = readOnly ? [] : refs.filter((r) => PLACED.has(sourceKindOf(r)))
@@ -96,7 +96,7 @@ export async function dropFromFiles(
   if (!rest.length) return
   await runContentDrop(rest, { target: 'draw', alt: opts.alt, readOnly, ownDocumentId: opts.ownDocumentId }, async (read, ref) => {
     if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !opts.alt) {
-      opts.addWidget(widgetFileGroupId(ref.docId))
+      await opts.addWidget(widgetFileGroupId(ref.docId))
       return true
     }
     return landConvertedAt(ctx, read, at)

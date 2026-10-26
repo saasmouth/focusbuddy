@@ -70,3 +70,15 @@ export const EmbedDisplayWriterContext = createContext<EmbedDisplayWriter | null
 export function useEmbedDisplayWriter(): EmbedDisplayWriter | null {
   return useContext(EmbedDisplayWriterContext)
 }
+
+// How a host takes an embed OUT of itself — the placement only, never the
+// object (owner, 4.3.44: "I may want to just remove it from the embed parent",
+// without delete being the only option). Keyed by the placement's id, like the
+// display writer. A viewer or static render provides nothing, and then no
+// remove control is offered.
+export type EmbedRemover = (placementId: string) => void
+export const EmbedRemoveContext = createContext<EmbedRemover | null>(null)
+
+export function useEmbedRemover(): EmbedRemover | null {
+  return useContext(EmbedRemoveContext)
+}

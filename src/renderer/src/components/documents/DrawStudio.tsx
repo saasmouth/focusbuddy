@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from 'zustand'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import { fitEmbedBox } from './embed/embedSize'
 import { claimZoomCommands } from '../../lib/zoomCommands'
 import type { LiveUndo } from '../../lib/yjsKeyedJson'
 import { loadGoogleFont, familyLabel } from '../../lib/googleFonts'
@@ -46,8 +47,8 @@ import { panelById } from './draw/panels/registry'
 import { rememberFlyoutTool, setShellPrefs, shellPrefs } from './draw/editor/shellPrefs'
 import { fieldKeepsKey, subscribeKeyOverrides } from './draw/commands/keys'
 import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type BarTab, type ContextBarHandle } from '../office/shell'
-import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../lib/widgetSurface'
-import { mapObjects } from '@shared/draw/ops/objects'
+import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
+import { deleteObjects, mapObjects } from '@shared/draw/ops/objects'
 
 // PlexiiDraw -- the vector + painting studio. This file is only the HOST: it
 // mounts the editor (documents/draw/editor), wires real services into it
@@ -686,6 +687,14 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   // An embedded work widget's display (data or original object) is saved on
   // its drawing object, as one history step. A viewer gets no writer.
+  // Taking an embed off the drawing removes the object only, as one history step.
+  const embedRemover: EmbedRemover | null = readOnly
+    ? null
+    : (id) => {
+        const ctx = editorRef.current?.ctx
+        if (!ctx || ctx.store.getState().readOnly) return
+        ctx.history.commit(deleteObjects(ctx.doc(), [id]), 'Remove embedded work widget')
+      }
   const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
     ? null
     : (id, display) => {
@@ -699,6 +708,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
 
   return (
     <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
+    <EmbedRemoveContext.Provider value={embedRemover}>
     <div
       ref={rootRef}
       // Host rule (office-shell SPEC §6): `w-full min-w-0 min-h-0` let the
@@ -743,11 +753,12 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
           void dropFromFiles(ctx, refs, at, {
             alt: e.altKey,
             ownDocumentId: documentOps?.id ?? null,
-            addWidget: (widgetId) => {
+            addWidget: async (widgetId) => {
               // The same widget object a work widget's own drag places.
+              const b = primaryArtboard(ctx.doc())
+              const { w, h } = await fitEmbedBox(widgetId, { w: b.w * 0.4, h: b.w * 0.28, maxH: b.h * 0.8 })
               const d = ctx.doc()
-              const b = primaryArtboard(d)
-              const obj: DrawWidgetNode = { id: drawId('obj'), type: 'widget', widgetId, x: Math.round(at.x), y: Math.round(at.y), w: Math.round(b.w * 0.4), h: Math.round(b.w * 0.28) }
+              const obj: DrawWidgetNode = { id: drawId('obj'), type: 'widget', widgetId, x: Math.round(at.x), y: Math.round(at.y), w, h }
               ctx.history.commit(addObject(d, obj, targetLayerId(d)), 'Place work widget')
               ctx.select([obj.id])
             }
@@ -762,21 +773,23 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         }
         if (!acceptsWidgetDrag(e.dataTransfer)) return
         e.preventDefault()
-        void widgetIdFromDrop(e.dataTransfer).then((widgetId) => {
+        void widgetIdFromDrop(e.dataTransfer).then(async (widgetId) => {
           if (!widgetId) return
           // Placed like any other object, on the active layer, so it moves,
-          // scales, reorders and deletes with the rest of the drawing.
+          // scales, reorders and deletes with the rest of the drawing. Shaped
+          // like its content, centred on the active artboard.
+          const b0 = primaryArtboard(ctx.doc())
+          const { w, h } = await fitEmbedBox(widgetId, { w: b0.w * 0.4, h: b0.w * 0.28, maxH: b0.h * 0.8 })
           const d = ctx.doc()
-          // On the active artboard, a quarter of the way in.
           const b = primaryArtboard(d)
           const obj: DrawWidgetNode = {
             id: drawId('obj'),
             type: 'widget',
             widgetId,
-            x: Math.round(b.x + b.w * 0.25),
-            y: Math.round(b.y + b.h * 0.25),
-            w: Math.round(b.w * 0.4),
-            h: Math.round(b.w * 0.28)
+            x: Math.round(b.x + (b.w - w) / 2),
+            y: Math.round(b.y + (b.h - h) / 2),
+            w,
+            h
           }
           ctx.history.commit(addObject(d, obj, targetLayerId(d)), 'Place work widget')
           ctx.select([obj.id])
@@ -975,6 +988,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
         </MenuModal>
       )}
     </div>
+    </EmbedRemoveContext.Provider>
     </EmbedDisplayWriterContext.Provider>
   )
 }

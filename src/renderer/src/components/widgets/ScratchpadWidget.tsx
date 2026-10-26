@@ -24,7 +24,7 @@ interface ScratchState {
 const COLORS = ['#1c1917', '#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#db2777']
 const SIZES = [3, 6, 12]
 
-function parseState(content: string): ScratchState {
+export function parseState(content: string): ScratchState {
   if (!content) return { strokes: [] }
   try {
     const o = JSON.parse(content) as Partial<ScratchState>
@@ -35,7 +35,7 @@ function parseState(content: string): ScratchState {
 }
 
 // perfect-freehand → SVG path data. Standard helper from the lib's docs.
-function strokeToPath(points: number[][], size: number): string {
+export function strokeToPath(points: number[][], size: number): string {
   const outline = getStroke(points, {
     size,
     thinning: 0.6,

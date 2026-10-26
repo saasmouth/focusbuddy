@@ -4,7 +4,7 @@ import { pasteConverted } from '../../lib/clipboardPaste'
 import { widgetFileGroupId } from '@shared/widgetFiles'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DeckTheme, Slide, SlideElement, SlideLayout, SlidesBody, SlideTransition } from '@shared/types'
-import { resolveTheme, layoutElements, applyThemeToDeck, BUILTIN_THEMES } from '@shared/slideThemes'
+import { resolveTheme, layoutElements, applyThemeToDeck, BUILTIN_THEMES, SLIDE_W, SLIDE_H } from '@shared/slideThemes'
 import { SLIDE_TEMPLATES } from '@shared/slideTemplates'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
 import SlideFace from './slides/SlideFace'
@@ -12,6 +12,7 @@ import type { DocumentOps } from './editor/documentOps'
 import { usePrintSource } from './editor/printSource'
 import SlideCanvas from './slides/SlideCanvas'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
+import { fitEmbedBox } from './embed/embedSize'
 import SlidesMenuBar from './editor/SlidesMenuBar'
 import { buildDeckCommands } from './slides/deckCommands'
 import { barProps, ctxRow, paletteEntries } from '../../lib/menus/officeCommand'
@@ -63,7 +64,7 @@ import { DECK_PAGE, deckSnippetTargetId, slideBodyFromSelection, slideElementsFr
 import { officeAccepts } from '../../lib/officeSnippets'
 import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
-import { EmbedDisplayWriterContext, type EmbedDisplayWriter } from '../../lib/widgetSurface'
+import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
 
 // PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
 // held as v2 (element-based) in local state; legacy decks migrate on mount. The
@@ -504,10 +505,12 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     mutateSlide((s) => addElement(s, el))
     setSelectedIds([el.id])
   }
-  // Insert a live desk-widget embed sized like a content card. The element only
-  // stores the widget id; rendering resolves the current content every time.
-  function insertWidget(widgetId: string): void {
-    const el: SlideElement = { id: elementId(), type: 'widget', widgetId, x: 400, y: 200, w: 480, h: 320, z: 10 }
+  // Insert a live desk-widget embed, shaped like its content and centred. The
+  // element only stores the widget id; rendering resolves the current content
+  // every time.
+  async function insertWidget(widgetId: string): Promise<void> {
+    const { w, h } = await fitEmbedBox(widgetId, { w: 480, h: 320, maxH: 560 })
+    const el: SlideElement = { id: elementId(), type: 'widget', widgetId, x: Math.round((SLIDE_W - w) / 2), y: Math.round((SLIDE_H - h) / 2), w, h, z: 10 }
     mutateSlide((s) => addElement(s, el))
     setSelectedIds([el.id])
   }
@@ -1048,12 +1051,18 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
 
   // An embedded work widget's display (data or original object) is saved on
   // its slide element. A viewer gets no writer, so no toggle is offered.
+  // Taking an embed off the slide removes the element only; the work widget,
+  // file or document it shows is untouched.
+  const embedRemover: EmbedRemover | null = readOnly
+    ? null
+    : (id) => mutateSlide((s) => ({ ...s, elements: (s.elements ?? []).filter((e) => e.id !== id) }))
   const embedDisplayWriter: EmbedDisplayWriter | null = readOnly
     ? null
     : (id, display) => updateEl(id, { embedDisplay: display } as Partial<SlideElement>)
 
   return (
     <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
+    <EmbedRemoveContext.Provider value={embedRemover}>
     <div ref={rootRef} className="h-full min-w-0 flex flex-col">
       <OfficeShellLayout
         testid="slides-shell"
@@ -1300,7 +1309,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               const alt = e.altKey
               void runContentDrop(refs, { target: 'slide', alt, readOnly: readOnly || presenting, ownDocumentId: documentOps?.id ?? null }, async (read, ref) => {
                 if (ref.kind === 'doc' && ref.docType === 'widget' && ref.docId && !alt) {
-                  insertWidget(widgetFileGroupId(ref.docId))
+                  await insertWidget(widgetFileGroupId(ref.docId))
                   return true
                 }
                 return pasteConverted('slide', (b) => insertSlideSnippet(pastedSnippet(b), at), { read })
@@ -1310,7 +1319,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             if (!acceptsWidgetDrag(e.dataTransfer)) return
             e.preventDefault()
             void widgetIdFromDrop(e.dataTransfer).then((id) => {
-              if (id) insertWidget(id)
+              if (id) void insertWidget(id)
             })
           }}
         >
@@ -1376,7 +1385,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         <WidgetPickerDialog
           onPick={(widgetId) => {
             setWidgetPickerOpen(false)
-            insertWidget(widgetId)
+            void insertWidget(widgetId)
           }}
           onClose={() => setWidgetPickerOpen(false)}
         />
@@ -1457,6 +1466,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
         </div>
       )}
     </div>
+    </EmbedRemoveContext.Provider>
     </EmbedDisplayWriterContext.Provider>
   )
 }
