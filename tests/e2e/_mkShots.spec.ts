@@ -10,15 +10,9 @@ import { blankDrawBody, DRAW_SIZES, shapePath, solid, vectorLayer } from '../../
 
 const OUT = process.env.MK_OUT!
 const PROFILE = process.env.MK_PROFILE!
-const DIRS = {
-  full: '01 Full screen',
-  desks: '02 Desks',
-  views: '03 Desk views',
-  widgets: '04 Work widgets',
-  office: '05 Office apps',
-  embeds: '06 Embeds',
-  tools: '07 Tools'
-}
+// One folder (owner); each kind is a file-name prefix instead of a subfolder.
+const DIRS = { full: '', desks: '', views: '', widgets: '', office: '', embeds: '', tools: '' }
+const PREFIX: Record<string, string> = { full: 'Screen - ', office: 'App - ', tools: 'Tool - ' }
 const log: string[] = []
 type Api = typeof window.api
 
@@ -39,7 +33,7 @@ async function full(w: Page, dir: keyof typeof DIRS, name: string): Promise<void
     await tidy(w)
     // The window's content is 1600 x 1000; the capture surface is larger and
     // grey beyond it, so clip to the app itself.
-    await w.screenshot({ path: join(OUT, DIRS[dir], `${name}.png`), clip: { x: 0, y: 0, width: 1600, height: 1000 } })
+    await w.screenshot({ path: join(OUT, `${PREFIX[dir] ?? ''}${name}.png`), clip: { x: 0, y: 0, width: 1600, height: 1000 } })
     log.push(`ok    ${DIRS[dir]}/${name}.png`)
   } catch (e) {
     log.push(`SKIP  ${DIRS[dir]}/${name}: ${(e as Error).message.split('\n')[0]}`)
