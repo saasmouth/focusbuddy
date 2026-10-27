@@ -58,7 +58,7 @@ function HtmlFrame({ html, onHeight }: { html: string; onHeight: (h: number) => 
     return () => f.removeEventListener('load', measure)
   }, [onHeight])
   // allow-same-origin only lets the host measure the height; scripts stay off.
-  return <iframe ref={ref} title="Embedded content" sandbox="allow-same-origin" srcDoc={doc} className="block h-full w-full border-0 bg-white" />
+  return <iframe ref={ref} title="Embedded content" sandbox="allow-same-origin" referrerPolicy="no-referrer" srcDoc={doc} className="block h-full w-full border-0 bg-white" />
 }
 
 function DesignPage({ body, width }: { body: DesignBody; width: number }): JSX.Element {
