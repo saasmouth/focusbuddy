@@ -97,6 +97,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // desks, and the session is no longer carried across launches — which means
   // without this, one unreachable server locks every user out of local data.
   const [serverUnreachable, setServerUnreachable] = useState(false)
+  // Chosen "Continue offline for now": this launch carries on without a
+  // session until they sign in (Settings opens this again).
+  const [offlineChosen, setOfflineChosen] = useState(false)
   // Set once the server says this account has 2FA on; reveals the code field.
   const [twoFactor, setTwoFactor] = useState(false)
   const [code, setCode] = useState('')
@@ -164,6 +167,13 @@ export default function LaunchSignInModal(): JSX.Element | null {
   //    truly in the "no thanks" state.
   //  - User dismissed in this session.
   if (bootStatus !== 'ready') return null
+  // The offline exit is for someone who already HAS an account here: a sign-in
+  // on this computer is what leaves cachedEmail behind. Owner, 2026-10-27:
+  // "a user should always have to sign up for at least a free account to be
+  // able to use the app". Without this, a new user with no network (or with
+  // the server blocked) pressed "Continue offline" and never made one.
+  const offlineEscape = serverUnreachable && !!cachedEmail
+  if (offlineChosen && !manualOpen) return null
   // A signed-in account with NO NAME still has something to do here. The rule
   // is both names (4.3.41), so a legacy account with only one is asked too —
   // "First" alone is not what the people you share with will recognise.
@@ -303,7 +313,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
         // button is hidden then, so there was no way to "continue" at all.
         setServerUnreachable(true)
         setError(
-          'Could not reach the PlexiiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
+          cachedEmail
+            ? 'Could not reach the PlexiiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
+            : 'Could not reach the PlexiiDesk server. Creating your account needs a connection; it will go through as soon as you are back online.'
         )
         return
       }
@@ -322,6 +334,10 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // Close without recording a week-long skip — used by the X when the modal
   // was opened on demand from Settings.
   function handleClose(): void {
+    // Required, the only exits are the offline ones (both shown only with
+    // offlineEscape), and a dismissal alone does not lift the gate: it only
+    // paces the optional prompt. So going offline is its own state.
+    if (required) setOfflineChosen(true)
     setDismissedThisSession(true)
     closeManual()
   }
@@ -503,7 +519,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
           {/* The close button is the other way past this modal, so it goes too.
               A gate with a working X is not a gate — and leaving it visible but
               inert would just look broken. */}
-          {(!required || serverUnreachable) && (
+          {(!required || offlineEscape) && (
           <button
             type="button"
             onClick={handleClose}
@@ -858,7 +874,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
                   : 'Create account'}
             </button>
           </div>
-          {serverUnreachable && (
+          {offlineEscape && (
             <button
               type="button"
               onClick={handleClose}

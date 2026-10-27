@@ -90,7 +90,9 @@ describe('an unreachable server does not lock you out of local data', () => {
     const modal = read(MODAL)
     // The gate is deliberately inescapable past the free launches. This is the
     // one exception, and it has to be, or the local-first promise breaks.
-    expect(modal).toMatch(/\{\(!required \|\| serverUnreachable\) && \(/)
+    // Only for an account that has signed in on this computer before.
+    expect(modal).toMatch(/\{\(!required \|\| offlineEscape\) && \(/)
+    expect(modal).toMatch(/const offlineEscape = serverUnreachable && !!cachedEmail\n/)
   })
 
   it('offers it as a labelled choice, not just a bare X', () => {

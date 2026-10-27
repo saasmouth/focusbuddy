@@ -86,7 +86,12 @@ describe('every way past the modal closes', () => {
     // Pinned as an exact expression on purpose: a third condition added here
     // would be a new way past the gate, and should fail this test until someone
     // justifies it the way the offline case is justified above.
-    expect(modal).toMatch(/\{\(!required \|\| serverUnreachable\) && \(/)
+    //
+    // And the exception is for someone who already has an account HERE (owner,
+    // 2026-10-27: "always have to sign up for at least a free account"): a new
+    // user with no network must not reach the app without making one.
+    expect(modal).toMatch(/\{\(!required \|\| offlineEscape\) && \(/)
+    expect(modal).toMatch(/const offlineEscape = serverUnreachable && !!cachedEmail\n/)
     expect(modal).toContain('data-testid="signin-close"')
   })
 
