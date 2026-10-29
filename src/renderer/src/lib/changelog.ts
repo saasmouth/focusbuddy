@@ -38,6 +38,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.44',
+    date: '2026-10-29T08:00:00Z',
+    title: 'PlexiiDesk 4.3.44 \u2014 embeds show just their content, resize to fit, and stay in step everywhere',
+    tag: 'feature',
+    summary:
+      'An embedded diagram, drawing, slide or work widget now shows just its content, the shape of that content, and you press Edit to change it. Take an embed out of a document without deleting the original, hide Workcentre tiles, and every edit stays in step on the desk, in Focus mode and in every embed.',
+    highlights: [
+      'Embeds show the content, not the editor: a diagram shows the diagram, a drawing the drawing, a deck its slides. Hover and press Edit to work on it in place, and Done to go back.',
+      'Remove an embed from a document, sheet, deck, design, diagram or drawing without deleting what it shows. The original stays where it lives.',
+      'Embeds start the shape of their content in every app, and in PlexiiWrite you can resize one by its edge or corner; the size is kept.',
+      'Edits stay in step everywhere: change a work widget on its desk, in Focus mode or in an embed, and every other place shows the change. An embed never saves an old copy over newer work.',
+      'Workcentre: hide a tile without deleting the work widget, and bring hidden tiles back with Show all.',
+      'A free account is how PlexiiDesk starts, and you sign in each time you open it. If PlexiiDesk cannot reach the server and you have signed in on this computer before, Continue offline takes you to your desks; before, that button did nothing.'
+    ]
+  },
+  {
     version: '4.3.43',
     date: '2026-10-25T06:00:00Z',
     title: 'PlexiiDesk 4.3.43 \u2014 embed any app or tool in anything, and a smaller download',
