@@ -90,7 +90,15 @@ describe('nothing arrives as a shell', () => {
       anthropic.indexOf('export async function suggestSetupWidgets'),
       anthropic.indexOf('export async function generateResume')
     )
-    expect(fn).toContain('await buildFromPrompt({ prompt, taskId })')
+    // Matched on the delegation itself rather than one exact spelling of the
+    // call: the argument list grew when research arrived (ADR-0011), and a
+    // guard that breaks on a new argument teaches people to edit the guard.
+    // What must stay true is that this function has no prompt of its own.
+    expect(fn).toMatch(/await buildFromPrompt\(/)
+    expect(fn).toContain('prompt,')
+    expect(fn).toContain('taskId')
+    // No second system prompt hiding in here.
+    expect(fn).not.toContain('const system =')
     // And it keeps the desk signals the old prompt had.
     expect(fn).toContain('node.title')
     expect(fn).toContain('most-visited pages')

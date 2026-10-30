@@ -43,11 +43,13 @@ const ALLOWED: Record<string, { texts: string[]; why: string }> = {
   'main/autoUpdate.ts': { texts: ['PlexiDesk-Updater'], why: 'User-Agent token, not shown; servers may key on it.' },
   'main/calendar/push.ts': { texts: ['PlexiDesk Calendar Sync'], why: 'User-Agent sent to calendar servers.' },
   'main/calendar/sync.ts': { texts: ['PlexiDesk Calendar Sync'], why: 'User-Agent sent to calendar servers.' },
-  'main/ai/agentInputs.ts': {
+  'main/webPage.ts': {
     texts: [
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) PlexiDeskDeskAgent/1.0'
     ],
-    why: 'User-Agent sent to the sites a desk agent reads.'
+    // Moved here from ai/agentInputs.ts with the fetcher itself (ADR-0011),
+    // now that the research pass and the desk agents share one page reader.
+    why: 'User-Agent sent to the sites we read. Not UI text.'
   },
   'shared/ics.ts': { texts: ['PRODID:-//PlexiDesk//Meeting//EN'], why: 'iCalendar producer id, a machine field.' }
 }

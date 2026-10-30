@@ -15,6 +15,7 @@
 // cannot disagree about what "configured" means.
 
 import type { AiBuildSuggestion } from '@shared/types'
+import { cellsFromAiRow } from './actionExecutor'
 
 export interface Materialized {
   content: string
@@ -46,6 +47,31 @@ export async function materializeSuggestion(
         }
       })
       content = created.id
+      // Rows the AI researched arrive WITH the table (ADR-0011). Created
+      // after the table and before the widget is spawned, so the grid's first
+      // render already has them — a table that pops in empty and fills a
+      // moment later reads as a bug.
+      //
+      // A row that maps to no known column is skipped, not failed: losing one
+      // bad row is better than losing the other nineteen.
+      const rows = s.tableSchema.rows ?? []
+      if (rows.length > 0) {
+        const columns = s.tableSchema.columns.map((c) => ({
+          id: c.id,
+          label: c.label,
+          type: c.type,
+          config: c.config
+        }))
+        for (const raw of rows) {
+          const { cells } = cellsFromAiRow(columns, raw as Record<string, unknown>)
+          if (Object.keys(cells).length === 0) continue
+          try {
+            await window.api.tables.createRow({ tableId: created.id, cells })
+          } catch {
+            /* one row short beats no table */
+          }
+        }
+      }
     } catch {
       // Fall through to an empty table widget, which auto-provisions its own
       // schema on first render. Worse than the configured one, better than

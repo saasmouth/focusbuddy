@@ -1497,23 +1497,7 @@ async function applyAddTableRow(
   if (!table) {
     return { ok: false, message: `No table with id ${tableId.slice(0, 8)}…` }
   }
-  // Build a label→column lookup (case-insensitive, trimmed) alongside the
-  // direct id match so the AI can refer to columns by either.
-  const byKey = new Map<string, (typeof table.schema.columns)[number]>()
-  for (const col of table.schema.columns) {
-    byKey.set(col.id, col)
-    byKey.set(col.label.toLowerCase().trim(), col)
-  }
-  const cells: Record<string, unknown> = {}
-  const unrecognised: string[] = []
-  for (const [key, raw] of Object.entries(p.cells)) {
-    const col = byKey.get(key) ?? byKey.get(key.toLowerCase().trim())
-    if (!col) {
-      unrecognised.push(key)
-      continue
-    }
-    cells[col.id] = coerceCellValue(col.type, raw, col.config)
-  }
+  const { cells, unrecognised } = cellsFromAiRow(table.schema.columns, p.cells)
   if (Object.keys(cells).length === 0) {
     return {
       ok: false,
@@ -1533,6 +1517,39 @@ async function applyAddTableRow(
 // Best-effort coercion from the AI's string-only cells map to the typed value
 // each column expects. Falls back to defaultValue when parsing fails so we
 // never insert garbage that breaks the table widget's rendering.
+/**
+ * Map a row the AI wrote — keyed by column LABEL or column id — onto real
+ * cells, coercing each value to its column's type.
+ *
+ * Shared because two paths now build rows from a model: the add-table-row
+ * action card, and a researched table arriving fully populated from the desk
+ * builder (ADR-0011). They must agree on what "Status" means, or the same
+ * model output lands differently depending on which surface produced it.
+ * Unrecognised keys are returned rather than dropped, so the caller can say
+ * what it skipped instead of silently losing a column of data.
+ */
+export function cellsFromAiRow(
+  columns: Array<{ id: string; label: string; type: string; config?: unknown }>,
+  raw: Record<string, unknown>
+): { cells: Record<string, unknown>; unrecognised: string[] } {
+  const byKey = new Map<string, (typeof columns)[number]>()
+  for (const col of columns) {
+    byKey.set(col.id, col)
+    byKey.set(col.label.toLowerCase().trim(), col)
+  }
+  const cells: Record<string, unknown> = {}
+  const unrecognised: string[] = []
+  for (const [key, value] of Object.entries(raw ?? {})) {
+    const col = byKey.get(key) ?? byKey.get(key.toLowerCase().trim())
+    if (!col) {
+      unrecognised.push(key)
+      continue
+    }
+    cells[col.id] = coerceCellValue(col.type as never, value, col.config as never)
+  }
+  return { cells, unrecognised }
+}
+
 export function coerceCellValue(
   type: string,
   raw: unknown,

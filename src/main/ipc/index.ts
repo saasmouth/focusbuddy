@@ -89,7 +89,8 @@ import {
   onTableChanged,
   type PlacementDraft
 } from '../db/widgetFiles'
-import type { WidgetFileDraft, WidgetFilePatch } from '@shared/types'
+import type { WidgetFileDraft, WidgetFilePatch, AiResearchOpts } from '@shared/types'
+import { proposeContext } from '../ai/aiContext'
 import {
   parseWidgetFileBody,
   parseWidgetFileExport,
@@ -1909,16 +1910,24 @@ export function registerIpcHandlers(): void {
     recordAiCall()
     return generateResume(taskId)
   })
-  ipcMain.handle('setup:suggest', (_e, taskId: string) => {
+  ipcMain.handle('setup:suggest', (_e, taskId: string, opts?: AiResearchOpts) => {
     recordAiCall()
-    return suggestSetupWidgets(taskId)
+    return suggestSetupWidgets(taskId, opts)
   })
   ipcMain.handle(
     'setup:buildFromPrompt',
-    (_e, input: { prompt: string; taskId: string | null }) => {
+    (_e, input: { prompt: string; taskId: string | null } & AiResearchOpts) => {
       recordAiCall()
       return buildFromPrompt(input)
     }
+  )
+  // The context cards (ADR-0011). Read-only and local: it scores what is on
+  // the desk and in Files against the prompt and DESCRIBES it. Nothing is
+  // sent anywhere by this call — the ids the user then adds travel on the
+  // next AI call, and only those are assembled into text.
+  ipcMain.handle(
+    'ai:proposeContext',
+    (_e, input: { prompt: string; taskId: string | null }) => proposeContext(input)
   )
   ipcMain.handle('livingPage:regenerate', (_e, widgetId: string) => {
     recordAiCall()

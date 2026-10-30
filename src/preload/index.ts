@@ -14,6 +14,8 @@ import type {
   ActivityEvent,
   ActivityRecordDraft,
   AiBuildResponse,
+  AiResearchOpts,
+  AiContextCard,
   BodyDoubleResponse,
   BrowsingHistoryEntry,
   ChatQuestion,
@@ -607,13 +609,16 @@ const api = {
       ipcRenderer.invoke('resume:generate', taskId)
   },
   setup: {
-    suggest: (taskId: string): Promise<SetupSuggestResponse> =>
-      ipcRenderer.invoke('setup:suggest', taskId),
-    buildFromPrompt: (input: {
-      prompt: string
-      taskId: string | null
-    }): Promise<AiBuildResponse> =>
-      ipcRenderer.invoke('setup:buildFromPrompt', input)
+    suggest: (taskId: string, opts?: AiResearchOpts): Promise<SetupSuggestResponse> =>
+      ipcRenderer.invoke('setup:suggest', taskId, opts),
+    buildFromPrompt: (
+      input: { prompt: string; taskId: string | null } & AiResearchOpts
+    ): Promise<AiBuildResponse> => ipcRenderer.invoke('setup:buildFromPrompt', input)
+  },
+  // The context cards (ADR-0011). Describes what COULD be sent; sends nothing.
+  aiContext: {
+    propose: (input: { prompt: string; taskId: string | null }): Promise<AiContextCard[]> =>
+      ipcRenderer.invoke('ai:proposeContext', input)
   },
   livingPage: {
     regenerate: (widgetId: string): Promise<LivingPageRegenerateResponse> =>

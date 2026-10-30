@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AiBuildSuggestion, WidgetKind } from '@shared/types'
+import type { AiBuildSuggestion, AiResearchSource, WidgetKind } from '@shared/types'
 import { catalogFor } from '../lib/widgetCatalog'
 import { useMagneticHover } from '../lib/useMagneticHover'
 import Icon from './Icon'
@@ -9,6 +9,7 @@ import SuggestionPreview from './ai/SuggestionPreview'
 import CreditsMeter from './CreditsMeter'
 import { useAiBusyLabel } from '../lib/localAiEngine'
 import AnsweredBy from './ai/AnsweredBy'
+import ContextCards from './ai/ContextCards'
 
 interface Props {
   taskId: string | null
@@ -24,7 +25,16 @@ interface Props {
 type State =
   | { stage: 'prompt' }
   | { stage: 'thinking' }
-  | { stage: 'ready'; intent: string; suggestions: AiBuildSuggestion[]; selected: Set<string> }
+  | {
+      stage: 'ready'
+      intent: string
+      suggestions: AiBuildSuggestion[]
+      selected: Set<string>
+      // The pages the build was actually built from (ADR-0011). Shown so a
+      // populated table can be checked against its sources — a researched
+      // table nobody can verify is only a prettier guess.
+      researched?: AiResearchSource[]
+    }
   | { stage: 'error'; message: string; needsApiKey?: boolean }
   | { stage: 'spawning' }
 
@@ -38,6 +48,13 @@ type State =
 export default function AiBuilderDialog({ taskId, onClose, onAccept, initialPrompt }: Props): JSX.Element {
   const warmLabel = useAiBusyLabel()
   const [prompt, setPrompt] = useState(initialPrompt ?? '')
+  // Web research and the context cards (ADR-0011). Research defaults ON here
+  // because "build me a desk tracking X" is a research request far more often
+  // than not, and a build from the model's memory is the thing people report
+  // as made-up data. The context cards default to NOTHING added: your own
+  // work only leaves the machine when you say so.
+  const [research, setResearch] = useState(true)
+  const [context, setContext] = useState<Set<string>>(new Set())
   const [state, setState] = useState<State>({ stage: 'prompt' })
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   // Magnetic refs for primary actions — the generate + apply buttons feel
@@ -59,13 +76,16 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
     setState({ stage: 'thinking' })
     const result = await window.api.setup.buildFromPrompt({
       prompt: prompt.trim(),
-      taskId
+      taskId,
+      research,
+      contextIds: [...context]
     })
     if (result.ok && result.suggestions && result.suggestions.length > 0) {
       setState({
         stage: 'ready',
         intent: result.intent ?? '',
         suggestions: result.suggestions,
+        researched: result.researched,
         // Default: select all — most users will refine the prompt before
         // selecting, but if they like everything they're one click away.
         selected: new Set(result.suggestions.map((s) => s.id))
@@ -143,10 +163,44 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
             rows={3}
             className="fb-field w-full px-3 py-2 text-sm text-[var(--ink-100)] resize-none"
           />
+          <ContextCards
+            prompt={prompt}
+            taskId={taskId}
+            added={context}
+            disabled={state.stage === 'thinking' || state.stage === 'spawning'}
+            onToggle={(id) =>
+              setContext((prev) => {
+                const next = new Set(prev)
+                if (next.has(id)) next.delete(id)
+                else next.add(id)
+                return next
+              })
+            }
+          />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[10px] text-[var(--ink-40)]">
-              Cmd+Enter to generate · Esc to close
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setResearch((v) => !v)}
+                aria-pressed={research}
+                title={
+                  research
+                    ? 'Searches the web and reads the top pages, so tables arrive with real records'
+                    : 'Builds from the model alone — faster, and nothing is sent to a search engine'
+                }
+                className={`flex items-center gap-1 rounded-[7px] px-1.5 py-0.5 text-[10px] transition-colors ${
+                  research
+                    ? 'text-accent hover:bg-[var(--surface-raise)]'
+                    : 'text-[var(--ink-40)] hover:text-[var(--ink-70)]'
+                }`}
+              >
+                <Icon name={research ? 'travel_explore' : 'public_off'} size={13} />
+                <span>{research ? 'Researching the web' : 'No web research'}</span>
+              </button>
+              <span className="text-[10px] text-[var(--ink-40)]">
+                Cmd+Enter to generate · Esc to close
+              </span>
+            </div>
             <button
               ref={generateBtnRef}
               onClick={() => void runGenerate()}
@@ -232,6 +286,35 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
                   <div className="text-[12px] text-[var(--ink-70)]">
                     {state.intent}
                   </div>
+                </div>
+              )}
+              {state.researched && state.researched.length > 0 && (
+                <div className="mb-3 rounded-md border border-[var(--edge-soft)] px-3 py-2">
+                  <div className="mb-1 text-[10px] uppercase tracking-wider text-[var(--ink-40)]">
+                    Read from the web
+                  </div>
+                  <ul className="space-y-0.5">
+                    {state.researched.map((r) => (
+                      <li key={r.n} className="flex items-baseline gap-1.5 text-[11px]">
+                        <span className="text-[var(--ink-40)]">[W{r.n}]</span>
+                        <button
+                          type="button"
+                          onClick={() => void window.api.files.openExternal(r.url)}
+                          className="truncate text-left text-[var(--ink-70)] hover:text-accent"
+                          title={r.url}
+                        >
+                          {r.title}
+                        </button>
+                        <span className="shrink-0 text-[var(--ink-40)]">{r.domain}</span>
+                        {/* Honest about depth: a snippet is not a page. */}
+                        {!r.read && (
+                          <span className="shrink-0 text-[10px] text-[var(--ink-30)]">
+                            summary only
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               <div className="space-y-2">

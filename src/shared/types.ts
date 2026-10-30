@@ -2273,6 +2273,14 @@ export interface AiBuildSuggestion {
       label: string
       config: unknown
     }>
+    // The records the table should ARRIVE with (ADR-0011). Each row is keyed
+    // by column label (or id) — the model writes "Status", not "c2" — and is
+    // mapped onto real cells by cellsFromAiRow at materialise time.
+    //
+    // Before this, a built table could only ever be empty, which is what the
+    // owner reported as "tables with columns and rows populated" not
+    // happening. Columns alone are a shape, not an answer.
+    rows?: Array<Record<string, unknown>>
   }
   // For kind='field': initial field definition. Same shape as FieldDefinition
   // but kept untyped here so the shared module doesn't import @shared/fields
@@ -2285,6 +2293,41 @@ export interface AiBuildSuggestion {
   }
 }
 
+/**
+ * What a request may reach for beyond the prompt itself (ADR-0011).
+ *
+ * Both fields are opt-IN and both default to off, which is the whole point:
+ * `research` sends the request's subject to a search engine, and `contextIds`
+ * sends the user's own work. Neither happens because a surface forgot to pass
+ * a flag. The ids are the cards the user pressed "Add to prompt" on — a card
+ * they ignored or rejected is simply an id that is not here.
+ */
+export interface AiResearchOpts {
+  research?: boolean
+  contextIds?: string[]
+}
+
+/** One piece of the workspace the AI could be told about, for a card. */
+export interface AiContextCard {
+  id: string
+  kind: 'widget' | 'file' | 'desk'
+  label: string
+  detail: string
+  why: string
+  preview: string
+  chars: number
+}
+
+/** A web source a generated answer actually read, for the trace. */
+export interface AiResearchSource {
+  n: number
+  title: string
+  url: string
+  domain: string
+  /** True when the page body was read, not just the result snippet. */
+  read: boolean
+}
+
 export interface AiBuildResponse {
   ok: boolean
   // One-sentence interpretation of what the user wants. Shown above the
@@ -2293,6 +2336,11 @@ export interface AiBuildResponse {
   suggestions?: AiBuildSuggestion[]
   error?: string
   needsApiKey?: boolean
+  // The web pages this build was actually built from (ADR-0011). Present only
+  // when research ran AND found something: the user must be able to check a
+  // populated table against its sources, and an absent list means nothing was
+  // read — never "we read something but won't say what".
+  researched?: AiResearchSource[]
 }
 
 export interface WidgetSuggestion {

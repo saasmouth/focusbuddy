@@ -32,6 +32,15 @@ import { widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { mainWidgetResolvers } from './widgetSummary'
 import { retrieveSources } from '../workspaceSearch'
 import { searchWeb, type WebResult } from '../webSearch'
+import { fetchPageText, isFetchFailure } from '../webPage'
+
+// How many of the chat's web results are actually READ, and how much of each.
+// Three is the knee: it covers the answer in most cases, and reading five
+// doubled the slowest turns for a gain the fitter then cut anyway.
+const CHAT_PAGES_READ = 3
+const CHAT_PAGE_CHARS = 3000
+import { researchAndContext } from './research'
+import type { AiResearchOpts } from '@shared/types'
 import { relatedScopeIds } from '../db/nodeRelations'
 import { extractJson, salvageEnvelope } from './chatJson'
 import { questionProtocolSection, validateChatQuestion } from './chatQuestion'
@@ -1807,7 +1816,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // What retrieval found (workspace and mail), ranked, before anything is cut
   // or numbered.
   let candidates: RetrievalCandidate[] = []
-  let webResults: WebResult[] = []
+  let webResults: ChatWebResult[] = []
   let scopeNote = ''
   try {
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
@@ -1873,7 +1882,27 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       const withMail = [...rawSources, ...mailGround.sources]
       // Drop anything the user already put in front of the model by name.
       candidates = withMail.filter((s) => !admittedIds.has(s.docId))
-      webResults = web
+      // Read the top pages, not just their snippets (ADR-0011).
+      //
+      // A DuckDuckGo snippet is two sentences chosen by the engine, and chat
+      // was answering research questions off them — so a question whose answer
+      // sat in the third paragraph got an answer from the model's memory with
+      // a web citation beside it, which is worse than no search at all. The
+      // rest of the results keep their snippets: a snippet with a URL is still
+      // a real, checkable lead, and dropping it because we had no time to read
+      // it loses the user something.
+      webResults = await Promise.all(
+        web.map(async (r, i) =>
+          i < CHAT_PAGES_READ
+            ? {
+                ...r,
+                page: await fetchPageText(r.url, CHAT_PAGE_CHARS)
+                  .then((t) => (isFetchFailure(t) ? '' : t))
+                  .catch(() => '')
+              }
+            : r
+        )
+      )
       // Honest about demote-not-exclude, and it only claims a related-desk
       // network when one exists (#13: relatedScopeIds always contains the
       // desk itself, so length 1 means no relations).
@@ -2104,17 +2133,31 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
 type RetrievalCandidate = { docId: string; title: string; docType: string; text: string; snippet: string }
 
 /** The web results block of the retrieved material, numbered on from `offset`. '' when there are none. */
-function renderWebBlock(webResults: WebResult[], offset: number): string {
+function renderWebBlock(webResults: ChatWebResult[], offset: number): string {
   if (webResults.length === 0) return ''
   return (
     '\nWeb results (live search, cite like any numbered source; mention the site when it matters):\n' +
     webResults
       .map((w, i) =>
-        retrievalSourceLine({ docType: 'web', title: `${w.title} — ${w.domain}`, text: `${w.snippet} (${w.url})` }, offset + i)
+        retrievalSourceLine(
+          {
+            docType: 'web',
+            title: `${w.title} — ${w.domain}`,
+            // The PAGE when it was read, the snippet when it was not
+            // (ADR-0011). A snippet is two sentences of marketing copy; a
+            // question whose answer is in the third paragraph was previously
+            // unanswerable, and the model filled the gap from memory.
+            text: `${w.page && w.page.length > w.snippet.length ? w.page : w.snippet} (${w.url})`
+          },
+          offset + i
+        )
       )
       .join('\n')
   )
 }
+
+/** A chat web result, with the page body when it could be read. */
+type ChatWebResult = WebResult & { page?: string }
 
 // Settle-time memory extraction (A5, R22 — the #22 fix). Fired in the
 // background AFTER an answer settles, only for conversational surfaces
@@ -3184,7 +3227,8 @@ export async function runBrowserAgentStep(input: {
 export async function askWorkspace(
   question: string,
   sources: GroundingSource[],
-  history: Array<{ question: string; answer: string }> = []
+  history: Array<{ question: string; answer: string }> = [],
+  opts?: AiResearchOpts
 ): Promise<{
   ok: boolean
   answer?: string
@@ -3220,7 +3264,11 @@ export async function askWorkspace(
   // uncached suffix. On a follow-up that retrieves the same documents (notably the
   // single-document scope), the doc prefix is read from cache instead of re-billed.
   const docsContext = `Workspace documents:\n${docList}`
-  const tail = `${convo}Question: ${question}\n\nReturn the JSON now.`
+  // Web findings join the uncached suffix, never the cacheable document
+  // prefix: they change every turn, and putting them in the prefix would
+  // invalidate the cache on every single question (ADR-0011).
+  const askWeb = (await researchAndContext(opts, question, null)).block
+  const tail = `${convo}${askWeb ? `${askWeb}\n` : ''}Question: ${question}\n\nReturn the JSON now.`
   try {
     const resp = await c.messages.create({
       model: resolveModel('chat'),
@@ -3271,7 +3319,8 @@ export async function askWorkspaceStream(
   question: string,
   sources: GroundingSource[],
   history: Array<{ question: string; answer: string }>,
-  onDelta: (text: string) => void
+  onDelta: (text: string) => void,
+  opts?: AiResearchOpts
 ): Promise<{ ok: boolean; answer?: string; citedDocIds?: string[]; grounding?: AnswerGrounding; needsApiKey?: boolean; error?: string }> {
   const c = getClient()
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings · AI · API keys to paste one.' }
@@ -3299,7 +3348,11 @@ export async function askWorkspaceStream(
   // uncached suffix (see askWorkspace). The single-document scope, where the same
   // doc is asked about repeatedly, reads the doc prefix from cache each follow-up.
   const docsContext = `Workspace documents:\n${docList}`
-  const tail = `${convo}Question: ${question}\n\nAnswer now:`
+  // Web findings join the uncached suffix, never the cacheable document
+  // prefix: they change every turn, and putting them in the prefix would
+  // invalidate the cache on every single question (ADR-0011).
+  const askWeb = (await researchAndContext(opts, question, null)).block
+  const tail = `${convo}${askWeb ? `${askWeb}\n` : ''}Question: ${question}\n\nAnswer now:`
   try {
     // Credits proxy: no streaming (see sendChat) — same request non-streamed,
     // delivered to the caller as one delta.
@@ -3665,7 +3718,10 @@ export async function generateStandupNarrative(input: {
   }
 }
 
-export async function suggestSetupWidgets(taskId: string): Promise<SetupSuggestResponse> {
+export async function suggestSetupWidgets(
+  taskId: string,
+  opts?: AiResearchOpts
+): Promise<SetupSuggestResponse> {
   const node = getNode(taskId)
   if (!node || node.kind !== 'task') {
     return { ok: false, error: 'Desk not found' }
@@ -3715,7 +3771,13 @@ export async function suggestSetupWidgets(taskId: string): Promise<SetupSuggestR
     .filter((l) => l !== '')
     .join('\n')
 
-  const res = await buildFromPrompt({ prompt, taskId })
+  // Research the DESK, not our own brief (ADR-0011).
+  const res = await buildFromPrompt({
+    ...opts,
+    prompt,
+    taskId,
+    researchSubject: [node.title, node.description ?? ''].filter(Boolean).join(' — ')
+  })
   if (!res.ok) {
     return { ok: false, error: res.error, needsApiKey: res.needsApiKey }
   }
@@ -4059,7 +4121,12 @@ export async function proposeSmartStacks(taskId: string): Promise<SmartStackResp
 export async function buildFromPrompt(input: {
   prompt: string
   taskId: string | null
-}): Promise<AiBuildResponse> {
+  // What to RESEARCH, when that is not the prompt itself. suggestSetupWidgets
+  // delegates here with a long assembled brief whose first words are our own
+  // instructions; searching for that finds nothing. The desk's title is the
+  // actual subject. Internal — no IPC caller sets it.
+  researchSubject?: string
+} & AiResearchOpts): Promise<AiBuildResponse> {
   const c = getClient()
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
   const userPrompt = input.prompt.trim()
@@ -4112,7 +4179,11 @@ Rules:
 3. NEVER SHIP A SHELL. Every widget that has configuration MUST arrive fully
    configured, ready to use the moment it lands:
    - "table": tableSchema.columns is REQUIRED — a table with no columns is
-     useless and the user cannot tell what it was for. A primary text column
+     useless and the user cannot tell what it was for. Add tableSchema.rows
+     whenever you have real records to put in them — researched findings, or
+     records named in the user's own context. Each row is an object keyed by
+     COLUMN LABEL. Do not invent rows to look thorough: a table with three
+     real rows beats one with twenty plausible ones. A primary text column
      first (Name/Title), then the attributes the work actually tracks (Status,
      Owner, Date, Amount, Tags…). Give single-select and multi-select real
      config.options with labels AND hex colours — not an empty list.
@@ -4133,6 +4204,15 @@ Rules:
 4. Tables want 3-6 columns in the common case; use more when the records truly
    have more attributes worth tracking.
 5. Skip widgets that already exist on the canvas (listed in "existing work widgets" below).
+6. WHEN WEB RESEARCH IS SUPPLIED BELOW, BUILD FROM IT. A request to track real
+   things — products, venues, competitors, papers, tools — wants the real ones,
+   with their real names and figures, not plausible placeholders. Put the
+   researched records in the table as rows (tableSchema.rows: an array of
+   objects keyed by column label), name the real sources in a page, and cite
+   them as [W1], [W2] in each suggestion's "reason". Where the research does
+   not cover a value, LEAVE IT EMPTY. An empty cell the user can fill is
+   honest; an invented one that looks researched is not, and is the single
+   worst thing you can do here.
 
 Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
 {
@@ -4152,6 +4232,9 @@ Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
             {"id": "o3", "label": "Done", "color": "#22c55e"}
           ]}},
           {"id": "c3", "type": "date", "label": "Due", "config": {}}
+        ],
+        "rows": [
+          {"Project": "Atlas migration", "Status": "Doing", "Due": "2026-03-14"}
         ]
       }
     },
@@ -4177,12 +4260,21 @@ Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
   // their text is the user's own data.
   const filesBlock = relevantWidgetFilesBlock(userPrompt)
 
+  // The web, and the context cards the user added (ADR-0011). Both off unless
+  // this call asked for them; both best-effort, so a failed search builds the
+  // desk exactly as it would have before.
+  const { block: researchBlock, sources: researched } = await researchAndContext(
+    input,
+    input.researchSubject?.trim() || userPrompt,
+    input.taskId
+  )
+
   const userMsg = `User's request:
 ${userPrompt}
 
 Widgets already on the canvas (skip duplicates):
 ${existingBlock}
-${filesBlock ? `\nWidget files the user already has that look relevant (their data, for context — reuse their columns and names rather than inventing new ones):\n${filesBlock}\n` : ''}
+${filesBlock ? `\nWidget files the user already has that look relevant (their data, for context — reuse their columns and names rather than inventing new ones):\n${filesBlock}\n` : ''}${researchBlock ? `\n${researchBlock}\n` : ''}
 Return the JSON now.`
 
   try {
@@ -4243,7 +4335,10 @@ Return the JSON now.`
     return {
       ok: true,
       intent: parsed.intent,
-      suggestions: filtered
+      suggestions: filtered,
+      // Only when something was actually read. An absent list means no
+      // research happened — never "read something, not saying what".
+      researched: researched.length > 0 ? researched : undefined
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -4366,8 +4461,39 @@ export interface PageContentSuggestion {
   needsApiKey?: boolean
 }
 
+/**
+ * The research rule for the surfaces that emit DATA — table rows, spreadsheet
+ * cells (ADR-0011). Separate from the prose rule because the failure differs:
+ * a fabricated cell is indistinguishable from a researched one sitting beside
+ * it, so the instruction is to omit rather than fill.
+ */
+const DATA_RESEARCH_RULE =
+  '\n\nWHEN WEB RESEARCH IS SUPPLIED BELOW: the values must come from it. ' +
+  'Use the real names, figures and dates in the findings, not plausible ones ' +
+  'you recall. Where a finding does not give a value, leave that cell EMPTY — ' +
+  'a blank the user can fill is honest, and an invented value sitting next to ' +
+  'researched ones is the worst outcome here.'
+
+/**
+ * The research rule for the surfaces that write PROSE (ADR-0011).
+ *
+ * Different from the table rule above, because the failure is different. A
+ * table invents a row; prose invents a fact mid-sentence, where nothing marks
+ * it as invented. So the instruction is to attribute in line and to say what
+ * is missing rather than fill the gap — a document that names its gaps is
+ * usable, and one that papers over them is a liability.
+ */
+const PROSE_RESEARCH_RULE =
+  '\n\nWHEN WEB RESEARCH IS SUPPLIED WITH THE REQUEST: build on it. ' +
+  'Use the real names, figures and dates it gives, and attribute them in line ' +
+  '(for example "according to <domain>"). Do NOT add facts from memory alongside ' +
+  'them. Where the research does not cover something the request asks for, say ' +
+  'plainly that it is not covered rather than filling the gap — a draft that ' +
+  'names its gaps can be finished; one that hides them cannot be trusted.'
+
 export async function suggestPageContent(
-  prompt: string
+  prompt: string,
+  opts?: AiResearchOpts
 ): Promise<PageContentSuggestion> {
   const c = getClient()
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
@@ -4385,14 +4511,18 @@ export async function suggestPageContent(
     '  - Use ## for section headings, - for bullets, - [ ] for open todos, - [x] for done.\n' +
     '  - Keep it tight — this lands inside a page, not as a standalone document.\n' +
     '  - If the request is ambiguous, make a reasonable interpretation; do not ask back.' +
+    PROSE_RESEARCH_RULE +
     GROUNDING_RULE
+
+  const { block: pageResearch } = await researchAndContext(opts, trimmed, null)
+  const pageUser = pageResearch ? `${trimmed}\n\n${pageResearch}` : trimmed
 
   try {
     const resp = await c.messages.create({
       model: resolveModel('living_page'),
       max_tokens: 1500,
       system,
-      messages: [{ role: 'user', content: trimmed }]
+      messages: [{ role: 'user', content: pageUser }]
     })
     if ((resp.stop_reason as string) === 'refusal') {
       return { ok: false, error: 'Claude declined this request. Try rephrasing or breaking it into smaller steps.' }
@@ -4451,7 +4581,7 @@ export async function generateDocument(input: {
   docType: 'doc' | 'sheet' | 'slides' | 'map'
   prompt: string
   audience?: string
-}): Promise<DocumentGenResult> {
+} & AiResearchOpts): Promise<DocumentGenResult> {
   const c = getClient()
   if (!c)
     return {
@@ -4468,6 +4598,12 @@ export async function generateDocument(input: {
   const style =
     ' Write in plain, confident, human prose. Do not use em dashes or emoji. Do not use a bold label followed by a colon as a heading substitute; write real sentences.'
 
+  // Research once for all four document kinds (ADR-0011). `topic` stays the
+  // user's own words, because it is also the title fallback — appending the
+  // findings to it would title the document after a search result.
+  const { block: docResearch } = await researchAndContext(input, topic, null)
+  const docUser = docResearch ? `${topic}\n\n${docResearch}` : topic
+
   try {
     if (input.docType === 'doc') {
       const system =
@@ -4475,12 +4611,13 @@ export async function generateDocument(input: {
         audienceLine +
         ' Put the document title on the FIRST line as a single H1 (# Title). Then write the body using ## for section headings, prose paragraphs, and - for bullets only where a real list is warranted. Aim for a genuinely useful first draft the user will edit. Reply with raw Markdown only: no preamble, no code fences.' +
         style +
+        PROSE_RESEARCH_RULE +
         GROUNDING_RULE
       const resp = await c.messages.create({
         model: resolveModel('document'),
         max_tokens: 3000,
         system,
-        messages: [{ role: 'user', content: topic }]
+        messages: [{ role: 'user', content: docUser }]
       })
       if ((resp.stop_reason as string) === 'refusal')
         return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }
@@ -4507,12 +4644,13 @@ export async function generateDocument(input: {
         'You design a spreadsheet as structured data.' +
         audienceLine +
         ' Reply with ONLY a JSON object of the form {"title": string, "columns": string[], "rows": string[][]}. Use 2 to 8 short column headers. Provide 6 to 20 rows, each an array with exactly one string cell per column, filled with useful example data. For a computed cell such as a total or a rate, put a spreadsheet formula starting with = that references cells in A1 style, for example "=SUM(B2:B9)". No markdown, no code fences, no prose outside the JSON.' +
+        DATA_RESEARCH_RULE +
         SHEET_DATA_RULE
       const resp = await c.messages.create({
         model: resolveModel('document'),
         max_tokens: 2500,
         system,
-        messages: [{ role: 'user', content: topic }]
+        messages: [{ role: 'user', content: docUser }]
       })
       if ((resp.stop_reason as string) === 'refusal')
         return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }
@@ -4549,12 +4687,13 @@ export async function generateDocument(input: {
         audienceLine +
         ' Reply with ONLY a JSON object of the form {"title": string, "nodes": [{"id": string, "label": string, "shape": "process"|"decision"|"terminator"|"data"|"database"|"circle"|"note"}], "edges": [{"source": string, "target": string, "label"?: string, "routing"?: "orthogonal"|"straight"}]}. Use short stable ids like "n1","n2". Leave "routing" out for a flowchart or process map: connectors then turn at right angles and route around the shapes in their way, which is what those diagrams should look like. Set it to "straight" only for a mind map or a radial diagram, where lines fan out from a centre and elbows look wrong. Use "terminator" for start/end, "decision" for yes/no branches and give those outgoing edges a "Yes"/"No" label, "process" for steps, "data" for inputs or outputs, "database" for stored data. Produce 5 to 14 nodes that form one connected flow. Do NOT include x or y coordinates. No markdown, no code fences, no prose outside the JSON.' +
         style +
+        PROSE_RESEARCH_RULE +
         GROUNDING_RULE
       const resp = await c.messages.create({
         model: resolveModel('document'),
         max_tokens: 2000,
         system,
-        messages: [{ role: 'user', content: topic }]
+        messages: [{ role: 'user', content: docUser }]
       })
       if ((resp.stop_reason as string) === 'refusal')
         return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }
@@ -4602,12 +4741,13 @@ export async function generateDocument(input: {
       audienceLine +
       ' Reply with ONLY a JSON object of the form {"title": string, "slides": [{"title": string, "bullets": string[], "notes": string, "layout": "title"|"bullets"|"section"}]}. Produce 5 to 10 slides that tell a coherent story with a beginning, middle and end. The first slide layout must be "title". Keep bullets to at most 6 short points per slide, and use an empty bullets array for title and section slides. Write one to three sentences of speaker notes per slide saying what to actually say. No markdown, no code fences, no prose outside the JSON.' +
       style +
+      PROSE_RESEARCH_RULE +
       GROUNDING_RULE
     const resp = await c.messages.create({
       model: resolveModel('document'),
       max_tokens: 3000,
       system,
-      messages: [{ role: 'user', content: topic }]
+      messages: [{ role: 'user', content: docUser }]
     })
     if ((resp.stop_reason as string) === 'refusal')
       return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }
@@ -4665,7 +4805,7 @@ export async function generateDesignContent(input: {
   prompt: string
   designKind: string // e.g. "Instagram post", "Event flyer", "Logo"
   audience?: string
-}): Promise<DesignContentResult> {
+} & AiResearchOpts): Promise<DesignContentResult> {
   const c = getClient()
   if (!c)
     return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
@@ -4678,16 +4818,26 @@ export async function generateDesignContent(input: {
     ' Reply with ONLY a JSON object of the form {"eyebrow"?: string, "headline": string, "subhead"?: string, "body"?: string, "cta"?: string, "background": "brand"|"light"|"dark"}. ' +
     'The headline is the single most important line, short and punchy (under 8 words). The eyebrow is a tiny kicker above it (1-3 words) and is optional. subhead is one supporting sentence. body is at most two short sentences and is optional for very visual pieces. cta is a short call to action when one fits. Choose "background": "brand" for bold social posts, "light" for clean professional pieces, "dark" for premium or tech moods. ' +
     'Write in plain, confident, human words. No em dashes, no emoji, no markdown, no code fences, no prose outside the JSON.' +
+    PROSE_RESEARCH_RULE +
     GROUNDING_RULE +
     ' This is marketing copy, so the pull is to add a discount, a date, a venue or a channel' +
     ' because it reads better. Do not: an offer the user never made is the one mistake that' +
     ' cannot be withdrawn once the piece is printed or posted.'
+  const { block: designResearch } = await researchAndContext(input, topic, null)
+
   try {
     const resp = await c.messages.create({
       model: resolveModel('document'),
       max_tokens: 700,
       system,
-      messages: [{ role: 'user', content: `${input.designKind}: ${topic}` }]
+      messages: [
+        {
+          role: 'user',
+          content: designResearch
+            ? `${input.designKind}: ${topic}\n\n${designResearch}`
+            : `${input.designKind}: ${topic}`
+        }
+      ]
     })
     if ((resp.stop_reason as string) === 'refusal')
       return { ok: false, error: 'Claude declined this request. Try rephrasing it.' }
@@ -5137,7 +5287,7 @@ export function widgetSetupIsSupported(kind: string): boolean {
 export async function suggestWidgetSetup(input: {
   widgetId: string
   prompt?: string
-}): Promise<WidgetSetupDraft> {
+} & AiResearchOpts): Promise<WidgetSetupDraft> {
   const c = getClient()
   if (!c) {
     return {
@@ -5155,16 +5305,33 @@ export async function suggestWidgetSetup(input: {
   const siblings = listWidgetsByTask(w.taskId).filter((o) => o.id !== w.id)
   const prompt = (input.prompt || '').trim()
 
+  // Research the widget's SUBJECT — its desk, its title and what the user
+  // asked for — rather than the bare instruction (ADR-0011). "add some items"
+  // searched alone means nothing.
+  const setupSubject = [task?.kind === 'task' ? task.title : '', w.title ?? '', prompt]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+
   // Structured kinds (page, webview, …) return a typed payload, not a flat list.
   if (cfg.structured) {
-    return suggestStructuredWidgetSetup({ widget: w, task, siblings, prompt, cfg, client: c })
+    return suggestStructuredWidgetSetup({
+      widget: w,
+      task,
+      siblings,
+      prompt,
+      cfg,
+      client: c,
+      research: await researchAndContext(input, setupSubject, w.taskId).then((r) => r.block)
+    })
   }
 
   const system =
     `You are an in-widget AI assistant. You propose a short list of items to add to a ${w.kind} ` +
     'work widget, in the format that work widget expects. Reply with a SINGLE JSON object of the exact shape ' +
     '{ "items": ["...", "..."] } and nothing else. No prose, no code fences. Each item is ' +
-    `${cfg.guidance}. Propose between 3 and 8 items. Do not repeat anything already present.`
+    `${cfg.guidance}. Propose between 3 and 8 items. Do not repeat anything already present.` +
+    DATA_RESEARCH_RULE
 
   const ctxParts = [
     task && task.kind === 'task'
@@ -5180,7 +5347,12 @@ export async function suggestWidgetSetup(input: {
       : 'No explicit instruction was given; infer what would be most useful to add.'
   ].filter(Boolean)
 
-  const user = `${ctxParts.join('\n\n')}\n\nReturn the JSON list of ${cfg.noun} to add now.`
+  const { block: setupResearch } = await researchAndContext(input, setupSubject, w.taskId)
+
+  const user =
+    `${ctxParts.join('\n\n')}\n` +
+    (setupResearch ? `\n${setupResearch}\n` : '') +
+    `\nReturn the JSON list of ${cfg.noun} to add now.`
 
   try {
     const resp = await c.messages.create({
@@ -5347,8 +5519,10 @@ async function suggestStructuredWidgetSetup(input: {
   prompt: string
   cfg: { applyAs: WidgetSetupApplyAs; noun: string; guidance: string; structured?: boolean }
   client: Anthropic
+  /** Web findings and added context, already assembled by the caller. */
+  research?: string
 }): Promise<WidgetSetupDraft> {
-  const { widget: w, task, siblings, prompt, cfg, client } = input
+  const { widget: w, task, siblings, prompt, cfg, client, research } = input
 
   // The single JSON shape the model must return, per kind.
   const payloadSpec =
@@ -5395,7 +5569,8 @@ async function suggestStructuredWidgetSetup(input: {
     siblings.length ? `Other work widgets on the desk:\n${summarizeWidgets(siblings)}` : '',
     prompt ? `The user asks: ${prompt}` : 'No explicit instruction; infer what is most useful.'
   ].filter(Boolean)
-  const user = `${ctxParts.join('\n\n')}\n\nReturn the JSON now.`
+  const user =
+    `${ctxParts.join('\n\n')}\n` + (research ? `\n${research}\n` : '') + `\nReturn the JSON now.`
 
   try {
     const resp = await client.messages.create({
@@ -5509,7 +5684,8 @@ async function suggestStructuredWidgetSetup(input: {
 export async function suggestTableRows(
   tableId: string,
   prompt: string,
-  count: number
+  count: number,
+  opts?: AiResearchOpts
 ): Promise<TableRowsSuggestion> {
   const c = getClient()
   if (!c) return { ok: false, needsApiKey: true, error: 'No Anthropic API key set. Open Settings → AI · API keys to paste one.' }
@@ -5577,10 +5753,22 @@ export async function suggestTableRows(
       : `  - Generate exactly ${safeCount} row(s) unless the prompt clearly specifies a different count.\n`) +
     (looksLikeScaffold
       ? '\n⚠ The current schema is the default scaffold — you SHOULD propose columns unless the prompt explicitly asks to only use Name/Done.'
-      : '')
+      : '') +
+    DATA_RESEARCH_RULE
+
+  // Research the table's own subject, not the bare instruction: "add 20 rows"
+  // searched alone is meaningless, and "Ergonomic chairs add 20 rows" finds
+  // the chairs (ADR-0011).
+  const { block: rowsResearch } = await researchAndContext(
+    opts,
+    `${table.title} ${trimmed}`,
+    table.taskId
+  )
 
   const user =
-    `Table: "${table.title}"\n\nCurrent columns:\n${schemaLines.join('\n')}\n\nPrompt: ${trimmed}\n\nReturn the JSON now:`
+    `Table: "${table.title}"\n\nCurrent columns:\n${schemaLines.join('\n')}\n\nPrompt: ${trimmed}\n` +
+    (rowsResearch ? `\n${rowsResearch}\n` : '') +
+    `\nReturn the JSON now:`
 
   try {
     const resp = await c.messages.create({
