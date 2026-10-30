@@ -1794,6 +1794,38 @@ function pooled<T>(name: string, p: Promise<T>, fallback: T, ms = POOL_BUDGET_MS
   ]).finally(() => clearTimeout(timer))
 }
 
+/**
+ * What to tell the model about the web, when the web is not available to it.
+ *
+ * Exported pure and unit-locked, because the thing being prevented is a
+ * SENTENCE: "shall I search for that?" offered by an assistant that cannot.
+ * Two different reasons, two different next steps, and the model must name
+ * the right one — telling someone on the on-device model to "turn on the
+ * globe" would send them to a switch that changes nothing for them.
+ */
+export function webAvailabilityNote(webOn: boolean, onDevice: boolean): string {
+  if (onDevice) {
+    return (
+      'WEB ACCESS: none. AI is set to run on this device, so this app will not ' +
+      'contact a search engine — nothing you are asked leaves this machine. ' +
+      'You therefore CANNOT look anything up, now or later in this conversation. ' +
+      'Never offer to search, and never ask whether the user would like you to. ' +
+      'If the request needs facts you were not given, say plainly that you cannot ' +
+      'look them up while AI runs on this device, and that switching the model ' +
+      'chip under the message box to Claude or ChatGPT would let you.\n\n'
+    )
+  }
+  if (!webOn) {
+    return (
+      'WEB ACCESS: off for this conversation. You CANNOT look anything up. ' +
+      'Never offer to search. If the request needs facts you were not given, ' +
+      'say so plainly and tell the user the globe button under the message box ' +
+      'turns web search on.\n\n'
+    )
+  }
+  return ''
+}
+
 async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // @-mentions (Phase 4.2) resolve BEFORE retrieval, because what they resolve
   // to decides two things about it: which desks the narrowable pool is limited
@@ -1841,6 +1873,8 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   let semanticCoverage: number | null = null
   // What actually ran, reported honestly to the trace (A4, AI-10).
   let searched = { workspace: false, web: false }
+  // The globe's decision for this turn, read after the try block that sets it.
+  let gateWeb = false
   const t0 = Date.now()
   // The prompt's fixed parts, built once. On the on-device model the window
   // they leave is shared out among the variable parts below.
@@ -1867,6 +1901,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       hasMentions: admittedRefs.length > 0,
       webEnabled: req.webSearch !== false
     })
+    gateWeb = gate.web
     if (lastUser.trim() && gate.workspace) {
       searched = { workspace: true, web: gate.web }
       // Desk scope PRIORITISES the pools that carry a desk id — tasks, tables
@@ -2117,7 +2152,19 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
     })
   }
   const context = deskText ? `${prompt.extras}\n\n${deskText}` : prompt.extras
-  const baseSystem = `${prompt.instructions}\n\n${rule}\n\n${context}`
+  // Tell the model when the web is NOT available to it, and why.
+  //
+  // Reported 2026-10-30: asked to fill a table with real destinations, the
+  // assistant answered "Would you like me to search for this information and
+  // populate the table?" while running on the on-device model — where the app
+  // never contacts a search engine at all, by design. So it offered something
+  // that could not happen, and the user waited for an answer that was never
+  // coming. An offer the app will refuse is a lie with a question mark on it.
+  //
+  // Silence was the bug: the search was skipped without a word, so the model
+  // had no way to know. It is told now, with the step that would change it,
+  // so the sentence it writes is one the user can act on.
+  const baseSystem = `${prompt.instructions}\n\n${rule}\n\n${webAvailabilityNote(gateWeb, localOnlyActive())}${context}`
   const attachmentsBlock = attachments.block
   if (sources.length > 0 || webResults.length > 0 || dropped > 0) {
     // One numbering: workspace sources first, then web results carry on.

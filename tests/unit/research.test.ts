@@ -79,8 +79,22 @@ describe('researchBlock', () => {
     ]
   }
 
-  it('is empty when nothing was found, so no surface gets an empty heading', () => {
-    expect(researchBlock({ queries: ['x'], findings: [], skipped: 'no-results' })).toBe('')
+  it('says nothing at all when research was never asked for', () => {
+    expect(researchBlock({ queries: [], findings: [], skipped: 'off' })).toBe('')
+  })
+
+  it('says the search came back empty, rather than leaving the model to guess', () => {
+    const b = researchBlock({ queries: ['x'], findings: [], skipped: 'no-results' })
+    expect(b).toContain('found nothing usable')
+    expect(b).toMatch(/Do not fill the gap from memory/i)
+  })
+
+  it('tells the model the web is off on this device, so it cannot offer to search', () => {
+    // The reported failure: "Would you like me to search for this and
+    // populate the table?" — asked by an assistant that never could.
+    const b = researchBlock({ queries: [], findings: [], skipped: 'local-only' })
+    expect(b).toContain('run on this device')
+    expect(b).toMatch(/Do not offer to look anything up/i)
   })
 
   it('cites each source with its real URL', () => {

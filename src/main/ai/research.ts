@@ -196,7 +196,27 @@ export async function research(req: ResearchRequest): Promise<ResearchResult> {
  * exist.
  */
 export function researchBlock(res: ResearchResult): string {
-  if (res.findings.length === 0) return ''
+  if (res.findings.length === 0) {
+    // Say WHY there is nothing, when the caller asked for research and the
+    // app refused. Silence here is what let the assistant answer "shall I
+    // search for that?" while running on the on-device model, where it never
+    // could (reported 2026-10-30).
+    if (res.skipped === 'local-only') {
+      return (
+        'WEB RESEARCH: unavailable. AI is set to run on this device, so this app ' +
+        'will not contact a search engine. Do not offer to look anything up. ' +
+        'Work from what you were given, leave unknowable values empty, and say ' +
+        'plainly what you could not find out.\n'
+      )
+    }
+    if (res.skipped === 'no-results') {
+      return (
+        `WEB RESEARCH: searched for "${res.queries.join('", "')}" and found nothing usable. ` +
+        'Do not fill the gap from memory — say the search came back empty.\n'
+      )
+    }
+    return ''
+  }
   const body = res.findings
     .map((f) => {
       const head = `[W${f.n}] ${f.title} — ${f.domain} (${f.url})`
