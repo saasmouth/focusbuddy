@@ -1426,6 +1426,17 @@ export type ActionProposal =
           | 'button'
         options?: string[] // for select types
       }>
+      // The records the table should ARRIVE with, keyed by column label.
+      //
+      // Reported 2026-10-30: "it added the table but not the rows". Rows had
+      // to be separate add-table-row actions pointing back at the table with
+      // "$<id>", so twenty records meant twenty-one actions — and if the
+      // envelope was cut short, or the model simply stopped after the table,
+      // you got an empty grid and a reply saying it was filled.
+      //
+      // One action carrying both cannot half-arrive. add-table-row stays for
+      // what it is actually for: adding to a table that already exists.
+      rows?: Array<Record<string, unknown>>
       // DEC-032: the desk this belongs on, when the user named one. A real
       // node id from the desk roster the model is shown; the card resolves it
       // (id, else title) and applies there WITHOUT asking. Omitted = use the

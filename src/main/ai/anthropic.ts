@@ -670,7 +670,13 @@ export const ACTION_KINDS_CATALOG =
   '  { "kind": "create-task", "title": "Q1 rebrand", "notes": "scope notes", "reason": "this is a separate piece of work with its own deadline" }  (' +
   CREATE_TASK_DEFINITION +
   ')\n' +
-  '  { "kind": "create-table", "id": "tbl-1", "title": "Episodes", "columns": [{"label":"Title","type":"text-short"},{"label":"Status","type":"single-select","options":["Draft","Recorded","Live"]}], "reason": "nine episodes each with a status is a table, not a list" }\n' +
+  '  { "kind": "create-table", "id": "tbl-1", "title": "Episodes", "columns": [{"label":"Title","type":"text-short"},{"label":"Status","type":"single-select","options":["Draft","Recorded","Live"]}], "rows": [{"Title":"Pilot","Status":"Recorded"},{"Title":"Guest: Ana","Status":"Draft"}], "reason": "nine episodes each with a status is a table, not a list" }\n' +
+  '     (ROWS GO WITH THE TABLE. When you already know the records — the user listed them, you researched them, ' +
+  'or they are in the material above — put them in "rows" on THIS action, keyed by column label. Do NOT emit a ' +
+  'create-table and then twenty add-table-row actions: that is twenty-one chances to be cut short, and a table ' +
+  'that arrives empty after you said you filled it is the worst outcome here. add-table-row is for adding to a ' +
+  'table that ALREADY exists. If you do not know the records, create the table with no rows and say they are ' +
+  'the user\'s to fill in.)\n' +
   '  { "kind": "add-table-row", "tableId": "$tbl-1", "cells": {"Title":"Pilot","Status":"Draft"}, "reason": "the pilot is missing from the episode list you are tracking" }\n' +
   '  { "kind": "create-field", "label": "Energy", "fieldType": "single-select", "options": ["Low","Med","High"], "reason": "you sort these by energy but there is no field for it" }\n' +
   '  { "kind": "create-agent", "id": "agent-1", "title": "Lead researcher", "instruction": "For each row in the leads table, research the company and add a one-line summary of what they do.", "trigger": "manual", "reason": "automates the research" }\n' +
@@ -1265,6 +1271,13 @@ export function parseChatJson(raw: string): {
           typeof action.id === 'string' && action.id.trim().length > 0
             ? (action.id as string)
             : makeProposalId('tbl', i++)
+        // Rows ride WITH the table (2026-10-30). Only well-formed objects
+        // survive: a row that is a string or a number is the model losing
+        // the shape, and half a row is worse than none.
+        const rawRows = Array.isArray(action.rows) ? action.rows : []
+        const rows = rawRows.filter(
+          (r): r is Record<string, unknown> => !!r && typeof r === 'object' && !Array.isArray(r)
+        )
         proposals.push({
           id: proposedId,
           kind: 'create-table',
@@ -1273,6 +1286,7 @@ export function parseChatJson(raw: string): {
             ActionProposal,
             { kind: 'create-table' }
           >['columns'],
+          ...(rows.length > 0 ? { rows } : {}),
           deskId: deskIdOf(action),
           reason
         })

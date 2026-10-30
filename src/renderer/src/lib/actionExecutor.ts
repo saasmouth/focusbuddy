@@ -1454,6 +1454,22 @@ async function applyCreateTable(
     height,
     color: null
   })
+  // The records the action carried. Written after the table and before the
+  // card reports success, so "added table X (20 rows)" is true when it is
+  // said. A row that maps to no known column is skipped rather than failing
+  // the table: losing one bad row beats losing the other nineteen.
+  let rowsAdded = 0
+  for (const raw of p.rows ?? []) {
+    const { cells } = cellsFromAiRow(schema.columns, raw)
+    if (Object.keys(cells).length === 0) continue
+    try {
+      await useTablesStore.getState().addRow(table.id, cells)
+      rowsAdded++
+    } catch {
+      /* one row short beats no table */
+    }
+  }
+
   // Stash the new table id keyed by THIS proposal's id so a sibling
   // add-table-row proposal can reference it via `tableId: "$<proposal.id>"`.
   // Without this map, the AI has no way to point follow-up rows at a table
@@ -1464,7 +1480,9 @@ async function applyCreateTable(
   }
   return {
     ok: true,
-    message: `Added table "${p.title}" (${schema.columns.length} columns)`
+    message: `Added table "${p.title}" (${schema.columns.length} columns${
+      rowsAdded > 0 ? `, ${rowsAdded} row${rowsAdded === 1 ? '' : 's'}` : ''
+    })`
   }
 }
 
@@ -1786,7 +1804,14 @@ export function describeProposal(
       return {
         icon: 'table_chart',
         verb: 'Add table',
-        subject: `${p.title} · ${p.columns.length} columns`
+        // Say whether it comes with records. "it added the table but not the
+        // rows" was only a surprise because the card never said which it
+        // was — an empty table is a legitimate answer when the records are
+        // the user's to fill in, and a dishonest one when they were
+        // promised. Reading the card tells you which before you apply it.
+        subject: `${p.title} · ${p.columns.length} columns · ${
+          p.rows?.length ? `${p.rows.length} rows` : 'no rows'
+        }`
       }
     case 'add-table-row': {
       const preview = Object.values(p.cells).slice(0, 3).join(' · ')
