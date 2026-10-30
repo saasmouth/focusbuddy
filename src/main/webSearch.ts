@@ -11,6 +11,8 @@
 //
 // The parser is exported pure so the result-extraction rules are unit-locked.
 
+import { readTextCapped } from './webPage'
+
 export interface WebResult {
   title: string
   url: string
@@ -149,9 +151,13 @@ export async function searchWeb(query: string, limit = 5): Promise<WebResult[]> 
       }
     })
     if (!res.ok) return []
+    // Read under a deadline, like every other body we read (webPage.ts). The
+    // abort signal alone is not enough: whether it reaches a body stream is a
+    // platform detail, and a search that never returns holds the whole turn.
+    const html = await readTextCapped(res, 512 * 1024, Date.now() + 4000)
     // Parse deeper than the ask so a canonical site sitting just below the
     // fold can outrank the aggregators above it (AI-15), then cut to limit.
-    return rankWebResults(query, parseDdgHtml(await res.text(), limit * 2)).slice(0, limit)
+    return rankWebResults(query, parseDdgHtml(html, limit * 2)).slice(0, limit)
   } catch {
     return []
   } finally {

@@ -39,6 +39,10 @@ import { fetchPageText, isFetchFailure } from '../webPage'
 // doubled the slowest turns for a gain the fitter then cut anyway.
 const CHAT_PAGES_READ = 3
 const CHAT_PAGE_CHARS = 3000
+// The hard ceiling for the whole page-reading step, whatever the individual
+// pages do. A chat turn that cannot be answered is worse than one answered
+// from snippets.
+const CHAT_RESEARCH_BUDGET_MS = 12_000
 import { researchAndContext } from './research'
 import type { AiResearchOpts } from '@shared/types'
 import { relatedScopeIds } from '../db/nodeRelations'
@@ -1891,18 +1895,35 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // rest of the results keep their snippets: a snippet with a URL is still
       // a real, checkable lead, and dropping it because we had no time to read
       // it loses the user something.
-      webResults = await Promise.all(
-        web.map(async (r, i) =>
-          i < CHAT_PAGES_READ
-            ? {
-                ...r,
-                page: await fetchPageText(r.url, CHAT_PAGE_CHARS)
-                  .then((t) => (isFetchFailure(t) ? '' : t))
-                  .catch(() => '')
-              }
-            : r
+      //
+      // A CEILING on top of each page's own deadline. Belt and braces, and
+      // the braces are the point: this reads the live web from inside the
+      // path that assembles a chat prompt, so anything that can stall here
+      // stalls the whole turn with no error and no output. One page already
+      // did exactly that for 373 seconds. Past the ceiling the snippets
+      // stand, which is the behaviour this feature replaced — degraded, not
+      // broken, and never silent to the log.
+      webResults = await Promise.race([
+        Promise.all(
+          web.map(async (r, i) =>
+            i < CHAT_PAGES_READ
+              ? {
+                  ...r,
+                  page: await fetchPageText(r.url, CHAT_PAGE_CHARS)
+                    .then((t) => (isFetchFailure(t) ? '' : t))
+                    .catch(() => '')
+                }
+              : r
+          )
+        ),
+        new Promise<ChatWebResult[]>((resolve) =>
+          setTimeout(() => {
+            // eslint-disable-next-line no-console
+            console.warn('[chat] page reads exceeded the budget — answering on snippets')
+            resolve(web)
+          }, CHAT_RESEARCH_BUDGET_MS)
         )
-      )
+      ])
       // Honest about demote-not-exclude, and it only claims a related-desk
       // network when one exists (#13: relatedScopeIds always contains the
       // desk itself, so length 1 means no relations).
@@ -4179,11 +4200,21 @@ Rules:
 3. NEVER SHIP A SHELL. Every widget that has configuration MUST arrive fully
    configured, ready to use the moment it lands:
    - "table": tableSchema.columns is REQUIRED — a table with no columns is
-     useless and the user cannot tell what it was for. Add tableSchema.rows
-     whenever you have real records to put in them — researched findings, or
-     records named in the user's own context. Each row is an object keyed by
-     COLUMN LABEL. Do not invent rows to look thorough: a table with three
-     real rows beats one with twenty plausible ones. A primary text column
+     useless and the user cannot tell what it was for. Each row in
+     tableSchema.rows is an object keyed by COLUMN LABEL.
+
+     WHICH TABLES GET ROWS. Decide per table, and say which it is in "reason":
+       - A table of PUBLIC FACTS — destinations, venues, suppliers, products,
+         papers, tools — MUST arrive populated when the research below covers
+         it. An empty one of these is a failure: the user asked for the list,
+         not for somewhere to type the list.
+       - A table of THE USER'S OWN data — guests, their budget, their tasks,
+         their contacts — MUST arrive EMPTY. You do not know their guests, and
+         a plausible guest list is worse than no guest list. Say so in
+         "reason" ("yours to fill in"), so an empty table reads as deliberate
+         rather than broken.
+     Never invent rows to look thorough: three real rows beat twenty
+     plausible ones, and an empty table that says why beats both. A primary text column
      first (Name/Title), then the attributes the work actually tracks (Status,
      Owner, Date, Amount, Tags…). Give single-select and multi-select real
      config.options with labels AND hex colours — not an empty list.

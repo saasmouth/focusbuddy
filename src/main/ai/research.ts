@@ -60,6 +60,9 @@ export interface ResearchResult {
 
 export const EMPTY_RESEARCH: ResearchResult = { queries: [], findings: [] }
 
+/** The ceiling for reading pages, over and above each page's own deadline. */
+export const RESEARCH_BUDGET_MS = 12_000
+
 // Words that open a request to PlexiiDesk rather than describing the subject.
 // "build me a desk for tracking indie bookshops in Melbourne" is a search for
 // indie bookshops in Melbourne; sending the instruction along with it buries
@@ -152,11 +155,20 @@ export async function research(req: ResearchRequest): Promise<ResearchResult> {
   // Read the top pages in parallel. The rest keep their snippets: a snippet
   // with a URL is still a real, checkable source, and dropping it because we
   // did not have time to read it loses the user a lead.
-  const pages = await Promise.all(
-    results.slice(0, maxPages).map((r) =>
-      fetchPageText(r.url, req.perPage ?? 4000).catch(() => '(could not load)')
+  // Each page carries its own deadline (webPage.ts), and this is the ceiling
+  // over all of them. A surface waiting on research is a surface showing the
+  // user a spinner, so the step is bounded twice over; past the ceiling the
+  // snippets stand and the answer is built from those.
+  const pages = await Promise.race([
+    Promise.all(
+      results
+        .slice(0, maxPages)
+        .map((r) => fetchPageText(r.url, req.perPage ?? 4000).catch(() => '(could not load)'))
+    ),
+    new Promise<string[]>((resolve) =>
+      setTimeout(() => resolve(results.slice(0, maxPages).map(() => '(not read in time)')), RESEARCH_BUDGET_MS)
     )
-  )
+  ])
 
   const findings = results.map((r, i) => {
     const page = pages[i]
