@@ -27,7 +27,7 @@
 // does not work, and pretending otherwise would be worse than the honest framing.
 
 import { getFull } from '../mail/mailAccount'
-import { findInMail } from '../mail/mailIngest'
+import { accountKeyOf, findInStoredMail } from '../mail/mailIngest'
 import type { MailSearchHit } from '../db/mailStore'
 
 /** Per-source body budget. Under grounding.ts's SOURCE_PROMPT_CAP of 6000. */
@@ -136,6 +136,13 @@ export interface MailGroundingResult {
   rounds: number
   exhausted: boolean
   fetched: number
+  /**
+   * Matching messages whose body is not downloaded yet, so they could not be
+   * read. Named rather than dropped: a subject-line match is a real signal
+   * that the answer may exist, and an admitted gap is worth more than both
+   * silence and a quoted subject pretending to be a message.
+   */
+  notDownloaded?: number
 }
 
 /**
@@ -147,17 +154,24 @@ export interface MailGroundingResult {
  */
 export async function mailGroundingForQuestion(
   question: string,
-  opts: { want?: number; maxRounds?: number } = {}
+  opts: { want?: number } = {}
 ): Promise<MailGroundingResult> {
   const empty: MailGroundingResult = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
   const config = getFull()
   if (!config) return empty
   try {
-    const found = await findInMail(question, config, {
-      want: opts.want ?? 5,
-      maxRounds: opts.maxRounds ?? 2
-    })
+    // The LOCAL index only. findInMail widens by reaching the IMAP server —
+    // a FETCH per bodyless hit, then a page of older headers — which on a
+    // chat turn was the reported 15 seconds, paid on every workspace
+    // question whether or not it had anything to do with mail.
+    //
+    // Downloading bodies is the background sync's job already (mailSync's
+    // BODIES_PER_TICK), so the turn does not need to do it and should not:
+    // it is the one place where someone is waiting. findInMail stays for the
+    // callers that are explicitly about mail and can afford to reach.
+    const found = findInStoredMail(question, accountKeyOf(config), opts.want ?? 5)
     return {
+      notDownloaded: found.notDownloaded,
       sources: found.hits.map((h) => ({
         docId: `mail:${h.message.uid}`,
         title: mailSourceTitle(h),
@@ -166,9 +180,10 @@ export async function mailGroundingForQuestion(
         snippet: (h.message.bodyText ?? h.message.subject ?? '').replace(/\s+/g, ' ').slice(0, 200),
         date: h.message.date
       })),
-      rounds: found.rounds,
-      exhausted: found.exhausted,
-      fetched: found.fetched
+      // Nothing was reached for, so nothing was widened or fetched.
+      rounds: 0,
+      exhausted: false,
+      fetched: 0
     }
   } catch {
     // Offline, credentials revoked, server refusing. Mail simply does not

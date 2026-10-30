@@ -72,7 +72,10 @@ describe('scoreMetadata — the signals that actually mean "related"', () => {
 describe('retrieveSources surfaces a document only its metadata relates', () => {
   const EMPTY = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
 
-  async function search(query: string): Promise<Array<{ docId: string; title: string }>> {
+  async function search(
+    query: string,
+    opts: { trashed?: boolean } = {}
+  ): Promise<Array<{ docId: string; title: string }>> {
     vi.resetModules()
     // Every other pool returns nothing, so anything that comes back came
     // from the metadata table.
@@ -91,7 +94,9 @@ describe('retrieveSources surfaces a document only its metadata relates', () => 
     vi.doMock('../../src/main/db/database', () => ({ getDb: () => ({ prepare: () => ({ all: () => [], get: () => undefined, run: () => undefined }) }) }))
     vi.doMock('../../src/main/db/activeOrg', () => ({ getActiveOrgId: () => 'personal' }))
     vi.doMock('../../src/main/db/documents', () => ({
-      listDocuments: () => [{ id: 'd1', title: 'Kickoff call notes', docType: 'doc' }],
+      // Exactly like the real one: trashed documents are not listed. The row
+      // in fb_document_metadata survives, which is the whole hazard.
+      listDocuments: () => (opts.trashed ? [] : [{ id: 'd1', title: 'Kickoff call notes', docType: 'doc' }]),
       // The body never names the entity — "the client" throughout. This is
       // the document the old retrieval could not reach.
       getDocument: () => ({
@@ -132,6 +137,21 @@ describe('retrieveSources surfaces a document only its metadata relates', () => 
     const out = await retrieveSources(query)
     return out.map((s) => ({ docId: s.docId, title: s.title }))
   }
+
+  it('NEVER surfaces a document the user trashed', async () => {
+    // trashDocument says what the rule is: "The semantic vector goes too so
+    // AI retrieval never surfaces trashed work". It deletes the embedding
+    // and reindexes the chunks, closing both existing paths.
+    //
+    // The metadata pool opened a third one. fb_document_metadata has no
+    // org column and is never cleaned on trash (deleteDocMetadata exists and
+    // is called from nowhere), and getDocument reads by id with no trashed
+    // filter — so a deleted document could be matched on its metadata, have
+    // its body fetched, and be quoted back. Under a blank title, because the
+    // title map is built from live documents only.
+    const hits = await search('what did we agree with Acme', { trashed: true })
+    expect(hits).toEqual([])
+  })
 
   it('finds it by an entity the body never spells out', async () => {
     const hits = await search('what did we agree with Acme')

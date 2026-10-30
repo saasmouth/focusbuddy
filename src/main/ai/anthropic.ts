@@ -53,7 +53,7 @@ import { discoverySection } from './discoveryMode'
 import { turnRetrieval } from './retrievalIntent'
 import { buildGreenLit, gateCreation } from './creationGate'
 import { UNBACKED_CLAIM_NOTICE, claimsCompletedWork, unbackedClaimNotice } from './claimCheck'
-import { mailGroundingForQuestion } from './mailGrounding'
+import { mailGroundingForQuestion, type MailGroundingResult } from './mailGrounding'
 import {
   CREATE_TASK_DEFINITION,
   UPDATE_TASK_DEFINITION,
@@ -1793,7 +1793,15 @@ export function mergeTextMentions(
 const POOL_BUDGET_MS = 15_000
 
 /**
- * Mail gets less, because mail is the only pool that leaves the machine.
+ * Mail's budget, now that mail is local.
+ *
+ * It was 6,000ms while mailGroundingForQuestion still reached the IMAP
+ * server; it reads the local FTS index only (findInStoredMail), so this is a
+ * bug detector rather than a trade. 800ms is roughly three orders of
+ * magnitude above what an FTS query over 799 messages costs: if it ever
+ * fires, something is wrong and the trace should say so loudly.
+ *
+ * The old reasoning, kept because it is the reason the pool is separate at all:
  *
  * Measured on the owner's workspace (2026-10-30), everything else in this
  * Promise.all is sub-second: loading and parsing the whole vector store for a
@@ -1807,7 +1815,7 @@ const POOL_BUDGET_MS = 15_000
  * desk. It does not reduce what mail can find — the rounds are unchanged —
  * only how long the rest of the answer waits for it.
  */
-const MAIL_POOL_BUDGET_MS = 6_000
+const MAIL_POOL_BUDGET_MS = 800
 
 /**
  * What each pool cost, so a slow turn explains itself.
@@ -1960,6 +1968,8 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   let gateWeb = false
   // What each pool cost this turn. Reported, not just logged — see PoolTiming.
   const poolTimings: PoolTiming[] = []
+  // Matching messages the local index holds only as headers.
+  let mailGap = 0
   const t0 = Date.now()
   // The prompt's fixed parts, built once. On the on-device model the window
   // they leave is shared out among the variable parts below.
@@ -2002,7 +2012,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // the web pass is keyless, best-effort, and skipped for short follow-ups
       // (see WEB_SEARCH_MIN_QUERY). Web results continue the same [n] space so
       // one numbering rules every citation, internal or web.
-      const emptyMail = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
+      const emptyMail: MailGroundingResult = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
       const [rawSources, web, semanticOn, mailGround, coverage] = await Promise.all([
         pooled(
           'workspace',
@@ -2048,6 +2058,11 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // rather than interleaved: retrieveSources has already ranked its own pool,
       // and mail arrives pre-ordered newest-first, so merging by score would throw
       // away both orderings to produce a third nobody asked for.
+      // Matching mail that is not downloaded yet. Named in the prompt so the
+      // answer can say "three matching messages are still syncing" instead of
+      // answering as though they do not exist — the honest-gap rule, applied
+      // to the one pool that now deliberately stops short.
+      mailGap = mailGround.notDownloaded ?? 0
       const withMail = [...rawSources, ...mailGround.sources]
       // Drop anything the user already put in front of the model by name.
       candidates = withMail.filter((s) => !admittedIds.has(s.docId))
@@ -2251,7 +2266,14 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // Silence was the bug: the search was skipped without a word, so the model
   // had no way to know. It is told now, with the step that would change it,
   // so the sentence it writes is one the user can act on.
-  const baseSystem = `${prompt.instructions}\n\n${rule}\n\n${webAvailabilityNote(gateWeb, localOnlyActive())}${context}`
+  const mailGapNote =
+    mailGap > 0
+      ? `MAIL: ${mailGap} message${mailGap === 1 ? '' : 's'} matching this question ${mailGap === 1 ? 'is' : 'are'} ` +
+        'in the mailbox but not downloaded yet, so you could not read ' +
+        `${mailGap === 1 ? 'it' : 'them'}. If the answer may be in mail, say that much is still syncing rather ` +
+        'than answering as though nothing matched.\n\n'
+      : ''
+  const baseSystem = `${prompt.instructions}\n\n${rule}\n\n${mailGapNote}${webAvailabilityNote(gateWeb, localOnlyActive())}${context}`
   const attachmentsBlock = attachments.block
   if (sources.length > 0 || webResults.length > 0 || dropped > 0) {
     // One numbering: workspace sources first, then web results carry on.

@@ -209,6 +209,45 @@ export interface FindInMailResult {
  * MAX_WIDEN_ROUNDS — which exists so one vague question cannot walk a decade of
  * mail one page at a time.
  */
+/** What the local index alone can answer, and what it could not read. */
+export interface StoredMailResult {
+  hits: MailSearchHit[]
+  /** Matches whose body was never downloaded, so nothing can be quoted. */
+  notDownloaded: number
+}
+
+/**
+ * Search mail WITHOUT touching the server.
+ *
+ * findInMail below widens by reaching IMAP — one FETCH per bodyless hit,
+ * serially, then a page of older headers, up to maxRounds — and with
+ * acquireWarm's 60-second idle logout, a question asked a minute after the
+ * last one pays a TLS handshake, LOGIN and SELECT before any of that. On a
+ * chat turn that was the reported 15 seconds, on every workspace question,
+ * including ones with nothing to do with mail.
+ *
+ * A timeout did not fix it and could not: Promise.race stops the caller
+ * WAITING while the fetches carry on, holding the mailbox lock and queueing
+ * in front of the next turn. The only fix is not to start.
+ *
+ * So the turn path reads the index and is honest about the rest. Bodies are
+ * already the background sync's job (mailSync's BODIES_PER_TICK), which is
+ * where that work belongs: off the path where someone is waiting.
+ *
+ * Deliberately synchronous. A function that cannot do I/O is a promise the
+ * type system keeps.
+ */
+export function findInStoredMail(question: string, accountKey: string, want = 6): StoredMailResult {
+  const limit = Math.max(1, want)
+  const all = searchStoredMail(db(), question, { accountKey, limit: limit * 2 })
+  // A subject-line match with no body is a real signal that the answer may
+  // exist — but nothing can be quoted from it, and quoting a subject as
+  // though it were the message is the kind of plausible-looking filler that
+  // is worse than an admitted gap.
+  const readable = all.filter((h) => h.message.bodyAt !== null)
+  return { hits: readable.slice(0, limit), notDownloaded: all.length - readable.length }
+}
+
 export async function findInMail(
   question: string,
   config: MailAccountConfig,

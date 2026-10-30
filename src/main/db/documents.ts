@@ -4,6 +4,7 @@ import { notifyDocumentChanged } from '../documentEvents'
 import { getActiveOrgId } from './activeOrg'
 import { deriveTitle, isUntitled } from '@shared/titles'
 import { deleteEmbedding } from './embeddings'
+import { deleteDocMetadata } from './docMetadata'
 import type {
   DocumentDraft,
   DocumentMeta,
@@ -382,7 +383,13 @@ export function trashDocument(id: string): boolean {
   const info = db.prepare('UPDATE documents SET trashed_at = ? WHERE id = ? AND trashed_at IS NULL').run(now, id)
   // The semantic vector goes too so AI retrieval never surfaces trashed work;
   // restoreDocument re-embeds.
-  if (info.changes > 0) deleteEmbedding('document', id)
+  if (info.changes > 0) {
+    deleteEmbedding('document', id)
+    // The AI-distilled metadata goes with it. It was left behind until
+    // 2026-10-30, which was harmless only for as long as nothing searched
+    // it — and deleteDocMetadata sat defined and uncalled the whole time.
+    deleteDocMetadata(id)
+  }
   // A work widget file takes its desk instances with it (docs/widget-files.md,
   // "Remove or delete"): the file is the thing, the desks are where it is
   // placed. They are stamped with the document's own trashed_at, which is how

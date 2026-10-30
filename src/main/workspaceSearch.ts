@@ -179,6 +179,19 @@ export async function retrieveSources(
     const metaRows: MetadataCandidate[] = []
     for (const [docId, m] of listDocMetadata()) {
       if (found.has(docId)) continue
+      // ONLY LIVE DOCUMENTS. fb_document_metadata has no org column and is
+      // not cleaned when a document is trashed, and getDocument reads by id
+      // with no filter of its own — so without this the pool would reach
+      // deleted work and other orgs' work, which every other pool here is
+      // scoped against.
+      //
+      // trashDocument states the rule it would have broken: "The semantic
+      // vector goes too so AI retrieval never surfaces trashed work." It
+      // closes the embedding path and the chunk path; this closes the third
+      // one. `titles` comes from listDocuments(), which is org-scoped and
+      // excludes archived and trashed — so one membership test covers all
+      // three hazards, and cannot drift from the definition of "live".
+      if (!titles.has(docId)) continue
       metaRows.push({
         docId,
         title: getDocMetaTitle(docId),

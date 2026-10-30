@@ -19,6 +19,10 @@ let activeOrg = 'personal'
 vi.mock('../../src/main/db/database', () => ({ getDb: () => db }))
 vi.mock('../../src/main/db/activeOrg', () => ({ getActiveOrgId: () => activeOrg, PERSONAL_ORG_ID: 'personal' }))
 vi.mock('../../src/main/db/embeddings', () => ({ deleteEmbedding: () => {} }))
+// Trashing a document now clears its AI metadata too, the same way it clears
+// its vector. Stubbed for the same reason: this file's schema is the widget
+// and document tables, and it is testing instance bookkeeping, not indexes.
+vi.mock('../../src/main/db/docMetadata', () => ({ deleteDocMetadata: () => {} }))
 vi.mock('../../src/main/db/brandKit', () => ({ getBrandKit: () => null, hasBrandKit: () => false }))
 vi.mock('../../src/main/db/fileBlobs', () => ({ fileBlobs: {} }))
 vi.mock('../../src/main/db/imageDownsample', () => ({ downsampleImage: async () => null }))

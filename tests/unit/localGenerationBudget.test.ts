@@ -102,10 +102,10 @@ describe('the remote pool waits less than the local ones', () => {
   const SRC = readFileSync(join(__dirname, '../..', 'src/main/ai/anthropic.ts'), 'utf-8')
 
   it('mail has its own, shorter budget', () => {
-    // Measured on the owner's workspace: every other pool here is
-    // sub-second, and mail is the only one that leaves the machine. A slow
-    // mailbox must not set the pace of a question asked on a desk.
-    expect(SRC).toMatch(/const MAIL_POOL_BUDGET_MS = 6_000/)
+    // Mail reads the local FTS index now (findInStoredMail), so this is a
+    // bug detector rather than a trade: an FTS query over a few hundred
+    // messages is sub-millisecond, and anything near the budget is broken.
+    expect(SRC).toMatch(/const MAIL_POOL_BUDGET_MS = 800/)
     // The call gained the timings collector; what matters here is that mail
     // is pooled with its OWN budget, not the exact argument list.
     const at = SRC.indexOf("pooled('mail'")
@@ -117,7 +117,8 @@ describe('the remote pool waits less than the local ones', () => {
     const general = Number(/const POOL_BUDGET_MS = ([\d_]+)/.exec(SRC)?.[1].replace(/_/g, ''))
     const mail = Number(/const MAIL_POOL_BUDGET_MS = ([\d_]+)/.exec(SRC)?.[1].replace(/_/g, ''))
     expect(mail).toBeLessThan(general)
-    // Long enough for the local index plus a quick reach to the server.
-    expect(mail).toBeGreaterThanOrEqual(5_000)
+    // Orders of magnitude above a local FTS query, so it never fires in
+    // normal use — and loudly when something is wrong.
+    expect(mail).toBeGreaterThanOrEqual(500)
   })
 })
