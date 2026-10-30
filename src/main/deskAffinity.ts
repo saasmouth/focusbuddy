@@ -77,3 +77,34 @@ export function deskObjectIds(db: AffinityDb, scopeNodeIds: string[] | undefined
   }
   return ids
 }
+
+/**
+ * The ids of the WIDGETS sitting on these desks.
+ *
+ * deskObjectIds answers "which documents and files does this desk point at";
+ * this answers "what is actually on it". The relevance gate needs both to
+ * know whether a candidate belongs to the desk being asked from — and
+ * belonging is a relation in its own right, not a weaker kind of keyword
+ * match (2026-10-30).
+ *
+ * Best-effort, like everything here: a desk we cannot read is a desk with no
+ * widgets, and ranking carries on without the affinity.
+ */
+export function deskWidgetIds(db: AffinityDb, scopeNodeIds: string[] | undefined): Set<string> {
+  const ids = new Set<string>()
+  if (!scopeNodeIds || scopeNodeIds.length === 0) return ids
+  try {
+    const rows = db
+      .prepare(
+        `SELECT id FROM widgets WHERE task_id IN (${scopeNodeIds.map(() => '?').join(',')})`
+      )
+      .all(...scopeNodeIds)
+    for (const r of rows) {
+      const id = (r as { id?: unknown }).id
+      if (typeof id === 'string' && id) ids.add(id)
+    }
+  } catch {
+    return ids
+  }
+  return ids
+}

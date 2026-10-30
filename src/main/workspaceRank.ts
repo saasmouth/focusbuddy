@@ -154,7 +154,20 @@ const STOPWORDS = new Set([
   // Auxiliaries carry no signal but used to count toward the relevance gate's
   // coverage bar — "what DID we decide" demanded a hit for "did" and culled
   // the source that answered.
-  'did', 'does', 'doing', 'done'
+  'did', 'does', 'doing', 'done',
+  // What you ask the assistant TO DO, as opposed to what you are asking
+  // about (2026-10-30). "add the top 20 honeymoon destinations" is a question
+  // about honeymoon destinations; "add" and "top" are addressed to Plexii and
+  // appear in half the workspace. Counting them toward coverage is what let
+  // an unrelated document clear the bar on filler alone.
+  //
+  // Only words that are near-worthless AS A SEARCH TERM belong here. A word
+  // that is sometimes the subject ("design", "table", "chart") does not,
+  // however often it is also an instruction.
+  'add', 'top', 'make', 'create', 'list', 'show', 'find', 'give', 'put', 'set',
+  'need', 'want', 'please', 'help', 'tell', 'write', 'build', 'update', 'fill',
+  'generate', 'populate', 'best', 'good', 'great', 'thing', 'things', 'stuff',
+  'something', 'anything', 'everything', 'just', 'like', 'now', 'here'
 ])
 
 // Minimal inflection handling (#28): 'renewals' must find 'renewal',
@@ -175,8 +188,50 @@ export function termVariants(term: string): string[] {
 
 // One term-vs-text rule shared by the gate and the scorer, so "matches"
 // means the same thing everywhere.
+//
+// A term matches a WORD, not a substring (fixed 2026-10-30: "its reading
+// random unrelated documents"). Bare `hay.includes(v)` made "top" match
+// "laptop" and "desktop", "add" match "address", "act" match "contract" —
+// and the gate counted each as a hit, so three coincidences in an unrelated
+// document were enough to admit it. On the on-device model, whose window is
+// ~16k tokens, every one of those evicted a document that did answer.
+//
+// The start is anchored to a word boundary and a short inflection is allowed
+// at the end, so "destinations" still finds "destination" and vice versa
+// (termVariants handles the query side; this handles the text side) while
+// "laptop" no longer contains "top".
+const matcherCache = new Map<string, RegExp>()
+function matcherFor(term: string): RegExp {
+  const cached = matcherCache.get(term)
+  if (cached) return cached
+  // Each variant is expanded into the forms it can take in the TEXT, rather
+  // than matched with a generic suffix tail. A tail would have to allow a
+  // bare "d" for decide → decided, and that same "d" makes "ban" match
+  // "band". Listing the forms keeps the boundary tight at both ends.
+  const forms = new Set<string>()
+  for (const v of termVariants(term)) {
+    forms.add(v)
+    forms.add(`${v}s`)
+    forms.add(`${v}es`)
+    forms.add(`${v}ed`)
+    forms.add(`${v}ing`)
+    if (v.endsWith('e')) {
+      forms.add(`${v}d`) // decide → decided
+      forms.add(`${v.slice(0, -1)}ing`) // decide → deciding
+    }
+    if (v.endsWith('y')) forms.add(`${v.slice(0, -1)}ies`) // category → categories
+  }
+  const alts = [...forms]
+    .sort((a, b) => b.length - a.length)
+    .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')
+  const re = new RegExp(`\\b(?:${alts})\\b`, 'i')
+  matcherCache.set(term, re)
+  return re
+}
+
 export function termMatches(hay: string, term: string): boolean {
-  return termVariants(term).some((v) => hay.includes(v))
+  return matcherFor(term).test(hay)
 }
 
 // Split text into ~size-char chunks on paragraph/line boundaries so ranking can
@@ -398,17 +453,61 @@ export function interleaveByAffinity(
 // coverage — "churn" finding "attrition" with zero shared terms is the whole
 // point — and get the relative cut derived from the measured cosine overlap
 // instead.
-export function relevanceGate(query: string, sources: WorkspaceSource[]): WorkspaceSource[] {
+/**
+ * The least a source may score, on its own, to be worth a slot.
+ *
+ * The relative floor below cannot do this alone: scoring every candidate
+ * against the best of the others makes the least-bad one look like the best
+ * one, so a pool where nothing matches comes back looking analysed. An
+ * absolute floor is what makes "nothing relevant" a possible answer.
+ */
+const MIN_ABSOLUTE_SCORE = 0.08
+
+/**
+ * How many of the question's terms a source must actually contain.
+ *
+ * Was 3-of-anything-above-5, which on a nine-word question meant a third of
+ * it — and with substring matching those three were usually filler. Half the
+ * terms, at least two, at most four: enough that a source is about the
+ * question, not so much that a long question can only be answered by a
+ * document that repeats it.
+ */
+export function coverageNeeded(termCount: number): number {
+  if (termCount <= 1) return 1
+  return Math.min(4, Math.max(2, Math.ceil(termCount / 2)))
+}
+
+/**
+ * @param onDesk ids of things that live on the desk the question was asked
+ * from. They are held to a lower bar, because belonging to the desk IS a
+ * relation — "based on this desk, summarise…" means the desk's own notes
+ * even when they do not repeat the words of the question. Everything else
+ * must earn its slot on the question's own terms.
+ */
+export function relevanceGate(
+  query: string,
+  sources: WorkspaceSource[],
+  onDesk?: ReadonlySet<string>
+): WorkspaceSource[] {
   if (sources.length === 0) return sources
   const terms = queryTerms(query)
   if (terms.length === 0) return sources
-  const needed = terms.length >= 5 ? 3 : terms.length >= 3 ? 2 : 1
+  const needed = coverageNeeded(terms.length)
   const top = Math.max(...sources.map((s) => s.score))
   return sources.filter((s) => {
     const hay = `${s.title}\n${s.text}`.toLowerCase()
     let hits = 0
     for (const t of terms) if (termMatches(hay, t)) hits++
+    if (onDesk?.has(s.docId)) {
+      // On the desk you are asking from. One real term is enough to show it
+      // is not merely sitting there — but a desk object that touches the
+      // question nowhere at all is still not an answer to it.
+      return hits >= 1
+    }
     if (hits < needed) return false
-    return s.score >= top * 0.3
+    // Both floors. The relative one keeps a strong result from dragging in
+    // its weak neighbours; the absolute one keeps a uniformly weak pool from
+    // promoting its own best member.
+    return s.score >= top * 0.3 && s.score >= MIN_ABSOLUTE_SCORE
   })
 }

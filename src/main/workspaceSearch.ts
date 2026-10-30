@@ -25,7 +25,7 @@ import {
 } from './chunkIndex'
 import { collectExtraSources } from './workspaceExtras'
 import { meetingRecallSources } from './segmentRecall'
-import { deskObjectIds } from './deskAffinity'
+import { deskObjectIds, deskWidgetIds } from './deskAffinity'
 import { getDb } from './db/database'
 import { interleaveByAffinity, mergeScopedPools } from './workspaceRank'
 
@@ -157,8 +157,19 @@ export async function retrieveSources(
   // analysed (Caleb's drive: an SDR question dragged in every doc containing
   // "research"). An emptied pool is an honest result — the trace says
   // "nothing relevant" and web results lead.
+  // What belongs to the desk being asked from: the documents and files it
+  // points at, plus the widgets actually on it. Held to a lower bar by the
+  // gate — see relevanceGate. Resolved once, here, rather than per pool.
+  let onDesk: Set<string> = deskObjects
+  if (scopeNodeIds && scopeNodeIds.length > 0) {
+    try {
+      onDesk = new Set([...deskObjects, ...deskWidgetIds(getDb() as never, scopeNodeIds)])
+    } catch {
+      onDesk = deskObjects
+    }
+  }
   const pools = [kSources, docSources, extraSources, widgetSources, fileSources, chatSources, meetingSources].map(
-    (p) => relevanceGate(query, p)
+    (p) => relevanceGate(query, p, onDesk)
   )
   return interleaveByAffinity(pools, limit)
 }
