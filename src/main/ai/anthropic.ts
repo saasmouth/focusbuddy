@@ -1790,6 +1790,23 @@ export function mergeTextMentions(
  */
 const POOL_BUDGET_MS = 15_000
 
+/**
+ * Mail gets less, because mail is the only pool that leaves the machine.
+ *
+ * Measured on the owner's workspace (2026-10-30), everything else in this
+ * Promise.all is sub-second: loading and parsing the whole vector store for a
+ * pool is ~80ms, a warm local embedding ~40ms, a cold one ~670ms. The turn
+ * that reported 15,098ms was one pool sitting on the ceiling, and mail is the
+ * one that can: it answers from the local index first, then reaches the IMAP
+ * server for what the index does not hold.
+ *
+ * Six seconds keeps the local index (milliseconds) and a quick server reach,
+ * and stops a slow mailbox from setting the pace of every question asked on a
+ * desk. It does not reduce what mail can find — the rounds are unchanged —
+ * only how long the rest of the answer waits for it.
+ */
+const MAIL_POOL_BUDGET_MS = 6_000
+
 function pooled<T>(name: string, p: Promise<T>, fallback: T, ms = POOL_BUDGET_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout>
   return Promise.race([
@@ -1958,7 +1975,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
         // Mail reaches a REMOTE server, so it is the likeliest of these to
         // stall. It gets the same budget as the rest and the turn goes on.
         gate.workspace
-          ? pooled('mail', mailGroundingForQuestion(lastUser), emptyMail)
+          ? pooled('mail', mailGroundingForQuestion(lastUser), emptyMail, MAIL_POOL_BUDGET_MS)
           : Promise.resolve(emptyMail),
         // Coverage probe, same deal. Availability alone overstates the truth: a
         // route can exist while most of the workspace has no vector it can

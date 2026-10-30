@@ -94,3 +94,26 @@ describe('the budget is actually wired into the chat stream', () => {
     expect(body).toMatch(/\} finally \{[\s\S]{0,300}?endGenerationBudget\(\)/)
   })
 })
+
+// ── Pool budgets ────────────────────────────────────────────────────────────
+describe('the remote pool waits less than the local ones', () => {
+  const { readFileSync } = require('node:fs') as typeof import('node:fs')
+  const { join } = require('node:path') as typeof import('node:path')
+  const SRC = readFileSync(join(__dirname, '../..', 'src/main/ai/anthropic.ts'), 'utf-8')
+
+  it('mail has its own, shorter budget', () => {
+    // Measured on the owner's workspace: every other pool here is
+    // sub-second, and mail is the only one that leaves the machine. A slow
+    // mailbox must not set the pace of a question asked on a desk.
+    expect(SRC).toMatch(/const MAIL_POOL_BUDGET_MS = 6_000/)
+    expect(SRC).toContain("pooled('mail', mailGroundingForQuestion(lastUser), emptyMail, MAIL_POOL_BUDGET_MS)")
+  })
+
+  it('and it really is shorter than the general one', () => {
+    const general = Number(/const POOL_BUDGET_MS = ([\d_]+)/.exec(SRC)?.[1].replace(/_/g, ''))
+    const mail = Number(/const MAIL_POOL_BUDGET_MS = ([\d_]+)/.exec(SRC)?.[1].replace(/_/g, ''))
+    expect(mail).toBeLessThan(general)
+    // Long enough for the local index plus a quick reach to the server.
+    expect(mail).toBeGreaterThanOrEqual(5_000)
+  })
+})
