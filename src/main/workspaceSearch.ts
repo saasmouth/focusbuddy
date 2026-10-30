@@ -26,6 +26,8 @@ import {
 import { collectExtraSources } from './workspaceExtras'
 import { meetingRecallSources } from './segmentRecall'
 import { deskObjectIds, deskWidgetIds } from './deskAffinity'
+import { listDocMetadata } from './db/docMetadata'
+import { rankByMetadata, type MetadataCandidate } from './metadataRecall'
 import { getDb } from './db/database'
 import { interleaveByAffinity, mergeScopedPools } from './workspaceRank'
 
@@ -157,6 +159,56 @@ export async function retrieveSources(
   // analysed (Caleb's drive: an SDR question dragged in every doc containing
   // "research"). An emptied pool is an honest result — the trace says
   // "nothing relevant" and web results lead.
+  // ── Metadata recall (2026-10-30) ──────────────────────────────────────────
+  //
+  // What the enrichment pass distilled about each document — the entities it
+  // names, its keywords, its category — searched as a relation in its own
+  // right. A question about "Acme" reaches a document whose body says "the
+  // client" throughout and whose entity list says Acme; nothing else in this
+  // function could have made that connection.
+  //
+  // ADDITIVE. These join the document pool and are de-duplicated against it;
+  // a document already found keeps its place and its passage. Nothing is
+  // removed, so no question gets a narrower answer than it did before — and
+  // a workspace with no metadata yet pays nothing for this.
+  const metaSources: WorkspaceSource[] = []
+  try {
+    const found = new Set(docSources.map((d) => d.docId))
+    const titles = new Map(listDocuments().map((d) => [d.id, d.title]))
+    const getDocMetaTitle = (id: string): string => titles.get(id) ?? ''
+    const metaRows: MetadataCandidate[] = []
+    for (const [docId, m] of listDocMetadata()) {
+      if (found.has(docId)) continue
+      metaRows.push({
+        docId,
+        title: getDocMetaTitle(docId),
+        summary: m.summary,
+        category: m.category,
+        entities: m.entities,
+        keywords: m.keywords
+      })
+    }
+    for (const hit of rankByMetadata(query, metaRows, limit)) {
+      const doc = getDocument(hit.docId)
+      if (!doc) continue
+      const text = extractDocText(doc.docType, doc.body)
+      if (!text.trim()) continue
+      metaSources.push({
+        docId: hit.docId,
+        title: getDocMetaTitle(hit.docId) || 'Untitled',
+        docType: doc.docType as string,
+        snippet: snippetFor(text, query),
+        // The passage that answers, as every other pool does — a document
+        // found by its metadata still has to be QUOTED where it is relevant.
+        text: selectPassages(query, text),
+        score: hit.score
+      })
+    }
+  } catch {
+    // Recall is a bonus: a metadata table that cannot be read leaves
+    // retrieval exactly as it was.
+  }
+
   // What belongs to the desk being asked from: the documents and files it
   // points at, plus the widgets actually on it. Held to a lower bar by the
   // gate — see relevanceGate. Resolved once, here, rather than per pool.
@@ -168,9 +220,29 @@ export async function retrieveSources(
       onDesk = deskObjects
     }
   }
-  const pools = [kSources, docSources, extraSources, widgetSources, fileSources, chatSources, meetingSources].map(
-    (p) => relevanceGate(query, p, onDesk)
-  )
+  const pools: WorkspaceSource[][] = [
+    kSources,
+    docSources,
+    extraSources,
+    widgetSources,
+    fileSources,
+    chatSources,
+    meetingSources
+  ].map((p) => relevanceGate(query, p, onDesk))
+
+  // The metadata pool is NOT content-gated, and that is the whole point.
+  //
+  // relevanceGate asks whether the question's words appear in the title or
+  // the text. A document found because its entity list says "Acme", whose
+  // body says "the client" from start to finish, has none of them — so
+  // gating it would discard exactly the connection this pool exists to make,
+  // and the feature would look like it did nothing.
+  //
+  // It is not ungated in any loose sense: scoreMetadata already required a
+  // real term to match a real signal, and it ran on the same word-boundary
+  // rule the gate uses. A different question was asked of it, and it
+  // answered.
+  pools.push(metaSources)
   return interleaveByAffinity(pools, limit)
 }
 

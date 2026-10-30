@@ -167,7 +167,16 @@ describe('M4 wiring pins', () => {
 
   it('the meetings pool rides retrieveSources round-robin', () => {
     expect(workspaceSearch).toContain('const meetingSources = meetingRecallSources(query, limit)')
-    expect(workspaceSearch).toContain('chatSources, meetingSources]')
+    // The invariant is that meetings are IN the blended pool list, not that
+    // the list is written on one line. It gained a member and wrapped when
+    // metadata recall arrived (2026-10-30), and a literal pin broke on the
+    // formatting while the rule it guards never changed.
+    const pools = workspaceSearch.slice(
+      workspaceSearch.indexOf('const pools'),
+      workspaceSearch.indexOf('interleaveByAffinity(pools')
+    )
+    expect(pools).toContain('meetingSources')
+    expect(pools).toContain('chatSources')
   })
 
   it('a meeting citation routes: target, identity, and the door out of the panel', () => {
