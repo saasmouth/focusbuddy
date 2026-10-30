@@ -2758,6 +2758,54 @@ export interface ChatStreamCallbacks {
   onComplete: (response: ChatResponse) => void
 }
 
+/**
+ * How long an on-device turn may spend WRITING before it is stopped and what
+ * it managed is kept.
+ *
+ * Reported 2026-10-30 as "Writing… 982s" — sixteen minutes, a rising counter
+ * and not a word on screen. Retrieval was already bounded by then (the same
+ * trace shows a pool giving up at 15,098ms, which is that budget working);
+ * generation was not. The engine caps how many TOKENS it writes and nothing
+ * caps how LONG: a small model with a nearly full context can grind for a
+ * quarter of an hour.
+ *
+ * Three minutes is deliberately generous. A real on-device answer on a slow
+ * machine finishes inside it, and nobody should watch a counter past that
+ * without being told something is wrong.
+ */
+export const LOCAL_GENERATION_BUDGET_MS = 180_000
+
+/**
+ * The budget for this turn, or null for none.
+ *
+ * Cloud turns are left alone: a long document legitimately takes a while, it
+ * streams the whole time, and the user can see it happening. The on-device
+ * case is different precisely because there is nothing to see.
+ */
+export function generationBudgetMs(isLocal: boolean): number | null {
+  return isLocal ? LOCAL_GENERATION_BUDGET_MS : null
+}
+
+/**
+ * Arm the budget. Returns the canceller to call when the turn ends — on
+ * every path, including the throwing one, or a timer outlives its stream and
+ * aborts the NEXT one.
+ *
+ * Aborting keeps what streamed: engineCore's contract is "an AbortSignal
+ * stops generation; whatever streamed is kept and the result says
+ * 'aborted'", so a budgeted turn ends with a short answer and the existing
+ * cut-off notice, not with nothing.
+ */
+export function startGenerationBudget(ms: number | null, abort: () => void): () => void {
+  if (ms === null) return () => undefined
+  const timer = setTimeout(() => {
+    // eslint-disable-next-line no-console
+    console.warn(`[chat] on-device generation exceeded ${ms}ms — stopping and keeping what was written`)
+    abort()
+  }, ms)
+  return () => clearTimeout(timer)
+}
+
 export async function sendChatStream(
   req: ChatRequest,
   cb: ChatStreamCallbacks,
@@ -2877,11 +2925,17 @@ export async function sendChatStream(
     if (onCredits) {
       finalMsg = await nonStreamed()
     } else {
+      let endGenerationBudget: () => void = () => undefined
       try {
         const stream = c.messages.stream(body)
         // The real abort takes over from the pre-stream flag.
         abortStream = () => stream.abort()
         if (cancelled) stream.abort()
+        // On this device, bound the writing too — not just the retrieval.
+        endGenerationBudget = startGenerationBudget(
+          generationBudgetMs(String(resolveModel('chat')).startsWith('local:')),
+          () => stream.abort()
+        )
 
         stream.on('text', (delta: string) => {
           if (!tFirstToken) tFirstToken = Date.now()
@@ -2895,6 +2949,10 @@ export async function sendChatStream(
         if (!isStreamingUnsupported(e)) throw e
         streamed = false
         finalMsg = await nonStreamed()
+      } finally {
+        // Every path, including the throwing one: a live timer would outlive
+        // its stream and abort the next turn instead of this one.
+        endGenerationBudget()
       }
     }
     {
