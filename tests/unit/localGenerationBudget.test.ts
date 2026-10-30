@@ -106,7 +106,11 @@ describe('the remote pool waits less than the local ones', () => {
     // sub-second, and mail is the only one that leaves the machine. A slow
     // mailbox must not set the pace of a question asked on a desk.
     expect(SRC).toMatch(/const MAIL_POOL_BUDGET_MS = 6_000/)
-    expect(SRC).toContain("pooled('mail', mailGroundingForQuestion(lastUser), emptyMail, MAIL_POOL_BUDGET_MS)")
+    // The call gained the timings collector; what matters here is that mail
+    // is pooled with its OWN budget, not the exact argument list.
+    const at = SRC.indexOf("pooled('mail'")
+    expect(at).toBeGreaterThan(-1)
+    expect(SRC.slice(at, at + 200)).toContain('MAIL_POOL_BUDGET_MS')
   })
 
   it('and it really is shorter than the general one', () => {

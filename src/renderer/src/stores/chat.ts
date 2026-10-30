@@ -1121,7 +1121,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               semantic: t.semantic ?? null,
               semanticCoverage: t.semanticCoverage ?? null,
               // What actually ran (A4 gating). Absent = everything, pre-A4 truth.
-              searched: t.searched ?? null
+              searched: t.searched ?? null,
+              // Where the time went, so a slow turn reports itself.
+              poolTimings: t.poolTimings ?? null
             }),
           // Token-by-token prose: the first delta creates the turn, later ones
           // grow it in place. Cumulative text, so each event simply replaces.

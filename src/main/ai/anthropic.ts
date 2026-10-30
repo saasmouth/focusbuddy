@@ -1722,6 +1722,8 @@ interface PreparedChatCall {
   /** What the answer was given to stand on, for the grounding check (answerGrounding.ts). */
   groundingSupplied: string
   retrievalMs: number
+  /** What each retrieval pool cost, so a slow turn explains itself. */
+  poolTimings: PoolTiming[]
   // What each @-mention actually produced (Phase 4.2). Empty when the request
   // carried none. Derived from the same pass that built the prompt block, so
   // the renderer is told exactly what the model was given.
@@ -1807,7 +1809,35 @@ const POOL_BUDGET_MS = 15_000
  */
 const MAIL_POOL_BUDGET_MS = 6_000
 
-function pooled<T>(name: string, p: Promise<T>, fallback: T, ms = POOL_BUDGET_MS): Promise<T> {
+/**
+ * What each pool cost, so a slow turn explains itself.
+ *
+ * THE REASON THIS EXISTS. Retrieval reported one number — retrievalMs — for
+ * five pools running in parallel. A user could only ever report "it took 15
+ * seconds", and working out WHICH of the five took it was guesswork. I
+ * guessed twice on this exact problem (2026-10-30) and was wrong twice, each
+ * time confidently: first that a page fetch was hanging, then that parsing
+ * the vector store was the cost. Measurement overturned both in minutes —
+ * the vector read is 82ms and mail's server reach was the 15 seconds.
+ *
+ * A total invites a guess. A breakdown ends the argument, and it travels
+ * with the user's report instead of needing a second round trip to get it.
+ */
+export interface PoolTiming {
+  name: string
+  ms: number
+  /** True when the budget cut it off — the number is the ceiling, not a cost. */
+  cappedAt?: number
+}
+
+function pooled<T>(
+  name: string,
+  p: Promise<T>,
+  fallback: T,
+  ms = POOL_BUDGET_MS,
+  into?: PoolTiming[]
+): Promise<T> {
+  const started = Date.now()
   let timer: ReturnType<typeof setTimeout>
   return Promise.race([
     p.catch((e) => {
@@ -1819,10 +1849,32 @@ function pooled<T>(name: string, p: Promise<T>, fallback: T, ms = POOL_BUDGET_MS
       timer = setTimeout(() => {
         // eslint-disable-next-line no-console
         console.warn(`[chat] pool ${name} exceeded ${ms}ms — answering without it`)
+        into?.push({ name, ms, cappedAt: ms })
         resolve(fallback)
       }, ms)
     })
-  ]).finally(() => clearTimeout(timer))
+  ])
+    .then((v) => {
+      // A pool that already recorded a cap must not also record a duration:
+      // the cap IS the story, and two rows for one pool reads as a bug.
+      if (!into?.some((t) => t.name === name)) into?.push({ name, ms: Date.now() - started })
+      return v
+    })
+    .finally(() => clearTimeout(timer))
+}
+
+/** A turn slower than this writes its full breakdown to the log, once. */
+const SLOW_TURN_MS = 3_000
+
+/** One greppable line naming where a slow turn went. */
+export function logSlowRetrieval(totalMs: number, timings: PoolTiming[]): void {
+  if (totalMs < SLOW_TURN_MS || timings.length === 0) return
+  const parts = [...timings]
+    .sort((a, b) => b.ms - a.ms)
+    .map((t) => `${t.name}=${t.ms}ms${t.cappedAt ? ' (capped)' : ''}`)
+    .join(' ')
+  // eslint-disable-next-line no-console
+  console.warn(`[chat] slow retrieval ${totalMs}ms — ${parts}`)
 }
 
 /**
@@ -1906,6 +1958,8 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   let searched = { workspace: false, web: false }
   // The globe's decision for this turn, read after the try block that sets it.
   let gateWeb = false
+  // What each pool cost this turn. Reported, not just logged — see PoolTiming.
+  const poolTimings: PoolTiming[] = []
   const t0 = Date.now()
   // The prompt's fixed parts, built once. On the on-device model the window
   // they leave is shared out among the variable parts below.
@@ -1955,7 +2009,9 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
           retrieveSources(lastUser, undefined, scope.length ? scope : undefined, {
             excludeChatId: req.conversationId
           }),
-          []
+          [],
+          POOL_BUDGET_MS,
+          poolTimings
         ),
         // The R21 globe and ideation gating both land here: an off web pool
         // resolves empty without ever making the request.
@@ -1963,10 +2019,10 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
         // search engine, so it is not made at all (the egress guard would refuse
         // it anyway; this keeps the attempt from happening).
         gate.web && !localOnlyActive()
-          ? pooled('web-search', searchWeb(lastUser, 5), [] as WebResult[])
+          ? pooled('web-search', searchWeb(lastUser, 5), [] as WebResult[], POOL_BUDGET_MS, poolTimings)
           : Promise.resolve([] as WebResult[]),
         // Availability probe, in parallel so disclosure costs no latency.
-        pooled('embedding-probe', embeddingConfigured(), false, 5_000),
+        pooled('embedding-probe', embeddingConfigured(), false, 5_000, poolTimings),
         // Mail is its own pool. The local store answers most questions with no
         // round trip at all; when it cannot, the search reaches further back
         // through history rather than settling for whatever happens to be cached.
@@ -1975,12 +2031,12 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
         // Mail reaches a REMOTE server, so it is the likeliest of these to
         // stall. It gets the same budget as the rest and the turn goes on.
         gate.workspace
-          ? pooled('mail', mailGroundingForQuestion(lastUser), emptyMail, MAIL_POOL_BUDGET_MS)
+          ? pooled('mail', mailGroundingForQuestion(lastUser), emptyMail, MAIL_POOL_BUDGET_MS, poolTimings)
           : Promise.resolve(emptyMail),
         // Coverage probe, same deal. Availability alone overstates the truth: a
         // route can exist while most of the workspace has no vector it can
         // compare, which reads as an assistant that only knows recent things.
-        pooled('coverage-probe', chatRetrievalCoverage(), { indexed: 0, total: 0 } as never, 5_000)
+        pooled('coverage-probe', chatRetrievalCoverage(), { indexed: 0, total: 0 } as never, 5_000, poolTimings)
       ])
       // Measured against the GATED route: with Background AI tasks off and no
       // local model, a saved OpenAI key embeds nothing (traceSemantic).
@@ -2264,6 +2320,7 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       ...req.messages.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : ''))
     ].join('\n'),
     retrievalMs: Date.now() - t0,
+    poolTimings,
     semantic: semanticAvailable,
     semanticCoverage,
     searched,
@@ -2904,12 +2961,14 @@ export async function sendChatStream(
   const tPrepared = Date.now()
   // Retrieval is done — report it before a single token of the answer exists.
   if (prepared.mentions.length > 0) cb.onMentions(prepared.mentions)
+  logSlowRetrieval(prepared.retrievalMs, prepared.poolTimings)
   cb.onSources({
     sources: prepared.sources,
     elapsedMs: prepared.retrievalMs,
     semantic: prepared.semantic ?? undefined,
     semanticCoverage: prepared.semanticCoverage ?? undefined,
-    searched: prepared.searched
+    searched: prepared.searched,
+    poolTimings: prepared.poolTimings.length > 0 ? prepared.poolTimings : undefined
   })
 
   // The delta → event loop lives in its own module so it can be tested without

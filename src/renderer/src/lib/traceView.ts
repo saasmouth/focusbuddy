@@ -26,6 +26,8 @@ export interface AssistantTrace {
   // Null until the `sources` event lands.
   retrievedAt: number | null
   retrievalMs: number | null
+  // Where that time went, pool by pool. Absent on an older main process.
+  poolTimings?: Array<{ name: string; ms: number; cappedAt?: number }> | null
   // Null until the reply prose lands whole.
   repliedAt: number | null
   completedAt: number | null
@@ -258,16 +260,41 @@ function partialMeaning(coverage: number | null | undefined): string {
   return ` · ${pct}% ranked by meaning`
 }
 
+/**
+ * The slowest pool, named, when a turn was slow enough to care about.
+ *
+ * A total is not a diagnosis. "15098ms" says a turn was slow; it cannot say
+ * which of five parallel pools took it, and guessing from the code produced
+ * two wrong answers before a measurement settled it (2026-10-30). The line
+ * now carries its own explanation, so a screenshot is a bug report.
+ *
+ * Only when it is worth saying: under three seconds the breakdown is noise.
+ */
+export function slowestPoolNote(
+  totalMs: number | null,
+  timings: Array<{ name: string; ms: number; cappedAt?: number }> | null | undefined
+): string {
+  if (typeof totalMs !== 'number' || totalMs < 3000) return ''
+  if (!timings || timings.length === 0) return ''
+  const worst = [...timings].sort((a, b) => b.ms - a.ms)[0]
+  // A capped pool did not COST that; it was stopped at it. Saying "6000ms"
+  // flat would read as a measurement of work done.
+  return worst.cappedAt
+    ? ` · ${worst.name} hit its ${Math.round(worst.cappedAt / 1000)}s limit`
+    : ` · mostly ${worst.name} (${worst.ms}ms)`
+}
+
 function retrieveLabel(trace: AssistantTrace): string {
   const ms = trace.retrievalMs
   const timing = typeof ms === 'number' ? ` · ${ms}ms` : ''
+  const slow = slowestPoolNote(ms, trace.poolTimings)
   // Honest about HOW it searched (defect #15): with no embedding route the
   // match is literal keywords — "churn" does not find "attrition" — and the
   // label must not imply otherwise. Silent when semantic ran or is unknown.
   const how = trace.semantic === false ? ' · keyword match' : partialMeaning(trace.semanticCoverage)
   const ws = workspaceSources(trace)
-  if (ws.length === 0) return `Searched your workspace · nothing relevant${timing}${how}`
-  return `Searched your workspace · ${plural(ws.length, 'source')}${timing}${how}`
+  if (ws.length === 0) return `Searched your workspace · nothing relevant${timing}${slow}${how}`
+  return `Searched your workspace · ${plural(ws.length, 'source')}${timing}${slow}${how}`
 }
 
 function sourceLeaves(sources: ChatSource[]): TraceLeaf[] {

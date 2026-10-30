@@ -922,6 +922,15 @@ export interface ChatRetrievalTrace {
   // false here suppresses the corresponding trace line. Absent on an older
   // main process: read as "everything ran", the pre-A4 truth.
   searched?: { workspace: boolean; web: boolean }
+  // WHERE the time went, pool by pool (2026-10-30). `elapsedMs` alone is one
+  // number for five parallel pools, so a report of "it took 15 seconds" could
+  // not say which one — and working it out from the code produced two
+  // confident wrong answers before a measurement settled it in minutes.
+  //
+  // `cappedAt` marks a pool the budget cut off: its ms is the ceiling, not a
+  // cost, and the difference matters when reading a slow turn. Absent on an
+  // older main process: show the total alone, as before.
+  poolTimings?: Array<{ name: string; ms: number; cappedAt?: number }>
 }
 
 // A structured follow-up the assistant asks instead of guessing — rendered as
