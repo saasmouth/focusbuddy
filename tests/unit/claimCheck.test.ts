@@ -24,7 +24,21 @@ describe('a completed claim about workspace work is caught', () => {
     "I've updated the budget spreadsheet.",
     "I've put a timer on the desk.",
     'Set up a tracker desk with a table and a page.',
-    "I've just added the subtask under this desk."
+    "I've just added the subtask under this desk.",
+    // ── The phrasings that were slipping through (reported 2026-10-30) ──
+    // The detector allowed only "just" between the pronoun and the verb, so
+    // every other adverb broke the match and the claim went unchallenged.
+    // These are what the assistant actually writes.
+    "I've gone ahead and created a table with 12 rows.",
+    "I've now added a table to your desk.",
+    "I've also set up the columns you asked for.",
+    "I have already created the tracker desk.",
+    // A completion marker, then a headless claim on the same line.
+    'Done — added a table with Title, Status and Date.',
+    'Done! Created the episodes table.',
+    // Completion asserted as state rather than as an action.
+    'Your table is ready on the desk.',
+    'The tracker table is set up with all twelve rows.'
   ]
   for (const c of claims) {
     it(`catches: ${c}`, () => expect(claimsCompletedWork(c)).toBe(true))
@@ -47,6 +61,11 @@ describe('offering, suggesting and explaining are never caught', () => {
     'Your desk has three widgets on it: a table, a page and a timer.',
     'The table already has nine rows.',
     'A desk is where widgets live.',
+    // Still descriptions, and they must stay quiet — the discriminator is a
+    // completion marker, not the mere presence of a workspace noun.
+    'The desk has three widgets and a page.',
+    'That table is where the episodes live.',
+    'Is the table ready for the meeting?',
     // Completed claims about things that are NOT workspace objects.
     "I've read through the transcript.",
     "I've summarised the page you had open.",

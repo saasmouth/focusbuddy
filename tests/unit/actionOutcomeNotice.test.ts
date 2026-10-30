@@ -237,8 +237,14 @@ describe('an empty response is retried once before giving up', () => {
 
   it('still reports honestly when the retry is also empty', () => {
     // This recovers a hiccup; it must not hide one.
+    //
+    // Scoped to the rest of the enclosing function rather than a fixed window
+    // of characters: the invariant is "this path still falls through to the
+    // honest report", and a legitimate step added in between (the empty-actions
+    // repair, 2026-10-30) used to break the guard without breaking the rule.
     const at = SRC.indexOf('empty response, retried once')
-    const after = SRC.slice(at, at + 1200)
+    const end = SRC.indexOf('\nexport ', at)
+    const after = SRC.slice(at, end === -1 ? SRC.length : end)
     expect(after).toContain('unparseableChatResponse')
   })
 

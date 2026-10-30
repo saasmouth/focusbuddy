@@ -39,7 +39,7 @@ import { uiBlocksSection, validateChatUiBlocks } from './chatUiBlocks'
 import { discoverySection } from './discoveryMode'
 import { turnRetrieval } from './retrievalIntent'
 import { buildGreenLit, gateCreation } from './creationGate'
-import { claimsCompletedWork, unbackedClaimNotice } from './claimCheck'
+import { UNBACKED_CLAIM_NOTICE, claimsCompletedWork, unbackedClaimNotice } from './claimCheck'
 import { mailGroundingForQuestion } from './mailGrounding'
 import {
   CREATE_TASK_DEFINITION,
@@ -2342,6 +2342,97 @@ export function buildChatResponse(
   }
 }
 
+/**
+ * True when the response we are about to hand back is the silent failure the
+ * user actually reports: the prose says a table/desk/widget was built, and
+ * there is no card to apply and no question to answer.
+ *
+ * Detected off the notice buildChatResponse appends rather than by re-running
+ * the detector, so the two can never disagree about what the user is seeing.
+ */
+export function needsActionRepair(res: ChatResponse): boolean {
+  return Boolean(
+    res.ok &&
+      !res.proposals?.length &&
+      !res.question &&
+      res.message?.content.endsWith(UNBACKED_CLAIM_NOTICE)
+  )
+}
+
+/**
+ * The one extra turn that turns the apology back into the work.
+ *
+ * Telling the user "nothing was created" is honest but useless — they asked
+ * for a table and they still have no table. The model has already decided WHAT
+ * to build (it described it in prose); it simply failed to put that decision
+ * in the `actions` array. So we hand its own reply back to it and ask for the
+ * envelope again, with the prose it wrote as the specification.
+ *
+ * Deliberately once. If the second attempt also comes back without actions, the
+ * original response stands with its correction notice: this recovers a slip, it
+ * does not hide a refusal. The retry prompt is explicit that an empty `actions`
+ * is a legitimate answer, so a model that genuinely cannot do the thing says so
+ * instead of inventing a card that will fail on apply.
+ */
+export async function repairMissingActions(
+  c: Anthropic,
+  system: CacheTextBlock[],
+  msgs: Array<{ role: 'user' | 'assistant'; content: string }>,
+  priorText: string,
+  sources: ChatSource[],
+  mentions: ChatMentionResolved[],
+  gate: { discovery: boolean; greenLit: boolean; supportsQuestions?: boolean }
+): Promise<ChatResponse | null> {
+  try {
+    const resp = await c.messages.create({
+      model: resolveModel('chat'),
+      max_tokens: 16384,
+      system,
+      messages: [
+        ...msgs,
+        { role: 'assistant', content: priorText },
+        {
+          role: 'user',
+          content:
+            'That reply described work as done, but its `actions` array was empty, so nothing was ' +
+            'created and there is nothing for me to apply. Send the same JSON envelope again. ' +
+            'Put every action needed to actually produce what you just described into `actions` — ' +
+            'the table with its columns, each row with its values, the widgets, the pages — using ' +
+            'exactly the action shapes defined above. Keep `reply` to one short sentence. ' +
+            'If what you described cannot be built with the available actions, return an empty ' +
+            '`actions` array and say plainly in `reply` what you cannot do. Do not describe ' +
+            'anything as done again.'
+        }
+      ]
+    })
+    {
+      const ct = cacheTokens(resp.usage)
+      recordAiUsage(resolveModel('chat'), resp.usage?.input_tokens ?? 0, resp.usage?.output_tokens ?? 0, ct.read, ct.write)
+    }
+    const text = resp.content
+      .filter((b) => b.type === 'text')
+      .map((b) => ('text' in b ? b.text : ''))
+      .join('\n')
+      .trim()
+    const repaired = buildChatResponse(text, sources, mentions, gate)
+    // Only a repair that produced something applicable is an improvement. A
+    // second empty envelope, or an unparseable one, leaves the honest notice in
+    // place rather than replacing it with a second unbacked sentence.
+    if (!repaired?.proposals?.length) {
+      // eslint-disable-next-line no-console
+      console.warn('[chat] action repair produced no proposals — keeping the correction notice')
+      return null
+    }
+    // eslint-disable-next-line no-console
+    console.warn(`[chat] action repair recovered ${repaired.proposals.length} proposal(s)`)
+    return repaired
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[chat] action repair failed:', (e as Error).message)
+    return null
+  }
+}
+
 export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
   const c = getClient()
   if (!c) {
@@ -2385,7 +2476,14 @@ export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
       .join('\n')
       .trim()
 
-    const built = buildChatResponse(text, citedSources, mentionReport, chatGateContext(req))
+    let built = buildChatResponse(text, citedSources, mentionReport, chatGateContext(req))
+    // The user asked for a table and the model only talked about one. Ask once
+    // more for the actions before handing back an apology.
+    if (built && needsActionRepair(built)) {
+      built =
+        (await repairMissingActions(c, system, msgs, text, citedSources, mentionReport, chatGateContext(req))) ??
+        built
+    }
     if (built) {
       const grounded = withFitNotice(groundChatResponse(built, groundingSupplied, String(resp.model ?? '')), fitNotice)
       void maybeExtractChatMemory(req, grounded)
@@ -2713,7 +2811,19 @@ export async function sendChatStream(
     // Grounded once, on the complete reply, never per delta. After a Stop the
     // routed engine names the model, so a cut-short local reply is repaired.
     const groundingModel = answeredModel || String(resolveModel('chat'))
-    const built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
+    let built = buildChatResponse(text, prepared.sources, prepared.mentions, chatGateContext(req))
+    if (built && needsActionRepair(built)) {
+      built =
+        (await repairMissingActions(
+          c,
+          prepared.system,
+          prepared.msgs,
+          text,
+          prepared.sources,
+          prepared.mentions,
+          chatGateContext(req)
+        )) ?? built
+    }
     if (built) {
       const grounded = withFitNotice(groundChatResponse(built, prepared.groundingSupplied, groundingModel), prepared.fitNotice)
       cb.onComplete(grounded)

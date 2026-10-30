@@ -28,8 +28,21 @@ const DID = 'created|added|made|set up|built|generated|put|placed|updated|insert
  * A first-person claim in completed aspect: "I've created", "I have added",
  * "I created", "I set up". Present perfect and simple past only — a promise
  * ("I'll add") is a different failure and too easily a legitimate offer.
+ *
+ * THE ADVERB GAP (fixed 2026-10-30). This allowed only "just" between the
+ * pronoun and the verb, so every other way of saying it walked straight
+ * through: "I've gone ahead and created…", "I've now added…", "I've also set
+ * up…", "I have already created…". Six of seven phrasings taken from real
+ * replies were missed, which is how the assistant could claim a table it had
+ * not built and nothing contradicted it. The fillers are listed rather than
+ * matched as "any words", because a wildcard here would start catching
+ * sentences that merely mention a verb later on.
  */
-const FIRST_PERSON_DONE = new RegExp(String.raw`\bI(?:'ve|’ve| have)?\s+(?:just\s+)?(?:${DID})\b`, 'i')
+const DONE_FILLER = '(?:just|now|also|already|then|successfully|gone ahead and)'
+const FIRST_PERSON_DONE = new RegExp(
+  String.raw`\bI(?:'ve|’ve| have)?\s+(?:${DONE_FILLER}\s+)*(?:${DID})\b`,
+  'i'
+)
 
 /**
  * The same claim with the subject dropped, which is how assistants usually
@@ -38,6 +51,26 @@ const FIRST_PERSON_DONE = new RegExp(String.raw`\bI(?:'ve|’ve| have)?\s+(?:jus
  * "once that is created a table appears".
  */
 const HEADLESS_DONE = new RegExp(String.raw`(?:^|\n)\s*(?:${DID})\b`, 'i')
+
+/**
+ * A completion marker followed by the claim on the same line: "Done — added a
+ * table", "All set, created the tracker". The sentence splitter leaves these
+ * joined (no terminator between them), so HEADLESS_DONE's line anchor misses
+ * them. Only the separator is allowed between, never words.
+ */
+const MARKED_DONE = new RegExp(
+  String.raw`(?:^|\n)\s*(?:done|all set|there you go)\b[^\w\n]{0,4}(?:${DID})\b`,
+  'i'
+)
+
+/**
+ * Completion asserted as STATE rather than as an action: "your table is
+ * ready", "the tracker is set up". Deliberately narrow — the adjective must
+ * sit directly after the verb, so a description ("the desk has three
+ * widgets", "that table is where the episodes live") and a question ("is the
+ * table ready?") are all left alone.
+ */
+const STATE_DONE = /\b(?:is|are)\s+(?:now\s+)?(?:ready|set up|live|in place|on your desk)\b/i
 
 /** A thing in the workspace, so generic completions do not qualify. */
 const WORKSPACE_OBJECT =
@@ -70,7 +103,8 @@ export function claimsCompletedWork(reply: string): boolean {
     if (!s) continue
     if (!WORKSPACE_OBJECT.test(s)) continue
     if (NOT_YET.test(s)) continue
-    if (FIRST_PERSON_DONE.test(s) || HEADLESS_DONE.test(s)) return true
+    if (FIRST_PERSON_DONE.test(s) || HEADLESS_DONE.test(s) || MARKED_DONE.test(s) || STATE_DONE.test(s))
+      return true
   }
   return false
 }
@@ -81,10 +115,11 @@ export function claimsCompletedWork(reply: string): boolean {
  * reason actionOutcomeNotice does: the prose above has already told the user the
  * job is done, and a correction they have to infer is not a correction.
  */
+export const UNBACKED_CLAIM_NOTICE =
+  '**Nothing above was actually created.** ' +
+  'I described that as done, but no change was prepared, so there is no card here to apply. ' +
+  'Ask me again — naming the desk or work widget you mean — and I will produce it as something you can accept.'
+
 export function unbackedClaimNotice(): string {
-  return (
-    '**Nothing above was actually created.** ' +
-    'I described that as done, but no change was prepared, so there is no card here to apply. ' +
-    'Ask me again — naming the desk or work widget you mean — and I will produce it as something you can accept.'
-  )
+  return UNBACKED_CLAIM_NOTICE
 }
