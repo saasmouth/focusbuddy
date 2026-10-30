@@ -48,6 +48,54 @@ export function minSizeFor(kind: WidgetKind | string): { w: number; h: number } 
 // children (lib/sectionGeometry), and the minimap is pinned chrome.
 const SELF_SIZED: ReadonlySet<string> = new Set(['section', 'minimap'])
 
+// ── Tables: wide enough to show their columns ───────────────────────────────
+//
+// The catalog spawns every table at 680px (2026-10-30: "make tables large
+// enough to show all columns by default"). That fits three columns and the
+// add-column gutter; a table with six was born needing a horizontal scroll to
+// see what it was for, which is the one thing a table must not hide.
+//
+// These mirror TableWidget's own geometry. They live here, in shared, because
+// the size has to be decided where the widget is CREATED — in the renderer's
+// materialise path and in main's action executor — and those must not import
+// a component to find out how wide a column is.
+
+/** The row-handle gutter on the left (the delete-row control). */
+export const TABLE_ROW_HANDLE_W = 32
+/** The add-column gutter on the right (the "+" and the AI button). */
+export const TABLE_ADD_COL_W = 64
+/** A column with no widthHint of its own. */
+export const TABLE_DEFAULT_COL_W = 160
+/** Frame border plus a scrollbar gutter. Generous: too wide is a non-event, too narrow is the bug. */
+export const TABLE_FRAME_CHROME_W = 16
+/**
+ * The widest a table is BORN. Past this a horizontal scroll is the better
+ * answer — a 12-column table opened at 2000px would not fit the screen, and a
+ * widget wider than the desk is worse than one that scrolls.
+ */
+export const TABLE_MAX_BORN_W = 1280
+
+/**
+ * How wide a table widget must be to show these columns without scrolling,
+ * clamped to the kind minimum and to TABLE_MAX_BORN_W.
+ *
+ * Takes the columns rather than a count so a schema that already carries
+ * widthHints is measured, not estimated.
+ */
+export function tableFitWidth(
+  // A column shape with no widthHint at all is normal — the AI's columns have
+  // none until someone drags a divider — so the property is optional on an
+  // otherwise unconstrained object rather than required.
+  columns: ReadonlyArray<{ widthHint?: number | null | undefined }> | number
+): number {
+  const sum =
+    typeof columns === 'number'
+      ? columns * TABLE_DEFAULT_COL_W
+      : columns.reduce((t, c) => t + (c.widthHint ?? TABLE_DEFAULT_COL_W), 0)
+  const needed = TABLE_ROW_HANDLE_W + TABLE_ADD_COL_W + sum + TABLE_FRAME_CHROME_W
+  return Math.min(TABLE_MAX_BORN_W, Math.max(minSizeFor('table').w, needed))
+}
+
 /**
  * Raise a stored width/height to the kind's minimum, so a widget is stored at
  * the size its frame renders. The canvas frame (react-rnd minWidth/minHeight)

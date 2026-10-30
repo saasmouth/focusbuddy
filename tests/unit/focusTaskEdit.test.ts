@@ -208,8 +208,13 @@ describe('one concept, one set of words (DEC-144)', () => {
   })
   it('the full-pane widget view is "Full view", so "Focus" means one thing', () => {
     const frame = r('renderer/src/components/widgets/WidgetFrame.tsx')
-    expect(frame).toContain('>Full view</div>')
-    expect(frame).not.toContain('>Focus mode</div>')
+    // The two-item popover that carried this as a <div> was removed when the
+    // arrow became a one-click action (2026-10-30). The WORDS are the rule, so
+    // they are asserted wherever the control names itself — not in one markup
+    // shape that the next redesign breaks again.
+    expect(frame).toContain('aria-label="Full view"')
+    expect(frame).toContain("label: 'Full view'")
+    expect(frame).not.toContain('Focus mode')
   })
   it('the Desks app lists desks; the home tiles read Focus', () => {
     const desks = r('renderer/src/components/views/AllTasksView.tsx')

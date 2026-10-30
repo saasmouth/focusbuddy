@@ -23,6 +23,7 @@ import type { ParsedGrid } from '../../lib/tableImport'
 import { useTablesStore } from '../../stores/tables'
 import { useActionHistory } from '../../stores/actionHistory'
 import { useWidgetStore } from '../../stores/widgets'
+import { tableFitWidth } from '@shared/widgetSizing'
 import FieldEditor from '../fields/FieldEditor'
 import { DOC_DRAG_MIME, readDocDrag, primeDocMeta } from '../../lib/docMetaCache'
 import RelationConfigEditor from '../fields/RelationConfigEditor'
@@ -323,6 +324,27 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     renameTable(bare)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widget.title, table?.title])
+
+  // Grow the host widget when a new column would otherwise be off-screen
+  // (2026-10-30: "make tables large enough to show all columns by default").
+  //
+  // Only ever GROWS, only when the table view is showing, only up to the same
+  // ceiling a table is born at, and never while inline (a dashboard embed does
+  // not own its own size). Adding a column and not being able to see it is the
+  // complaint; a table that shrinks itself back under you would be a worse one,
+  // so the narrowing case is deliberately not handled.
+  useEffect(() => {
+    if (inline) return
+    if ((table?.schema.viewMode ?? 'table') !== 'table') return
+    const cols = table?.schema.columns
+    if (!cols || cols.length === 0) return
+    const want = tableFitWidth(cols)
+    if (widget.width >= want) return
+    void updateWidget(widget.id, { width: want })
+    // widget.width is read, not depended on: the update itself changes it, and
+    // depending on it would re-run this the moment it lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widget.id, inline, table?.schema.columns, table?.schema.viewMode, updateWidget])
 
   if (!table) {
     const body = (

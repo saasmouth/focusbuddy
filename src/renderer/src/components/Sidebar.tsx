@@ -214,11 +214,13 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
       }
       // Configured, not a shell: a suggested table provisions its columns here
       // and a page its body — see lib/materializeSuggestion.
-      const { content, title } = await materializeSuggestion(
+      const { content, title, width: fitW, height: fitH } = await materializeSuggestion(
         s,
         task.id,
         entry?.defaultContent ?? ''
       )
+      const useW = fitW ?? w
+      const useH = fitH ?? h
       await createWidget({
         taskId: task.id,
         kind: s.kind,
@@ -226,12 +228,12 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
         content,
         x: Math.round(x),
         y: Math.round(y),
-        width: w,
-        height: h,
+        width: useW,
+        height: useH,
         color: s.kind === 'sticky' ? '#fef08a' : null
       })
-      x += w + 24
-      rowMaxH = Math.max(rowMaxH, h)
+      x += useW + 24
+      rowMaxH = Math.max(rowMaxH, useH)
     }
     chimeIn()
     bumpLayout()

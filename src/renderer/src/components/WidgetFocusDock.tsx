@@ -14,6 +14,7 @@ import WidgetPreview from './WidgetPreview'
 import FocusClusterTab from './focus/FocusClusterTab'
 import Icon from './Icon'
 import { useSplitDrag } from '../lib/focusSplitDrag'
+import { TILE_W, TILE_H, PREVIEW_VW, PREVIEW_VH } from './focus/dockTile'
 
 // Apple WWDC23 Stage Manager spring — the same physics the desk StageManagerStrip
 // uses, so the widget filmstrip feels native to the app.
@@ -202,20 +203,49 @@ export default function WidgetFocusDock({
               whileTap={{ scale: 0.94 }}
               transition={SPRING}
               className="relative shrink-0 rounded-lg overflow-hidden block cursor-pointer"
-              style={{ width: 92, height: 60 }}
+              style={{ width: TILE_W, height: TILE_H }}
             >
-              {/* Live content thumbnail — scaled real preview of the widget. */}
+              {/* Live content thumbnail — scaled real preview of the widget.
+                  Rendered into a FIXED virtual viewport rather than at the
+                  widget's own pixel size (reported 2026-10-30: "I just see
+                  white rectangles"). Scaling a 400px-wide widget into a 92px
+                  tile is 0.19x, which turns 12px body text into 2px — a pale
+                  smear, not a picture. A fixed viewport means every tile is
+                  scaled the same amount, and that amount is one we chose. */}
               <div className="absolute inset-0 bg-[var(--surface-sunken)] overflow-hidden">
                 <div
                   style={{
-                    width: w.width,
-                    height: w.height,
-                    transform: `scale(${Math.min(92 / w.width, 60 / w.height)})`,
+                    width: PREVIEW_VW,
+                    height: PREVIEW_VH,
+                    transform: `scale(${TILE_W / PREVIEW_VW})`,
                     transformOrigin: 'top left',
                     pointerEvents: 'none'
                   }}
                 >
                   <WidgetPreview widget={w} />
+                </div>
+              </div>
+
+              {/* The name, which is the whole reason this row exists. It was a
+                  hover tooltip only, so a dock of six widgets was six
+                  near-identical rectangles and the only way to tell them apart
+                  was to point at each one in turn. Over a scrim so it stays
+                  legible against whatever the preview happens to be. */}
+              <div className="absolute inset-x-0 bottom-0 pt-3 pb-1 px-1.5 bg-gradient-to-t from-[var(--surface-raised)] via-[color-mix(in_oklab,var(--surface-raised)_85%,transparent)] to-transparent pointer-events-none">
+                <div className="flex items-center gap-1">
+                  <Icon
+                    name={entry?.icon ?? 'apps'}
+                    size={10}
+                    filled={isActive}
+                    className={`shrink-0 ${isActive ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-50)]'}`}
+                  />
+                  <span
+                    className={`truncate text-[10px] leading-tight ${
+                      isActive ? 'text-[var(--ink-100)]' : 'text-[var(--ink-70)]'
+                    }`}
+                  >
+                    {w.title || entry?.label || 'Work widget'}
+                  </span>
                 </div>
               </div>
 
@@ -228,17 +258,6 @@ export default function WidgetFocusDock({
                     : 'ring-1 ring-inset ring-black/10 dark:ring-white/10'
                 ].join(' ')}
               />
-
-              {/* Kind glyph chip, bottom-left, so type is legible even when the
-                  thumbnail is dense. */}
-              <div className="absolute bottom-1 left-1 h-4 w-4 rounded-[5px] bg-[var(--surface-raised)] flex items-center justify-center shadow-sm">
-                <Icon
-                  name={entry?.icon ?? 'apps'}
-                  size={10}
-                  filled={isActive}
-                  className={isActive ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-50)]'}
-                />
-              </div>
             </motion.button>
           )
         })}
@@ -281,7 +300,7 @@ export default function WidgetFocusDock({
               whileTap={{ scale: 0.94 }}
               transition={SPRING}
               className="relative shrink-0 rounded-lg overflow-hidden block cursor-pointer"
-              style={{ width: 92, height: 60 }}
+              style={{ width: TILE_W, height: TILE_H }}
             >
               {/* Action-tab face: a calm surface with a centred glyph + label,
                   distinct from the live-thumbnail widget tiles. Add uses a

@@ -2412,7 +2412,12 @@ export default function Canvas(): JSX.Element {
       }
       // Per-kind translation (shared with the new-desk path, so both arrive
       // configured rather than as shells) — see lib/materializeSuggestion.
-      const { content, title } = await materializeSuggestion(s, activeTaskId)
+      const { content, title, width: fitW, height: fitH } = await materializeSuggestion(s, activeTaskId)
+      // Materialising can know a better size than the catalog did — a table
+      // measured against the columns it was just given. Flow by the size we
+      // actually used, or the next widget overlaps it.
+      const useW = fitW ?? w
+      const useH = fitH ?? h
       await createWidget({
         taskId: activeTaskId,
         kind: s.kind,
@@ -2420,12 +2425,12 @@ export default function Canvas(): JSX.Element {
         content,
         x: Math.round(cursorX),
         y: Math.round(cursorY),
-        width: w,
-        height: h,
+        width: useW,
+        height: useH,
         color: s.kind === 'sticky' ? '#fef08a' : null
       })
-      cursorX += w + GAP
-      rowMaxH = Math.max(rowMaxH, h)
+      cursorX += useW + GAP
+      rowMaxH = Math.max(rowMaxH, useH)
     }
     } finally {
       hist.endBatch(`Add ${suggestions.length} object${suggestions.length === 1 ? '' : 's'} from Build with AI`)
@@ -2473,11 +2478,13 @@ export default function Canvas(): JSX.Element {
       // Same translation as the builder: a suggested table provisions its
       // columns, a page its body, a field its def. Without this the desk you
       // just created filled up with empty containers.
-      const { content, title } = await materializeSuggestion(
+      const { content, title, width: fitW, height: fitH } = await materializeSuggestion(
         s,
         activeTaskId,
         entry?.defaultContent ?? ''
       )
+      const useW = fitW ?? w
+      const useH = fitH ?? h
       await createWidget({
         taskId: activeTaskId,
         kind: s.kind,
@@ -2485,12 +2492,12 @@ export default function Canvas(): JSX.Element {
         content,
         x: Math.round(cursorX),
         y: Math.round(cursorY),
-        width: w,
-        height: h,
+        width: useW,
+        height: useH,
         color: s.kind === 'sticky' ? '#fef08a' : null
       })
-      cursorX += w + GAP
-      rowMaxH = Math.max(rowMaxH, h)
+      cursorX += useW + GAP
+      rowMaxH = Math.max(rowMaxH, useH)
     }
     } finally {
       hist.endBatch(`Add ${suggestions.length} object${suggestions.length === 1 ? '' : 's'} from AI Setup`)

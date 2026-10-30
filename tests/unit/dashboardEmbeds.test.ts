@@ -90,7 +90,11 @@ describe('embedded objects cannot be dragged, resized or mispositioned', () => {
 
   it('drag and resize are off, so nothing writes back to the desk', () => {
     expect(frame).toContain('disableDragging={embedded || dragDisabled}')
-    expect(frame).toContain('embedded || useControlled')
+    // `embedded` leads the enableResizing condition, whatever else joins it.
+    // Written as a pattern rather than one literal because the condition grew
+    // when section children gained resizing (2026-10-30) without the rule
+    // here changing: an embedded object still cannot be resized.
+    expect(frame).toMatch(/enableResizing=\{[\s\S]{0,400}?embedded \|\|/)
   })
 
   it('the dashboard card is what declares the embedded surface', () => {

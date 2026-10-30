@@ -16,10 +16,17 @@
 
 import type { AiBuildSuggestion } from '@shared/types'
 import { cellsFromAiRow } from './actionExecutor'
+import { tableFitWidth } from '@shared/widgetSizing'
 
 export interface Materialized {
   content: string
   title: string
+  // The size this thing needs, when materialising learned something the
+  // catalog's per-kind default could not know (2026-10-30). A table is the
+  // case: its width depends on the columns, and the columns only exist once
+  // the suggestion is in hand. Absent means "the catalog default is right".
+  width?: number
+  height?: number
 }
 
 export async function materializeSuggestion(
@@ -29,6 +36,8 @@ export async function materializeSuggestion(
 ): Promise<Materialized> {
   let content = s.content ?? ''
   let title = s.title || ''
+  let width: number | undefined
+  let height: number | undefined
 
   if (s.kind === 'table' && s.tableSchema) {
     // Provision the backing table now, so widget.content is a real table id
@@ -47,6 +56,9 @@ export async function materializeSuggestion(
         }
       })
       content = created.id
+      // Wide enough to show every column it was just given. The catalog's
+      // 680px predates the columns; here they exist, so measure instead.
+      width = tableFitWidth(s.tableSchema.columns.length)
       // Rows the AI researched arrive WITH the table (ADR-0011). Created
       // after the table and before the widget is spawned, so the grid's first
       // render already has them — a table that pops in empty and fills a
@@ -90,5 +102,5 @@ export async function materializeSuggestion(
     content = fallbackContent
   }
 
-  return { content, title }
+  return { content, title, width, height }
 }

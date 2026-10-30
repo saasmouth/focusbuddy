@@ -261,7 +261,6 @@ export default function WidgetFrame({
     toggleSelection(widget.id)
   }
   const [pinPickerOpen, setPinPickerOpen] = useState(false)
-  const [expandPickerOpen, setExpandPickerOpen] = useState(false)
   // ── Header fold (lib/widgetHeaderActions) ──────────────────────────────────
   // The header measures what it can spare for tools after a minimum title and a
   // minimum grab area; the tools that do not fit go behind "…". The pickers
@@ -356,12 +355,15 @@ export default function WidgetFrame({
   useAutoGrowHeight(widget, bodyRef)
 
   // Scale the widget by a multiplicative factor (1.5 = +50%, 1/1.5 = -50%
-  // symmetric inverse). Used by the header +/− buttons and the legacy
-  // enlarge-on-desk popover. Capped at [minWidth, MAX_W] × [minHeight, MAX_H]
+  // symmetric inverse). Used by the header +/− buttons and the context menu.
+  // It was also the "Larger on desk" entry in the expand popover until that
+  // popover was removed (2026-10-30) and the arrow became a one-click Full
+  // view; growing in place lives on the +/− buttons now, which is where
+  // people look for it. Capped at [minWidth, MAX_W] × [minHeight, MAX_H]
   // so the user can't shrink past Rnd's drag-handle threshold or grow off
   // the screen. Skips section children — those are auto-arranged.
   //
-  // Like onEnlargeOnDesk before it, this uses the imperative Rnd update path
+  // This uses the imperative Rnd update path
   // (applyRndSizeAndPosition) — NOT bumpLayoutVersion. A key-change re-mount
   // tears down every <webview> child (each Electron webview is its own
   // process; remount = full URL reload + lost logged-in state). Same logic
@@ -434,6 +436,17 @@ export default function WidgetFrame({
   const layoutCtx = useContext(SectionLayoutContext)
   const sectionLayout = layoutCtx ? layoutCtx.layout : 'free'
   const isInControlledLayout = layoutCtx !== null && sectionLayout !== 'free'
+  // Whether a resize MEANS anything in this section's layout (reported
+  // 2026-10-30: "why can't I resize widgets when they are in sections").
+  //
+  // The old rule was "any layout but free is controlled, so no resizing",
+  // which lumped together two different situations. Grid and Stacks BUILD
+  // their cells out of the child's stored width/height — grid takes the
+  // largest, stacks uses each child's own — so a resize there is read back
+  // and honoured. Icons and List use fixed tiles and ignore the stored size
+  // entirely, and they do not even render a frame to grab, so resizing is
+  // genuinely meaningless in those two.
+  const sizeDrivesLayout = sectionLayout === 'grid' || sectionLayout === 'stacks'
   const linkDrag = useContext(LinkDragContext)
 
   const parent =
@@ -540,10 +553,7 @@ export default function WidgetFrame({
           label: isPinned ? 'Pin options' : 'Pin to screen',
           icon: 'push_pin',
           iconFilled: isPinned,
-          onSelect: () => {
-            setExpandPickerOpen(false)
-            setPinPickerOpen(true)
-          }
+          onSelect: () => setPinPickerOpen(true)
         }
       case 'shrink':
         return {
@@ -566,13 +576,10 @@ export default function WidgetFrame({
       case 'expand':
         return {
           id,
-          label: 'Expand options',
-          title: 'Expand — bigger on desk or full view',
+          label: 'Full view',
+          title: 'Full view — hide everything else',
           icon: 'open_in_full',
-          onSelect: () => {
-            setPinPickerOpen(false)
-            setExpandPickerOpen(true)
-          }
+          onSelect: () => setFocused(widget.id)
         }
       case 'remove':
         return { id, label: 'Remove work widget', icon: 'close', onSelect: runRemove, testId: 'widget-remove' }
@@ -1010,7 +1017,9 @@ export default function WidgetFrame({
       enableResizing={
         // Resizing on a dashboard would write a size back to the desk the
         // object still lives on.
-        embedded || useControlled
+        // A controlled layout still owns POSITION; the question here is only
+        // whether it owns size too.
+        embedded || isZonePinned || (isInControlledLayout && !sizeDrivesLayout)
           ? false
           : {
               top: true,
@@ -1118,11 +1127,15 @@ export default function WidgetFrame({
       onResizeStop={(_, __, ref, ___, pos) => {
         const newW = ref.offsetWidth
         const newH = ref.offsetHeight
-        if (isChildOfSection) {
+        if (isChildOfSection && isInControlledLayout) {
+          // Grid or Stacks. The layout owns x/y, so only the size is written
+          // back; the section recomputes its cells from the new size on the
+          // next render and the frame grows to fit. Writing x/y here would
+          // fight the layout and make the widget jump on release.
+          void update(widget.id, { width: newW, height: newH })
+        } else if (isChildOfSection) {
           // Inside a section's free layout — snap the resized rect away
-          // from siblings the same way commitDrop does. Stack/grid/icons/
-          // list layouts auto-arrange children so resize either isn't
-          // permitted or the layout normalises afterwards.
+          // from siblings the same way commitDrop does.
           const latestWidgets = useWidgetStore.getState().widgets
           const siblings = latestWidgets.filter(
             (w) => w.id !== widget.id && w.parentSectionId === widget.parentSectionId
@@ -1510,7 +1523,7 @@ export default function WidgetFrame({
             className="fb-widget-actions flex items-center gap-0.5 shrink-0"
             // Keeps the row visible while one of its menus is open — the menus
             // are portalled, so the pointer on them is not :hover on the widget.
-            data-menu-open={overflowOpen || pinPickerOpen || expandPickerOpen ? 'true' : undefined}
+            data-menu-open={overflowOpen || pinPickerOpen ? 'true' : undefined}
           >
             {shownActions.has('ai') && (
               // FIRST in the row, on every widget with a header, so it is in
@@ -1611,10 +1624,7 @@ export default function WidgetFrame({
               />
             )}
             <ExpandControl
-              open={expandPickerOpen}
-              setOpen={setExpandPickerOpen}
               onFocusMode={() => setFocused(widget.id)}
-              onEnlargeOnDesk={() => scaleWidgetBy(1.3)}
               foldedInto={shownActions.has('expand') ? undefined : overflowTriggerRef}
             />
             {shownActions.has('remove') && (
@@ -1638,10 +1648,7 @@ export default function WidgetFrame({
                 open={overflowOpen}
                 setOpen={setOverflowOpen}
                 triggerRef={overflowTriggerRef}
-                onBeforeToggle={() => {
-                  setPinPickerOpen(false)
-                  setExpandPickerOpen(false)
-                }}
+                onBeforeToggle={() => setPinPickerOpen(false)}
               />
             )}
           </div>
@@ -1746,8 +1753,9 @@ export default function WidgetFrame({
 //
 // One-click ratchet: every press grows or shrinks the widget by 50%, floored
 // at the kind's minimum and capped at GROW_CEILING (scaleWidgetBy). Used in
-// pairs so the user gets symmetric grow/shrink ergonomics without opening
-// the expand popover. We deliberately use the inverse factor (×1.5 grow,
+// pairs so the user gets symmetric grow/shrink ergonomics. They are now the
+// only grow-in-place control, the expand popover having been removed in
+// favour of a one-click Full view. We deliberately use the inverse factor (×1.5 grow,
 // ÷1.5 shrink) so the two operations cancel — pressing + then − returns
 // the widget to its original size within a pixel.
 
@@ -1964,137 +1972,38 @@ function PinControl({
   )
 }
 
-// ── Expand control — open-in-focus-mode + enlarge-on-desk popover ──────────
+// ── Expand control — straight into focus mode ───────────────────────────────
 //
-// Closed state: a standard "open in full" icon. Click toggles a small
-// portalled popover with two options:
-//   1. "Larger on desk" — grows the widget in place via the parent's
-//      onEnlargeOnDesk callback. Useful when you want a roomier surface
-//      without losing canvas context.
-//   2. "Focus mode" — pushes the widget into the full-pane focus view
-//      via the parent's onFocusMode callback.
+// It used to open a two-item popover: "Larger on desk" (grow in place) and
+// "Full view". The owner removed the first on 2026-10-30, so the arrow now
+// does the one thing it looks like it does — one click, focus mode, no menu
+// in between.
 //
-// Portalled into document.body to escape the widget's stacking context
-// (same reason as PinControl — sibling widgets with higher zIndex would
-// otherwise overlay the popover and swallow its clicks).
+// Nothing is lost by dropping "Larger on desk": growing in place is still on
+// the +/- buttons in the same header and in the widget's context menu, which
+// is where someone looks for it. A popover whose two entries did unrelated
+// things made the common one cost an extra click and a decision.
 
 interface ExpandControlProps {
-  open: boolean
-  setOpen: (v: boolean) => void
   onFocusMode: () => void
-  onEnlargeOnDesk: () => void
-  /** As PinControl: folded into "…", the picker anchors there. */
+  /** Folded into "…": the overflow menu runs the action itself. */
   foldedInto?: React.RefObject<HTMLButtonElement>
 }
 
-function ExpandControl({
-  open,
-  setOpen,
-  onFocusMode,
-  onEnlargeOnDesk,
-  foldedInto
-}: ExpandControlProps): JSX.Element {
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const popoverRef = useRef<HTMLDivElement | null>(null)
-  const [popoverPos, setPopoverPos] = useState<{ top: number; right: number } | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onDown(e: MouseEvent): void {
-      const inButton = (foldedInto ?? buttonRef).current?.contains(e.target as Node)
-      const inPopover = popoverRef.current?.contains(e.target as Node)
-      if (!inButton && !inPopover) setOpen(false)
-    }
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    function onViewChange(): void {
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', onViewChange)
-    window.addEventListener('scroll', onViewChange, true)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', onViewChange)
-      window.removeEventListener('scroll', onViewChange, true)
-    }
-  }, [open, setOpen, foldedInto])
-
-  useLayoutEffect(() => {
-    const anchor = (foldedInto ?? buttonRef).current
-    if (!open || !anchor) {
-      setPopoverPos(null)
-      return
-    }
-    const r = anchor.getBoundingClientRect()
-    setPopoverPos({
-      top: r.bottom + 6,
-      right: window.innerWidth - r.right
-    })
-  }, [open, foldedInto])
-
+function ExpandControl({ onFocusMode, foldedInto }: ExpandControlProps): JSX.Element | null {
+  if (foldedInto) return null
   return (
-    <>
-      {!foldedInto && (
-        <button
-          ref={buttonRef}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            setOpen(!open)
-          }}
-          className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]"
-          aria-label="Expand options"
-          title="Expand — bigger on desk or full view"
-        >
-          <Icon name="open_in_full" size={13} />
-        </button>
-      )}
-      {open && popoverPos && createPortal(
-        <div
-          ref={popoverRef}
-          onMouseDown={(e) => e.stopPropagation()}
-          className="fixed z-[200] w-48 rounded-[var(--radius-row)] fb-glass-panel fb-menu-solid fb-pop-in p-1 cursor-default"
-          style={{ top: popoverPos.top, right: popoverPos.right }}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onEnlargeOnDesk()
-              setOpen(false)
-            }}
-            className="w-full flex items-start gap-2 px-2 py-1.5 rounded hover:bg-[var(--surface-sunken)] text-left"
-          >
-            <Icon name="zoom_out_map" size={14} className="text-[var(--ink-50)] mt-[1px] shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-[var(--ink-90)]">Larger on desk</div>
-              <div className="text-[10px] text-[var(--ink-50)] leading-tight">
-                Grow in place — keep canvas context
-              </div>
-            </div>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onFocusMode()
-              setOpen(false)
-            }}
-            className="w-full flex items-start gap-2 px-2 py-1.5 rounded hover:bg-[var(--surface-sunken)] text-left"
-          >
-            <Icon name="open_in_full" size={14} className="text-[var(--ink-50)] mt-[1px] shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-[var(--ink-90)]">Full view</div>
-              <div className="text-[10px] text-[var(--ink-50)] leading-tight">
-                Full pane — hide everything else
-              </div>
-            </div>
-          </button>
-        </div>,
-        document.body
-      )}
-    </>
+    <button
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        onFocusMode()
+      }}
+      className="h-6 w-6 rounded inline-flex items-center justify-center text-[var(--ink-50)] hover:bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] hover:text-[var(--ink-100)]"
+      aria-label="Full view"
+      title="Full view — hide everything else"
+    >
+      <Icon name="open_in_full" size={13} />
+    </button>
   )
 }

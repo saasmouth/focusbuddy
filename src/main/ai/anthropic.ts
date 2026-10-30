@@ -1761,6 +1761,39 @@ export function mergeTextMentions(
   return out
 }
 
+/**
+ * How long any ONE retrieval pool may take before the turn goes on without it.
+ *
+ * Reported twice from live use (2026-10-30): the assistant sat for 373s and
+ * then 162s and produced nothing, and the Stop button did not stop it. Both
+ * symptoms are the same shape — the whole of prompt assembly was unbounded,
+ * so one slow pool meant no tokens, ever, with nothing to cancel.
+ *
+ * A pool that misses its budget is dropped and SAID so in the log. An answer
+ * built on four pools out of five is worth having; an answer that never comes
+ * is not, and silently waiting for the fifth is how you get a spinner with no
+ * explanation.
+ */
+const POOL_BUDGET_MS = 15_000
+
+function pooled<T>(name: string, p: Promise<T>, fallback: T, ms = POOL_BUDGET_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  return Promise.race([
+    p.catch((e) => {
+      // eslint-disable-next-line no-console
+      console.warn(`[chat] pool ${name} failed — continuing without it:`, (e as Error).message)
+      return fallback
+    }),
+    new Promise<T>((resolve) => {
+      timer = setTimeout(() => {
+        // eslint-disable-next-line no-console
+        console.warn(`[chat] pool ${name} exceeded ${ms}ms — answering without it`)
+        resolve(fallback)
+      }, ms)
+    })
+  ]).finally(() => clearTimeout(timer))
+}
+
 async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
   // @-mentions (Phase 4.2) resolve BEFORE retrieval, because what they resolve
   // to decides two things about it: which desks the narrowable pool is limited
@@ -1851,27 +1884,37 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // one numbering rules every citation, internal or web.
       const emptyMail = { sources: [], rounds: 0, exhausted: false, fetched: 0 }
       const [rawSources, web, semanticOn, mailGround, coverage] = await Promise.all([
-        retrieveSources(lastUser, undefined, scope.length ? scope : undefined, {
-          excludeChatId: req.conversationId
-        }),
+        pooled(
+          'workspace',
+          retrieveSources(lastUser, undefined, scope.length ? scope : undefined, {
+            excludeChatId: req.conversationId
+          }),
+          []
+        ),
         // The R21 globe and ideation gating both land here: an off web pool
         // resolves empty without ever making the request.
         // AI on this device: the web search would send the question to a
         // search engine, so it is not made at all (the egress guard would refuse
         // it anyway; this keeps the attempt from happening).
-        gate.web && !localOnlyActive() ? searchWeb(lastUser, 5).catch(() => []) : Promise.resolve([]),
+        gate.web && !localOnlyActive()
+          ? pooled('web-search', searchWeb(lastUser, 5), [] as WebResult[])
+          : Promise.resolve([] as WebResult[]),
         // Availability probe, in parallel so disclosure costs no latency.
-        embeddingConfigured().catch(() => false),
+        pooled('embedding-probe', embeddingConfigured(), false, 5_000),
         // Mail is its own pool. The local store answers most questions with no
         // round trip at all; when it cannot, the search reaches further back
         // through history rather than settling for whatever happens to be cached.
         // Gated on the same workspace decision as the rest of retrieval, so a
         // pure ideation turn never touches the mail server.
-        gate.workspace ? mailGroundingForQuestion(lastUser).catch(() => emptyMail) : Promise.resolve(emptyMail),
+        // Mail reaches a REMOTE server, so it is the likeliest of these to
+        // stall. It gets the same budget as the rest and the turn goes on.
+        gate.workspace
+          ? pooled('mail', mailGroundingForQuestion(lastUser), emptyMail)
+          : Promise.resolve(emptyMail),
         // Coverage probe, same deal. Availability alone overstates the truth: a
         // route can exist while most of the workspace has no vector it can
         // compare, which reads as an assistant that only knows recent things.
-        chatRetrievalCoverage()
+        pooled('coverage-probe', chatRetrievalCoverage(), { indexed: 0, total: 0 } as never, 5_000)
       ])
       // Measured against the GATED route: with Background AI tasks off and no
       // local model, a saved OpenAI key embeds nothing (traceSemantic).
@@ -2700,11 +2743,36 @@ export async function sendChatStream(
   const t0 = Date.now()
   let tFirstToken = 0
 
+  // Stop must work from the FIRST instant, not from the first token.
+  //
+  // The abort used to be handed over inside the streaming block, which is
+  // reached only after the whole prompt has been assembled. So for the entire
+  // retrieval phase there was no abort registered, chat:cancelStream found
+  // nothing in its map, and pressing Stop did nothing at all — reported
+  // 2026-10-30, alongside two turns that produced nothing for minutes. The two
+  // are the same bug seen from different ends.
+  //
+  // A cancel before the model stream exists sets this flag; a cancel after it
+  // replaces the handler with the real stream.abort(). Either way the button
+  // is live the moment the request is.
+  let cancelled = false
+  let abortStream: (() => void) | null = null
+  opts?.onAbortReady?.(() => {
+    cancelled = true
+    abortStream?.()
+  })
+
   let prepared: PreparedChatCall
   try {
     prepared = await prepareChatCall(req)
   } catch (e) {
     cb.onError({ ok: false, error: (e as Error).message })
+    return
+  }
+  // Stopped while the prompt was being assembled. Nothing was asked of the
+  // model, so there is nothing to report but the stop itself.
+  if (cancelled) {
+    cb.onComplete({ ok: true, message: { role: 'assistant', content: '', ts: Date.now() } })
     return
   }
   const tPrepared = Date.now()
@@ -2764,7 +2832,9 @@ export async function sendChatStream(
     } else {
       try {
         const stream = c.messages.stream(body)
-        opts?.onAbortReady?.(() => stream.abort())
+        // The real abort takes over from the pre-stream flag.
+        abortStream = () => stream.abort()
+        if (cancelled) stream.abort()
 
         stream.on('text', (delta: string) => {
           if (!tFirstToken) tFirstToken = Date.now()

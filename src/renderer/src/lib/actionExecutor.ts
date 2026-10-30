@@ -29,6 +29,7 @@ import { useMessagingStore } from '../stores/messaging'
 import { useViewStore } from '../stores/view'
 import { useNoticeStore } from '../stores/notice'
 import { catalogFor } from './widgetCatalog'
+import { tableFitWidth } from '@shared/widgetSizing'
 import { applyCreateWidgetFile, applyUpdateWidgetFile } from './widgetFileActions'
 import { applyDeleteWidget, deleteWidgetVerb } from './deleteWidgetAction'
 import { spawnPositionFor } from './spawnPosition'
@@ -1439,14 +1440,18 @@ async function applyCreateTable(
     schema
   })
   const entry = catalogFor('table')
+  // Born wide enough to show every column it was just given. The catalog's
+  // 680px is a guess made before the columns existed; here they do.
+  const width = tableFitWidth(schema.columns)
+  const height = entry?.defaultHeight ?? 440
   await useWidgetStore.getState().create({
     taskId: ctx.activeTaskId,
     kind: 'table',
     title: p.title,
     content: table.id,
-    ...spawnPositionFor(entry?.defaultWidth ?? 420, entry?.defaultHeight ?? 320),
-    width: entry?.defaultWidth,
-    height: entry?.defaultHeight,
+    ...spawnPositionFor(width, height),
+    width,
+    height,
     color: null
   })
   // Stash the new table id keyed by THIS proposal's id so a sibling

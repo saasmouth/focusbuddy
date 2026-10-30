@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
+import { TILE_W, TILE_H } from './dockTile'
 import type { FocusCluster, Widget, Pane } from '@shared/types'
 import { gridTemplate } from '../../lib/splitGeometry'
 import { catalogFor } from '../../lib/widgetCatalog'
@@ -115,7 +116,7 @@ export default function FocusClusterTab({
       whileTap={reduceMotion ? undefined : { scale: 0.94 }}
       transition={reduceMotion ? { duration: 0 } : SPRING}
       className="relative shrink-0 rounded-lg overflow-hidden block cursor-pointer"
-      style={{ width: 92, height: 60 }}
+      style={{ width: TILE_W, height: TILE_H }}
     >
       {/* The live mini split-preview — real shape, tiny gap between tiles so the
           group silhouette is legible even at 92×60. */}
