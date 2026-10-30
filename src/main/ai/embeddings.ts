@@ -76,9 +76,38 @@ export async function activeEmbedModel(): Promise<string | null> {
   return resolveOpenAIKey() ? EMBED_MODEL : null
 }
 
+// ── One question, one embedding ─────────────────────────────────────────────
+//
+// A chat turn runs several retrieval pools, and each asked the embedder for a
+// vector of the SAME question. On a local embedder that is seconds apiece for
+// a byte-identical input, and it was a visible part of a 15-second
+// "Searched your workspace".
+//
+// Short-lived on purpose. This is not a cache of anything durable — it exists
+// to collapse the pools of ONE turn into one call. A long TTL would start
+// serving a vector from a model the user has since changed, and the model tag
+// travels with the vector precisely because mixing embedders silently is the
+// failure mode that matters here.
+export const QUERY_VECTOR_TTL_MS = 30_000
+const queryVectors = new Map<string, { at: number; value: { vector: number[]; model: string } | null }>()
+
+function cachedQuery(text: string): { vector: number[]; model: string } | null | undefined {
+  const hit = queryVectors.get(text)
+  if (!hit) return undefined
+  if (Date.now() - hit.at > QUERY_VECTOR_TTL_MS) {
+    queryVectors.delete(text)
+    return undefined
+  }
+  return hit.value
+}
+
+/** Forget every remembered question vector — e.g. the embedder changed. */
+export function clearQueryVectorCache(): void {
+  queryVectors.clear()
+}
+
 export async function embedQuery(text: string): Promise<number[] | null> {
-  const r = await embedTexts([text], 'query')
-  return r.ok && r.vectors[0] ? r.vectors[0] : null
+  return (await embedQueryTagged(text))?.vector ?? null
 }
 
 // The query vector WITH its model tag, for retrieval routes that must never
@@ -88,8 +117,14 @@ export async function embedQuery(text: string): Promise<number[] | null> {
 export async function embedQueryTagged(
   text: string
 ): Promise<{ vector: number[]; model: string } | null> {
+  const hit = cachedQuery(text)
+  if (hit !== undefined) return hit
   const r = await embedTexts([text], 'query')
-  return r.ok && r.vectors[0] ? { vector: r.vectors[0], model: r.model } : null
+  const value = r.ok && r.vectors[0] ? { vector: r.vectors[0], model: r.model } : null
+  // A null is remembered too, briefly: when no embedder is configured, every
+  // pool of the turn would otherwise repeat the same failing probe.
+  queryVectors.set(text, { at: Date.now(), value })
+  return value
 }
 
 // Whether ANY embedding route is configured — a local embed model, or an

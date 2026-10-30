@@ -26,6 +26,7 @@ const upsertStmt = (): ReturnType<ReturnType<typeof getDb>['prepare']> =>
   )
 
 export function setEmbedding(itemType: string, itemId: string, vector: number[], model: string): void {
+  embeddingVersion++
   upsertStmt().run({
     itemType,
     itemId,
@@ -75,9 +76,44 @@ export function listEmbeddings(itemType: string): Map<string, number[]> {
 // Vectors WITH their model tag, for the per-route model guard (#5 family):
 // a stored vector is only comparable to a query vector from the SAME model —
 // the tag is the truth, the dimension is just a coincidence-prone proxy.
+// ── The parsed-vector cache ─────────────────────────────────────────────────
+//
+// Reading this table is not cheap: a 1536-dim vector is about 20KB of JSON, so
+// a few hundred passages is megabytes of SELECT and JSON.parse — and more than
+// one retrieval pool asks for it on every chat turn. Measured on a real
+// workspace it was the bulk of a 15-second "Searched your workspace".
+//
+// The neighbour below already names the problem: listEmbeddingModels exists
+// because "parsing every vector's JSON to read its tag would cost the whole
+// store on every call". That was the right instinct and the wrong scope — the
+// same cost was still being paid by everything that DID need the vectors.
+//
+// Exact invalidation, not a timer. Every write to fb_embeddings goes through
+// setEmbedding or deleteEmbedding in this file, so a version counter bumped
+// there cannot miss one: a cached read is only ever served when nothing has
+// been written since it was taken. A stale vector would be worse than a slow
+// one — it would silently rank against an embedding of text that has changed.
+let embeddingVersion = 0
+const taggedCache = new Map<string, { version: number; rows: Map<string, { vector: number[]; model: string }> }>()
+
+/**
+ * Drop everything cached here.
+ *
+ * For the cases a version counter cannot see because the DATABASE changed
+ * underneath, rather than a row in it: a workspace import, a restore, a
+ * different file opened. Cheap, and safe to call when unsure.
+ */
+export function clearEmbeddingCache(): void {
+  taggedCache.clear()
+  embeddingVersion++
+}
+
 export function listEmbeddingsTagged(
   itemType: string
 ): Map<string, { vector: number[]; model: string }> {
+  const key = `${itemType}\u0000${getActiveOrgId()}`
+  const hit = taggedCache.get(key)
+  if (hit && hit.version === embeddingVersion) return hit.rows
   const rows = getDb()
     .prepare('SELECT item_id, vector_json, model FROM fb_embeddings WHERE item_type = ? AND org_id = ?')
     .all(itemType, getActiveOrgId()) as Pick<EmbeddingRow, 'item_id' | 'vector_json' | 'model'>[]
@@ -90,6 +126,7 @@ export function listEmbeddingsTagged(
       /* skip malformed */
     }
   }
+  taggedCache.set(key, { version: embeddingVersion, rows: out })
   return out
 }
 
@@ -111,5 +148,6 @@ export function hasEmbedding(itemType: string, itemId: string): boolean {
 }
 
 export function deleteEmbedding(itemType: string, itemId: string): void {
+  embeddingVersion++
   getDb().prepare('DELETE FROM fb_embeddings WHERE item_type = ? AND item_id = ?').run(itemType, itemId)
 }

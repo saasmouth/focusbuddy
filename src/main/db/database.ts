@@ -99,6 +99,16 @@ export function getDb(): Database.Database {
 // next boot. New folders keep the is_plan = 0 default.
 
 export function closeDb(): void {
+  // Anything parsed out of the old file is now about a database that is no
+  // longer open. The vector cache keys on item type and org, neither of
+  // which changes when the FILE is swapped by a restore or an import.
+  // Required rather than imported: db/embeddings imports getDb from this
+  // file, and a static import back would close the circle.
+  try {
+    ;(require('./embeddings') as { clearEmbeddingCache: () => void }).clearEmbeddingCache()
+  } catch {
+    /* nothing cached yet */
+  }
   if (db) {
     // Refresh planner statistics on the way out. PRAGMA optimize re-ANALYZEs
     // only the tables that changed enough to matter, so this is cheap, and

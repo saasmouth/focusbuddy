@@ -91,6 +91,7 @@ import {
 } from '../db/widgetFiles'
 import type { WidgetFileDraft, WidgetFilePatch, AiResearchOpts } from '@shared/types'
 import { proposeContext } from '../ai/aiContext'
+import { clearQueryVectorCache } from '../ai/embeddings'
 import {
   parseWidgetFileBody,
   parseWidgetFileExport,
@@ -2087,6 +2088,10 @@ export function registerIpcHandlers(): void {
     if (mode !== 'auto' && mode !== 'credits' && mode !== 'byok' && mode !== 'local' && mode !== 'openai') return getAiStatus()
     setAiMode(mode)
     invalidateAnthropicClient()
+    // The source decides which embedder runs, and a question vector carries
+    // its model tag — a remembered one from the previous embedder would be
+    // compared against stored vectors it has nothing to do with.
+    clearQueryVectorCache()
     // The AI source decides whether anything routes locally, so local-AI status
     // changed too. Without this the renderer's "Local AI needs a one-time
     // download" notice stayed up after switching to a cloud source, over every
