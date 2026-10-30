@@ -63,7 +63,9 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   const activeTaskId = useNodeStore((s) => s.activeTaskId)
   const nodes = useNodeStore((s) => s.nodes)
   const send = useChatStore((s) => s.send)
-  const sending = useChatStore((s) => s.sending)
+  // THIS thread's in-flight turn. Per-thread since 2026-10-30: a send in
+  // another conversation must not grey out this composer.
+  const sending = useChatStore((s) => s.sendingByThread[s.conversationKey()] === true)
   const cancelSend = useChatStore((s) => s.cancelSend)
   const hasApiKey = useChatStore((s) => s.hasApiKey)
   // Signed-in users get managed Plexii (the metered proxy on our key, with a
@@ -750,7 +752,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     // the text, and the references themselves ride from the store (they are
     // sticky to the conversation, not to this message).
     const content = ed ? docToInput(ed.getJSON()).text.trim() : draft.trim()
-    if (!content || useChatStore.getState().sending) return
+    if (!content || useChatStore.getState().isSending(useChatStore.getState().conversationKey())) return
     // A locked mode is literal: Search always searches, Ask always chats.
     if (composerMode === 'search') {
       performOmniIntent({ kind: 'search', label: 'Search the web', url: content })
@@ -1202,7 +1204,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                     grounding={grounding}
                     uiEnabled={uiEnabled}
                     onUiSubmit={(text) => {
-                      if (useChatStore.getState().sending) return
+                      if (useChatStore.getState().isSending(useChatStore.getState().conversationKey())) return
                       void send(thread.serverTaskId, text, thread.key)
                     }}
                   />
@@ -1659,7 +1661,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
                   data-testid="chat-turn-into-desk"
                   disabled={sending}
                   onClick={() => {
-                    if (useChatStore.getState().sending) return
+                    if (useChatStore.getState().isSending(useChatStore.getState().conversationKey())) return
                     void send(
                       thread.serverTaskId,
                       primaryDeskId ? PUSH_TO_DESK_MESSAGE : TURN_INTO_DESK_MESSAGE,
@@ -1732,7 +1734,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
             {sending ? (
               <button
                 type="button"
-                onClick={cancelSend}
+                onClick={() => cancelSend(thread.key)}
                 title="Stop — keeps what has been written so far"
                 aria-label="Stop generating"
                 data-testid="chat-stop"

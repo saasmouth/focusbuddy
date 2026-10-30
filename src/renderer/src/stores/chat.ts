@@ -202,13 +202,28 @@ interface ChatStore {
   // conversations, or an unsaved chat already has words in it. False when
   // nothing changed.
   defaultToDeskConversation: (deskId: string) => Promise<boolean>
-  sending: boolean
-  // The in-flight stream's requestId, so Stop can abort exactly the request
-  // it belongs to. Null whenever nothing is streaming.
-  liveRequestId: string | null
-  // Abort the live stream (the composer's Stop). The turn finishes through
-  // its normal completion path with everything that already arrived.
-  cancelSend: () => void
+  // Which threads have a turn in flight, keyed exactly like messagesByTask
+  // and liveTraceByThread (conversation id, desk id, or the global key).
+  //
+  // This was one global boolean, which made the assistant single-flight: a
+  // send into any conversation blocked every other one, and asking a long
+  // question in one thread meant you could not use a second while it ran
+  // (reported 2026-10-30). The state was already per-thread everywhere else —
+  // messages, traces, drafts — so the flag was the only thing holding the
+  // limit in place.
+  sendingByThread: Record<string, boolean>
+  // The in-flight stream's requestId per thread, so Stop aborts exactly the
+  // request belonging to the thread it was pressed in. A single slot meant a
+  // second send overwrote the first's id and orphaned its Stop.
+  liveRequestByThread: Record<string, string>
+  /** True when THIS thread has a turn in flight. */
+  isSending: (threadKey: string) => boolean
+  /** True when any thread does — for global chrome, never for a composer. */
+  isAnySending: () => boolean
+  // Abort the live stream on a thread (the composer's Stop). The turn
+  // finishes through its normal completion path with everything that already
+  // arrived. Defaults to the active thread.
+  cancelSend: (threadKey?: string) => void
   hasApiKey: boolean | null
   checkApiKey: () => Promise<void>
   getMessages: (taskId: string | null) => ChatMessage[]
@@ -579,10 +594,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await get().refreshConversations()
     }
   },
-  sending: false,
-  liveRequestId: null,
-  cancelSend: () => {
-    const id = get().liveRequestId
+  sendingByThread: {},
+  liveRequestByThread: {},
+  isSending: (threadKey) => get().sendingByThread[threadKey] === true,
+  isAnySending: () => Object.values(get().sendingByThread).some(Boolean),
+  cancelSend: (threadKey) => {
+    const key = threadKey ?? get().conversationKey()
+    const id = get().liveRequestByThread[key]
     if (id) void window.api.chat.cancelStream(id).catch(() => {})
   },
   hasApiKey: null,
@@ -820,7 +838,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({
       messagesByTask: { ...get().messagesByTask, [key]: next },
       liveTraceByThread: { ...get().liveTraceByThread, [key]: newTrace() },
-      sending: true
+      sendingByThread: { ...get().sendingByThread, [key]: true }
     })
     recordTrail('chat_sent', taskId, { preview: content.slice(0, 200) })
     const persist = convId
@@ -923,7 +941,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       const tsKey = String(ts)
       const live = get().liveTraceByThread[key]
-      const updates: Partial<ChatStore> = { sending: false, liveRequestId: null }
+      // Release THIS thread only. Clearing a shared flag here is what made a
+      // second conversation's reply end the first one's spinner.
+      const stillSending = { ...get().sendingByThread }
+      delete stillSending[key]
+      const stillLive = { ...get().liveRequestByThread }
+      delete stillLive[key]
+      const updates: Partial<ChatStore> = {
+        sendingByThread: stillSending,
+        liveRequestByThread: stillLive
+      }
       if (resp.ok && resp.proposals && resp.proposals.length > 0) {
         updates.proposalsByMessage = { ...get().proposalsByMessage, [tsKey]: resp.proposals }
       }
@@ -1053,7 +1080,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
 
     const requestId = `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-    set({ liveRequestId: requestId })
+    set({ liveRequestByThread: { ...get().liveRequestByThread, [key]: requestId } })
     await new Promise<void>((resolve) => {
       let done = false
       const finish = (): void => {

@@ -30,7 +30,7 @@ interface Props {
 export default function FocusChatSurface({ onOpenWidget }: Props): JSX.Element {
   const activeTaskId = useNodeStore((s) => s.activeTaskId)
   const send = useChatStore((s) => s.send)
-  const sending = useChatStore((s) => s.sending)
+  const sending = useChatStore((s) => s.sendingByThread[s.conversationKey()] === true)
   const hasApiKey = useChatStore((s) => s.hasApiKey)
   const checkApiKey = useChatStore((s) => s.checkApiKey)
   const messagesByTask = useChatStore((s) => s.messagesByTask)

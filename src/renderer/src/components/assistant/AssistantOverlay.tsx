@@ -180,7 +180,7 @@ function AssistantOverlayChrome(): JSX.Element {
   const persistWidth = useAssistantChrome((s) => s.persistWidth)
   // The pill pulses while a request is genuinely in flight — the one honest
   // "something is happening" signal we have. No invented unread badges.
-  const sending = useChatStore((s) => s.sending)
+  const sending = useChatStore((s) => s.sendingByThread[s.conversationKey()] === true)
   // Hold-to-talk gesture state for the pill (A3, R7): a 250ms press
   // threshold separates a click (open the panel) from a hold (listen);
   // pillJustHeldRef swallows the click event a hold-release still fires.
@@ -196,7 +196,7 @@ function AssistantOverlayChrome(): JSX.Element {
   // boot, so no extra wiring exists for it, by design.
   const [momentToken, setMomentToken] = useState(0)
   const playMoment = useCallback((): void => {
-    if (useChatStore.getState().sending) return
+    if (useChatStore.getState().isSending(useChatStore.getState().conversationKey())) return
     if (useVoiceHold.getState().phase !== 'idle') return
     setMomentToken((t) => t + 1)
   }, [])

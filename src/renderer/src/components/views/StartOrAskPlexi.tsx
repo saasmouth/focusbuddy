@@ -73,7 +73,7 @@ function mentionQuery(text: string): string | null {
 export default function StartOrAskPlexi(): JSX.Element {
   const [goal, setGoal] = useState('')
   const [mode, setModeState] = useState<OmniMode>(() => loadOmniMode(MODE_KEY))
-  const sending = useChatStore((s) => s.sending)
+  const sending = useChatStore((s) => s.sendingByThread[s.conversationKey()] === true)
   const nodes = useNodeStore((s) => s.nodes)
 
   const targets = useMemo<OmniTarget[]>(
@@ -91,7 +91,7 @@ export default function StartOrAskPlexi(): JSX.Element {
 
   function ask(prompt: string): void {
     const chat = useChatStore.getState()
-    if (chat.sending) return
+    if (chat.isSending(chat.conversationKey())) return
     // Fresh conversation, stamped as started from the workspace (the same
     // framing the hub itself uses), message sent on the way in. Fire-and-
     // forget: the stream renders in the hub the user is about to be on.
