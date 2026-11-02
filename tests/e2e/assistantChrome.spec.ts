@@ -271,10 +271,9 @@ test('AC-5 — focus mode suppresses the assistant entirely; exit restores it as
   // Enter focus mode through the widget's real entry point.
   const widgetEl = window.locator(`[data-widget-id="${aId}"]`).first()
   await widgetEl.hover()
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, aId, 'Expand options')
-  await window.getByText('Full view', { exact: true }).click({ force: true })
+  await clickWidgetTool(window, aId, 'Full view')
   await expect(window.locator('[data-testid="widget-focus-mode"]')).toBeVisible({ timeout: 5000 })
 
   // The assistant is GONE — no open panel and no pill either. The AI Chat tab

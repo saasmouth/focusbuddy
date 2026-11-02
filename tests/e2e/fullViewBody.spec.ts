@@ -34,10 +34,9 @@ test('Full view shows the work widget itself, for kinds with and without an inli
   const el = window.locator(`[data-widget-id="${ids.tasks}"]`).first()
   await expect(el).toBeVisible({ timeout: 10_000 })
   await el.hover()
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, ids.tasks, 'Expand options')
-  await window.getByText('Full view', { exact: true }).click({ force: true })
+  await clickWidgetTool(window, ids.tasks, 'Full view')
 
   const card = window.locator('[data-focus-card]').first()
   await expect(card).toBeVisible()

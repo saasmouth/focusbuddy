@@ -76,10 +76,9 @@ async function suppressFeatureSpotlights(window: Page): Promise<void> {
 async function openFocusChat(window: Page, widgetId: string): Promise<void> {
   const widgetEl = window.locator(`[data-widget-id="${widgetId}"]`).first()
   await widgetEl.hover()
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, widgetId, 'Expand options')
-  await window.getByText('Full view', { exact: true }).click({ force: true })
+  await clickWidgetTool(window, widgetId, 'Full view')
   await expect(window.locator('[data-testid="widget-focus-mode"]')).toBeVisible({ timeout: 5000 })
   await window.locator('[data-testid="focus-dock-chrome-chat"]').click()
   await expect(window.locator('[data-testid="focus-chat-surface"]')).toBeVisible({ timeout: 5000 })

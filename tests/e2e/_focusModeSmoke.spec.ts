@@ -165,19 +165,15 @@ test('UI: focusing a widget opens the split-view Focus Mode overlay without cras
   await waitForReady(window)
   await openDesk(window, 'Focus mode smoke test')
 
-  // Open the widget's "Expand options" popover, then click "Focus mode" — the
+  // Press the widget's one-click "Full view" control — the
   // real entry point (WidgetFrame's ExpandControl -> onFocusMode -> setFocused).
   const widgetEl = window.locator(`[data-widget-id="${widgetAId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
 
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, widgetAId, 'Expand options')
-
-  const focusModeOption = window.getByText('Full view', { exact: true })
-  await expect(focusModeOption).toBeVisible({ timeout: 3_000 })
-  await focusModeOption.click({ force: true })
+  await clickWidgetTool(window, widgetAId, 'Full view')
 
   // The new split-view overlay renders with this testid regardless of split
   // engagement (single-pane by default) — proves it opened without crashing.
@@ -208,10 +204,9 @@ test('UI: focus-nav next/prev cycles the focused widget', async () => {
   const widgetEl = window.locator(`[data-widget-id="${widgetAId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, widgetAId, 'Expand options')
-  await window.getByText('Full view', { exact: true }).click({ force: true })
+  await clickWidgetTool(window, widgetAId, 'Full view')
 
   const overlay = window.locator('[data-testid="widget-focus-mode"]')
   await expect(overlay).toBeVisible({ timeout: 5_000 })
@@ -250,10 +245,9 @@ test('UI: chat chrome tab opens FocusChatSurface without crashing', async () => 
   const widgetEl = window.locator(`[data-widget-id="${widgetAId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, widgetAId, 'Expand options')
-  await window.getByText('Full view', { exact: true }).click({ force: true })
+  await clickWidgetTool(window, widgetAId, 'Full view')
 
   const overlay = window.locator('[data-testid="widget-focus-mode"]')
   await expect(overlay).toBeVisible({ timeout: 5_000 })

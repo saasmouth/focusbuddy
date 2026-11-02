@@ -225,7 +225,10 @@ function matcherFor(term: string): RegExp {
     .sort((a, b) => b.length - a.length)
     .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|')
-  const re = new RegExp(`\\b(?:${alts})\\b`, 'i')
+  // Edges are any non-letter, non-digit, Unicode-aware. \b counted "_" as part
+  // of a word and "é" as an edge, so "q3_budget_2026" never matched "budget"
+  // (queryTerms splits on "_"), and "caf" matched inside "café".
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${alts})(?![\\p{L}\\p{N}])`, 'iu')
   matcherCache.set(term, re)
   return re
 }
@@ -273,7 +276,9 @@ function scoreHay(hay: string, terms: string[]): number {
 // The query reduced to its signal-bearing terms, shared by every ranking path
 // so "what matches" means one thing everywhere.
 export function queryTerms(query: string): string[] {
-  return [...new Set(query.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2 && !STOPWORDS.has(t)))]
+  // Letters in any script, not just a to z: "café" stays "café" rather than
+  // becoming "caf", which only matched before because \b mistook "é" for an edge.
+  return [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 2 && !STOPWORDS.has(t)))]
 }
 
 // The passage(s) of one text that best answer a query: the top-scoring chunks

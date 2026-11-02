@@ -56,12 +56,9 @@ async function openFocusModeOn(window: LaunchedApp['window'], widgetId: string):
   const widgetEl = window.locator(`[data-widget-id="${widgetId}"]`).first()
   await expect(widgetEl).toBeVisible({ timeout: 5_000 })
   await widgetEl.hover()
-  // Expand folds into the header's "…" menu on a narrow widget
+  // Full view folds into the header's "…" menu on a narrow widget
   // (lib/widgetHeaderActions); clickWidgetTool presses it wherever it is.
-  await clickWidgetTool(window, widgetId, 'Expand options')
-  const focusModeOption = window.getByText('Full view', { exact: true })
-  await expect(focusModeOption).toBeVisible({ timeout: 3_000 })
-  await focusModeOption.click({ force: true })
+  await clickWidgetTool(window, widgetId, 'Full view')
 }
 
 test('test_plx_ux_010_single_widget_overlay_shows_desk_identity', async () => {

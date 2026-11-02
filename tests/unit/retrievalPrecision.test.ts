@@ -39,6 +39,38 @@ describe('a term must match a WORD, not a substring', () => {
   })
 })
 
+// queryTerms splits on underscores and punctuation, so the matcher must treat
+// them as word edges too. With \b they were word characters: "q3_budget_2026"
+// never matched "budget" or "2026", and a document named by an id
+// (DOCSRCH_123, found by the e2e suite on 2 Nov) could not be asked about.
+describe('underscores, punctuation and accents are word edges', () => {
+  it.each([
+    ['budget', 'q3_budget_2026.xlsx'],
+    ['2026', 'q3_budget_2026.xlsx'],
+    ['docsrch', 'refund policy docsrch_1793609573427'],
+    ['1793609573427', 'refund policy docsrch_1793609573427'],
+    ['café', 'the café opens at eight'],
+    ['résumé', 'send your résumé today']
+  ])('"%s" matches %o', (term, hay) => {
+    expect(termMatches(hay.toLowerCase(), term)).toBe(true)
+  })
+
+  it.each([
+    ['caf', 'the café opens at eight'],
+    ['ban', 'the band played on'],
+    ['budget', 'budgetary_review']
+  ])('"%s" still does not match inside %o', (term, hay) => {
+    expect(termMatches(hay.toLowerCase(), term)).toBe(false)
+  })
+
+  it('every term the query is split into can match the text it came from', () => {
+    for (const raw of ['DOCSRCH_1793609573427', 'Q3_budget_2026.xlsx', 'client-onboarding notes', 'Café résumé']) {
+      const hay = `title ${raw} body`.toLowerCase()
+      for (const t of queryTerms(raw)) expect(termMatches(hay, t), `${t} in ${hay}`).toBe(true)
+    }
+  })
+})
+
 describe('the relevance gate drops the unrelated', () => {
   it('keeps the document that is actually about the question', () => {
     const kept = relevanceGate(QUERY, [

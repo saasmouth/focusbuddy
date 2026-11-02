@@ -195,7 +195,7 @@ const ALL_TOOLS = [
   /^Pin to screen$/,
   /^Shrink work widget$/,
   /^Grow work widget$/,
-  /^Expand options$/,
+  /^Full view$/,
   /^Remove work widget$/
 ]
 
@@ -235,7 +235,7 @@ test('WH-1 — a 240px sticky keeps a title and ≥40px of grabbable header; the
     .locator('.fb-widget-actions > button')
     .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''))
   expect(inline[0]).toMatch(/^Rewrite with AI/)
-  expect(inline).toContain('Expand options')
+  expect(inline).toContain('Full view')
   expect(inline[inline.length - 1]).toBe('More actions')
 
   // No header control is in an Electron drag region (those swallow real clicks).
