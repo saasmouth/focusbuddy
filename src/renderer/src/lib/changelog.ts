@@ -38,6 +38,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.45',
+    date: '2026-11-02T10:00:00Z',
+    title: 'PlexiiDesk 4.3.45 — AI that looks things up, several conversations at once, and a Stop button that stops',
+    tag: 'feature',
+    summary:
+      'Every AI feature can now research the web when you allow it, so a table it builds arrives filled with real rows. Run several assistant conversations at once, stop any of them the moment you press Stop, switch where AI runs from the message box, and get answers drawn from documents that actually relate to your question.',
+    highlights: [
+      'Web research everywhere: Build with AI and the assistant can search and read pages to fill tables and work widgets. A table of public facts, like venues or destinations, arrives with its rows; a table of your own data, like a guest list, starts empty on purpose. AI running on this device never searches the web.',
+      'You choose what goes with a question: related desks and files show as cards, and only the ones you press Add on are sent.',
+      'Several conversations at once: ask a long question in one and keep working in another. Stop works from the instant you press it, in the conversation you pressed it in.',
+      'The chip under the message box now switches where AI runs: on this device, Claude, ChatGPT or Plexii credits.',
+      'Answers from the right documents: the assistant matches whole words, gives weight to what is on the desk you asked from, finds related work by what it is about, and never reads documents in the trash.',
+      'No more endless waits: a slow web page can no longer hang the assistant, slow searches are cut short so the answer still comes, and an on-device answer stops after three minutes.',
+      'When the assistant says it built something, it did: a reply that claims a table it never made goes back to be finished, and if it still cannot be, the reply says so.',
+      'Also fixed: resize work widgets inside Grid and Stacks sections, the arrow opens Full view in one click, and Focus tray tiles show a readable preview with their name.'
+    ]
+  },
+  {
     version: '4.3.44',
     date: '2026-10-29T08:00:00Z',
     title: 'PlexiiDesk 4.3.44 \u2014 embeds show just their content, resize to fit, and stay in step everywhere',
