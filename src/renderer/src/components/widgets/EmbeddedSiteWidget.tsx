@@ -3,7 +3,7 @@ import Icon from '../Icon'
 import type { Widget } from '@shared/types'
 import { toHttpUrl } from '@shared/safeUrl'
 import {
-  officialEmbedFor,
+  embedFor,
   siteEntryFor,
   EMBED_REFERRER_POLICY,
   EMBED_SANDBOX,
@@ -93,7 +93,7 @@ function takenAt(ms: number): string {
 
 type Shown =
   | { kind: 'frame' }
-  | { kind: 'embed'; embedUrl: string; provider: string }
+  | { kind: 'embed'; embedUrl: string; provider: string; label: string; equivalent: boolean }
   | { kind: 'picture'; picture: SitePicture }
   | { kind: 'link' }
 
@@ -144,7 +144,9 @@ export default function EmbeddedSiteWidget({ widget }: { widget: Widget }): JSX.
     if (!url) return { kind: 'link' }
     // The embed is worked out here from the address, never taken from the
     // link: what a stranger's bundle can name is the address, not the frame.
-    const embed = officialEmbedFor(url.href)
+    // The site's own embed, or a TradingView widget doing the same job
+    // (sitePresentation.embedFor), labelled as what it is.
+    const embed = embedFor(url.href)
     const entry = siteEntryFor(sharePresentation(), { id: widget.id, content: url.href })
     if (!entry) return embed ? { kind: 'embed', ...embed } : { kind: 'frame' }
     if (entry.show === 'live') return { kind: 'frame' }
@@ -171,7 +173,7 @@ export default function EmbeddedSiteWidget({ widget }: { widget: Widget }): JSX.
   const effective: Shown = shown.kind === 'picture' && pictureFailed ? { kind: 'link' } : shown
   const label =
     effective.kind === 'embed'
-      ? `Live · ${effective.provider}`
+      ? `Live · ${effective.label}`
       : effective.kind === 'picture'
         ? `Picture · ${takenAt(effective.picture.capturedAt)}`
         : null
@@ -230,7 +232,7 @@ export default function EmbeddedSiteWidget({ widget }: { widget: Widget }): JSX.
         {effective.kind === 'embed' && (
           <iframe
             src={effective.embedUrl}
-            title={`${effective.provider}: ${url.hostname}`}
+            title={effective.equivalent ? `${effective.label}, standing in for ${url.hostname}` : `${effective.provider}: ${url.hostname}`}
             className="absolute inset-0 h-full w-full border-0"
             sandbox={EMBED_SANDBOX}
             referrerPolicy={EMBED_REFERRER_POLICY}

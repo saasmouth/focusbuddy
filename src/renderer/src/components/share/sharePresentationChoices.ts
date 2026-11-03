@@ -108,7 +108,7 @@ export function presentationRequest(
 
 /** How a site will show, in a few words for the sheet. */
 export function showLabel(show: SiteShow, provider: string | null): string {
-  if (show === 'embed') return provider ? `Live · ${provider}'s own player` : 'Live'
+  if (show === 'embed') return provider ? `Live · ${provider}` : 'Live'
   if (show === 'live') return 'Live'
   if (show === 'picture') return 'Picture'
   return 'Link only'

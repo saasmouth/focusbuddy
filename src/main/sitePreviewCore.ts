@@ -8,6 +8,7 @@
 // visit saw into live / embed / picture / link. See shared/sitePresentation.ts
 // for what those four mean to the person who opens the link.
 import {
+  equivalentEmbedFor,
   frameVerdict,
   officialEmbedFor,
   pictureRefusal,
@@ -79,6 +80,8 @@ export interface SiteCheck {
   host: string
   /** The site's official embed, when it has one. */
   embed: { embedUrl: string; provider: string } | null
+  /** A TradingView widget that does the page's job, when there is one (sitePresentation.equivalentEmbedFor). */
+  equivalent?: { embedUrl: string; provider: string; label: string } | null
   /** May the share page frame it? 'unknown' when the visit got no answer. */
   framing: 'allowed' | 'refused' | 'unknown'
   picture: SitePicture | null
@@ -119,6 +122,7 @@ const CHALLENGE_TITLE =
 export function checkFromShot(url: string, shot: PageShot, embedderOrigin: string, now: number): SiteCheck {
   const host = hostOf(shot.finalUrl || url)
   const embed = officialEmbedFor(url)
+  const equivalent = embed ? null : equivalentEmbedFor(url)
   const answered = shot.status !== null && shot.status >= 200 && shot.status < 400
   const framing: SiteCheck['framing'] = shot.frame
     ? framedVerdict(shot.frame, embedderOrigin)
@@ -136,6 +140,7 @@ export function checkFromShot(url: string, shot: PageShot, embedderOrigin: strin
     url,
     host,
     embed,
+    equivalent,
     framing,
     picture: !refusal && shot.jpeg ? { bytes: shot.jpeg, width: shot.width, height: shot.height, capturedAt: now } : null,
     refusal,
@@ -143,11 +148,17 @@ export function checkFromShot(url: string, shot: PageShot, embedderOrigin: strin
   }
 }
 
-/** The ways a site can be shown, best first. 'link' is always possible. */
-export function availableShows(check: Pick<SiteCheck, 'embed' | 'framing' | 'picture'>): SiteShow[] {
+/**
+ * The ways a site can be shown, best first. 'link' is always possible.
+ * Its own official embed, then the site itself framed, then an equivalent
+ * widget (another provider's data, so only when the site itself cannot show),
+ * then its picture.
+ */
+export function availableShows(check: Pick<SiteCheck, 'embed' | 'framing' | 'picture'> & { equivalent?: SiteCheck['equivalent'] }): SiteShow[] {
   const out: SiteShow[] = []
   if (check.embed) out.push('embed')
   else if (check.framing === 'allowed') out.push('live')
+  else if (check.equivalent) out.push('embed')
   if (check.picture) out.push('picture')
   out.push('link')
   return out
@@ -159,7 +170,10 @@ export function availableShows(check: Pick<SiteCheck, 'embed' | 'framing' | 'pic
  * refuses framing is its picture, and a picture that could not be taken is a
  * link card.
  */
-export function decideShow(choice: SiteChoice, check: Pick<SiteCheck, 'embed' | 'framing' | 'picture'>): SiteShow {
+export function decideShow(
+  choice: SiteChoice,
+  check: Pick<SiteCheck, 'embed' | 'framing' | 'picture'> & { equivalent?: SiteCheck['equivalent'] }
+): SiteShow {
   const can = availableShows(check)
   if (choice === 'link') return 'link'
   if (choice === 'picture') return can.includes('picture') ? 'picture' : 'link'

@@ -381,6 +381,100 @@ export function officialEmbedFor(raw: string | null | undefined): { embedUrl: st
   return null
 }
 
+// ── equivalent embeds ──────────────────────────────────────────────────────
+//
+// Sites that block every iframe and publish no embeddable version of their own
+// (Finviz, CoinGecko, Investing.com, news sites) can still show live data on a
+// shared desk: TradingView's free widgets do the same jobs and are made to be
+// framed. The owner chose this on 2026-11-03 for public and shared links.
+// What the visitor sees is TradingView's data, so the widget is labelled with
+// what it is, and the original site stays one click away.
+//
+// Only pages whose JOB a widget does are mapped: a screener, a futures board,
+// a crypto market list, an economic calendar, a news FEED. A single article, a
+// single company or a page that needs a sign-in has no equivalent, and keeps
+// its picture or link card.
+
+const tvWidget = (name: string, config: Record<string, unknown>): string =>
+  `https://www.tradingview-widget.com/embed-widget/${name}/?locale=en#${encodeURIComponent(
+    JSON.stringify({ width: '100%', height: '100%', colorTheme: 'light', isTransparent: false, locale: 'en', ...config })
+  )}`
+
+const TV_STOCK_SCREENER = (): string =>
+  tvWidget('screener', { defaultColumn: 'overview', defaultScreen: 'most_capitalized', market: 'america', showToolbar: true })
+const TV_CRYPTO_SCREENER = (): string =>
+  tvWidget('crypto-mkt-screener', { defaultColumn: 'overview', screener_type: 'crypto_mkt', displayCurrency: 'USD' })
+const TV_ECONOMIC_CALENDAR = (): string =>
+  tvWidget('events', { importanceFilter: '-1,0,1', countryFilter: 'us,eu,gb,jp,cn,au,ca' })
+const TV_MARKET_NEWS = (): string => tvWidget('timeline', { feedMode: 'market', market: 'stock', displayMode: 'regular' })
+const TV_STOCK_HEATMAP = (): string =>
+  tvWidget('stock-heatmap', {
+    dataSource: 'SPX500', grouping: 'sector', blockSize: 'market_cap_basic', blockColor: 'change',
+    hasTopBar: true, isDataSetEnabled: true, isZoomEnabled: true, hasSymbolTooltip: true
+  })
+const TV_FUTURES = (): string =>
+  tvWidget('market-overview', {
+    dateRange: '1D', showChart: true, showSymbolLogo: true, showFloatingTooltip: true,
+    tabs: [
+      { title: 'Indices', symbols: [
+        { s: 'CME_MINI:ES1!', d: 'S&P 500 E-mini' }, { s: 'CME_MINI:NQ1!', d: 'Nasdaq 100 E-mini' },
+        { s: 'CBOT_MINI:YM1!', d: 'Dow E-mini' }, { s: 'CME_MINI:RTY1!', d: 'Russell 2000 E-mini' }
+      ] },
+      { title: 'Energy', symbols: [{ s: 'NYMEX:CL1!', d: 'Crude oil' }, { s: 'NYMEX:NG1!', d: 'Natural gas' }, { s: 'NYMEX:RB1!', d: 'Gasoline' }] },
+      { title: 'Metals', symbols: [{ s: 'COMEX:GC1!', d: 'Gold' }, { s: 'COMEX:SI1!', d: 'Silver' }, { s: 'COMEX:HG1!', d: 'Copper' }] },
+      { title: 'Rates & FX', symbols: [
+        { s: 'CBOT:ZN1!', d: '10-year note' }, { s: 'CBOT:ZB1!', d: '30-year bond' },
+        { s: 'CME:6E1!', d: 'Euro' }, { s: 'CME:6J1!', d: 'Yen' }
+      ] },
+      { title: 'Grains', symbols: [{ s: 'CBOT:ZC1!', d: 'Corn' }, { s: 'CBOT:ZS1!', d: 'Soybeans' }, { s: 'CBOT:ZW1!', d: 'Wheat' }] }
+    ]
+  })
+
+const EQUIVALENTS: Array<{ test: (host: string, path: string) => boolean; label: string; url: () => string }> = [
+  // Finviz: screener, futures, heat map, news. Not a single quote page.
+  { test: (h, p) => h === 'finviz.com' && /^\/(screener(\.ashx|\/.*)?|screener)$/.test(p), label: 'stock screener', url: TV_STOCK_SCREENER },
+  { test: (h, p) => h === 'finviz.com' && /^\/futures(\.ashx)?$/.test(p), label: 'futures board', url: TV_FUTURES },
+  { test: (h, p) => h === 'finviz.com' && /^\/(map\.ashx|map)$/.test(p), label: 'stock heat map', url: TV_STOCK_HEATMAP },
+  { test: (h, p) => h === 'finviz.com' && /^\/news(\.ashx|\.php)?$/.test(p), label: 'market news', url: TV_MARKET_NEWS },
+  // Crypto market lists.
+  { test: (h, p) => (h === 'coingecko.com' || h === 'coinmarketcap.com') && /^\/([a-z]{2}(-[a-z]{2})?\/?)?$/.test(p), label: 'crypto market', url: TV_CRYPTO_SCREENER },
+  // Economic calendars.
+  { test: (h, p) => h === 'investing.com' && /^\/economic-calendar\/?$/.test(p), label: 'economic calendar', url: TV_ECONOMIC_CALENDAR },
+  { test: (h, p) => h === 'forexfactory.com' && /^\/calendar\/?$/.test(p), label: 'economic calendar', url: TV_ECONOMIC_CALENDAR },
+  // News feeds: a search or a section, never one article.
+  { test: (h, p) => h === 'news.google.com' && (p === '/' || /^\/(search|topics)\b/.test(p)), label: 'market news', url: TV_MARKET_NEWS },
+  { test: (h, p) => h === 'reuters.com' && /^\/(business|markets)(\/[a-z-]+)?\/?$/.test(p), label: 'market news', url: TV_MARKET_NEWS }
+]
+
+/**
+ * A live TradingView widget that does this page's job, when the page is one
+ * whose job a widget does (see above). Null for everything else.
+ */
+export function equivalentEmbedFor(
+  raw: string | null | undefined
+): { embedUrl: string; provider: string; label: string; equivalent: true } | null {
+  const u = toHttpUrl((raw ?? '').trim())
+  if (!u) return null
+  const host = u.hostname.replace(/^www\./, '').toLowerCase()
+  const path = u.pathname.replace(/\/+$/, '') || '/'
+  for (const e of EQUIVALENTS) {
+    if (e.test(host, path)) return { embedUrl: e.url(), provider: 'TradingView', label: `TradingView ${e.label}`, equivalent: true }
+  }
+  return null
+}
+
+/**
+ * What a website can be embedded as: its own official embed first, otherwise
+ * an equivalent widget. `equivalent` says which, for the label.
+ */
+export function embedFor(
+  raw: string | null | undefined
+): { embedUrl: string; provider: string; label: string; equivalent: boolean } | null {
+  const own = officialEmbedFor(raw)
+  if (own) return { ...own, label: own.provider, equivalent: false }
+  return equivalentEmbedFor(raw)
+}
+
 // ── reading a presentation that arrived in a link ──────────────────────────
 
 const MAX_COLUMNS_JSON = 64 * 1024

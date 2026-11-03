@@ -3,6 +3,8 @@
 // the sites on a live standing link sent on 2026-11-03.
 import { describe, it, expect } from 'vitest'
 import {
+  embedFor,
+  equivalentEmbedFor,
   frameVerdict,
   officialEmbedFor,
   pictureRefusal,
@@ -122,6 +124,46 @@ describe('officialEmbedFor', () => {
     expect(officialEmbedFor('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ')).toBeNull()
     expect(officialEmbedFor('javascript:alert(1)')).toBeNull()
     expect(officialEmbedFor('')).toBeNull()
+  })
+})
+
+describe('equivalentEmbedFor (TradingView widgets doing a blocked page\'s job)', () => {
+  const kind = (u: string): string | null => {
+    const e = equivalentEmbedFor(u)
+    return e ? new URL(e.embedUrl).pathname.split('/')[2] : null
+  }
+  it('maps the pages on a real day-trading desk to the widget that does the same job', () => {
+    expect(kind('https://finviz.com/screener/stocks?v=111&f=exch_nasd%2Ccap_large')).toBe('screener')
+    expect(kind('https://finviz.com/screener.ashx?v=111')).toBe('screener')
+    expect(kind('https://finviz.com/futures')).toBe('market-overview')
+    expect(kind('https://finviz.com/map.ashx')).toBe('stock-heatmap')
+    expect(kind('https://finviz.com/news.php')).toBe('timeline')
+    expect(kind('https://www.coingecko.com/')).toBe('crypto-mkt-screener')
+    expect(kind('https://coinmarketcap.com/')).toBe('crypto-mkt-screener')
+    expect(kind('https://www.investing.com/economic-calendar')).toBe('events')
+    expect(kind('https://www.forexfactory.com/calendar')).toBe('events')
+    expect(kind('https://news.google.com/search?q=stock%20market&hl=en-AU')).toBe('timeline')
+    expect(kind('https://www.reuters.com/business/')).toBe('timeline')
+  })
+
+  it('leaves alone what no widget can stand in for: one article, one coin, one quote, sign-in pages', () => {
+    expect(kind('https://www.reuters.com/business/media-telecom/wall-street-futures-rise-ai-stocks-2026-11-02/')).toBeNull()
+    expect(kind('https://www.coingecko.com/en/coins/bitcoin')).toBeNull()
+    expect(kind('https://finviz.com/quote.ashx?t=AAPL')).toBeNull()
+    expect(kind('https://finance.yahoo.com/calendar/earnings')).toBeNull()
+    expect(kind('https://chatgpt.com/')).toBeNull()
+    expect(kind('https://finviz.com.evil.example/futures')).toBeNull()
+  })
+
+  it('is labelled as TradingView, carries a full-size config, and never outranks a site\'s own embed', () => {
+    const e = equivalentEmbedFor('https://finviz.com/futures')!
+    expect(e.provider).toBe('TradingView')
+    expect(e.label).toBe('TradingView futures board')
+    const config = JSON.parse(decodeURIComponent(new URL(e.embedUrl).hash.slice(1)))
+    expect(config).toMatchObject({ width: '100%', height: '100%', locale: 'en' })
+    expect(config.tabs.length).toBeGreaterThan(0)
+    expect(embedFor('https://www.tradingview.com/chart/')?.equivalent).toBe(false)
+    expect(embedFor('https://finviz.com/futures')?.equivalent).toBe(true)
   })
 })
 

@@ -210,7 +210,7 @@ can appear. Each site becomes one of:
 | | when | the visitor sees |
 | --- | --- | --- |
 | live | the framed look displayed | the site, framed |
-| embed | the site has an official embed (YouTube, Vimeo, Loom, Spotify, TradingView) | that, live |
+| embed | the site has an official embed (YouTube, Vimeo, Loom, Spotify, TradingView), or -- when the site blocks frames -- a free TradingView widget does its job (a screener, a futures board, a crypto market list, an economic calendar, a news feed; `equivalentEmbedFor`) | that, live, labelled with what it is and opening the original site |
 | picture | framing refused, the page answered | a picture labelled with when it was taken, opening the real site |
 | link | no usable picture (a bot wall, a rate limit, or the sender's choice) | a card that opens the site |
 
@@ -221,7 +221,9 @@ removed with the desk (`shareCopy.deskRows`). Nothing a bundle says is trusted:
 `readPresentation` keeps only entries for widgets the bundle brings, http(s)
 addresses, pictures under their own widget's id, and the Worker writes only
 bytes that are a JPEG. The embed a visitor sees is worked out from the address,
-never taken from the bundle. Pictures are packed after the desk's own files,
+never taken from the bundle -- which is also why a link sent before any of this
+gets the official and TradingView embeds the moment the share page is deployed,
+with no new bundle. Pictures are packed after the desk's own files,
 smallest first, within the same link budget; one that does not fit becomes a
 link card and the sender is told.
 

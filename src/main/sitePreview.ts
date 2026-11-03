@@ -124,7 +124,9 @@ export async function prepareSitePreview(
     host: check.host,
     options: availableShows(check),
     recommended: decideShow('auto', check),
-    provider: check.embed?.provider ?? null,
+    // How the live version is described in the sheet: the site's own player,
+    // or the widget standing in for it.
+    provider: check.embed ? `${check.embed.provider}'s own player` : check.equivalent?.label ?? null,
     thumbnail: thumbnail(check),
     refusal: check.refusal,
     checkedAt: check.checkedAt

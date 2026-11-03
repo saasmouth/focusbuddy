@@ -115,9 +115,21 @@ describe('a website on a share page', () => {
     expect(host.querySelector('[data-testid="embedded-site-label"]')?.textContent).toBe('Live · TradingView')
   })
 
-  it('an "embed" entry for a site with no official embed is a link card, not a frame of whatever it says', async () => {
-    const kind = await show('https://finviz.com/futures', { sites: { [W]: { url: 'https://finviz.com/futures', show: 'embed' } } })
+  it('an "embed" entry for a site with no embed of any kind is a link card, not a frame of whatever it says', async () => {
+    const kind = await show('https://finance.yahoo.com/calendar/earnings', {
+      sites: { [W]: { url: 'https://finance.yahoo.com/calendar/earnings', show: 'embed' } }
+    })
     expect(kind).toBe('link')
+  })
+
+  it('a site that blocks frames but has a TradingView equivalent shows that, labelled, opening the original', async () => {
+    const kind = await show('https://finviz.com/futures', { sites: { [W]: { url: 'https://finviz.com/futures', show: 'embed' } } })
+    expect(kind).toBe('embed')
+    const frame = host.querySelector('[data-testid="embedded-site-embed"]') as HTMLIFrameElement
+    expect(frame.getAttribute('src')!.startsWith('https://www.tradingview-widget.com/embed-widget/market-overview/')).toBe(true)
+    expect(frame.getAttribute('title')).toBe('TradingView futures board, standing in for finviz.com')
+    expect(host.querySelector('[data-testid="embedded-site-label"]')?.textContent).toBe('Live · TradingView futures board')
+    expect(host.querySelector('[data-testid="embedded-site-open"]')?.getAttribute('href')).toBe('https://finviz.com/futures')
   })
 
   it('ignores an entry made for another address, and uses the official embed where there is one', async () => {
@@ -126,8 +138,10 @@ describe('a website on a share page', () => {
     expect(host.querySelector('iframe')?.getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ')
   })
 
-  it('with no presentation at all (an older link), frames the site as before', async () => {
-    expect(await show('https://finviz.com/futures', null)).toBe('frame')
+  it('with no presentation at all (a link already sent), uses an equivalent where there is one, else frames the site', async () => {
+    expect(await show('https://finviz.com/screener/stocks?v=111', null)).toBe('embed')
+    expect(host.querySelector('iframe')?.getAttribute('src')).toMatch(/^https:\/\/www\.tradingview-widget\.com\/embed-widget\/screener\//)
+    expect(await show('https://finance.yahoo.com/calendar/earnings', null)).toBe('frame')
   })
 })
 

@@ -31,7 +31,7 @@ describe('checkFromShot', () => {
   })
 
   it('a site that refuses framing shows as its picture', () => {
-    const c = checkFromShot('https://finviz.com/futures', shot({ headers: { 'x-frame-options': ['SAMEORIGIN'] } }), SHARE, 1)
+    const c = checkFromShot('https://finance.yahoo.com/calendar/earnings', shot({ headers: { 'x-frame-options': ['SAMEORIGIN'] } }), SHARE, 1)
     expect(c.framing).toBe('refused')
     expect(decideShow('auto', c)).toBe('picture')
     expect(decideShow('live', c)).toBe('picture')
@@ -109,6 +109,20 @@ describe('the framed look decides live', () => {
 
   it('without a framed look (an older loader), the ordinary visit’s headers decide as before', () => {
     expect(checkFromShot('https://x.com/', shot({ headers: { 'x-frame-options': 'DENY' } }), SHARE, 1).framing).toBe('refused')
+  })
+})
+
+describe('equivalents come after the site itself', () => {
+  it('a blocked site with a TradingView equivalent shows the widget before its picture', () => {
+    const c = checkFromShot('https://finviz.com/futures', shot({ frame: { status: 200, headers: { 'x-frame-options': 'SAMEORIGIN' }, refused: true } }), SHARE, 1)
+    expect(c.equivalent?.label).toBe('TradingView futures board')
+    expect(availableShows(c)).toEqual(['embed', 'picture', 'link'])
+    expect(decideShow('auto', c)).toBe('embed')
+    expect(decideShow('picture', c)).toBe('picture')
+  })
+  it('a site that frames fine is shown itself, not the widget', () => {
+    const c = checkFromShot('https://finviz.com/screener/stocks', shot({ frame: { status: 200, headers: {}, refused: false } }), SHARE, 1)
+    expect(availableShows(c)).toEqual(['live', 'picture', 'link'])
   })
 })
 
