@@ -66,6 +66,15 @@ import PortalWidget from './PortalWidget'
 // mounts. Read at render time rather than captured, so it is never stale.
 const isWeb = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true
 
+/** The host a website widget points at, for its title bar. */
+function siteHost(content: string | null | undefined): string {
+  try {
+    return new URL(String(content ?? '')).hostname.replace(/^www\./, '')
+  } catch {
+    return 'website'
+  }
+}
+
 /**
  * A kind this build has no renderer for.
  *
@@ -233,7 +242,17 @@ function renderWidgetInner(w: Widget): JSX.Element | null {
       // its own cookie jar and navigation events, none of which exists in a
       // tab. There it renders nothing at all, which is what made every browser
       // widget on a synced desk come up blank in the cloud app.
-      return isWeb() ? <EmbeddedSiteWidget widget={w} /> : <WebViewWidget widget={w} />
+      //
+      // EmbeddedSiteWidget is a body, like the BODY_ONLY_KINDS: WebViewWidget
+      // frames itself, this does not. Unframed, a website on a share page's
+      // canvas had no position, size or title bar -- so it gets the frame here.
+      return isWeb() ? (
+        <WidgetFrame widget={w} headerLabel={`${catalogFor(w.kind)?.label ?? 'Browser'} · ${w.title || siteHost(w.content)}`}>
+          <EmbeddedSiteWidget widget={w} />
+        </WidgetFrame>
+      ) : (
+        <WebViewWidget widget={w} />
+      )
     case 'chat-thread':
       return <ChatThreadWidget widget={w} />
     case 'mail-thread':

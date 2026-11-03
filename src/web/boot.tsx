@@ -36,7 +36,7 @@ import {
   requestNewVersion, takeNewVersionRequest, noteVersionDeclined, replaceConfirmation
 } from './api/shareVersion'
 import { dropLinkCopy, holdDesk, openLinkDesk, type ReplacePlan } from './api/shareDesk'
-import { markShareRecipient, setShareDeskId } from '@renderer/lib/shareMode'
+import { markShareRecipient, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
 import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
 
 // plexii.app has no DNS, so this button went to a browser error page for every
@@ -492,6 +492,9 @@ function Boot(): React.JSX.Element {
         // This tab shows the desk from here on: no other tab replaces or
         // removes it underneath (shareDesk.withDesksToThisTab).
         holdDesk(offer.rootId)
+        // How the sender presented this desk (the view, and what each website
+        // shows), as recorded with the version now in this browser.
+        setSharePresentation(linkRecord(token)?.presentation ?? null)
 
         setState({ kind: 'opening', offer })
         await import('@renderer/main')

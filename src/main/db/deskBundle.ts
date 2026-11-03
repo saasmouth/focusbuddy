@@ -21,6 +21,13 @@
 import { getDb } from './database'
 import { fileBlobs } from './fileBlobs'
 import { LINK_SHARE_BUNDLE_BUDGET, LINK_SHARE_LIMIT_WORDS, linkMegabytes, utf8Bytes } from '@shared/shareExpiry'
+import {
+  sitePictureId,
+  type BundledPresentation,
+  type BundledSitePresentation,
+  type ShareView,
+  type SiteShow
+} from '@shared/sitePresentation'
 
 export const DESK_BUNDLE_FORMAT = 'plexii.desk'
 export const DESK_BUNDLE_VERSION = 1
@@ -102,7 +109,34 @@ export interface DeskBundle {
   tables: Record<string, Array<Record<string, unknown>>>
   files: BundledFile[]
   filesOmitted: OmittedFile[]
+  /**
+   * How the link presents the desk: the view it opens in, the sender's
+   * arrangements, and what each website shows (sitePresentation.ts). Optional,
+   * and ignored by every reader that predates it -- so the format version does
+   * not move, and an older share page simply shows the desk as it always did.
+   */
+  presentation?: BundledPresentation
 }
+
+/** A website as the share sheet resolved it, with its picture's bytes when it has one. */
+export interface PresentationSiteInput {
+  url: string
+  show: SiteShow
+  picture?: { bytes: Uint8Array; width: number; height: number; capturedAt: number }
+}
+
+/** What the caller (the main process) hands buildDeskBundle to present the desk. */
+export interface PresentationInput {
+  view?: ShareView
+  lockView?: boolean
+  columns?: Record<string, unknown>
+  layoutUserId?: string
+  /** Keyed by widget id. Entries for widgets not on the desk are ignored. */
+  sites?: Record<string, PresentationSiteInput>
+}
+
+/** Why a website picture was left out of a link. */
+export const PICTURE_OMITTED_FOR_SIZE = `the link had no room left for it (a link can carry at most ${LINK_SHARE_LIMIT_WORDS})`
 
 /**
  * The tables a desk is made of, in an order that reads as the thing itself:
@@ -227,7 +261,7 @@ function selectIn(db: Db, table: string, column: string, ids: string[]): Array<R
  */
 export async function buildDeskBundle(
   deskId: string,
-  opts: { maxBytes?: number; maxBodyBytes?: number } = {}
+  opts: { maxBytes?: number; maxBodyBytes?: number; presentation?: PresentationInput } = {}
 ): Promise<DeskBundle> {
   const db = getDb() as unknown as Db
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BUNDLE_BYTES
@@ -403,7 +437,93 @@ export async function buildDeskBundle(
     throw new Error(`This desk is too large to send as a link: ${OMITTED_FOR_SIZE}.`)
   }
 
+  if (opts.presentation) addPresentation(bundle, opts.presentation, widgetIds, maxBodyBytes)
   return bundle
+}
+
+/**
+ * Put the presentation on a packed bundle, pictures last.
+ *
+ * The desk's own files were packed first and keep their place: a picture of
+ * somebody else's website is worth less to the visitor than a file the sender
+ * put on the desk. Pictures then go in smallest first while the link has room;
+ * one that does not fit becomes a link card ('link'), never a blank, and the
+ * caller can tell which by comparing what it asked for with what came back.
+ * The presentation without pictures is a few hundred bytes; if even that does
+ * not fit, the bundle goes without one and the desk shows as it always did.
+ */
+function addPresentation(
+  bundle: DeskBundle,
+  input: PresentationInput,
+  widgetIds: ReadonlySet<string>,
+  maxBodyBytes: number
+): void {
+  const sites: Record<string, BundledSitePresentation> = {}
+  const pictures: Array<{ wid: string; id: string; bytes: Uint8Array; width: number; height: number; capturedAt: number }> = []
+  for (const [wid, site] of Object.entries(input.sites ?? {})) {
+    if (!widgetIds.has(wid)) continue
+    const id = sitePictureId(wid)
+    if (site.show === 'picture') {
+      // Held as a link card until its picture is known to fit.
+      sites[wid] = { url: site.url, show: 'link' }
+      if (site.picture && id) pictures.push({ wid, id, ...site.picture })
+    } else {
+      sites[wid] = { url: site.url, show: site.show }
+    }
+  }
+  const presentation: BundledPresentation = {}
+  if (input.view) presentation.view = input.view
+  if (input.view && input.lockView) presentation.lockView = true
+  if (input.columns) presentation.columns = input.columns
+  if (input.layoutUserId) presentation.layoutUserId = input.layoutUserId
+  if (Object.keys(sites).length) presentation.sites = sites
+  if (Object.keys(presentation).length === 0) return
+
+  bundle.presentation = presentation
+  let body = bundleBodyBytes(bundle)
+  if (body > maxBodyBytes) {
+    delete bundle.presentation
+    return
+  }
+  // What an entry weighs inside the request. Swapping one entry for another
+  // changes the body by the difference of the two, exactly: escaping is per
+  // character, and the outer quotes of each measurement cancel.
+  const weigh = (entry: BundledSitePresentation): number => utf8Bytes(JSON.stringify(JSON.stringify(entry)))
+  pictures.sort((a, b) => a.bytes.byteLength - b.bytes.byteLength)
+  for (const p of pictures) {
+    const card = sites[p.wid]
+    const withPicture: BundledSitePresentation = {
+      url: card.url,
+      show: 'picture',
+      picture: {
+        id: p.id,
+        ext: '.jpg',
+        mimeType: 'image/jpeg',
+        width: p.width,
+        height: p.height,
+        capturedAt: p.capturedAt,
+        sizeBytes: p.bytes.byteLength,
+        data: toBase64(p.bytes)
+      }
+    }
+    const delta = weigh(withPicture) - weigh(card)
+    if (body + delta > maxBodyBytes) continue
+    sites[p.wid] = withPicture
+    body += delta
+  }
+  // The running total is exact by construction; this proves it, and if it is
+  // ever wrong the largest picture gives way until it is not.
+  while (bundleBodyBytes(bundle) > maxBodyBytes) {
+    let largest: string | null = null
+    for (const [wid, s] of Object.entries(sites)) {
+      if (s.picture && (!largest || s.picture.sizeBytes > (sites[largest].picture?.sizeBytes ?? 0))) largest = wid
+    }
+    if (!largest) {
+      delete bundle.presentation
+      return
+    }
+    sites[largest] = { url: sites[largest].url, show: 'link' }
+  }
 }
 
 /**

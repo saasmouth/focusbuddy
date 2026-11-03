@@ -22,7 +22,7 @@ import {
 import { currentDeviceClass } from '../../lib/deviceClass'
 import { useWidgetStore } from '../../stores/widgets'
 import { useAccountStore } from '../../stores/account'
-import { useDeskViewStore } from '../../stores/deskView'
+import { useDeskViewStore, useDeskViewLocked } from '../../stores/deskView'
 import ViewSelector from './ViewSelector'
 import { attachDragGlide } from '../../lib/dragGlide'
 import Icon from '../Icon'
@@ -60,6 +60,8 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
   const setActive = useWidgetStore((s) => s.setActive)
   const setFocused = useWidgetStore((s) => s.setFocused)
   const setViewMode = useDeskViewStore((s) => s.set)
+  // A share link held to the Workcentre: "Show on the canvas" would do nothing.
+  const viewLocked = useDeskViewLocked(taskId)
   const userId = useAccountStore((s) => s.account?.id ?? 'local')
   const pendingTileAt = useDeskViewStore((s) => s.pendingTileAt)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -341,19 +343,21 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
                     >
                       <Icon name="open_in_full" size={13} />
                     </button>
-                    <button
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => {
-                        setActive(w.id)
-                        setViewMode(taskId, 'canvas')
-                      }}
-                      title="Show on the canvas"
-                      aria-label={`Show ${widgetDisplayName(w)} on the canvas`}
-                      data-testid={`workcentre-reveal-${t.id}`}
-                      className="icon-btn h-6 w-6 shrink-0 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
-                    >
-                      <Icon name="my_location" size={13} />
-                    </button>
+                    {!viewLocked && (
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => {
+                          setActive(w.id)
+                          setViewMode(taskId, 'canvas')
+                        }}
+                        title="Show on the canvas"
+                        aria-label={`Show ${widgetDisplayName(w)} on the canvas`}
+                        data-testid={`workcentre-reveal-${t.id}`}
+                        className="icon-btn h-6 w-6 shrink-0 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
+                      >
+                        <Icon name="my_location" size={13} />
+                      </button>
+                    )}
                     <button
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => {

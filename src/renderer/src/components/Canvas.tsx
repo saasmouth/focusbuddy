@@ -40,7 +40,7 @@ import DeskGallery from './DeskGallery'
 import ColumnsView from './ColumnsView'
 import DeskDataViews, { type DataLayout } from './views/DeskDataViews'
 import WorkcentreView from './views/WorkcentreView'
-import { useDeskViewStore } from '../stores/deskView'
+import { useDeskViewStore, resolveDeskView } from '../stores/deskView'
 import ZoomControls from './ZoomControls'
 import CanvasEdgeIndicators from './CanvasEdgeIndicators'
 import { useEdgePan } from '../lib/useEdgePan'
@@ -180,13 +180,9 @@ export default function Canvas(): JSX.Element {
   // prompt to upgrade rather than silently creating).
   const caps = useCapabilityStore((s) => s.capabilities)
   // Per-desk view mode: the infinite Canvas (default) or the Columns view.
-  const deskViewModes = useDeskViewStore((s) => s.modes)
-  const deskViewDefaults = useDeskViewStore((s) => s.defaults)
-  // Resolution mirrors the store's get(): last-used wins, else the pinned default
-  // for this desk, else Canvas.
-  const deskViewMode = activeTaskId
-    ? deskViewModes[activeTaskId] ?? deskViewDefaults[activeTaskId] ?? 'canvas'
-    : 'canvas'
+  // Resolved like the store's get(): a share link's lock, else last-used, else
+  // the pinned default for this desk, else Canvas.
+  const deskViewMode = useDeskViewStore((s) => resolveDeskView(s, activeTaskId))
   // The spatial canvas renders only in 'canvas' mode; every other mode (columns +
   // the data views) mounts as its own overlay instead.
   const isCanvasMode = deskViewMode === 'canvas'

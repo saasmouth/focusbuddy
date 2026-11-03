@@ -16,6 +16,8 @@ import {
   shareUrlFor,
   type EphemeralShare
 } from '../../lib/ephemeralShareClient'
+import SharePresentationPanel, { useSharePresentation } from './SharePresentationPanel'
+import { describeSitesOmitted, presentationSummary } from './sharePresentationChoices'
 import {
   EXPIRY_CHOICES,
   PUBLIC_MODES,
@@ -95,6 +97,12 @@ export default function DeskShareSheet({
   // belongs to.
   const [updating, setUpdating] = useState<{ token: string; phase: 'confirm' | 'busy' } | null>(null)
   const [updateResults, setUpdateResults] = useState<Record<string, { ok: boolean; message: string }>>({})
+  // How a usable-desk link presents the desk: the view it opens in and what
+  // each website shows. Websites are only visited once that link is in view.
+  const presentation = useSharePresentation(kind, entityId, audience === 'link' && mode === 'use')
+  // The presentation the link on screen was made with, to say when it no
+  // longer matches the choices (the link keeps what it was made with).
+  const [mintedAt, setMintedAt] = useState<number | null>(null)
 
   const createFor = useSharesStore((s) => s.createFor)
   const outgoing = useSharesStore((s) => s.outgoing)
@@ -133,6 +141,7 @@ export default function DeskShareSheet({
     setSentMsg(null)
     setExpiryNote(null)
     setOmittedNote(null)
+    setMintedAt(null)
   }, [mode, expiryMs, allowCopy])
 
   async function makeLink(): Promise<void> {
@@ -141,11 +150,12 @@ export default function DeskShareSheet({
     setError(null)
     try {
       if (mode === 'use') {
-        const res = await mintEphemeralShare(entityId, expiryMs)
+        const res = await mintEphemeralShare(entityId, expiryMs, presentation.request())
         if (!res.ok || !res.url) throw new Error(res.error || 'Could not create the link.')
         setUrl(res.url)
         setToken(res.share?.token ?? null)
-        setOmittedNote(describeOmitted(res.filesOmitted) || null)
+        setMintedAt(presentation.revision)
+        setOmittedNote([describeOmitted(res.filesOmitted), describeSitesOmitted(res.sitesOmitted)].filter(Boolean).join(' ') || null)
         setExpiryNote(
           expiryMs === null && res.share && res.share.expiresAt !== null
             ? `The server gave this link an end date anyway (${timeLeft(res.share.expiresAt).replace(/ left$/, '')} from now): it does not support links that never expire yet.`
@@ -192,9 +202,12 @@ export default function DeskShareSheet({
       delete next[s.token]
       return next
     })
-    const res = await updateEphemeralShare(s.token, s.rootId)
+    const res = await updateEphemeralShare(s.token, s.rootId, presentation.request())
     if (res.ok && res.share) {
-      const omitted = res.filesOmitted?.length ? ` ${describeOmitted(res.filesOmitted)}` : ''
+      const omitted = [describeOmitted(res.filesOmitted), describeSitesOmitted(res.sitesOmitted)]
+        .filter(Boolean)
+        .map((t) => ` ${t}`)
+        .join('')
       setUpdateResults((r) => ({
         ...r,
         [s.token]: {
@@ -331,6 +344,7 @@ export default function DeskShareSheet({
             <LiveWebViewPanel deskId={entityId} />
           ) : (
             <div className="space-y-2">
+              {mode === 'use' && <SharePresentationPanel kind={kind} state={presentation} />}
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="text-[11px] text-[var(--ink-60)]">
                   Link expires
@@ -398,6 +412,11 @@ export default function DeskShareSheet({
                   {omittedNote && (
                     <p className="text-[10.5px] text-amber-600 leading-snug" role="status" data-testid="share-omitted-note">
                       {omittedNote}
+                    </p>
+                  )}
+                  {mode === 'use' && mintedAt !== null && mintedAt !== presentation.revision && (
+                    <p className="text-[10.5px] text-[var(--ink-60)] leading-snug" role="status" data-testid="share-presentation-stale">
+                      This link still opens the way it was made. Use Update link below to apply your changes to it.
                     </p>
                   )}
 
@@ -533,6 +552,18 @@ export default function DeskShareSheet({
                           Everyone with this link will see the {word} as it is now. The link stays
                           the same. Anyone who changed their own copy is asked before it is replaced.
                         </p>
+                        {(() => {
+                          const line = presentationSummary(
+                            kind,
+                            presentation.choices,
+                            presentation.sites.map((r) => ({ widgetId: r.widgetId, options: r.result?.options ?? null }))
+                          )
+                          return line ? (
+                            <p className="text-[10.5px] text-[var(--ink-60)] leading-snug" data-testid="share-update-presentation">
+                              {line}
+                            </p>
+                          ) : null
+                        })()}
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"

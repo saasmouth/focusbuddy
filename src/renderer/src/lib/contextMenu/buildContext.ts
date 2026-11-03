@@ -104,12 +104,15 @@ export function jumpListRowContext(w: Widget, e: ClickPoint, host: { onRename: (
 export function columnCardContext(
   w: Widget,
   e: ClickPoint,
-  host: { onOpen: () => void; onReveal: () => void; moveTo: Array<{ title: string; onMove: () => void }> }
+  // onReveal is absent when the canvas cannot be reached (a share link held to Columns).
+  host: { onOpen: () => void; onReveal?: () => void; moveTo: Array<{ title: string; onMove: () => void }> }
 ): MenuContext {
   const rows: MenuContribution[] = [
-    { id: 'columns/open', group: 'object', opens: true, priority: -50, label: SHOW_IN_FULL_VIEW_LABEL, icon: 'open_in_full', onSelect: host.onOpen },
-    { id: 'columns/reveal', group: 'object', priority: -49, fold: 6, label: SHOW_ON_CANVAS_LABEL, icon: 'my_location', onSelect: host.onReveal }
+    { id: 'columns/open', group: 'object', opens: true, priority: -50, label: SHOW_IN_FULL_VIEW_LABEL, icon: 'open_in_full', onSelect: host.onOpen }
   ]
+  if (host.onReveal) {
+    rows.push({ id: 'columns/reveal', group: 'object', priority: -49, fold: 6, label: SHOW_ON_CANVAS_LABEL, icon: 'my_location', onSelect: host.onReveal })
+  }
   if (host.moveTo.length) {
     rows.push({
       id: 'columns/move',

@@ -18,7 +18,7 @@ import {
 } from '../lib/deskColumns'
 import { useWidgetStore } from '../stores/widgets'
 import { useLinksStore } from '../stores/links'
-import { useDeskViewStore } from '../stores/deskView'
+import { useDeskViewStore, useDeskViewLocked } from '../stores/deskView'
 import Icon from './Icon'
 import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
 import UnifiedWidgetMenu from './contextMenu/UnifiedWidgetMenu'
@@ -75,6 +75,8 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
   const setFocused = useWidgetStore((s) => s.setFocused)
   const updateWidget = useWidgetStore((s) => s.update)
   const setViewMode = useDeskViewStore((s) => s.set)
+  // A share link held to Columns: the ways back to the canvas would do nothing.
+  const viewLocked = useDeskViewLocked(taskId)
 
   const links = useLinksStore((s) => s.links)
   const loadLinks = useLinksStore((s) => s.loadForTask)
@@ -358,14 +360,16 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
           {/* In-view selector so you can jump to any other view (or back to the
               canvas) without the breadcrumb selector, which this overlay covers. */}
           <ViewSelector taskId={taskId} />
-          <button
-            onClick={() => setViewMode(taskId, 'canvas')}
-            data-testid="columns-to-canvas"
-            className="fb-btn-surface inline-flex items-center gap-1 h-7 px-2.5 text-[12px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
-            title="Back to the canvas"
-          >
-            <Icon name="grid_view" size={14} /> Canvas
-          </button>
+          {!viewLocked && (
+            <button
+              onClick={() => setViewMode(taskId, 'canvas')}
+              data-testid="columns-to-canvas"
+              className="fb-btn-surface inline-flex items-center gap-1 h-7 px-2.5 text-[12px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
+              title="Back to the canvas"
+            >
+              <Icon name="grid_view" size={14} /> Canvas
+            </button>
+          )}
         </div>
       </div>
 
@@ -455,7 +459,7 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
                           setCardMenu(
                             columnCardContext(w, { clientX: e.clientX, clientY: e.clientY }, {
                               onOpen: () => focusObject(w),
-                              onReveal: () => openOnCanvas(w),
+                              onReveal: viewLocked ? undefined : () => openOnCanvas(w),
                               moveTo: moves.map((c) => ({ title: c.title, onMove: () => dropOn(c.id, w.id) }))
                             })
                           )
@@ -496,14 +500,16 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
                         >
                           <Icon name="open_in_full" size={13} />
                         </button>
-                        <button
-                          onClick={() => openOnCanvas(w)}
-                          title="Show on the canvas"
-                          data-testid={`column-reveal-${w.id}`}
-                          className="icon-btn h-6 w-6 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
-                        >
-                          <Icon name="my_location" size={13} />
-                        </button>
+                        {!viewLocked && (
+                          <button
+                            onClick={() => openOnCanvas(w)}
+                            title="Show on the canvas"
+                            data-testid={`column-reveal-${w.id}`}
+                            className="icon-btn h-6 w-6 text-[var(--ink-40)] hover:text-[rgb(var(--accent))]"
+                          >
+                            <Icon name="my_location" size={13} />
+                          </button>
+                        )}
                       </div>
                       {/* Card body fills the column width and is made pointer-transparent
                           during a drag so it never intercepts the gesture. */}

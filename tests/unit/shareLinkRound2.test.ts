@@ -161,7 +161,7 @@ describe('records kept by older builds', () => {
   it('a HEAD browser (only the last link opened) gets a record for that link, with nothing known', () => {
     localStorage.setItem('fb.share.imported', A)
     migrateLegacyRecords()
-    expect(linkRecord(A)).toEqual({ version: null, declined: null, edited: null, rootId: null, offer: null })
+    expect(linkRecord(A)).toEqual({ version: null, declined: null, edited: null, rootId: null, offer: null, presentation: null })
     // HEAD unpacked every link into one database and remembered only the last.
     expect(untrackedDesksPossible()).toBe(true)
     expect(localStorage.getItem('fb.share.imported')).toBeNull()
@@ -174,7 +174,7 @@ describe('records kept by older builds', () => {
     localStorage.setItem('fb.share.copy', JSON.stringify({ version: t0, declined: t0 + 1, edited: true, others: false }))
     localStorage.setItem('fb.share.offer', JSON.stringify(offer({ title: 'Kept' })))
     migrateLegacyRecords()
-    expect(linkRecord(A)).toEqual({ version: t0, declined: t0 + 1, edited: true, rootId: 'desk-A', offer: offer({ title: 'Kept' }) })
+    expect(linkRecord(A)).toEqual({ version: t0, declined: t0 + 1, edited: true, rootId: 'desk-A', offer: offer({ title: 'Kept' }), presentation: null })
     expect(untrackedDesksPossible()).toBe(false)
     for (const k of ['fb.share.imported', 'fb.share.copy', 'fb.share.offer']) expect(localStorage.getItem(k)).toBeNull()
   })

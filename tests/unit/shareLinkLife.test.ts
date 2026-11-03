@@ -193,7 +193,8 @@ describe('updating a link in place', () => {
   it('rebuilds the desk the way a mint does and PUTs it to the same token', async () => {
     reply(200, { ok: true, share: serverShare({ updatedAt: t0 + DAY }) })
     const res = await updateEphemeralShare('tok_abcdefgh1234', 'desk-1')
-    expect(build).toHaveBeenCalledWith('desk-1')
+    // No presentation was asked for here, so none is passed on.
+    expect(build).toHaveBeenCalledWith('desk-1', undefined)
     expect(calls[0].url).toBe('https://signal.test/shares/ephemeral/tok_abcdefgh1234')
     expect(calls[0].init.method).toBe('PUT')
     expect((calls[0].init.headers as Record<string, string>).authorization).toBe('Bearer acct-session')
@@ -327,7 +328,7 @@ describe('the record behind that decision', () => {
   it('starts unchanged, at the version the offer named, and remembers the desk and the offer', () => {
     markImported(T, t0, offer())
     expect(alreadyImported(T)).toBe(true)
-    expect(linkRecord(T)).toEqual({ version: t0, declined: null, edited: false, rootId: 'desk-1', offer: offer() })
+    expect(linkRecord(T)).toEqual({ version: t0, declined: null, edited: false, rootId: 'desk-1', offer: offer(), presentation: null })
   })
 
   it('is marked changed by the first real edit, through the same gate as the warning', () => {
@@ -403,6 +404,7 @@ describe('kept in step across files', () => {
     // ...and the offer itself, so the copy can still be opened when the server
     // cannot be asked (shareLinkRound2.test.ts). Once for a first unpack, once
     // for a replacement.
-    expect(desk.split('markImported(token, offer.updatedAt ?? null, offer)').length - 1).toBe(2)
+    // (With the presentation the bundle carried: shareDesk.presentationOf.)
+    expect(desk.split('markImported(token, offer.updatedAt ?? null, offer, shown)').length - 1).toBe(2)
   })
 })

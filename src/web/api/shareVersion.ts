@@ -53,6 +53,7 @@
 import type { ShareOffer } from './share'
 import { normaliseExpiresAt } from '@shared/shareExpiry'
 import { shareRecipientToken } from '@renderer/lib/shareMode'
+import { readPresentation, type SharePresentation } from '@shared/sitePresentation'
 
 const LINKS_KEY = 'fb.share.links'
 // Set when this browser may hold desks no record accounts for: a copy made by
@@ -80,6 +81,12 @@ export interface LinkRecord {
   rootId: string | null
   /** What the offer said: enough to open the copy when the server cannot be asked. */
   offer: ShareOffer | null
+  /**
+   * How the sender presented the desk (view, lock, websites), as unpacked from
+   * the version this copy is. Kept here because a returning visitor whose copy
+   * is current fetches no bundle. Absent for a copy made before links carried one.
+   */
+  presentation?: SharePresentation | null
 }
 
 export type LinkRecords = Record<string, LinkRecord>
@@ -137,7 +144,8 @@ function sanitizeRecord(raw: unknown): LinkRecord | null {
     declined: isTime(r.declined) ? r.declined : null,
     edited: typeof r.edited === 'boolean' ? r.edited : null,
     rootId: typeof r.rootId === 'string' && r.rootId ? r.rootId : (offer?.rootId ?? null),
-    offer
+    offer,
+    presentation: readPresentation(r.presentation, null)
   }
 }
 
@@ -223,14 +231,21 @@ export function othersPresent(token: string): boolean {
  * Any other link whose record names the same desk now points at rows that came
  * from THIS link: its version is no longer known, and the rows are untouched.
  */
-export function recordUnpacked(token: string, version: number | null | undefined, offer: ShareOffer): void {
+export function recordUnpacked(
+  token: string,
+  version: number | null | undefined,
+  offer: ShareOffer,
+  presentation: SharePresentation | null = null
+): void {
   const all = readLinkRecords()
   const cached = sanitizeOffer(offer)
   const rootId = cached?.rootId ?? offer.rootId ?? null
-  all[token] = { version: isTime(version) ? version : null, declined: null, edited: false, rootId, offer: cached }
+  const shown = readPresentation(presentation, null)
+  all[token] = { version: isTime(version) ? version : null, declined: null, edited: false, rootId, offer: cached, presentation: shown }
   if (rootId) {
+    // Their desk is these rows now, pictures included, so it is presented as these rows are.
     for (const [t, r] of Object.entries(all)) {
-      if (t !== token && r.rootId === rootId) all[t] = { ...r, version: null, declined: null, edited: false }
+      if (t !== token && r.rootId === rootId) all[t] = { ...r, version: null, declined: null, edited: false, presentation: shown }
     }
   }
   writeLinkRecords(all)
@@ -245,7 +260,10 @@ export function recordUnpacked(token: string, version: number | null | undefined
 export function recordAdopted(token: string, offer: ShareOffer, edited: boolean | null): void {
   const all = readLinkRecords()
   const cached = sanitizeOffer(offer)
-  all[token] = { version: null, declined: null, edited, rootId: cached?.rootId ?? offer.rootId ?? null, offer: cached }
+  const rootId = cached?.rootId ?? offer.rootId ?? null
+  // The rows are another link's unpacking, so they are presented as that link's are.
+  const sibling = Object.entries(all).find(([t, r]) => t !== token && rootId && r.rootId === rootId)?.[1]
+  all[token] = { version: null, declined: null, edited, rootId, offer: cached, presentation: sibling?.presentation ?? null }
   writeLinkRecords(all)
 }
 

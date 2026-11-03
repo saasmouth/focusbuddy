@@ -21,6 +21,7 @@
 // the URL (updateEphemeralShare) -- fixing a typo in a demo desk must not mean
 // re-sending a link to everyone who already has the old one.
 import { signalConfig, cloudAppUrl } from './signalConfig'
+import type { SharePresentationRequest } from '@shared/sitePresentation'
 import { useAccountStore } from '../stores/account'
 import {
   expiresNever, normaliseExpiresAt, utf8Bytes, linkMegabytes,
@@ -93,12 +94,15 @@ export function shareUrlFor(shareToken: string): string {
 }
 
 export type OmittedFile = { id: string; name: string; sizeBytes: number; why: string }
+/** A website that went out as a link card although more was asked for. */
+export type OmittedSite = { widgetId: string; host: string; why: string }
 
 export interface MintResult {
   ok: boolean
   share?: EphemeralShare
   url?: string
   filesOmitted?: OmittedFile[]
+  sitesOmitted?: OmittedSite[]
   error?: string
 }
 
@@ -177,14 +181,17 @@ export async function mintEphemeralShare(
   // Absent keeps the server's 48-hour default. A number is an explicit window
   // (the server clamps it to MAX_SHARE_TTL_MS). null is "never expires": the
   // standing link a sender reuses for every prospect. See expiryFields.
-  ttlMs?: number | null
+  ttlMs?: number | null,
+  // How the link presents the desk: its view, and what each website shows
+  // (shared/sitePresentation.ts). Absent packs the desk as it always was.
+  presentation?: SharePresentationRequest
 ): Promise<MintResult> {
   const t = token()
   if (!t) return { ok: false, error: 'Sign in to share a desk.' }
 
   // Packed to fit a link: the main process holds the bundle to the link budget
   // and names every file it had to leave out (deskBundle.buildDeskBundle).
-  const built = await window.api.shares.buildDeskBundle(deskId)
+  const built = await window.api.shares.buildDeskBundle(deskId, presentation)
   if (!built.ok) return { ok: false, error: built.error }
 
   const request = linkRequestBody({
@@ -213,7 +220,8 @@ export async function mintEphemeralShare(
       // Said out loud rather than discovered by the recipient: a desk whose
       // pictures were too big to travel is still worth sharing, but the sender
       // should know before they send it.
-      filesOmitted: built.filesOmitted
+      filesOmitted: built.filesOmitted,
+      sitesOmitted: built.sitesOmitted
     }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -236,6 +244,7 @@ export interface UpdateResult {
   ok: boolean
   share?: EphemeralShare
   filesOmitted?: OmittedFile[]
+  sitesOmitted?: OmittedSite[]
   error?: string
 }
 
@@ -246,12 +255,16 @@ export interface UpdateResult {
  * new version the next time they open it. The bundle is built exactly as a mint
  * builds it, so an updated link carries nothing a fresh one would not.
  */
-export async function updateEphemeralShare(shareToken: string, deskId: string): Promise<UpdateResult> {
+export async function updateEphemeralShare(
+  shareToken: string,
+  deskId: string,
+  presentation?: SharePresentationRequest
+): Promise<UpdateResult> {
   const t = token()
   if (!t) return { ok: false, error: 'Sign in to update a link.' }
 
-  // Same packing, same budget as a mint.
-  const built = await window.api.shares.buildDeskBundle(deskId)
+  // Same packing, same budget, same presentation as a mint.
+  const built = await window.api.shares.buildDeskBundle(deskId, presentation)
   if (!built.ok) return { ok: false, error: built.error }
 
   const request = linkRequestBody({ bundle: built.json, title: built.title })
@@ -270,7 +283,7 @@ export async function updateEphemeralShare(shareToken: string, deskId: string): 
       // with no update route answers, and that deserves a sentence instead.
       return { ok: false, error: linkRefusal(res.status, body, 'update') }
     }
-    return { ok: true, share: normaliseShare(body.share), filesOmitted: built.filesOmitted }
+    return { ok: true, share: normaliseShare(body.share), filesOmitted: built.filesOmitted, sitesOmitted: built.sitesOmitted }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }

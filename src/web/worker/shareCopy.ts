@@ -23,10 +23,13 @@
 // deletes from `nodes`, and only for a subtree it was asked for by root.
 import { getDb } from '../../main/db/database'
 import {
-  importDeskBundle, danglingReferences, fileIdFromContent, DESK_BUNDLE_FORMAT, DESK_BUNDLE_VERSION,
+  importDeskBundle, danglingReferences, fileIdFromContent, fromBase64, DESK_BUNDLE_FORMAT, DESK_BUNDLE_VERSION,
   type DeskBundle, type BundleImportResult
 } from '../../main/db/deskBundle'
 import { fileBlobs } from '../../main/db/fileBlobs'
+import { ensureDeskLayoutSchema } from '../../main/db/deskLayoutStore'
+import { sitePictureId, readPresentation, VISITOR_LAYOUT_USER } from '../../shared/sitePresentation'
+import type { BundledSitePicture } from '../../shared/sitePresentation'
 
 interface Stmt {
   all: (...a: unknown[]) => unknown[]
@@ -45,6 +48,12 @@ export interface RemovedDesk {
   widgets: number
   documents: number
   files: Array<{ id: string; ext: string }>
+  /**
+   * The website pictures the desk's widgets may have (sitePresentation.ts),
+   * deleted with it. Named from the widgets, so a widget that never had one
+   * names a file that is not there, which removing ignores.
+   */
+  pictures: Array<{ id: string; ext: string }>
 }
 
 export type ReplaceOutcome =
@@ -136,9 +145,10 @@ export function deskRows(db: CopyDb, rootId: string): {
   widgetIds: string[]
   documentIds: string[]
   files: Array<{ id: string; ext: string }>
+  pictures: Array<{ id: string; ext: string }>
 } {
   const nodeIds = subtreeIds(db, rootId)
-  if (nodeIds.length === 0) return { nodeIds, widgetIds: [], documentIds: [], files: [] }
+  if (nodeIds.length === 0) return { nodeIds, widgetIds: [], documentIds: [], files: [], pictures: [] }
   const inDesk = new Set(nodeIds)
   const widgets = db.prepare('SELECT id, task_id, content FROM widgets').all() as Array<{
     id: string
@@ -168,7 +178,14 @@ export function deskRows(db: CopyDb, rootId: string): {
   const files = fileCandidates.size
     ? selectIn<{ id: string; ext: string }>(db, (m) => `SELECT id, ext FROM fb_files WHERE id IN (${m})`, [...fileCandidates])
     : []
-  return { nodeIds, widgetIds: mine.map((w) => w.id), documentIds, files }
+  // Website pictures (sitePresentation.ts) are named after their widget, not
+  // pointed at from it, so they are this desk's exactly when the widget is.
+  const pictures: Array<{ id: string; ext: string }> = []
+  for (const w of mine) {
+    const pic = sitePictureId(w.id)
+    if (pic) pictures.push({ id: pic, ext: SITE_PICTURE_EXT })
+  }
+  return { nodeIds, widgetIds: mine.map((w) => w.id), documentIds, files, pictures }
 }
 
 /**
@@ -183,7 +200,7 @@ export function deskRows(db: CopyDb, rootId: string): {
 export function removeDeskRows(db: CopyDb, rootId: string): RemovedDesk {
   return db.transaction(() => {
     const rows = deskRows(db, rootId)
-    const out: RemovedDesk = { rootId, nodes: 0, widgets: 0, documents: 0, files: rows.files }
+    const out: RemovedDesk = { rootId, nodes: 0, widgets: 0, documents: 0, files: rows.files, pictures: rows.pictures }
     if (rows.nodeIds.length === 0) return out
     const nodes = rows.nodeIds
     const widgets = rows.widgetIds
@@ -219,7 +236,7 @@ async function removeBytes(files: Array<{ id: string; ext: string }>): Promise<v
 /** Remove one desk and the file bytes only it used. */
 export async function removeDesk(rootId: string): Promise<RemovedDesk> {
   const removed = removeDeskRows(getDb() as unknown as CopyDb, rootId)
-  await removeBytes(removed.files)
+  await removeBytes([...removed.files, ...removed.pictures])
   return removed
 }
 
@@ -259,9 +276,162 @@ export async function replaceDesk(rootIds: string[], bundle: DeskBundle): Promis
   const removed = roots.map((r) => removeDeskRows(db, r))
   const stillListed = new Set((bundle.tables?.fb_files ?? []).map((f) => String(f.id)))
   await removeBytes(removed.flatMap((r) => r.files).filter((f) => !stillListed.has(f.id)))
+  // Pictures always go: the new version brings its own (adoptPresentation).
+  await removeBytes(removed.flatMap((r) => r.pictures))
+  layoutTableFirst(db)
   const imported = await importDeskBundle(bundle)
   if (!imported.ok) return { ok: false, removed, reason: imported.reason ?? 'the new version could not be unpacked' }
+  await adoptPresentation(db, bundle)
   return { ok: true, removed, imported }
+}
+
+// ── What a link carries beyond rows: the sender's presentation ─────────────
+
+/** Website pictures are always JPEGs (main/sitePreview.ts encodes them). */
+export const SITE_PICTURE_EXT = '.jpg'
+
+/** What adoptPresentation did, for the page and for tests. */
+export interface AdoptedPresentation {
+  pictures: number
+  layouts: number
+}
+
+/**
+ * Make a freshly unpacked desk look the way its sender shared it.
+ *
+ * Two things the rows alone do not do:
+ *
+ *   - Website pictures travel inside the presentation, not as Drive files (they
+ *     are not the sender's files and must not appear as the visitor's). Each is
+ *     written to the file store under the id derived from its widget, where the
+ *     share page's file server serves it -- and only for a widget this bundle
+ *     brings, as a JPEG, within the size a picture is ever packed at.
+ *   - Layouts are stored per account (desk_layouts.user_id) and the visitor has
+ *     none, so the sender's row would never be read: the workcentre came up
+ *     auto-arranged, with the tiles the sender hid showing. The sender's row is
+ *     copied to the visitor's id -- the arrangement, never the sender's camera:
+ *     the canvas opens at the top-left of the desk's content instead of wherever
+ *     the sender last scrolled.
+ */
+export async function adoptPresentation(db: CopyDb, bundle: DeskBundle): Promise<AdoptedPresentation> {
+  const out: AdoptedPresentation = { pictures: 0, layouts: 0 }
+  const widgets = (bundle.tables?.widgets ?? []) as Array<Record<string, unknown>>
+  const widgetIds = new Set(widgets.map((w) => String(w.id)))
+  const raw = (bundle as { presentation?: { sites?: Record<string, { picture?: BundledSitePicture }>; layoutUserId?: unknown } })
+    .presentation
+  const presentation = readPresentation(raw, widgetIds)
+
+  for (const [wid, site] of Object.entries(presentation?.sites ?? {})) {
+    if (site.show !== 'picture' || !site.picture) continue
+    const data = raw?.sites?.[wid]?.picture?.data
+    if (typeof data !== 'string' || data.length > MAX_PICTURE_BASE64) continue
+    let bytes: Uint8Array
+    try {
+      bytes = fromBase64(data)
+    } catch {
+      continue
+    }
+    // A JPEG starts FF D8 FF. Anything else is not what a picture entry means.
+    if (bytes.length < 3 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) continue
+    try {
+      await fileBlobs.write(site.picture.id, SITE_PICTURE_EXT, bytes)
+      out.pictures++
+    } catch {
+      /* the widget shows its link card instead */
+    }
+  }
+
+  if (tableExists(db, 'desk_layouts')) {
+    const rows = (bundle.tables?.desk_layouts ?? []) as Array<Record<string, unknown>>
+    const sender = typeof raw?.layoutUserId === 'string' ? raw.layoutUserId : null
+    // One row per desk and device class: the sender's when the bundle says
+    // whose that is, otherwise the most recently saved.
+    const better = (a: Record<string, unknown>, b: Record<string, unknown>): boolean => {
+      if (sender !== null && (a.user_id === sender) !== (b.user_id === sender)) return a.user_id === sender
+      return String(a.updated_at ?? '') > String(b.updated_at ?? '')
+    }
+    const chosen = new Map<string, Record<string, unknown>>()
+    for (const r of rows) {
+      const key = `${String(r.desk_id)}\n${String(r.device_class)}`
+      const have = chosen.get(key)
+      if (!have || better(r, have)) chosen.set(key, r)
+    }
+    // REPLACE, not IGNORE: this runs straight after the desk was unpacked (a
+    // replacement removes the desk's layout rows first), so a visitor row for it
+    // can only have come from the bundle -- a sender who once used the app
+    // signed out carries a stale 'local' row, which must not win.
+    const insert = db.prepare(
+      `INSERT OR REPLACE INTO desk_layouts (user_id, desk_id, device_class, layout_json, updated_at) VALUES (?, ?, ?, ?, ?)`
+    )
+    for (const r of chosen.values()) {
+      let layout: Record<string, unknown>
+      try {
+        layout = JSON.parse(String(r.layout_json)) as Record<string, unknown>
+      } catch {
+        continue
+      }
+      if (!layout || typeof layout !== 'object') continue
+      const deskId = String(r.desk_id)
+      const visitor = {
+        ...layout,
+        userId: VISITOR_LAYOUT_USER,
+        deskId,
+        scroll: contentTopLeft(widgets, deskId),
+        zoom: 1,
+        selectedObjectIds: []
+      }
+      out.layouts += insert.run(VISITOR_LAYOUT_USER, deskId, String(r.device_class), JSON.stringify(visitor), String(r.updated_at ?? new Date().toISOString())).changes
+    }
+  }
+  return out
+}
+
+/** A picture is packed at most MAX_SITE_PICTURE_BYTES; base64 of that, with room to spare. */
+const MAX_PICTURE_BASE64 = 1024 * 1024
+
+/**
+ * The camera that puts the top-left of a desk's content near the top-left of
+ * the screen: the visitor's first look lands on the desk, not on empty canvas.
+ */
+function contentTopLeft(widgets: Array<Record<string, unknown>>, deskId: string): { x: number; y: number } {
+  let minX = Infinity
+  let minY = Infinity
+  for (const w of widgets) {
+    if (String(w.task_id) !== deskId || w.parent_section_id || w.trashed_at || w.pinned === 1) continue
+    const x = Number(w.x)
+    const y = Number(w.y)
+    if (Number.isFinite(x)) minX = Math.min(minX, x)
+    if (Number.isFinite(y)) minY = Math.min(minY, y)
+  }
+  const MARGIN = 40
+  return {
+    x: Number.isFinite(minX) ? Math.round(MARGIN - minX) : 0,
+    y: Number.isFinite(minY) ? Math.round(MARGIN - minY) : 0
+  }
+}
+
+/**
+ * Unpack a link's desk into a browser that does not have it yet, presentation
+ * and all. The desktop's own channel (shares:importBundle) stays the plain
+ * import: a desk file opened on the desktop has no visitor to present to.
+ */
+export async function importDeskForShare(bundle: DeskBundle): Promise<BundleImportResult> {
+  const db = getDb() as unknown as CopyDb
+  layoutTableFirst(db)
+  const imported = await importDeskBundle(bundle)
+  if (imported.ok) await adoptPresentation(db, bundle)
+  return imported
+}
+
+/**
+ * desk_layouts is created on first use (deskLayoutStore), not with the rest of
+ * the schema -- and importDeskBundle skips a table that does not exist. On a
+ * visitor's first visit nothing has used it yet, so every layout the bundle
+ * carried was dropped on the floor: the sender's Workcentre never arrived.
+ * Created before the import so the rows have somewhere to go.
+ */
+function layoutTableFirst(db: CopyDb): void {
+  ensureDeskLayoutSchema(db as unknown as Parameters<typeof ensureDeskLayoutSchema>[0])
 }
 
 type Handler = (...args: never[]) => unknown
@@ -278,5 +448,6 @@ export const SHARE_COPY_HANDLERS: Record<string, Handler> = {
   'shareCopy:rootDesks': h(() => rootDesks(getDb() as unknown as CopyDb)),
   'shareCopy:removeDesk': h((rootId: string) => removeDesk(String(rootId ?? ''))),
   'shareCopy:replaceDesk': h((rootIds: string[], bundle: DeskBundle) =>
-    replaceDesk(Array.isArray(rootIds) ? rootIds.map(String) : [], bundle))
+    replaceDesk(Array.isArray(rootIds) ? rootIds.map(String) : [], bundle)),
+  'shareCopy:importDesk': h((bundle: DeskBundle) => importDeskForShare(bundle))
 }

@@ -26,6 +26,7 @@ import ChartWidget from '../components/widgets/ChartWidget'
 import CalculatorWidget from '../components/widgets/CalculatorWidget'
 import ColorWidget from '../components/widgets/ColorWidget'
 import WebViewWidget from '../components/widgets/WebViewWidget'
+import EmbeddedSiteWidget from '../components/widgets/EmbeddedSiteWidget'
 import ImageWidget from '../components/widgets/ImageWidget'
 import VideoWidget from '../components/widgets/VideoWidget'
 import TimerWidget from '../components/widgets/TimerWidget'
@@ -44,6 +45,10 @@ import PortalWidget from '../components/widgets/PortalWidget'
 import ScratchpadWidget from '../components/widgets/ScratchpadWidget'
 import ChatThreadWidget from '../components/widgets/ChatThreadWidget'
 import MailThreadWidget from '../components/widgets/MailThreadWidget'
+
+// True in the browser runtime (set by src/web/api/bridge.ts before the renderer
+// mounts). Read at render time, as renderWidget does.
+const isWebRuntime = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean }).__PLEXII_WEB__ === true
 
 export function renderWidgetInline(w: Widget): JSX.Element | null {
   switch (w.kind) {
@@ -130,7 +135,11 @@ export function renderWidgetInline(w: Widget): JSX.Element | null {
     case 'gsheet':
     case 'gslide':
     case 'email':
-      return <WebViewWidget widget={w} inline />
+      // In a browser there is no <webview>: the element renders nothing, which
+      // left every website tile in the Workcentre, every Columns card and full
+      // view blank on a share page. EmbeddedSiteWidget is the browser's version,
+      // as on the canvas (renderWidget).
+      return isWebRuntime() ? <EmbeddedSiteWidget widget={w} /> : <WebViewWidget widget={w} inline />
     default:
       return renderEmbedded(w)
   }

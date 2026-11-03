@@ -1,4 +1,5 @@
 import type { PrintRequest, PrintResult, SheetPdfRequest } from '@shared/printJob'
+import type { SharePresentationRequest, SiteShow } from '@shared/sitePresentation'
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { AppClipboardRead } from '@shared/appClipboard'
@@ -358,12 +359,24 @@ const api = {
   shares: {
     // Ephemeral desk shares: the desk is packed here, posted to Signal by the
     // renderer, which is where the account token lives.
+    // `presentation` decides the view the link opens in, the arrangements it
+    // carries and what each website shows (shared/sitePresentation.ts).
+    // sitesOmitted names websites that went out as link cards although more
+    // was asked for, and why.
     buildDeskBundle: (
-      deskId: string
+      deskId: string,
+      presentation?: SharePresentationRequest
     ): Promise<
-      | { ok: true; json: string; title: string; counts: Record<string, number>; filesOmitted: Array<{ id: string; name: string; sizeBytes: number; why: string }> }
+      | {
+          ok: true
+          json: string
+          title: string
+          counts: Record<string, number>
+          filesOmitted: Array<{ id: string; name: string; sizeBytes: number; why: string }>
+          sitesOmitted: Array<{ widgetId: string; host: string; why: string }>
+        }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('shares:buildDeskBundle', deskId),
+    > => ipcRenderer.invoke('shares:buildDeskBundle', deskId, presentation),
     // The other direction: a bundle that arrived as data rather than as a file.
     // The browser's share flow fetches one over the network; the desktop's own
     // import reads a file through a dialog and does not come through here.
@@ -403,6 +416,31 @@ const api = {
     }): Promise<SharedItem> => ipcRenderer.invoke('shares:accept', input),
     removeInbox: (id: string): Promise<boolean> =>
       ipcRenderer.invoke('shares:removeInbox', id)
+  },
+  // Websites on a desk being shared by link: one clean, signed-out visit per
+  // site (main/sitePreview.ts) so the share sheet can show what the link will.
+  sitePreview: {
+    list: (deskId: string): Promise<Array<{ widgetId: string; url: string; host: string; title: string }>> =>
+      ipcRenderer.invoke('sitePreview:list', deskId),
+    prepare: (
+      widgetId: string,
+      embedderOrigin: string,
+      force?: boolean
+    ): Promise<
+      | {
+          ok: true
+          widgetId: string
+          url: string
+          host: string
+          options: SiteShow[]
+          recommended: SiteShow
+          provider: string | null
+          thumbnail: string | null
+          refusal: string | null
+          checkedAt: number
+        }
+      | { ok: false; widgetId: string; error: string }
+    > => ipcRenderer.invoke('sitePreview:prepare', widgetId, embedderOrigin, force)
   },
   // Account session — load/save/clear lives in main so the session token
   // is encrypted at rest via Electron safeStorage. The renderer treats

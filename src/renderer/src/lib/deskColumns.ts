@@ -1,6 +1,7 @@
 import type { Widget, WidgetKind, WidgetLink } from '@shared/types'
 import { catalogFor } from './widgetCatalog'
 import { widgetDisplayName } from './widgetDisplayName'
+import { DESK_COLUMNS_KEY_PREFIX } from './deskLocalPrefs'
 
 // Configuration + geometry for the desk Columns view. A desk's objects can be
 // laid out into vertical, independently scrolling columns. Columns are either
@@ -63,7 +64,7 @@ export interface DeskColumnsConfig {
 export const COLUMN_MIN_W = 220
 export const COLUMN_MAX_W = 960
 
-const KEY_PREFIX = 'fb.deskColumns.v1.'
+const KEY_PREFIX = DESK_COLUMNS_KEY_PREFIX
 
 export function defaultColumnsConfig(): DeskColumnsConfig {
   return {

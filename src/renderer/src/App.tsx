@@ -61,7 +61,8 @@ import { useVaultStore } from './stores/vault'
 import { useAccountStore } from './stores/account'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
-import { isShareRecipient, shareDeskId, deskToOpen } from './lib/shareMode'
+import { isShareRecipient, shareDeskId, deskToOpen, sharePresentation } from './lib/shareMode'
+import { useDeskViewStore } from './stores/deskView'
 import { applyWidgetSkin } from './lib/widgetSkin'
 import { initCrdtSync, stopCrdtSync } from './lib/crdtSync'
 import { applyCustomization, applyFont, applyTheme, loadCustomization, loadTheme, useTheme } from './lib/theme'
@@ -177,6 +178,11 @@ export default function App(): JSX.Element {
     const desk = deskToOpen(nodesForShare, shareDeskId())
     if (!desk) return
     shareOpened.current = true
+    // The sender's "only this view": held for the visit. (The view itself was
+    // already made this desk's last-used one when the copy was unpacked, so an
+    // unlocked link opens there too and the visitor may move on.)
+    const p = sharePresentation()
+    if (p?.view && p.lockView) useDeskViewStore.getState().lock(desk, p.view)
     useViewStore.getState().goTask(desk)
   }, [shareView, nodesForShare])
 

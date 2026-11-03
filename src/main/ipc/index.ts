@@ -544,7 +544,9 @@ import {
   importWorkspaceJson,
   defaultWorkspaceExportName
 } from '../db/workspaceExport'
-import { buildDeskBundle, importDeskBundle } from '../db/deskBundle'
+import { buildDeskBundle, importDeskBundle, PICTURE_OMITTED_FOR_SIZE } from '../db/deskBundle'
+import { listDeskSites, prepareSitePreview, resolvePresentation } from '../sitePreview'
+import type { SharePresentationRequest } from '@shared/sitePresentation'
 import { recordInvocation } from '../ai/agentHistory'
 import { localModelStatus } from '../ai/localModel'
 import { getDocMetadata } from '../db/docMetadata'
@@ -2633,20 +2635,49 @@ export function registerIpcHandlers(): void {
   // One desk, packed for a 48-hour share. Built here because it reads the
   // database and the file bytes; the renderer posts it to Signal, which is
   // where the account token lives.
-  ipcMain.handle('shares:buildDeskBundle', async (_e, deskId: string) => {
+  // `presentation` (optional) is how the link presents the desk: the view it
+  // opens in, the sender's arrangements and what each website shows -- see
+  // shared/sitePresentation.ts. Websites are resolved here, in the main
+  // process, because deciding them means visiting them (sitePreview.ts).
+  ipcMain.handle('shares:buildDeskBundle', async (_e, deskId: string, presentation?: SharePresentationRequest) => {
     try {
-      const bundle = await buildDeskBundle(String(deskId || ''))
+      const id = String(deskId || '')
+      const resolved = presentation ? await resolvePresentation(id, presentation) : null
+      const bundle = await buildDeskBundle(id, resolved ? { presentation: resolved.input } : {})
+      // A picture that was taken but did not fit went out as a link card; say so
+      // beside the sites that could not be pictured at all.
+      const sitesOmitted = [...(resolved?.notes ?? [])]
+      for (const [wid, site] of Object.entries(resolved?.input.sites ?? {})) {
+        if (site.show === 'picture' && site.picture && bundle.presentation?.sites?.[wid]?.show !== 'picture') {
+          let host = site.url
+          try {
+            host = new URL(site.url).hostname.replace(/^www\./, '')
+          } catch {
+            /* keep the address */
+          }
+          sitesOmitted.push({ widgetId: wid, host, why: PICTURE_OMITTED_FOR_SIZE })
+        }
+      }
       return {
         ok: true as const,
         json: JSON.stringify(bundle),
         title: bundle.desk.title,
         counts: bundle.counts,
-        filesOmitted: bundle.filesOmitted
+        filesOmitted: bundle.filesOmitted,
+        sitesOmitted
       }
     } catch (e) {
       return { ok: false as const, error: (e as Error).message }
     }
   })
+
+  // One website on a desk, visited in a clean signed-out window (or recalled
+  // from the last visit) so the share sheet can show what a link will show.
+  ipcMain.handle('sitePreview:prepare', async (_e, widgetId: string, embedderOrigin: string, force?: boolean) =>
+    prepareSitePreview(String(widgetId ?? ''), String(embedderOrigin ?? ''), force === true)
+  )
+  // The websites on a desk and every desk filed under it: what a link carries.
+  ipcMain.handle('sitePreview:list', async (_e, deskId: string) => listDeskSites(String(deskId ?? '')))
 
   // A bundle that arrived as data. The desktop reaches this when a recipient
   // opens a desk file they were given; the browser reaches it from a share link.

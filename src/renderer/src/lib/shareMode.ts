@@ -10,6 +10,8 @@
 // set by the cloud entry before the renderer is imported, and it is read rather
 // than passed because the modules that must honour it are deep in the renderer
 // and have no business taking a parameter for it.
+import { readPresentation, type SharePresentation } from '@shared/sitePresentation'
+
 const KEY = 'fb.share.recipient'
 const DESK_KEY = 'fb.share.desk'
 
@@ -90,4 +92,34 @@ export function deskToOpen(
   }
   const desks = nodes.filter((n) => n.kind === 'task' && !n.archived)
   return desks.length > 0 ? desks[0].id : null
+}
+
+// ── How the sender presented the desk ────────────────────────────────────────
+//
+// The view the link opens in (and whether it is the only one), and what each
+// website on it shows -- see shared/sitePresentation.ts. The share page puts it
+// here from the link's record before the renderer loads, beside the desk id.
+const PRESENTATION_KEY = 'fb.share.presentation'
+let presentationMemo: SharePresentation | null | undefined
+
+export function setSharePresentation(p: SharePresentation | null): void {
+  presentationMemo = p
+  try {
+    if (p) sessionStorage.setItem(PRESENTATION_KEY, JSON.stringify(p))
+    else sessionStorage.removeItem(PRESENTATION_KEY)
+  } catch {
+    /* private mode; the in-memory value still serves this tab */
+  }
+}
+
+/** The sender's presentation, in a share window that has one; null anywhere else. */
+export function sharePresentation(): SharePresentation | null {
+  if (!isShareRecipient()) return null
+  if (presentationMemo !== undefined) return presentationMemo
+  try {
+    presentationMemo = readPresentation(JSON.parse(sessionStorage.getItem(PRESENTATION_KEY) ?? 'null'), null)
+  } catch {
+    presentationMemo = null
+  }
+  return presentationMemo
 }
