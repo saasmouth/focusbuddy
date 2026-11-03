@@ -22,6 +22,14 @@ export interface WorkcentreTile {
   y: number
   w: number
   h: number
+  /**
+   * The width / height was set by hand (a resize). The view grows every tile
+   * into the dead space around it (owner, 2026-11-03), but never along an axis
+   * the person sized themselves: shrinking a tile gives its room to the
+   * neighbours instead of springing back. Absent = auto-fill on that axis.
+   */
+  fixW?: boolean
+  fixH?: boolean
 }
 /**
  * The Workcentre view's dashboard layout for one Desk: tile geometry in grid

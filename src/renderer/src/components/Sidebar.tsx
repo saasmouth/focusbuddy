@@ -40,7 +40,8 @@ import {
 
 // MIME used when dragging a Connected App row from the sidebar onto the canvas.
 // The Canvas drop handler reads this to spawn a webview widget bound to the app.
-export const CONNECTED_APP_DRAG_MIME = 'text/fb-connected-app'
+import { CONNECTED_APP_DRAG_MIME } from '../lib/connectedAppDrag'
+export { CONNECTED_APP_DRAG_MIME } from '../lib/connectedAppDrag'
 
 interface Props {
   collapsed?: boolean

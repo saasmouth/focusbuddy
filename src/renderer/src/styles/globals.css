@@ -3158,3 +3158,32 @@ span.tc-delete {
   text-decoration-line: line-through;
   text-decoration-color: var(--tc-color, #dc2626);
 }
+
+/* ── Workcentre: snap into place ───────────────────────────────────────────
+   Tiles are absolutely placed on the grid's pitch (WorkcentreView). While
+   something moves — a tile dragged or resized, a thing dragged in, and for a
+   moment after — fb-wc-animate eases every tile to its new box, so neighbours
+   slide aside to make room and a released tile glides into its well (owner,
+   2026-11-03: "snaps in place, more like the multi-app focus view"). left/top,
+   never transform: a transform would make each tile the containing block for
+   the position:fixed menus inside an editor. The dragged tile follows the
+   pointer with no easing. Off outside interactions, so a window resize is
+   crisp, and off entirely under reduced motion. */
+.fb-wc-animate .fb-wc-tile,
+.fb-wc-animate .fb-wc-well {
+  transition:
+    left var(--dur-base) var(--ease-spring-snap),
+    top var(--dur-base) var(--ease-spring-snap),
+    width var(--dur-base) var(--ease-spring-snap),
+    height var(--dur-base) var(--ease-spring-snap);
+}
+.fb-wc-animate .fb-wc-tile[data-floating='true'] {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-wc-animate .fb-wc-tile,
+  .fb-wc-animate .fb-wc-well {
+    transition: none;
+  }
+}
+
