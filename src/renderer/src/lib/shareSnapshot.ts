@@ -153,8 +153,39 @@ export interface SerializedWidget {
 
 export interface SerializedTable {
   title: string
-  columns: Array<{ id: string; type: string; label: string }>
+  columns: SerializedColumn[]
   rows: Array<{ id: string; cells: Record<string, unknown> }>
+}
+
+/**
+ * One table column as a link carries it.
+ *
+ * A select cell stores the id of one of its column's options ("o4"), never
+ * the label, so a snapshot without the options can only show "o4" -- which is
+ * what every read link did until the options travelled. They are the ONLY part
+ * of a column's config that does: config can also hold a button column's shell
+ * command or AI prompt (fields.ts), which has no business on a public link.
+ */
+export interface SerializedColumn {
+  id: string
+  type: string
+  label: string
+  /** single-select and multi-select only: the choices a cell's value names. */
+  options?: Array<{ id: string; label: string; color?: string }>
+}
+
+const SELECT_TYPES = new Set(['single-select', 'multi-select'])
+
+export function serializeColumn(c: { id: string; type: string; label: string; config?: unknown }): SerializedColumn {
+  const out: SerializedColumn = { id: c.id, type: c.type, label: c.label }
+  if (!SELECT_TYPES.has(c.type)) return out
+  const raw = (c.config as { options?: unknown } | null | undefined)?.options
+  out.options = (Array.isArray(raw) ? raw : [])
+    .filter((o): o is { id: string; label: string; color?: unknown } =>
+      !!o && typeof o === 'object' && typeof (o as { id?: unknown }).id === 'string' &&
+      typeof (o as { label?: unknown }).label === 'string')
+    .map((o) => (typeof o.color === 'string' ? { id: o.id, label: o.label, color: o.color } : { id: o.id, label: o.label }))
+  return out
 }
 
 // Serialize a single node into the SerializedNode shape. Strips fields
@@ -218,11 +249,7 @@ export async function buildTaskSnapshot(
         if (tbl) {
           base.tableSnapshot = {
             title: tbl.title,
-            columns: tbl.schema.columns.map((c) => ({
-              id: c.id,
-              type: c.type,
-              label: c.label
-            })),
+            columns: tbl.schema.columns.map(serializeColumn),
             rows: rows.slice(0, 200).map((r) => ({
               id: r.id,
               cells: r.cells
@@ -298,11 +325,7 @@ export async function buildWidgetSnapshot(
       if (tbl) {
         base.tableSnapshot = {
           title: tbl.title,
-          columns: tbl.schema.columns.map((c) => ({
-            id: c.id,
-            type: c.type,
-            label: c.label
-          })),
+          columns: tbl.schema.columns.map(serializeColumn),
           rows: rows.slice(0, 200).map((r) => ({ id: r.id, cells: r.cells }))
         }
       }

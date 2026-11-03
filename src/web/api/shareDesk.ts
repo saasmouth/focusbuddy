@@ -328,14 +328,31 @@ async function refused(token: string, reason: ShareRefusal): Promise<OpenOutcome
  *   but not from this link      older build: replaced if positively untouched,
  *                               otherwise kept and asked about
  *   nothing here                fetch and unpack
+ *
+ * `fetchBundle` is where the desk comes from: a 'use' link's bundle by
+ * default, or a read link's snapshot made into one (readShare.ts). Everything
+ * else -- the record, the duplicate checks, the per-link desk -- is the same.
  */
-export async function openLinkDesk(token: string, offer: ShareOffer, plan: ReplacePlan | null): Promise<OpenOutcome> {
-  const outcome = await openLinkDeskInner(token, offer, plan)
+export async function openLinkDesk(
+  token: string,
+  offer: ShareOffer,
+  plan: ReplacePlan | null,
+  fetchBundle: BundleFetch = () => fetchShareBundle(token)
+): Promise<OpenOutcome> {
+  const outcome = await openLinkDeskInner(token, offer, plan, fetchBundle)
   if (outcome.kind === 'open') await settleUntracked()
   return outcome
 }
 
-async function openLinkDeskInner(token: string, offer: ShareOffer, plan: ReplacePlan | null): Promise<OpenOutcome> {
+/** Where a link's desk is fetched from, as text (share.fetchShareBundle's shape). */
+export type BundleFetch = () => Promise<{ ok: true; text: string } | { ok: false; reason: ShareRefusal }>
+
+async function openLinkDeskInner(
+  token: string,
+  offer: ShareOffer,
+  plan: ReplacePlan | null,
+  fetchBundle: BundleFetch
+): Promise<OpenOutcome> {
   const mine = linkRecord(token)
   if (plan && mine) {
     const r = await replaceLinkDesk(token, offer, plan.text)
@@ -361,7 +378,7 @@ async function openLinkDeskInner(token: string, offer: ShareOffer, plan: Replace
         notice: { kind: 'ask-unsure', version: offer.updatedAt ?? null, shared: linksSharingDesk(token).length > 0, existing: true }
       }
     }
-    const got = await fetchShareBundle(token)
+    const got = await fetchBundle()
     if (!got.ok) return refused(token, got.reason)
     const r = await replaceLinkDesk(token, offer, got.text)
     if (r.ok) return { kind: 'open', bundleText: got.text, notice: null }
@@ -370,7 +387,7 @@ async function openLinkDeskInner(token: string, offer: ShareOffer, plan: Replace
     return { kind: 'open', bundleText: null, notice: { kind: 'blocked', why: r.why } }
   }
 
-  const got = await fetchShareBundle(token)
+  const got = await fetchBundle()
   if (!got.ok) return refused(token, got.reason)
   let bundle: DeskBundle
   try {

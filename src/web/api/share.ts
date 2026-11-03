@@ -51,13 +51,35 @@ export function linkExpires(offer: Pick<ShareOffer, 'expiresAt'>): boolean {
   return !expiresNever(offer.expiresAt)
 }
 
-export type ShareRefusal = 'unknown' | 'revoked' | 'expired' | 'offline' | 'unavailable'
+/**
+ * Why a link cannot be opened. The first five are a 'use' link's (refusalFrom);
+ * the rest are a read link's (readShare.ts):
+ *
+ *   gone         Signal's 404 for a read link: unknown, revoked or expired --
+ *                its answer is the same for all three
+ *   view-only    the sender shared it to be read, not copied
+ *   not-a-desk   it shares a folder, a document, a file: nothing to open here
+ *   unreadable   a snapshot this build cannot make a desk from
+ */
+export type ShareRefusal =
+  | 'unknown' | 'revoked' | 'expired' | 'offline' | 'unavailable'
+  | 'gone' | 'view-only' | 'not-a-desk' | 'unreadable'
 
 /** The refusals that mean the link is gone for good, so its copy goes too. */
-export type GoneRefusal = 'unknown' | 'revoked' | 'expired'
+export type GoneRefusal = 'unknown' | 'revoked' | 'expired' | 'gone'
 
 export function linkIsGone(reason: ShareRefusal): reason is GoneRefusal {
-  return reason === 'unknown' || reason === 'revoked' || reason === 'expired'
+  return reason === 'unknown' || reason === 'revoked' || reason === 'expired' || reason === 'gone'
+}
+
+/**
+ * The refusals that are the sender's choice rather than the link's state: a
+ * read-only link, or one that shares something other than a desk. The link
+ * still works -- in the viewer -- so nothing here is removed, and the page
+ * points there.
+ */
+export function readInstead(reason: ShareRefusal | undefined): boolean {
+  return reason === 'view-only' || reason === 'not-a-desk'
 }
 
 /**
@@ -137,6 +159,16 @@ export function refusalLine(reason?: ShareRefusal): string {
       return 'That shared desk is temporarily unavailable. Try the link again in a few minutes.'
     case 'unknown':
       return 'That link is not a share we recognise. It may have already been deleted.'
+    case 'gone':
+      // Signal answers unknown, revoked and expired alike, so this says what
+      // is known and no more.
+      return 'That link is no longer working. It may have expired, or the person who sent it may have turned it off.'
+    case 'view-only':
+      return 'The person who sent this desk shared it to be read, not copied, so it cannot be opened as your own desk here. You can still read it.'
+    case 'not-a-desk':
+      return 'That link shares something other than a desk, so there is no desk to open here. You can still read it.'
+    case 'unreadable':
+      return 'That shared desk could not be read by this page.'
     default:
       return 'Plexii is a desktop app. Your desks, files and notes live on your own machine.'
   }
