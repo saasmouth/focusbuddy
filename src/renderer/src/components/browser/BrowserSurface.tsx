@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { navTrailGate } from '@shared/navTrail'
 import Icon from '../Icon'
 import EnginePickerChip from './EnginePickerChip'
 import { useWebPanel } from '../../stores/webPanel'
 import { searchUrl as engineSearchUrl } from '../../lib/omniIntent'
 import { resolveAddressInput } from '../../lib/browserUrl'
+import { claimWebview, releaseWebview, webLayerShouldLoad } from '../../lib/webLayer'
 
 // The ONE browser inside Plexii (A2 desk-browser unification, Caleb's picks
 // 2026-08-23): the desk's browser widget and the panel/fullscreen surface
@@ -112,6 +114,14 @@ export default function BrowserSurface({
   overlay
 }: Props): React.JSX.Element {
   const webviewRef = useRef<WebviewEl | null>(null)
+  // The live element, as state, so every effect below re-subscribes when it
+  // genuinely changes (first attach, a layer page handed over, inline fallback).
+  const [wv, setWv] = useState<WebviewEl | null>(null)
+  // Inside a desk the page lives in the desk's web layer (lib/webLayer) and
+  // this surface only renders a slot for it; outside one it renders inline.
+  const slotRef = useRef<HTMLDivElement | null>(null)
+  const [layerPage, setLayerPage] = useState<{ overlayHost: HTMLElement } | null>(null)
+  const [inline, setInline] = useState(false)
   const engine = useWebPanel((s) => s.engine)
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
@@ -136,15 +146,39 @@ export default function BrowserSurface({
   // update limit, "Minified React error #185" (owner's crash log, 2026-11-03).
   // Now: once when the element appears, once (null) when it goes.
   const setWebviewNode = useCallback((el: HTMLElement | null): void => {
+    if (webviewRef.current === el) return
     webviewRef.current = el as WebviewEl | null
+    setWv(el as WebviewEl | null)
     onWebviewElRef.current?.(el as WebviewEl | null)
   }, [])
+
+  // Claim this surface's page from the desk's web layer: the same live page
+  // every time this surface id is shown, in any view, so a view switch hands
+  // it over instead of reloading it. No layer here: render the page inline.
+  const initRef = useRef({ src, partition })
+  initRef.current = { src, partition }
+  useLayoutEffect(() => {
+    const slot = slotRef.current
+    if (!slot) return
+    const claim = claimWebview(surfaceId, slot, initRef.current)
+    if (!claim) {
+      setInline(true)
+      return
+    }
+    setLayerPage({ overlayHost: claim.overlayHost })
+    setWebviewNode(claim.webview)
+    return () => {
+      releaseWebview(surfaceId, slot)
+      setWebviewNode(null)
+      setLayerPage(null)
+    }
+    // A partition change means a different guest (it is locked at attach).
+  }, [surfaceId, partition, setWebviewNode])
   const onNavRef = useRef(onNav)
   onNavRef.current = onNav
 
   // Navigation + loading + title wiring — one subscription for every surface.
   useEffect(() => {
-    const wv = webviewRef.current
     if (!wv) return
     const nav = (e: Event): void => {
       const ev = e as Event & { url?: string; isMainFrame?: boolean }
@@ -201,22 +235,25 @@ export default function BrowserSurface({
       wv.removeEventListener('page-title-updated', onTitle)
     }
     // taskId is stable per mounted surface; src changes ride the same webview.
-  }, [taskId, src])
+  }, [taskId, src, wv])
 
   // Explicit loadURL sync when the ASKED-FOR address changes (a new openWeb
   // call, an external widget.content write). Never fires on the webview's own
   // navigation, so no reload loop is possible.
   useEffect(() => {
-    const wv = webviewRef.current
     if (!wv) return
     if (!src || !/^https?:\/\//i.test(src)) return
+    // A layer page loads only on a NEW request: never because a view mounted
+    // with the address it was saved at (the page may have moved on since).
+    if (layerPage && !webLayerShouldLoad(surfaceId, src)) return
     try {
       if (wv.getURL() === src) return
       void wv.loadURL(src)
     } catch {
       // not yet attached — the initial src attribute will load
     }
-  }, [src])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, wv])
 
   // target=_blank links: main forwards them over IPC with the source
   // webContents id. 'navigate' surfaces load them in place — no tabs, the
@@ -355,16 +392,26 @@ export default function BrowserSurface({
         {toolbarTrailing}
       </div>
       <div className="flex-1 relative min-h-0">
-        <webview
-          ref={setWebviewNode}
-          src={src}
-          partition={partition}
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore — allowpopups is a valid <webview> attribute
-          allowpopups="true"
-          style={{ width: '100%', height: '100%', display: 'inline-flex' }}
-        />
-        {overlay}
+        {inline ? (
+          <>
+            <webview
+              ref={setWebviewNode}
+              src={src}
+              partition={partition}
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore — allowpopups is a valid <webview> attribute
+              allowpopups="true"
+              style={{ width: '100%', height: '100%', display: 'inline-flex' }}
+            />
+            {overlay}
+          </>
+        ) : (
+          <>
+            {/* The page's place in this view; the web layer lays the live page over it. */}
+            <div ref={slotRef} className="absolute inset-0" data-web-slot={surfaceId} />
+            {layerPage && overlay ? createPortal(overlay, layerPage.overlayHost) : null}
+          </>
+        )}
       </div>
     </div>
   )

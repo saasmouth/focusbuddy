@@ -69,7 +69,9 @@ async function typeInAddressBarAndCapture(
   await window.evaluate(({ wid }: { wid: string }) => {
     const frame = document.querySelector(`[data-widget-id="${wid}"]`)
     if (!frame) return
-    const wv = frame.querySelector('webview') as HTMLElement & { loadURL?: (u: string) => void }
+    // On a desk the live page sits in the desk's web layer, not in the frame
+    // (lib/webLayer); its wrapper names the widget.
+    const wv = (document.querySelector(`[data-web-for="${wid}"] webview`) ?? frame.querySelector('webview')) as HTMLElement & { loadURL?: (u: string) => void }
     if (!wv) return
     ;(window as unknown as Record<string, unknown>).__lastLoad = null
     wv.loadURL = (u: string) => {

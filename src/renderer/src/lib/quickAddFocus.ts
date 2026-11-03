@@ -76,7 +76,9 @@ export function focusBlocksQuickAdd(el: Element | null): boolean {
  * rule about the widget it is pointing at, in lib/deleteKey.)
  */
 export function insideWorkWidget(el: Element | null): boolean {
-  return !!el && typeof el.closest === 'function' && !!el.closest('[data-widget-id]')
+  // [data-web-for]: a web page lives in the desk's web layer (lib/webLayer),
+  // outside its widget's frame, and is still inside that work widget.
+  return !!el && typeof el.closest === 'function' && !!el.closest('[data-widget-id], [data-web-for]')
 }
 
 /**

@@ -70,7 +70,10 @@ test('a pdf widget holding a bare file id asks no search engine for it', async (
   // "https://www.google.com/sorry/index?continue=...search%3Fq%3D<file id>" —
   // Google's bot page, which is proof the request not only left but arrived.
   const src = await window.evaluate(() => {
-    const el = document.querySelector('[data-widget-kind="pdf"] webview') as { src?: string } | null
+    // On a desk the live page sits in the desk's web layer (lib/webLayer),
+    // its wrapper naming the widget; elsewhere it is inside the frame.
+    const id = document.querySelector<HTMLElement>('[data-widget-kind="pdf"]')?.dataset.widgetId
+    const el = ((id && document.querySelector(`[data-web-for="${id}"] webview`)) || document.querySelector('[data-widget-kind="pdf"] webview')) as { src?: string } | null
     return el?.src ?? ''
   })
   expect(src, 'the pdf must not be handed to a search engine').not.toMatch(

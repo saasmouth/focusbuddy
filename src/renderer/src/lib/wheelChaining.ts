@@ -119,5 +119,8 @@ export const DESK_VIEW_HOST_ATTR = 'data-desk-view-host'
 /** Is this wheel target inside a full-screen desk view drawn over the canvas? */
 export function wheelBelongsToDeskView(target: EventTarget | null): boolean {
   const el = target as { closest?: (sel: string) => unknown } | null
-  return typeof el?.closest === 'function' && el.closest(`[${DESK_VIEW_HOST_ATTR}]`) != null
+  if (typeof el?.closest !== 'function') return false
+  // A live web page sits in the desk's web layer (lib/webLayer), outside the
+  // view's DOM; its wrapper says when its slot is inside a desk view.
+  return el.closest(`[${DESK_VIEW_HOST_ATTR}]`) != null || el.closest('[data-web-in-desk-view]') != null
 }

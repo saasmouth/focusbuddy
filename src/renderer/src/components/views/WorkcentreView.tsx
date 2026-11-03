@@ -649,11 +649,14 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
                   <div className={`flex-1 min-h-0 min-w-0 relative ${live || held ? 'pointer-events-none' : ''}`} data-testid={`workcentre-body-${w.id}`}>
                     {renderWidgetInline(w)}
                   </div>
-                  <div onPointerDown={(e) => begin(e, w.id, 'resize', 'r')} className="absolute top-8 right-0 bottom-3 w-1.5 cursor-ew-resize hover:bg-[rgb(var(--accent)/0.35)]" data-testid={`workcentre-resize-r-${w.id}`} title="Drag to set the width" />
-                  <div onPointerDown={(e) => begin(e, w.id, 'resize', 'b')} className="absolute left-0 right-3 bottom-0 h-1.5 cursor-ns-resize hover:bg-[rgb(var(--accent)/0.35)]" data-testid={`workcentre-resize-b-${w.id}`} title="Drag to set the height" />
+                  <div onPointerDown={(e) => begin(e, w.id, 'resize', 'r')} data-web-occluder="" className="absolute top-8 right-0 bottom-3 w-1.5 cursor-ew-resize hover:bg-[rgb(var(--accent)/0.35)]" data-testid={`workcentre-resize-r-${w.id}`} title="Drag to set the width" />
+                  <div onPointerDown={(e) => begin(e, w.id, 'resize', 'b')} data-web-occluder="" className="absolute left-0 right-3 bottom-0 h-1.5 cursor-ns-resize hover:bg-[rgb(var(--accent)/0.35)]" data-testid={`workcentre-resize-b-${w.id}`} title="Drag to set the height" />
                   <div
                     onPointerDown={(e) => begin(e, w.id, 'resize', 'rb')}
                     onDoubleClick={() => fitTile(w.id)}
+                    // A web page in this tile lives in the desk's web layer, above
+                    // the tile: it cuts a hole for its handles (lib/webLayer).
+                    data-web-occluder=""
                     className="absolute right-0 bottom-0 w-3.5 h-3.5 cursor-nwse-resize text-[var(--ink-30)] hover:text-[rgb(var(--accent))]"
                     data-testid={`workcentre-resize-${w.id}`}
                     title="Drag to set the size; double-click to fit the space again"

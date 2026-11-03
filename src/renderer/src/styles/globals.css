@@ -3208,3 +3208,11 @@ span.tc-delete {
     transition: none;
   }
 }
+
+/* lib/webLayer: what a web surface draws over its page (the click-to-interact
+   catcher, its chips) is portalled into the page's wrapper in the desk's web
+   layer. The host itself passes clicks through to the page; its children take
+   them unless they say otherwise (zero specificity, so any utility wins). */
+:where(.fb-web-overlay) > * {
+  pointer-events: auto;
+}

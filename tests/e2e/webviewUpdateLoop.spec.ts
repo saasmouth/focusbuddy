@@ -106,11 +106,11 @@ for (const view of ['workcentre', 'canvas'] as const) {
     // the old widget mistook its own late-arriving saves for outside requests
     // and reloaded each page with the same addresses over and over (t=13 was
     // loaded 156 times in 8s on the canvas — the ERR_ABORTED storm in the
-    // crash log). Allowed: ONE load per widget when the Workcentre mounts a
-    // fresh widget and restores the page to where it was, as reopening a tab
-    // does. Never: the same address twice.
+    // crash log). And since the desk's web layer (lib/webLayer), switching to
+    // the Workcentre hands each live page over instead of mounting a fresh one
+    // and restoring it: not even one restore.
     const dupes = staleLoads.filter((u, i) => staleLoads.indexOf(u) !== i)
     expect(dupes, `addresses loaded more than once (a reload loop): ${dupes.slice(0, 5).join(', ')}`).toEqual([])
-    expect(staleLoads.length, 'at most one restore per web page').toBeLessThanOrEqual(view === 'workcentre' ? 11 : 0)
+    expect(staleLoads, 'no page reloaded at an address it pushed itself').toEqual([])
   })
 }

@@ -40,6 +40,7 @@ import DeskGallery from './DeskGallery'
 import ColumnsView from './ColumnsView'
 import DeskDataViews, { type DataLayout } from './views/DeskDataViews'
 import WorkcentreView from './views/WorkcentreView'
+import WebLayer from './browser/WebLayer'
 import { useDeskViewStore, resolveDeskView } from '../stores/deskView'
 import ZoomControls from './ZoomControls'
 import CanvasEdgeIndicators from './CanvasEdgeIndicators'
@@ -751,7 +752,9 @@ export default function Canvas(): JSX.Element {
       // their clicks don't complete the gesture.
       if (target?.closest('[data-link-skip]')) return
       const widgetEl = target?.closest('[data-widget-id]') as HTMLElement | null
-      const toId = widgetEl?.dataset.widgetId ?? null
+      // A web page lives in the desk's web layer, outside its widget's DOM;
+      // its wrapper carries the widget's id (lib/webLayer).
+      const toId = widgetEl?.dataset.widgetId ?? target?.closest('[data-web-for]')?.getAttribute('data-web-for') ?? null
       // Click on the same source widget, on a pinned/child widget, or on
       // bare canvas → cancel without creating.
       if (!toId || toId === sourceId || !activeTaskId) {
@@ -1222,7 +1225,7 @@ export default function Canvas(): JSX.Element {
     // stopped moving under the pointer. See lib/wheelChaining.ts.
     if (activeId !== null) {
       const target = e.target as HTMLElement
-      const root = target.closest(`[data-widget-id="${activeId}"]`)
+      const root = target.closest(`[data-widget-id="${activeId}"], [data-web-for="${activeId}"]`)
       if (root) {
         const chain = collectScrollChain(target, root, readScrollBox)
         if (chainCanAbsorb(chain, e.deltaX, e.deltaY)) return
@@ -2786,6 +2789,10 @@ export default function Canvas(): JSX.Element {
             } as React.CSSProperties
           }
         >
+          {/* The desk's live web pages (lib/webLayer): they stay here while the
+              views swap, so switching to the Workcentre or Columns and back
+              never reloads a page. First child so it registers first. */}
+          <WebLayer z={isCanvasMode ? 10 : 61} />
           {/* Paper pattern on its own compositor layer. Panning only moves
               this div's transform (composited, no repaint); a zoom change is
               the only thing that re-rasterises the pattern at a new cell
