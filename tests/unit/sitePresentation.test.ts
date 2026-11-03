@@ -158,7 +158,7 @@ describe('equivalentEmbedFor (TradingView widgets doing a blocked page\'s job)',
   it('is labelled as TradingView, carries a full-size config, and never outranks a site\'s own embed', () => {
     const e = equivalentEmbedFor('https://finviz.com/futures')!
     expect(e.provider).toBe('TradingView')
-    expect(e.label).toBe('TradingView futures board')
+    expect(e.label).toBe('TradingView markets board')
     const config = JSON.parse(decodeURIComponent(new URL(e.embedUrl).hash.slice(1)))
     expect(config).toMatchObject({ width: '100%', height: '100%', locale: 'en' })
     expect(config.tabs.length).toBeGreaterThan(0)

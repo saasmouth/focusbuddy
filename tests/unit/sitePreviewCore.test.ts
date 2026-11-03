@@ -115,7 +115,7 @@ describe('the framed look decides live', () => {
 describe('equivalents come after the site itself', () => {
   it('a blocked site with a TradingView equivalent shows the widget before its picture', () => {
     const c = checkFromShot('https://finviz.com/futures', shot({ frame: { status: 200, headers: { 'x-frame-options': 'SAMEORIGIN' }, refused: true } }), SHARE, 1)
-    expect(c.equivalent?.label).toBe('TradingView futures board')
+    expect(c.equivalent?.label).toBe('TradingView markets board')
     expect(availableShows(c)).toEqual(['embed', 'picture', 'link'])
     expect(decideShow('auto', c)).toBe('embed')
     expect(decideShow('picture', c)).toBe('picture')
