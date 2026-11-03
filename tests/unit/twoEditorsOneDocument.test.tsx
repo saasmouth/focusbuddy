@@ -311,6 +311,29 @@ describe('two linked-duplicate widgets on one document', () => {
     expect(el('document-conflict')).toBeNull()
   })
 
+  it('the SAME edit made by both widgets is not a conflict (owner, 2026-11-03)', async () => {
+    // Both editors tidy the body identically on load (the trailing paragraph a
+    // document always keeps), both save: one lands, the other is refused as
+    // stale while carrying exactly what is stored. Asking the person to choose
+    // between two identical texts was the bug; whichever save lands first, the
+    // outcome must be the same — no bar, and the refused widget's next edit
+    // saves on the stored revision.
+    await mountBoth()
+    await typeAt(0, ' +tidy')
+    await typeAt(1, ' +tidy')
+    await act(async () => {
+      vi.advanceTimersByTime(600)
+    })
+    await settle()
+    expect(bodyText(DOC_ID)).toBe('start +tidy')
+    expect(el('document-conflict')).toBeNull()
+    const rev = rows[DOC_ID]!.bodyRev
+    await type('b', ' +next')
+    await settle()
+    expect(el('document-conflict')).toBeNull()
+    expect(rows[DOC_ID]!.bodyRev).toBe(rev + 1)
+  })
+
   it('a real collision — unsaved text against a body that moved — is refused and explained', async () => {
     // The case a broadcast cannot fix: the widget was already mid-edit, so
     // catching up would have destroyed its unsaved text. Nothing is written,

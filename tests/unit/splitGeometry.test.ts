@@ -289,6 +289,15 @@ describe('makeRoomFrom — incoming cell collapsed to a seam', () => {
     expect(c1).toBeLessThan(0.001) // right ≈ seam
     expect(from.areas).toBe('"L R"') // target areas already in place
   })
+  it('single→halves dragged to the LEFT: the left column (where the well opens) is the seam', () => {
+    // previewLayout(…, 'left') puts the well in L and slides the pane to R, so the
+    // pane must start full-width in R and the well grow out of a seam on the left.
+    const from = makeRoomFrom('halves', {}, 'L')
+    const [c0, c1] = approxTracks(from.columns)
+    expect(c0).toBeLessThan(0.001)
+    expect(c1).toBeGreaterThan(0.999)
+    expect(makeRoomFrom('halves', {}, 'R').columns).toBe(makeRoomFrom('halves', {}).columns)
+  })
   it('halves→left-2stack: right column bottom row collapsed', () => {
     const from = makeRoomFrom('left-2stack', {})
     const [r0, r1] = approxTracks(from.rows)

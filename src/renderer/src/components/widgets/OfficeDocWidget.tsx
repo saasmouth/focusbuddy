@@ -11,6 +11,7 @@ import { positionText, resolveForEditor } from '../documents/editor/commentPosit
 import { anchorToPersist } from '../documents/editor/commentWriteBack'
 import DocumentConflictBar from '../documents/DocumentConflictBar'
 import { docTypeForOfficeKind } from '../../lib/officeDocKinds'
+import { sameDocBody } from '../../lib/docBodyEqual'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
 
 // A document / spreadsheet / slide deck living on the canvas as a native widget.
@@ -262,6 +263,17 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
         if (res.ok) {
           baseRev.current = res.doc.bodyRev
           pending.current = null
+          setConflict(null)
+          return
+        }
+        if (res.reason === 'stale' && sameDocBody(toSave, res.current.body)) {
+          // Refused, but what is stored IS this edit: another editor on the same
+          // document made the very same change first (the tidy-up an editor
+          // gives a body on load, when the desk and the Workcentre both open
+          // it). Nothing to resolve — take its revision and carry on. A newer
+          // edit typed meanwhile keeps its own pending save, now on this base.
+          baseRev.current = res.current.bodyRev
+          if (pending.current === toSave) pending.current = null
           setConflict(null)
           return
         }

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { DocType, DocumentMeta, FbDocument } from '@shared/types'
 import { pullCloudDocs, pushCloudDoc, pushCloudDelete } from '../lib/cloudDocsSync'
+import { sameDocBody } from '../lib/docBodyEqual'
 import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
 import { recordActionWithToast } from './actionHistory'
@@ -311,6 +312,17 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
             // slower. See documents.body_rev.
             const res = await window.api.documents.updateBody(id, bodyToSave, baseRev)
             if (!res.ok) {
+              if (res.reason === 'stale' && sameDocBody(bodyToSave, res.current.body)) {
+                // Refused, but what is stored IS this edit: another editor on
+                // the document made the same change first (an editor's tidy-up
+                // of a body on load). Nothing to resolve: carry its revision
+                // forward, so a newer edit queued meanwhile saves on it.
+                pendingBaseRev.set(id, res.current.bodyRev)
+                if (get().active?.id === id) {
+                  set({ saving: false, saveError: false, conflict: null, active: { ...get().active!, bodyRev: res.current.bodyRev } })
+                }
+                return
+              }
               if (res.reason === 'stale') {
                 // Keep the edit — in `active.body`, on the screen, and queued —
                 // and say what is stored instead. Writing either side here would

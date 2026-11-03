@@ -320,13 +320,14 @@ function serializeTracks(fracs: number[]): string {
  *   left-2stack→quad:   Q3  (bottom row's left; the whole bottom row collapses so
  *                            the top row holds the 3 existing panes at full height)
  */
-export function makeRoomFrom(nextShape: SplitShape, ratios: SplitRatios): GridTemplate {
+export function makeRoomFrom(nextShape: SplitShape, ratios: SplitRatios, incoming?: PaneCell): GridTemplate {
   const target = gridTemplate(nextShape, ratios)
   switch (nextShape) {
     case 'halves':
       // Incoming R is the 2nd column → collapse col 1, give col 0 the rest.
-      // (target.rows is "100%" — unchanged.)
-      return { ...target, columns: serializeTracks([1 - SEAM, SEAM]) }
+      // Dragged to the LEFT (previewLayout(…, 'left')) the well is L and the pane
+      // slides to R: collapse col 0 instead. (target.rows is "100%" — unchanged.)
+      return { ...target, columns: serializeTracks(incoming === 'L' ? [SEAM, 1 - SEAM] : [1 - SEAM, SEAM]) }
     case 'left-2stack':
       // Incoming R2 is the bottom row of the right column → collapse row 1.
       // Columns keep the target's L width (unchanged); only the rows animate, so
