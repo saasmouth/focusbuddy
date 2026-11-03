@@ -12,6 +12,9 @@ interface TimerData {
   startedAt: number | null
 }
 
+/** Past this many seconds over, a finished run is shown as done without the alarm. */
+const LATE_ALARM_SEC = 60
+
 const DEFAULT: TimerData = { targetSec: 600, elapsedSec: 0, state: 'idle', startedAt: null }
 
 function parse(content: string): TimerData {
@@ -45,6 +48,15 @@ export default function TimerWidget({ widget, inline = false }: Props): JSX.Elem
   const [data, setData] = useState<TimerData>(() => parse(widget.content))
   const [, setTick] = useState(0) // force re-render every tick
   const lastFiredRef = useRef<Set<number>>(new Set())
+  // The run this widget has already finished, by its start time. The threshold
+  // effect below runs after EVERY render, and finishing a run writes the widget
+  // store, whose subscribers re-render SYNCHRONOUSLY — before setData(done), an
+  // ordinary-priority update, has landed. So the timer still read "running" and
+  // finished the same run again on every one of those renders, until React's
+  // nested-update limit: "Minified React error #185" on every launch for a
+  // timer that came back running with its time already up (owner's crash log,
+  // 2026-11-03; tests/unit/timerFinishesOnce). A run is finished once.
+  const finishedRunRef = useRef<string | null>(null)
   const [editingMins, setEditingMins] = useState(Math.floor(data.targetSec / 60))
   const [editingSecs, setEditingSecs] = useState(data.targetSec % 60)
 
@@ -94,8 +106,20 @@ export default function TimerWidget({ widget, inline = false }: Props): JSX.Elem
       }
     }
     if (remaining <= 0 && data.state === 'running') {
+      const run = `${data.startedAt ?? 'none'}:${data.targetSec}`
+      if (finishedRunRef.current === run) {
+        // Already finished. Its "running" copy came back (the synchronous
+        // re-render above, or a synced copy of the same run): show it as done
+        // here, with no second alarm and no second write.
+        setData((d) => (d.state === 'running' && d.startedAt === data.startedAt ? { ...d, state: 'done', elapsedSec: d.targetSec, startedAt: null } : d))
+        return
+      }
+      finishedRunRef.current = run
       lastFiredRef.current = new Set()
-      alarm()
+      // The alarm is for time running out NOW. A run that ended while the app
+      // was closed (or on another device) finishes quietly: an alarm for a
+      // 15-minute timer that ran out hours ago is noise.
+      if (elapsed - data.targetSec < LATE_ALARM_SEC) alarm()
       persist({ ...data, state: 'done', elapsedSec: data.targetSec, startedAt: null })
     }
   })
