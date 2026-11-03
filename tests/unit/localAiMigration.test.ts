@@ -237,6 +237,66 @@ describe('on real settings files', () => {
   })
 })
 
+// Owner, 2026-11-03: the sidebar should use the Anthropic key, not the local
+// model. Their profile had a cloud source (byok) and a per-feature
+// `assistant: 'local'` left behind by Settings → "Test with local" (whose own
+// tooltip says "until you switch it back"), so every PlexiiAssist turn ran on
+// a 4B model on the CPU — 25+ minutes a turn, or no answer at all. One-time:
+// a profile that already sends its AI to the cloud gets the stuck test cleared.
+// A profile whose source is Local chose the device for everything, so its
+// override is a privacy choice and is never touched.
+describe('PlexiiAssist back on the key (one-time, assistantRouteMigration)', () => {
+  beforeEach(() => {
+    USERDATA = ''
+  })
+  const owner = {
+    v: 1,
+    keys: { anthropic: 'ENC-A', openai: 'ENC-O' },
+    aiMode: 'byok',
+    aiModeMigration: 2,
+    aiFeatureRoutes: { assistant: 'local', office: 'anthropic' },
+    localAiIntro: { pending: false, from: 'local' }
+  }
+
+  it("the owner's profile: the stuck test is cleared, everything else kept, written once", async () => {
+    const s = await freshStore(owner)
+    expect(s.getAiFeatureRoutes()).toEqual({ office: 'anthropic' })
+    const disk = onDisk()
+    expect(disk.aiFeatureRoutes).toEqual({ office: 'anthropic' })
+    expect(disk.assistantRouteMigration).toBe(1)
+    expect(disk.keys).toEqual(owner.keys)
+    expect(disk.aiMode).toBe('byok')
+  })
+
+  it('runs once: choosing local for PlexiiAssist again afterwards is kept', async () => {
+    const s = await freshStore(owner)
+    s.setAiFeatureRoute('assistant', 'local')
+    const again = await freshStore(onDisk())
+    expect(again.getAiFeatureRoutes().assistant).toBe('local')
+  })
+
+  it.each(['auto', 'credits', 'openai'] as const)('a %s source is a cloud source too: cleared', async (aiMode) => {
+    const s = await freshStore({ ...owner, aiMode })
+    expect(s.getAiFeatureRoutes().assistant).toBeUndefined()
+  })
+
+  it('a Local source keeps its override: that person chose the device', async () => {
+    const s = await freshStore({ ...owner, aiMode: 'local' })
+    expect(s.getAiFeatureRoutes()).toEqual({ assistant: 'local', office: 'anthropic' })
+    expect(onDisk().assistantRouteMigration).toBe(1)
+  })
+
+  it('no Anthropic key saved: kept (there is no key to move it to)', async () => {
+    const s = await freshStore({ ...owner, keys: { openai: 'ENC-O' } })
+    expect(s.getAiFeatureRoutes().assistant).toBe('local')
+  })
+
+  it('only a local override is touched; another choice for PlexiiAssist stays', async () => {
+    const s = await freshStore({ ...owner, aiFeatureRoutes: { assistant: 'openai' } })
+    expect(s.getAiFeatureRoutes()).toEqual({ assistant: 'openai' })
+  })
+})
+
 describe('credits that cannot serve a request: answered on the device, choice unchanged', () => {
   it('out of credits → the local answer, a "top up" note; any other error still throws', async () => {
     vi.resetModules()

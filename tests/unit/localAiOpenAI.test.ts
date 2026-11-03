@@ -190,7 +190,10 @@ describe('per-feature provider routing', () => {
 
   it('tags each purpose by its feature route', () => {
     router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({ writing: 'openai', office: 'anthropic', summaries: 'cloud' }) })
-    expect(router.tagModel('chat', 'claude-sonnet-5-5')).toBe('local:chat')
+    // No route of its own: PlexiiAssist uses the saved Anthropic key (2026-11-03).
+    expect(router.tagModel('chat', 'claude-sonnet-5-5')).toBe('route:key-anthropic:chat:claude-sonnet-5-5')
+    // Background has no key-first rule: it follows the Local source.
+    expect(router.tagModel('title_backfill', 'claude-haiku-4-5')).toBe('local:title_backfill')
     expect(router.tagModel('doc_rewrite', 'claude-sonnet-5-5')).toBe('route:openai:doc_rewrite:claude-sonnet-5-5')
     expect(router.tagModel('document', 'claude-sonnet-5-5')).toBe('route:anthropic:document:claude-sonnet-5-5')
     expect(router.tagModel('trail_summary', 'claude-haiku-4-5')).toBe('route:cloud:trail_summary:claude-haiku-4-5')

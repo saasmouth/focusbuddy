@@ -26,6 +26,16 @@ export const MODEL_HAIKU = 'claude-haiku-5-5'
 export const MODEL_SONNET = 'claude-sonnet-5-5'
 export const MODEL_OPUS = 'claude-opus-5-5'
 
+/**
+ * The most a model can write in one reply: 128K output tokens on every model
+ * above (and on the GPT-5 family the OpenAI source maps to). Calls that must
+ * never be cut short — Build with AI, whose desks are as large as the work
+ * needs — send this and STREAM, because a reply that long outlives a single
+ * HTTP request's timeout. On-device it is clamped to the context's room
+ * (engineCore); on Plexii AI credits the proxy clamps it to the plan.
+ */
+export const MODEL_MAX_OUTPUT_TOKENS = 128_000
+
 const HAIKU = MODEL_HAIKU
 const SONNET = MODEL_SONNET
 const OPUS = MODEL_OPUS

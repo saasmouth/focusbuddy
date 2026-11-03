@@ -73,7 +73,11 @@ describe('the streaming call sites (file-level pins)', () => {
   })
 
   it('every stream has a non-streamed fallback for the proxy refusal', () => {
-    expect(src.match(/isStreamingUnsupported\(e\)/g)?.length).toBe(2)
+    // One fallback per stream: the two chat paths, and Build with AI's
+    // streamToFinalMessage (2026-11-03, uncapped desks).
+    const streams = src.match(/\.messages\.stream\(/g)?.length ?? 0
+    expect(streams).toBe(3)
+    expect(src.match(/isStreamingUnsupported\(e\)/g)?.length).toBe(streams)
     // The fallback re-runs the SAME request body, so the two shapes converge.
     expect(src.match(/final(Msg)? = await nonStreamed\(\)/g)?.length).toBe(4)
   })

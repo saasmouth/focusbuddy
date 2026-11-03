@@ -268,13 +268,15 @@ describe('content-writing switch (one flag)', () => {
     expect(router.effectiveGate('document').gate).toBe('labelled')
     expect(router.effectiveGate('doc_rewrite').gate).toBe('labelled')
     expect(router.effectiveGate('setup').gate).toBe('labelled')
+    expect(router.effectiveGate('chat').gate).toBe('labelled')
     flag = 'ask'
     expect(router.effectiveGate('document').gate).toBe('cloud-only')
     expect(router.effectiveGate('doc_rewrite').gate).toBe('cloud-only')
     expect(router.effectiveGate('setup').gate).toBe('cloud-only')
-    // Not content writing: unaffected by the switch.
+    // PlexiiAssist follows the same switch since 2026-11-03 (KEY_FIRST_FEATURES).
+    expect(router.effectiveGate('chat').gate).toBe('cloud-only')
+    // Not on the switch: unaffected.
     expect(router.effectiveGate('trail_summary').gate).toBe('labelled')
-    expect(router.effectiveGate('chat').gate).toBe('labelled')
     router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}) })
     router.setGateResolver(() => ({ gate: 'ok', localPassRate: null, cloudPassRate: null, family: null }))
   })

@@ -435,12 +435,12 @@ function FeatureRoutes({
       <div className="fb-t-caption uppercase tracking-wider text-[var(--ink-50)] mb-1">Feature by feature</div>
       <div className="fb-t-caption text-[var(--ink-50)] leading-snug mb-1.5">
         Where each feature runs right now, and how the on-device model scored against cloud AI in our tests of the
-        app’s real prompts. Writing, PlexiiWrite / PlexiiCells / PlexiiDeck drafts and Build with AI use your own
-        Anthropic or OpenAI key when one is saved, and run on this device otherwise.
+        app’s real prompts. PlexiiAssist, writing, PlexiiWrite / PlexiiCells / PlexiiDeck drafts and Build with AI use
+        your own Anthropic or OpenAI key when one is saved, and run on this device otherwise.
       </div>
       {st.provider === 'local' && (
         <div className="flex flex-wrap items-center gap-2 fb-t-caption mb-1.5" data-testid="local-ai-content-writing">
-          <span className="text-[var(--ink-70)]">Writing and drafts:</span>
+          <span className="text-[var(--ink-70)]">PlexiiAssist, writing and drafts:</span>
           <select
             value={st.contentWriting}
             disabled={busy}

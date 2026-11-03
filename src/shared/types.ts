@@ -2361,6 +2361,11 @@ export interface AiBuildResponse {
   // populated table against its sources, and an absent list means nothing was
   // read — never "we read something but won't say what".
   researched?: AiResearchSource[]
+  // Said above the suggestions when the build is usable but not whole: the
+  // reply reached its length limit (the desk stopped after N work widgets), or
+  // some work widgets came back unreadable and were left out. Absent when
+  // every widget the model wrote arrived.
+  notice?: string
 }
 
 export interface WidgetSuggestion {
@@ -2380,6 +2385,8 @@ export interface SetupSuggestResponse {
   suggestions?: AiBuildSuggestion[]
   error?: string
   needsApiKey?: boolean
+  // Same as AiBuildResponse.notice: the setup is usable but not whole.
+  notice?: string
 }
 
 export interface TemplateWidget {

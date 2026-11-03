@@ -16,6 +16,29 @@ describe('extractJson', () => {
     // No closing brace at all — the old code path that produced the raw-JSON dump.
     expect(extractJson('{"reply":"hi","actions":[{"kind":"create-todo-list"')).toBeNull()
   })
+
+  // A desk build writes markdown INSIDE its JSON, and markdown has code fences.
+  // The old regex took the first ``` … ``` pair anywhere in the text, so a
+  // widget's code block was returned as "the JSON" and the whole reply failed
+  // with "AI returned invalid JSON".
+  it('does not mistake a code fence inside a string value for the wrapper', () => {
+    const s = JSON.stringify({ suggestions: [{ kind: 'markdown', content: 'Run:\n```bash\nnpm test\n```\nthen ship.' }] })
+    expect(extractJson(s)).toBe(s)
+    expect(JSON.parse(extractJson(s) as string).suggestions[0].content).toContain('npm test')
+  })
+
+  it('unwraps a fenced reply whose JSON itself contains a fence', () => {
+    const inner = JSON.stringify({ reply: 'ok', code: '```js\nx()\n```' })
+    expect(extractJson('```json\n' + inner + '\n```')).toBe(inner)
+  })
+
+  it('unwraps a fence that follows a sentence of preamble', () => {
+    expect(extractJson('Here it is:\n```json\n{"a":1}\n```')).toBe('{"a":1}')
+  })
+
+  it('keeps the first of two fenced blocks when each is whole', () => {
+    expect(extractJson('```json\n{"a":1}\n```\nand\n```json\n{"b":2}\n```')).toBe('{"a":1}')
+  })
 })
 
 describe('salvageEnvelope', () => {

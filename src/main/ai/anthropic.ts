@@ -73,7 +73,8 @@ import { answerRule, groundAnswer, type AnswerGrounding } from './answerGroundin
 import { renderMentions, MENTIONS_FRAME_CHARS, MENTION_ITEM_FRAME_CHARS } from './chatMentions'
 import { mentionedDeskIds, reportResolutions, resolveMentions } from './mentionResolver'
 import { extractMentions } from '@shared/mentionText'
-import { resolveModel } from './modelRouting'
+import { resolveModel, MODEL_MAX_OUTPUT_TOKENS } from './modelRouting'
+import { parseDeskBuild } from './deskBuildParse'
 import { recordAiUsage } from '../db/telemetry'
 import { parseSheetRows, parseSheetColumns } from './sheetParse'
 import { migrateSlidesBody } from '@shared/slidesMigrate'
@@ -119,7 +120,6 @@ import type {
   ActionProposal,
   ActivityEvent,
   AiBuildResponse,
-  AiBuildSuggestion,
   BodyDoubleResponse,
   ChatMentionResolved,
   AiChatMode,
@@ -4098,7 +4098,7 @@ export async function suggestSetupWidgets(
   if (suggestions.length === 0) {
     return { ok: false, error: 'AI returned no valid suggestions' }
   }
-  return { ok: true, suggestions }
+  return { ok: true, suggestions, ...(res.notice ? { notice: res.notice } : {}) }
 }
 
 
@@ -4463,7 +4463,7 @@ Widget kinds (use the EXACT kind string):
 - "sticky" — small colored note. content = plain text.
 - "note" — larger writing surface. content = plain text.
 - "markdown" — markdown editor (renders to rich text). content = markdown.
-- "page" — Notion-style rich document with headings, todos, lists, code blocks. Provide pageContent as a Tiptap document: { "type": "doc", "content": [...] }. Top-level nodes: paragraph, heading (with attrs.level 1-3), bulletList, orderedList, taskList, codeBlock, blockquote, horizontalRule.
+- "page" — Notion-style rich document. Provide pageMarkdown: the page body as markdown — # / ## / ### headings, paragraphs, - bullets, 1. numbered lists, - [ ] tasks, > quotes, --- rules, \`\`\` code blocks, **bold**, *italic*, \`code\`, [links](url).
 - "table" — Airtable-style database with typed columns. Provide tableSchema.columns. Column types: "text-short", "text-long", "number", "checkbox", "single-select", "multi-select", "date", "attachment", "button", "relation". For select types, config.options must be an array of {id, label, color (hex)}. For "button", config = {action: "ai-prompt"|"shell", payload, label}. For "relation", config = {tableId: null} (user wires up later).
 - "field" — single typed input on the canvas. Provide fieldDef = {id, type, label, config}. Same type list as table columns.
 - "file" — placeholder for uploaded file. content = "" (user drops file later).
@@ -4505,7 +4505,7 @@ Rules:
      first (Name/Title), then the attributes the work actually tracks (Status,
      Owner, Date, Amount, Tags…). Give single-select and multi-select real
      config.options with labels AND hex colours — not an empty list.
-   - "page": pageContent is REQUIRED — real section headings plus a starter
+   - "page": pageMarkdown is REQUIRED — real section headings plus a starter
      paragraph or task list under each, so it reads as a document already
      begun rather than an empty sheet.
    - "field": fieldDef is REQUIRED, with the type chosen deliberately —
@@ -4532,45 +4532,15 @@ Rules:
    honest; an invented one that looks researched is not, and is the single
    worst thing you can do here.
 
-Respond with VALID JSON ONLY (no commentary, no markdown fence). Schema:
-{
-  "intent": "1-sentence interpretation of what the user wants",
-  "suggestions": [
-    {
-      "id": "s1",
-      "kind": "table",
-      "title": "Project tracker",
-      "reason": "Track each project with status and due date",
-      "tableSchema": {
-        "columns": [
-          {"id": "c1", "type": "text-short", "label": "Project", "config": {}},
-          {"id": "c2", "type": "single-select", "label": "Status", "config": {"options": [
-            {"id": "o1", "label": "Todo", "color": "#ef4444"},
-            {"id": "o2", "label": "Doing", "color": "#f97316"},
-            {"id": "o3", "label": "Done", "color": "#22c55e"}
-          ]}},
-          {"id": "c3", "type": "date", "label": "Due", "config": {}}
-        ],
-        "rows": [
-          {"Project": "Atlas migration", "Status": "Doing", "Due": "2026-03-14"}
-        ]
-      }
-    },
-    {
-      "id": "s2",
-      "kind": "page",
-      "title": "Project notes",
-      "reason": "Brain dump space for ideas + decisions",
-      "pageContent": {
-        "type": "doc",
-        "content": [
-          {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": "Notes"}]},
-          {"type": "paragraph", "content": [{"type": "text", "text": "Start typing..."}]}
-        ]
-      }
-    }
-  ]
-}`
+Respond with ONE JSON object and nothing else: no commentary, no markdown
+fence. Write it MINIFIED — no indentation and no line breaks between JSON
+tokens (inside strings, \\n as JSON requires). Spend the output on the desk,
+not on whitespace or repetition: "intent" is one sentence, each "reason" one
+short sentence. Shape (one work widget per line here only to be readable):
+{"intent":"1-sentence interpretation of what the user wants","suggestions":[
+{"id":"s1","kind":"table","title":"Project tracker","reason":"Track each project with status and due date","tableSchema":{"columns":[{"id":"c1","type":"text-short","label":"Project","config":{}},{"id":"c2","type":"single-select","label":"Status","config":{"options":[{"id":"o1","label":"Todo","color":"#ef4444"},{"id":"o2","label":"Doing","color":"#f97316"},{"id":"o3","label":"Done","color":"#22c55e"}]}},{"id":"c3","type":"date","label":"Due","config":{}}],"rows":[{"Project":"Atlas migration","Status":"Doing","Due":"2026-03-14"}]}},
+{"id":"s2","kind":"page","title":"Project notes","reason":"Ideas and decisions in one place","pageMarkdown":"# Notes\\n\\n## Decisions\\n- [ ] Agree the scope\\n\\n## Ideas\\nStart with what is already known."}
+]}`
 
   // Widget files the user already keeps (docs/widget-files.md) that the
   // request is about — read as text, so a build can use the real columns of
@@ -4596,9 +4566,13 @@ ${filesBlock ? `\nWidget files the user already has that look relevant (their da
 Return the JSON now.`
 
   try {
-    const resp = await c.messages.create({
+    // No cap below the model's own: a desk is as large as the work needs, and a
+    // reply cut short used to lose EVERY widget in it. Streamed, because a long
+    // desk outlives a single request's 10-minute timeout; the routed client
+    // runs it whole where streaming is refused (the credits proxy).
+    const resp = await streamToFinalMessage(c, {
       model: resolveModel('setup'),
-      max_tokens: 16384,
+      max_tokens: MODEL_MAX_OUTPUT_TOKENS,
       system,
       messages: [{ role: 'user', content: userMsg }]
     })
@@ -4608,58 +4582,61 @@ Return the JSON now.`
     if ((resp.stop_reason as string) === 'model_context_window_exceeded') {
       return { ok: false, error: contextWindowError(0) }
     }
+    const cutOff = resp.stop_reason === 'max_tokens'
     const text = resp.content
       .filter((b) => b.type === 'text')
       .map((b) => ('text' in b ? b.text : ''))
       .join('\n')
       .trim()
-    const jsonStr = extractJson(text)
-    if (!jsonStr) return { ok: false, error: 'AI did not return JSON' }
-    let parsed: { intent?: string; suggestions?: AiBuildSuggestion[] }
-    try {
-      parsed = JSON.parse(jsonStr) as { intent?: string; suggestions?: AiBuildSuggestion[] }
-    } catch {
-      return { ok: false, error: 'AI returned invalid JSON' }
+    // Every complete work widget is kept, even when the reply as a whole is
+    // not valid JSON (deskBuildParse.ts); pages arrive as page documents.
+    const parsed = parseDeskBuild(text)
+    if (!parsed.ok) {
+      if (cutOff) {
+        return {
+          ok: false,
+          error: 'The reply reached its length limit before the first work widget was complete. Try a narrower request, then build the rest in a second pass.'
+        }
+      }
+      return { ok: false, error: parsed.reason === 'no-json' ? 'AI did not return JSON' : 'AI returned invalid JSON' }
     }
-    if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
-      return { ok: false, error: 'AI response missing suggestions array' }
-    }
-    // Defensive: enforce kind validity. Drop any suggestion whose kind we
-    // don't render — saves a runtime error in the renderer.
-    const allowedKinds: WidgetKind[] = [
-      'sticky',
-      'note',
-      'markdown',
-      'webview',
-      'pdf',
-      'gdoc',
-      'gsheet',
-      'gslide',
-      'email',
-      'calculator',
-      'color',
-      'image',
-      'video',
-      'timer',
-      'section',
-      'task-link',
-      'local-app-launcher',
-      'file',
-      'field',
-      'page',
-      'table'
-    ]
-    const filtered = parsed.suggestions.filter((s) => allowedKinds.includes(s.kind))
+    const n = parsed.suggestions.length
+    const widgets = (k: number): string => `${k} work widget${k === 1 ? '' : 's'}`
+    const notice = cutOff
+      ? `The reply reached its length limit, so this desk stops after ${widgets(n)}. Add these, then build again for the rest: work widgets already on the desk are skipped.`
+      : parsed.dropped > 0
+        ? `${widgets(parsed.dropped)} came back unreadable and ${parsed.dropped === 1 ? 'was' : 'were'} left out.`
+        : undefined
     return {
       ok: true,
       intent: parsed.intent,
-      suggestions: filtered,
+      suggestions: parsed.suggestions,
+      ...(notice ? { notice } : {}),
       // Only when something was actually read. An absent list means no
       // research happened — never "read something, not saying what".
       researched: researched.length > 0 ? researched : undefined
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * One request, streamed to its final message. For replies that may be long
+ * (MODEL_MAX_OUTPUT_TOKENS): a stream has no overall timeout, where a single
+ * request is cut off at the SDK's 10 minutes. The routed client already runs a
+ * credits request whole; a streaming refusal from anywhere else falls back to
+ * one plain request, as the chat path does.
+ */
+async function streamToFinalMessage(
+  c: Anthropic,
+  body: Anthropic.MessageCreateParamsNonStreaming
+): Promise<Anthropic.Message> {
+  try {
+    return await c.messages.stream(body).finalMessage()
+  } catch (e) {
+    if (!isStreamingUnsupported(e)) throw e
+    return (await c.messages.create(body)) as Anthropic.Message
   }
 }
 

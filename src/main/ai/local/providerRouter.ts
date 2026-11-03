@@ -35,7 +35,7 @@ import {
   LOCAL_LABEL_COPY,
   DEFAULT_LOCAL_POLICY,
   NOT_TECHNICALLY_LOCAL,
-  CONTENT_WRITING_FEATURES,
+  KEY_FIRST_FEATURES,
   DEFAULT_CONTENT_WRITING,
   DEFAULT_PREFERRED_KEY,
   type ContentWritingPolicy,
@@ -157,13 +157,14 @@ export function tagModel(purpose: string, cloudModel: string): string {
 }
 
 /**
- * Content writing under 'cloud-if-key' while the source is Local and the
- * feature has no explicit route: the saved key to use (preferred when both
- * are saved, else whichever exists), or null to stay on the device.
+ * Content writing and PlexiiAssist (KEY_FIRST_FEATURES) under 'cloud-if-key'
+ * while the source is Local and the feature has no explicit route: the saved
+ * key to use (preferred when both are saved, else whichever exists), or null
+ * to stay on the device.
  */
 export function contentKeyFor(purpose: string): 'anthropic' | 'openai' | null {
   const feature = featureForPurpose(purpose)
-  if (!CONTENT_WRITING_FEATURES.includes(feature)) return null
+  if (!KEY_FIRST_FEATURES.includes(feature)) return null
   if (providerChoice() !== 'local' || settings.featureRoutes()[feature]) return null
   if (currentContentWriting() !== 'cloud-if-key') return null
   const pref = settings.preferredKey?.() ?? DEFAULT_PREFERRED_KEY
@@ -479,9 +480,10 @@ export function effectiveGate(purpose: string): LocalGateInfo {
   if (currentLocalPolicy() !== 'local-first') return g
   const feature = featureForPurpose(purpose)
   if (NOT_TECHNICALLY_LOCAL.includes(feature)) return { ...g, gate: 'cloud-only' }
-  // Content writing follows its own switch (DEFAULT_CONTENT_WRITING): 'ask'
-  // keeps a measured cloud-only gate as cloud-only, so each request asks.
-  if (CONTENT_WRITING_FEATURES.includes(feature) && currentContentWriting() === 'ask') return g
+  // Content writing and PlexiiAssist follow their own switch
+  // (DEFAULT_CONTENT_WRITING): 'ask' keeps a measured cloud-only gate as
+  // cloud-only, so each request asks.
+  if (KEY_FIRST_FEATURES.includes(feature) && currentContentWriting() === 'ask') return g
   return g.gate === 'cloud-only' ? { ...g, gate: 'labelled' } : g
 }
 

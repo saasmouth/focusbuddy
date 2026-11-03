@@ -360,8 +360,20 @@ export const NOT_TECHNICALLY_LOCAL: readonly AiFeature[] = ['media']
 export const CONTENT_WRITING_FEATURES: readonly AiFeature[] = ['office', 'writing', 'build']
 
 /**
- * THE switch for content writing (writing, office, build) while the AI source
- * is Local. Owner decision (2026-10-21): 'cloud-if-key'.
+ * The features that use the person's own key when one is saved while the
+ * source is Local (under DEFAULT_CONTENT_WRITING 'cloud-if-key'): content
+ * writing, plus PlexiiAssist. Owner decision (2026-11-03): "Remove the local
+ * model as default from the sidebar, it should use the Anthropic BYOK" — on
+ * their Mac the sidebar on the device took 25+ minutes a turn, or never
+ * answered. 'Always this device' and 'Ask before using cloud AI' cover it too,
+ * and an explicit per-feature choice still wins.
+ */
+export const KEY_FIRST_FEATURES: readonly AiFeature[] = [...CONTENT_WRITING_FEATURES, 'assistant']
+
+/**
+ * THE switch for content writing (writing, office, build) and PlexiiAssist
+ * (KEY_FIRST_FEATURES) while the AI source is Local. Owner decision
+ * (2026-10-21): 'cloud-if-key'.
  *   'cloud-if-key' — if the person has their own Anthropic or OpenAI key, these
  *                    features use it (the one they prefer when both are saved,
  *                    else Anthropic); with no key they run on the device with
@@ -370,8 +382,8 @@ export const CONTENT_WRITING_FEATURES: readonly AiFeature[] = ['office', 'writin
  *                    device, with a note.
  *   'local'        — on the device with the note, keys or not.
  *   'ask'          — the person is asked before each request goes to cloud.
- * An explicit per-feature route always wins. Assistant, background and
- * summaries are not content writing and stay local-first. The router reads
+ * An explicit per-feature route always wins. Background and summaries stay
+ * local-first. The router reads
  * this through setRouterSettings({ contentWriting }), so changing the default
  * needs no other change.
  */

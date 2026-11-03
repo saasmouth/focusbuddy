@@ -115,8 +115,12 @@ export const CONTRACTS: Contract[] = [
           const cols = isObj(s.tableSchema) ? s.tableSchema.columns : undefined
           if (!Array.isArray(cols) || cols.length === 0) return `table "${String(s.title ?? '')}" has no tableSchema.columns`
         }
-        if (s.kind === 'page' && !(isObj(s.pageContent) && Array.isArray(s.pageContent.content))) {
-          return `page "${String(s.title ?? '')}" has no pageContent document`
+        // Build with AI asks for pages as markdown (pageMarkdown), converted to
+        // the page document in main; a document sent directly is still fine.
+        const hasMarkdown = typeof s.pageMarkdown === 'string' && s.pageMarkdown.trim() !== ''
+        const hasDoc = isObj(s.pageContent) && Array.isArray(s.pageContent.content)
+        if (s.kind === 'page' && !hasMarkdown && !hasDoc) {
+          return `page "${String(s.title ?? '')}" has no pageMarkdown (the page body as markdown)`
         }
       }
       return null
@@ -225,8 +229,12 @@ export function contractFor(purpose: string, system: string): Contract | null {
  */
 export function firstJsonValue(text: string): { raw: string } | { cutOff: true } | null {
   let s = text
-  const fence = s.match(/```(?:json|JSON)?\s*([\s\S]*?)```/)
-  if (fence && /[[{]/.test(fence[1])) s = fence[1]
+  // A fence wraps the JSON only when it opens before the JSON does: a page or
+  // note written as markdown carries code fences INSIDE its strings, and the
+  // balanced scan below already skips prose and a wrapper's closing fence.
+  const fence = /```(?:json|JSON)?/.exec(s)
+  const firstValue = s.search(/[[{]/)
+  if (fence && fence.index < firstValue) s = s.slice(fence.index + fence[0].length)
   const start = s.search(/[[{]/)
   if (start < 0) return null
   const stack: string[] = []

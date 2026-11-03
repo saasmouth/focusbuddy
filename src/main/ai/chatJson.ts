@@ -7,11 +7,35 @@ import { decodeReplyFragment, replyQuoteRole } from './streamingEnvelope'
 
 export function extractJson(text: string): string | null {
   // Allow Claude to wrap in markdown ```json ... ``` or just return raw JSON.
-  const fence = /```(?:json)?\s*([\s\S]*?)```/i.exec(text)
-  if (fence) return fence[1].trim()
-  const start = text.indexOf('{')
+  //
+  // A fence is the WRAPPER only when it opens before the JSON does. Replies
+  // carry markdown inside their strings (a desk's pages, a chat answer with a
+  // code sample), and the old "first ``` … ``` pair anywhere" rule returned a
+  // widget's code block as the JSON, failing the whole reply.
+  const fence = /```(?:json)?[ \t]*\r?\n?/i.exec(text)
+  const brace = text.indexOf('{')
+  if (fence && (brace < 0 || fence.index < brace)) {
+    const body = text.slice(fence.index + fence[0].length)
+    // The JSON inside may itself contain fences, so try each closing fence in
+    // turn and take the first slice that parses; when none does (a cut-off or
+    // broken reply), hand back everything up to the last one for the caller's
+    // own recovery.
+    let close = body.indexOf('```')
+    let last = -1
+    while (close >= 0) {
+      const slice = body.slice(0, close).trim()
+      try {
+        JSON.parse(slice)
+        return slice
+      } catch {
+        last = close
+        close = body.indexOf('```', close + 3)
+      }
+    }
+    return (last >= 0 ? body.slice(0, last) : body).trim()
+  }
   const end = text.lastIndexOf('}')
-  if (start >= 0 && end > start) return text.slice(start, end + 1)
+  if (brace >= 0 && end > brace) return text.slice(brace, end + 1)
   return null
 }
 

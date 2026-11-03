@@ -55,10 +55,24 @@ describe('markdownToTiptap', () => {
     expect(types).toContain('horizontalRule')
   })
 
-  it('falls back to paragraph for unknown content (no crash on code fence)', () => {
-    const doc = markdownToTiptap('```\nfenced code that we do not support\n```\nplain text after')
-    // The fence lines collapse into paragraphs — we just need it not to throw
-    // and to produce SOMETHING that the renderer can display.
-    expect(doc.content.length).toBeGreaterThan(0)
+  // Desk builds now write pages as markdown (far fewer tokens than Tiptap JSON),
+  // and the page editor's StarterKit renders codeBlock nodes, so a fence must
+  // arrive as code — verbatim, line breaks and markdown-looking lines intact.
+  it('turns a fenced block into a codeBlock with its language and exact text', () => {
+    const doc = markdownToTiptap('Intro\n\n```bash\nnpm ci\n# not a heading\n- not a bullet\n```\nplain text after')
+    expect(doc.content.map((b) => b.type)).toEqual(['paragraph', 'codeBlock', 'paragraph'])
+    const code = doc.content[1]
+    expect(code.attrs?.language).toBe('bash')
+    expect(code.content).toEqual([{ type: 'text', text: 'npm ci\n# not a heading\n- not a bullet' }])
+  })
+
+  it('keeps an unclosed fence as code to the end rather than dropping it', () => {
+    const doc = markdownToTiptap('```\nline one\nline two')
+    expect(doc.content).toEqual([{ type: 'codeBlock', attrs: { language: null }, content: [{ type: 'text', text: 'line one\nline two' }] }])
+  })
+
+  it('an empty fence is an empty codeBlock, not a crash', () => {
+    const doc = markdownToTiptap('```\n```')
+    expect(doc.content).toEqual([{ type: 'codeBlock', attrs: { language: null } }])
   })
 })

@@ -788,7 +788,7 @@ function ApiKeyRow({
 }
 
 // What "Local on this device" means right now, honestly: with no key saved
-// nothing leaves the computer; with a key saved, writing and drafts use it
+// nothing leaves the computer; with a key saved, PlexiiAssist, writing and drafts use it
 // (content writing = "cloud when a key exists") and the note says so.
 function LocalSourceNote(): JSX.Element {
   const [cloudFeatures, setCloudFeatures] = useState<Array<{ label: string; engine: string }> | null>(null)

@@ -14,7 +14,7 @@ interface Props {
 
 type State =
   | { stage: 'loading' }
-  | { stage: 'ready'; suggestions: AiBuildSuggestion[]; selected: Set<number> }
+  | { stage: 'ready'; suggestions: AiBuildSuggestion[]; selected: Set<number>; notice?: string }
   | { stage: 'error'; message: string; needsApiKey?: boolean }
   | { stage: 'spawning' }
 
@@ -41,7 +41,8 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
         setState({
           stage: 'ready',
           suggestions: result.suggestions,
-          selected: new Set(result.suggestions.map((_, i) => i))
+          selected: new Set(result.suggestions.map((_, i) => i)),
+          notice: result.notice
         })
       } else {
         setState({
@@ -136,6 +137,14 @@ export default function AISetupDialog({ task, onClose, onAccept }: Props): JSX.E
                 Based on your desk, here's a complete setup — each one already configured.
                 Check what it will look like below, and uncheck anything you don't want.
               </p>
+              {state.notice && (
+                <div
+                  className="mb-3 rounded-md border border-[var(--edge-soft)] px-3 py-2 text-[11px] leading-snug text-[var(--ink-60)]"
+                  data-testid="ai-build-notice"
+                >
+                  {state.notice}
+                </div>
+              )}
               {state.suggestions.map((s, i) => {
                 const entry = catalogFor(s.kind)
                 const checked = state.selected.has(i)

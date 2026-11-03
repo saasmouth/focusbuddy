@@ -1,7 +1,8 @@
 // @vitest-environment node
 // Content writing = "cloud when a key exists" (owner decision, 2026-10-21):
-// writing, office and build use the person's own Anthropic or OpenAI key when
-// one is saved and the source is Local; with no key they run on the device with
+// writing, office and build — and, from 2026-11-03, PlexiiAssist — use the
+// person's own Anthropic or OpenAI key when one is saved and the source is
+// Local; with no key they run on the device with
 // the quality note; a key that fails answers that request on the device with a
 // note; an explicit per-feature choice always wins; everything else stays
 // local-first. Every case, through the real router.
@@ -142,11 +143,42 @@ describe('content writing: cloud when a key exists', () => {
     expect(router.effectiveRouteFor('office')).toBe('local')
   })
 
-  it('assistant, background and summaries stay on the device even with keys', async () => {
-    for (const p of ['chat', 'title_backfill', 'trail_summary']) expect(router.tagModel(p, 'm')).toBe(`local:${p}`)
+  // Owner, 2026-11-03: "Remove the local model as default from the sidebar, it
+  // should use the Anthropic BYOK." PlexiiAssist joins the features that use
+  // the person's own key when one is saved; it was the one surface left on a
+  // 4B model that took 25+ minutes a turn on the owner's Mac.
+  it('PlexiiAssist (the sidebar) uses the saved Anthropic key, under a grant', async () => {
+    expect(router.tagModel('chat', 'm')).toBe('route:key-anthropic:chat:m')
     await ask('chat')
+    expect(calls.map((c) => c.who)).toEqual(['anthropic'])
+    expect((calls[0].grant as { reason?: string })?.reason).toBe('feature-route')
+    expect(localCalls).toBe(0)
+    expect(router.effectiveRouteFor('assistant')).toBe('anthropic')
+  })
+
+  it('PlexiiAssist streams on the key too (the sidebar streams its replies)', async () => {
+    const st = router.routedClient(null)!.messages.stream({ model: router.tagModel('chat', 'claude-sonnet-5-5'), max_tokens: 10, messages: [{ role: 'user', content: 'x' }] } as never)
+    await st.finalMessage()
+    expect(calls.map((c) => c.who)).toEqual(['anthropic-stream'])
+    expect(localCalls).toBe(0)
+  })
+
+  it('PlexiiAssist stays on the device with no key, with "Always this device", or when chosen per feature', async () => {
+    keys = { anthropic: false, openai: false }
+    expect(router.tagModel('chat', 'm')).toBe('local:chat')
+    keys = { anthropic: true, openai: true }
+    routes = { assistant: 'local' }
+    expect(router.tagModel('chat', 'm')).toBe('local:chat')
+    routes = {}
+    router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}), policy: () => 'local-first', contentWriting: () => 'local' })
+    expect(router.tagModel('chat', 'm')).toBe('local:chat')
+  })
+
+  it('background and summaries stay on the device even with keys', async () => {
+    for (const p of ['title_backfill', 'trail_summary']) expect(router.tagModel(p, 'm')).toBe(`local:${p}`)
+    await ask('trail_summary')
     expect(calls).toEqual([])
-    expect(router.effectiveRouteFor('assistant')).toBe('local')
+    expect(router.effectiveRouteFor('background')).toBe('local')
     expect(router.effectiveRouteFor('summaries')).toBe('local')
   })
 

@@ -422,10 +422,20 @@ describe('Local on this device: no AI request leaves the machine', () => {
     expect(hit.some((r) => r.includes('api.openai.com'))).toBe(true)
     expect(hit.some((r) => r.includes('api.anthropic.com'))).toBe(false)
     remote.length = before
-    // Every other feature is still on the device.
-    const n = engineCalls.length
+    // PlexiiAssist uses the saved key too (2026-11-03, KEY_FIRST_FEATURES):
+    // here the only key is OpenAI's, so OpenAI — and still never Anthropic.
     const { DESK } = await import('../../tools/local-ai-eval/fixtures')
     await ai.sendChat({ taskId: DESK, messages: [{ role: 'user', content: 'What is due this week?', ts: Date.now() }] } as never).catch(() => undefined)
+    const chatHit = remote.slice(before)
+    expect(chatHit.length).toBeGreaterThan(0)
+    expect(chatHit.every((r) => r.includes('api.openai.com'))).toBe(true)
+    remote.length = before
+    // A feature with no key-first rule and no route of its own stays on the device.
+    const n = engineCalls.length
+    await router
+      .routedClient(null)!
+      .messages.create({ model: router.tagModel('trail_summary', 'claude-haiku-5-5'), max_tokens: 50, messages: [{ role: 'user', content: 'Summarise: met the printer.' }] } as never)
+      .catch(() => undefined)
     expect(engineCalls.length).toBeGreaterThan(n)
     expect(remote).toEqual([])
     router.setCloudProviders({ anthropic: () => null, credits: () => null, openai: () => null })
@@ -433,7 +443,7 @@ describe('Local on this device: no AI request leaves the machine', () => {
     setLocalRouteResolver((p) => router.routeForPurpose(p) === 'local')
   })
 
-  it('"cloud when a key exists": with keys saved only writing, office and build reach the key; set to "always this device", nothing leaves', async () => {
+  it('"cloud when a key exists": with keys saved PlexiiAssist and content writing reach the key; set to "always this device", nothing leaves', async () => {
     const router = await import('../../src/main/ai/local/providerRouter')
     const { setModelTagger, setLocalRouteResolver } = await import('../../src/main/ai/modelRouting')
     const { getModelClient } = await import('../../src/main/ai/modelClient')
@@ -445,18 +455,22 @@ describe('Local on this device: no AI request leaves the machine', () => {
     const ai = await import('../../src/main/ai/anthropic')
     ai.invalidateAnthropicClient()
     const { DESK } = await import('../../tools/local-ai-eval/fixtures')
-    // PlexiiAssist: on the device.
+    // PlexiiAssist (2026-11-03): your Anthropic key (the default preference), and nothing else.
     const before = remote.length
     await ai.sendChat({ taskId: DESK, messages: [{ role: 'user', content: 'What is due this week?', ts: Date.now() }] } as never).catch(() => undefined)
-    expect(remote.slice(before)).toEqual([])
-    // Writing: your Anthropic key (the default preference), and nothing else.
+    const chatHit = remote.slice(before)
+    expect(chatHit.length).toBeGreaterThan(0)
+    expect(chatHit.every((r) => r.includes('api.anthropic.com'))).toBe(true)
+    remote.length = before
+    // Writing: the same.
     await ai.transformText({ text: 'Some text.', instruction: 'Make it formal' }).catch(() => undefined)
     const hit = remote.slice(before)
     expect(hit.length).toBeGreaterThan(0)
     expect(hit.every((r) => r.includes('api.anthropic.com'))).toBe(true)
     remote.length = before
-    // "Always this device": nothing leaves.
+    // "Always this device": nothing leaves, from the sidebar or from writing.
     router.setRouterSettings({ aiMode: () => 'local', featureRoutes: () => ({}), contentWriting: () => 'local' })
+    await ai.sendChat({ taskId: DESK, messages: [{ role: 'user', content: 'What is due this week?', ts: Date.now() }] } as never).catch(() => undefined)
     await ai.transformText({ text: 'Some text.', instruction: 'Make it formal' }).catch(() => undefined)
     expect(remote.slice(before)).toEqual([])
     router.setCloudProviders({ anthropic: () => null, credits: () => null, openai: () => null })

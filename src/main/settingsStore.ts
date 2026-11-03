@@ -78,6 +78,9 @@ interface Envelope {
   preferredKey?: string
   // Which one-time AI-source migrations this profile has had (AI_MODE_MIGRATION).
   aiModeMigration?: number
+  // Whether the PlexiiAssist-back-on-the-key migration has run
+  // (migrateAssistantRoute, ASSISTANT_ROUTE_MIGRATION).
+  assistantRouteMigration?: number
   // The "local AI is now built in" notice: shown once, then dismissed. `from`
   // is the source before the migration (null: none was stored). With no model
   // on this computer the same one-time card offers the download instead.
@@ -125,6 +128,7 @@ function load(): Envelope {
       // A fresh profile: the migration's result (the source, the one-time
       // notice) is written by the first save, like any other setting.
       migrateAiMode(cache, probeReadiness())
+      migrateAssistantRoute(cache)
       return cache
     }
     const raw = readFileSync(filePath(), 'utf-8')
@@ -145,6 +149,7 @@ function load(): Envelope {
       ...(['cloud-if-key', 'local', 'ask'].includes(String(parsed.contentWriting)) ? { contentWriting: parsed.contentWriting } : {}),
       ...(parsed.preferredKey === 'anthropic' || parsed.preferredKey === 'openai' ? { preferredKey: parsed.preferredKey } : {}),
       ...(typeof parsed.aiModeMigration === 'number' ? { aiModeMigration: parsed.aiModeMigration } : {}),
+      ...(typeof parsed.assistantRouteMigration === 'number' ? { assistantRouteMigration: parsed.assistantRouteMigration } : {}),
       ...(parsed.localAiIntro && typeof parsed.localAiIntro === 'object'
         ? {
             localAiIntro: {
@@ -175,9 +180,13 @@ function load(): Envelope {
     // Never write over a file that could not be read: it may hold keys. The
     // migration applies in memory for this run only.
     migrateAiMode(cache, probeReadiness())
+    migrateAssistantRoute(cache)
     return cache
   }
-  if (migrateAiMode(cache, probeReadiness())) {
+  // Both run; either one changing the envelope writes it once.
+  const sourceMigrated = migrateAiMode(cache, probeReadiness())
+  const assistantMigrated = migrateAssistantRoute(cache)
+  if (sourceMigrated || assistantMigrated) {
     try {
       save()
     } catch {
@@ -272,6 +281,40 @@ export function migrateAiMode(env: MigratableEnvelope, readiness: LocalModelRead
     env.localAiIntro = { pending: true, from }
   }
   env.aiModeMigration = AI_MODE_MIGRATION
+  return true
+}
+
+/**
+ * One-time (2026-11-03): PlexiiAssist back on the person's own key.
+ *
+ * Owner: "Remove the local model as default from the sidebar, it should use
+ * the Anthropic BYOK." Their profile had a cloud source and a per-feature
+ * `assistant: 'local'` left by Settings → "Test with local" (whose tooltip
+ * says "until you switch it back"), so the sidebar ran on a 4B model on the
+ * CPU: 25+ minutes a turn, or no answer at all.
+ *
+ * Cleared only where it is safe to: the source is NOT Local (the person
+ * already sends AI to the cloud, so the override was a test, not a privacy
+ * choice) and an Anthropic key is saved. A Local profile keeps its override —
+ * that person chose the device. Runs once, so choosing local again later is
+ * kept. Returns true when the envelope changed. Exported for tests.
+ */
+export const ASSISTANT_ROUTE_MIGRATION = 1
+export function migrateAssistantRoute(env: {
+  aiMode?: AiMode
+  keys?: Partial<Record<string, string>>
+  aiFeatureRoutes?: AiFeatureRoutes
+  assistantRouteMigration?: number
+}): boolean {
+  if ((env.assistantRouteMigration ?? 0) >= ASSISTANT_ROUTE_MIGRATION) return false
+  env.assistantRouteMigration = ASSISTANT_ROUTE_MIGRATION
+  const routes = env.aiFeatureRoutes
+  const cloudSource = (env.aiMode ?? DEFAULT_AI_MODE) !== 'local'
+  if (routes?.assistant === 'local' && cloudSource && env.keys?.anthropic) {
+    const next = { ...routes }
+    delete next.assistant
+    env.aiFeatureRoutes = next
+  }
   return true
 }
 

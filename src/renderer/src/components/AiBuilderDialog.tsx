@@ -34,6 +34,9 @@ type State =
       // populated table can be checked against its sources — a researched
       // table nobody can verify is only a prettier guess.
       researched?: AiResearchSource[]
+      // The build is usable but not whole (cut off at the length limit, or
+      // some work widgets unreadable): said, never hidden.
+      notice?: string
     }
   | { stage: 'error'; message: string; needsApiKey?: boolean }
   | { stage: 'spawning' }
@@ -86,6 +89,7 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
         intent: result.intent ?? '',
         suggestions: result.suggestions,
         researched: result.researched,
+        notice: result.notice,
         // Default: select all — most users will refine the prompt before
         // selecting, but if they like everything they're one click away.
         selected: new Set(result.suggestions.map((s) => s.id))
@@ -286,6 +290,14 @@ export default function AiBuilderDialog({ taskId, onClose, onAccept, initialProm
                   <div className="text-[12px] text-[var(--ink-70)]">
                     {state.intent}
                   </div>
+                </div>
+              )}
+              {state.notice && (
+                <div
+                  className="mb-3 rounded-md border border-[var(--edge-soft)] px-3 py-2 text-[11px] leading-snug text-[var(--ink-60)]"
+                  data-testid="ai-build-notice"
+                >
+                  {state.notice}
                 </div>
               )}
               {state.researched && state.researched.length > 0 && (

@@ -12,11 +12,12 @@
 //   1. ordered lists
 //   > blockquotes
 //   --- horizontal rule
+//   ``` fenced code blocks (with an optional language) → codeBlock
 //   blank lines separating paragraphs
 //   inline: **bold**, *italic*, `code`, [text](url)
 //
 // Anything fancier falls through to a paragraph with raw text, so a hallucinated
-// table or code-block doesn't crash the renderer.
+// table doesn't crash the renderer.
 
 interface TextNode {
   type: 'text'
@@ -90,6 +91,27 @@ export function markdownToTiptap(md: string): TiptapDoc {
 
     if (!trimmed) {
       i++
+      continue
+    }
+
+    // Fenced code block. Checked first: the lines inside are code, so a
+    // "# comment" or "- item" in them must not become a heading or a list.
+    // An unclosed fence runs to the end (a cut-off reply keeps its code).
+    const fence = /^```\s*([\w+#.-]*)\s*$/.exec(trimmed)
+    if (fence) {
+      const body: string[] = []
+      i++
+      while (i < lines.length && !/^```\s*$/.test(lines[i].trim())) {
+        body.push(lines[i])
+        i++
+      }
+      i++ // past the closing fence (or the end)
+      const text = body.join('\n')
+      out.push({
+        type: 'codeBlock',
+        attrs: { language: fence[1] || null },
+        ...(text ? { content: [{ type: 'text', text }] } : {})
+      })
       continue
     }
 
@@ -192,6 +214,7 @@ function isBlockStart(s: string): boolean {
     /^[-*]\s+/.test(s) ||
     /^\d+\.\s+/.test(s) ||
     /^>\s?/.test(s) ||
-    /^---+$/.test(s)
+    /^---+$/.test(s) ||
+    /^```/.test(s)
   )
 }

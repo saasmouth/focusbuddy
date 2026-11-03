@@ -68,7 +68,9 @@ describe('nothing arrives as a shell', () => {
   it('the prompt makes configuration mandatory, per kind', () => {
     expect(anthropic).toContain('NEVER SHIP A SHELL')
     expect(anthropic).toContain('tableSchema.columns is REQUIRED')
-    expect(anthropic).toContain('pageContent is REQUIRED')
+    // Pages are written as markdown (pageMarkdown) and converted to the page
+    // document in main — the same page for a fraction of the output tokens.
+    expect(anthropic).toContain('pageMarkdown is REQUIRED')
     expect(anthropic).toContain('fieldDef is REQUIRED')
     // Selects with no options are the common half-configured case.
     expect(anthropic).toContain('config.options with labels AND hex colours')

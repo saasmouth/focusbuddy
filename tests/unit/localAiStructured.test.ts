@@ -26,6 +26,14 @@ describe('tolerant parsing', () => {
     expect(firstJsonValue('no json here')).toBeNull()
   })
 
+  // Desk builds write pages as markdown, so a page can carry a code fence
+  // INSIDE a string. Only a fence that opens before the JSON wraps it.
+  it('does not take a code fence inside a string value for the wrapper', () => {
+    const s = JSON.stringify({ suggestions: [{ kind: 'page', pageMarkdown: '## Run\n```js\nrun({ a: [1] })\n```' }] })
+    expect(firstJsonValue(s)).toEqual({ raw: s })
+    expect(firstJsonValue('```json\n' + s + '\n```')).toEqual({ raw: s })
+  })
+
   it('repairs trailing commas, but not inside strings', () => {
     expect(stripTrailingCommas('{"a":[1,2,],"b":"x,]",}')).toBe('{"a":[1,2],"b":"x,]"}')
   })
@@ -64,6 +72,19 @@ describe('tolerant parsing', () => {
     }
     // A table card without columns is still invalid: nothing is invented.
     expect(parseStructured('{"suggestions":[{"kind":"table","title":"T"}]}', 'object', 'setup', BUILD_SYS)).toMatchObject({ ok: false })
+  })
+
+  it('Build with AI: a page may arrive as markdown (pageMarkdown) or as a document; never as neither', () => {
+    const md = { kind: 'page', title: 'Plan', pageMarkdown: '# Plan\n\n- [ ] first step' }
+    expect(parseStructured(JSON.stringify({ suggestions: [md] }), 'object', 'setup', BUILD_SYS)).toMatchObject({ ok: true })
+    const doc = { kind: 'page', title: 'Plan', pageContent: { type: 'doc', content: [] } }
+    expect(parseStructured(JSON.stringify({ suggestions: [doc] }), 'object', 'setup', BUILD_SYS)).toMatchObject({ ok: true })
+    for (const bad of [{ kind: 'page', title: 'Plan' }, { kind: 'page', title: 'Plan', pageMarkdown: '   ' }]) {
+      expect(parseStructured(JSON.stringify({ suggestions: [bad] }), 'object', 'setup', BUILD_SYS)).toMatchObject({
+        ok: false,
+        problem: expect.stringMatching(/page "Plan" has no pageMarkdown/)
+      })
+    }
   })
 
   it('a truncated reply is a cut-off failure (retried), never half handed over', () => {
