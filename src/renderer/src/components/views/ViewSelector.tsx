@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from '../Icon'
-import { useDeskViewStore, type DeskViewMode } from '../../stores/deskView'
+import { useDeskViewStore, resolveDeskView, type DeskViewMode } from '../../stores/deskView'
 
 // Spec §3.4 — a dedicated Views control that shows a visual PREVIEW per view
 // (not a text-only menu), names each one, marks the active one, supports keyboard
@@ -109,12 +109,13 @@ const VIEWS: ViewDef[] = [
   { mode: 'compact', label: 'Compact', icon: 'density_small', Preview: CompactPreview }
 ]
 
-export default function ViewSelector({ taskId }: { taskId: string }): JSX.Element {
-  const modes = useDeskViewStore((s) => s.modes)
+export default function ViewSelector({ taskId }: { taskId: string }): JSX.Element | null {
   const defaults = useDeskViewStore((s) => s.defaults)
   const setMode = useDeskViewStore((s) => s.set)
   const setDefault = useDeskViewStore((s) => s.setDefault)
-  const active: DeskViewMode = modes[taskId] ?? defaults[taskId] ?? 'canvas'
+  const active: DeskViewMode = useDeskViewStore((s) => resolveDeskView(s, taskId))
+  // A share link held to one view: there is nothing to switch to.
+  const locked = useDeskViewStore((s) => s.locked[taskId] !== undefined)
   const current = VIEWS.find((v) => v.mode === active) ?? VIEWS[0]
 
   const [open, setOpen] = useState(false)
@@ -159,6 +160,9 @@ export default function ViewSelector({ taskId }: { taskId: string }): JSX.Elemen
     const next = e.key === 'ArrowRight' ? (idx + 1) % VIEWS.length : (idx - 1 + VIEWS.length) % VIEWS.length
     setMode(taskId, VIEWS[next].mode)
   }
+
+  // After every hook: the rules of hooks hold whether or not it renders.
+  if (locked) return null
 
   return (
     <div className="relative" ref={rootRef}>

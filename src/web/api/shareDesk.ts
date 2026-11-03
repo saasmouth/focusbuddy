@@ -33,6 +33,8 @@ import {
   otherLinkTokens, othersPresent, readLinkRecords, recordAdopted, setUntrackedDesksPossible, untrackedDesksPossible
 } from './shareVersion'
 import { markShareRecipient, setShareDeskId } from '@renderer/lib/shareMode'
+import { rememberColumnsConfig, rememberDeskView } from '@renderer/lib/deskLocalPrefs'
+import { readPresentation, type SharePresentation } from '@shared/sitePresentation'
 import type { RemovedDesk, ReplaceOutcome } from '../worker/shareCopy'
 import type { DeskBundle } from '../../main/db/deskBundle'
 
@@ -50,8 +52,34 @@ export const rootDesks = (): Promise<string[]> => call('shareCopy:rootDesks', []
 export const removeDesk = (rootId: string): Promise<RemovedDesk> => call('shareCopy:removeDesk', [rootId])
 export const replaceDesk = (rootIds: string[], bundle: DeskBundle): Promise<ReplaceOutcome> =>
   call('shareCopy:replaceDesk', [rootIds, bundle])
+// The share page's own import: the desk, then its presentation (website
+// pictures into the file store, the sender's layout copied to the visitor) --
+// see worker/shareCopy.importDeskForShare.
 const importDesk = (bundle: DeskBundle): Promise<{ ok?: boolean; reason?: string } | null> =>
-  call('shares:importBundle', [bundle])
+  call('shareCopy:importDesk', [bundle])
+
+/**
+ * The presentation a bundle carries, read as untrusted (sitePresentation.readPresentation):
+ * site entries only for widgets this bundle brings.
+ */
+export function presentationOf(bundle: DeskBundle): SharePresentation | null {
+  const ids = new Set((bundle.tables?.widgets ?? []).map((w) => String((w as { id?: unknown }).id)))
+  return readPresentation((bundle as { presentation?: unknown }).presentation, ids)
+}
+
+/**
+ * A desk was just unpacked from the sender's version: start it the way they
+ * shared it. The view becomes the one this browser last showed the desk in,
+ * and the Columns setup becomes theirs -- both local preferences, so a visitor
+ * who changes either keeps their change until the sender's next version.
+ * Whether the view is held there (lockView) is decided per load, from the
+ * record, by the renderer.
+ */
+function adoptLocalSetup(rootId: string, p: SharePresentation | null): void {
+  if (!rootId || !p) return
+  if (p.view) rememberDeskView(rootId, p.view)
+  if (p.columns) rememberColumnsConfig(rootId, p.columns)
+}
 
 // ── Which tab is showing which desk ─────────────────────────────────────────
 //
@@ -260,7 +288,9 @@ export async function replaceLinkDesk(token: string, offer: ShareOffer, text: st
     forgetLinkRecord(token)
     return { ok: false, why: 'failed', detail: out.reason }
   }
-  markImported(token, offer.updatedAt ?? null, offer)
+  const shown = presentationOf(bundle)
+  markImported(token, offer.updatedAt ?? null, offer, shown)
+  adoptLocalSetup(bundle.desk?.id ?? offer.rootId, shown)
   resetTabState(token, offer.rootId)
   return { ok: true }
 }
@@ -350,7 +380,9 @@ async function openLinkDeskInner(token: string, offer: ShareOffer, plan: Replace
   }
   const res = await importDesk(bundle)
   if (!res?.ok) return { kind: 'failed', detail: res?.reason ?? 'the desk could not be unpacked' }
-  markImported(token, offer.updatedAt ?? null, offer)
+  const shown = presentationOf(bundle)
+  markImported(token, offer.updatedAt ?? null, offer, shown)
+  adoptLocalSetup(bundle.desk?.id ?? offer.rootId, shown)
   return { kind: 'open', bundleText: got.text, notice: null }
 }
 

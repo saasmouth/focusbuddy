@@ -51,6 +51,9 @@ vi.mock('../../src/web/api/dbClient', () => ({
         worker.desks.set(b.desk!.id, deskOf(b))
         return { ok: true, removed: roots.map((rootId) => ({ rootId })), imported: { ok: true } }
       }
+      // The share page unpacks through its own channel (desk + presentation);
+      // shares:importBundle is the desktop's plain import, kept for desk files.
+      case 'shareCopy:importDesk':
       case 'shares:importBundle': {
         const b = args[0] as B
         // INSERT OR IGNORE: rows already here are kept as they are.

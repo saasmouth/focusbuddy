@@ -116,7 +116,12 @@ describe('the list of usable-desk links', () => {
     act(() => all('share-update-ephemeral')[0].click())
     act(() => q('share-update-confirm')!.click())
     await flush()
-    expect(client.updateEphemeralShare).toHaveBeenCalledWith('tok_never_12345', 'desk-1')
+    // With the sender's presentation: the view the desk is in, and its websites.
+    expect(client.updateEphemeralShare).toHaveBeenCalledWith(
+      'tok_never_12345',
+      'desk-1',
+      expect.objectContaining({ view: 'canvas', lockView: true, sites: {}, layoutUserId: 'local' })
+    )
     const done = q('share-update-done')
     expect(done?.getAttribute('role')).toBe('status')
     expect(done?.textContent).toMatch(/^Updated .+\. Everyone with this link now gets this version\.$/)
@@ -151,7 +156,7 @@ describe('making a link with "Never"', () => {
     expect((q('share-expiry') as HTMLSelectElement).value).toBe('null')
     act(() => q('share-create-link')!.click())
     await flush()
-    expect(client.mintEphemeralShare).toHaveBeenCalledWith('desk-1', null)
+    expect(client.mintEphemeralShare).toHaveBeenCalledWith('desk-1', null, expect.objectContaining({ view: 'canvas', sites: {} }))
     expect(q('share-expiry-note')).toBeNull()
   })
 

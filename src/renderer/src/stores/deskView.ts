@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { DESK_DEFAULT_VIEW_KEY, DESK_VIEW_KEY } from '../lib/deskLocalPrefs'
 
 // Per-desk view mode. A desk can be shown as the infinite spatial Canvas (the
 // default) or as Columns (stacked scrollable walls). Two things are remembered per
@@ -15,8 +16,8 @@ import { create } from 'zustand'
 // intentionally not modeled here — they suit time-bound events, not arbitrary desk objects.
 export type DeskViewMode = 'canvas' | 'columns' | 'workcentre' | 'list' | 'table' | 'gallery' | 'compact'
 
-const KEY = 'fb.deskView.v1'
-const DEFAULT_KEY = 'fb.deskDefaultView.v1'
+const KEY = DESK_VIEW_KEY
+const DEFAULT_KEY = DESK_DEFAULT_VIEW_KEY
 
 function loadMap(key: string): Record<string, DeskViewMode> {
   try {
@@ -40,6 +41,14 @@ function persist(key: string, map: Record<string, DeskViewMode>): void {
 interface DeskViewStore {
   modes: Record<string, DeskViewMode>
   defaults: Record<string, DeskViewMode>
+  /**
+   * Desks held to one view for this session: a share link whose sender chose
+   * "only this view" (shared/sitePresentation.ts). Never persisted -- it is the
+   * link's rule, not the visitor's preference. While a desk is locked, set()
+   * and toggle() leave it alone and every view switcher hides itself.
+   */
+  locked: Record<string, DeskViewMode>
+  lock: (taskId: string, mode: DeskViewMode) => void
   get: (taskId: string | null) => DeskViewMode
   set: (taskId: string, mode: DeskViewMode) => void
   toggle: (taskId: string) => void
@@ -55,15 +64,31 @@ interface DeskViewStore {
   clearPendingTiles: (widgetIds: string[]) => void
 }
 
+/**
+ * The view a desk shows: locked, else last-used, else its pinned default, else
+ * Canvas. Every reader resolves through here so a lock cannot be missed.
+ */
+export function resolveDeskView(
+  s: Pick<DeskViewStore, 'modes' | 'defaults' | 'locked'>,
+  taskId: string | null | undefined
+): DeskViewMode {
+  if (!taskId) return 'canvas'
+  return s.locked[taskId] ?? s.modes[taskId] ?? s.defaults[taskId] ?? 'canvas'
+}
+
+/** Is this desk held to one view (a share link's "only this view")? */
+export function useDeskViewLocked(taskId: string | null | undefined): boolean {
+  return useDeskViewStore((s) => !!taskId && s.locked[taskId] !== undefined)
+}
+
 export const useDeskViewStore = create<DeskViewStore>((setState, getState) => ({
   modes: loadMap(KEY),
   defaults: loadMap(DEFAULT_KEY),
-  get: (taskId) => {
-    if (!taskId) return 'canvas'
-    const s = getState()
-    return s.modes[taskId] ?? s.defaults[taskId] ?? 'canvas'
-  },
+  locked: {},
+  lock: (taskId, mode) => setState({ locked: { ...getState().locked, [taskId]: mode } }),
+  get: (taskId) => resolveDeskView(getState(), taskId),
   set: (taskId, mode) => {
+    if (getState().locked[taskId] !== undefined) return
     const modes = { ...getState().modes, [taskId]: mode }
     setState({ modes })
     persist(KEY, modes)

@@ -180,11 +180,19 @@ describe('the one channel that packs a link', () => {
       .toString().trim().split('\n').filter(Boolean)
     expect(hits).toEqual(['src/renderer/src/lib/ephemeralShareClient.ts'])
     const client = await read('src/renderer/src/lib/ephemeralShareClient.ts')
-    expect(client.match(/window\.api\.shares\.buildDeskBundle\(deskId\)/g)).toHaveLength(2)
+    // The mint and the update, each with the sender's presentation (the view
+    // and the websites) and nothing else.
+    expect(client.match(/window\.api\.shares\.buildDeskBundle\(deskId, presentation\)/g)).toHaveLength(2)
   })
 
   it('packs with the default budget (no override that could loosen it)', async () => {
     const ipc = await read('src/main/ipc/index.ts')
-    expect(ipc).toContain("buildDeskBundle(String(deskId || ''))")
+    const start = ipc.indexOf("ipcMain.handle('shares:buildDeskBundle'")
+    expect(start).toBeGreaterThan(-1)
+    const handler = ipc.slice(start, ipc.indexOf('ipcMain.handle(', start + 1))
+    // The only option the handler passes is the presentation; the budgets are
+    // buildDeskBundle's defaults.
+    expect(handler).toContain('buildDeskBundle(id, resolved ? { presentation: resolved.input } : {})')
+    expect(handler).not.toMatch(/maxBytes|maxBodyBytes/)
   })
 })

@@ -30,6 +30,7 @@
 // only when nothing else is in it (whenRefused, shareDesk.dropLinkCopy).
 import { signalConfig } from '@renderer/lib/signalConfig'
 import { expiresNever, normaliseExpiresAt } from '@shared/shareExpiry'
+import type { SharePresentation } from '@shared/sitePresentation'
 import {
   forgetAllLinkRecords, linkRecord, readLinkRecords, recordUnpacked, refreshRecordOffer,
   setUntrackedDesksPossible, type LinkRecord
@@ -242,8 +243,13 @@ export function alreadyImported(token: string): boolean {
  * alternative -- recording a newer version than the copy holds -- would hide a
  * real update. Other links' records are not touched (shareVersion.recordUnpacked).
  */
-export function markImported(token: string, version: number | null | undefined, offer: ShareOffer): void {
-  recordUnpacked(token, version, offer)
+export function markImported(
+  token: string,
+  version: number | null | undefined,
+  offer: ShareOffer,
+  presentation: SharePresentation | null = null
+): void {
+  recordUnpacked(token, version, offer, presentation)
 }
 
 /**

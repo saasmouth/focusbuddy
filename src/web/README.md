@@ -171,6 +171,67 @@ disagrees with the real one.
 Revoking a link stops it being claimed again and does **not** touch the access
 of people who already used it -- they are ordinary grantees now.
 
+### How a link presents the desk
+
+A sender chooses two things in the share sheet ("Anyone with the link" → "A desk
+they can use"), and the link carries them in the bundle's optional
+`presentation` field (`src/shared/sitePresentation.ts`). An older share page
+ignores the field and shows the desk as it always did, so the format version
+does not move.
+
+**The view it opens in.** Canvas, Workcentre or Columns, and whether that is
+the only view ("Let them switch to other views", off by default). Views and the
+Columns setup are the sender's local preferences, so they travel in the bundle;
+the share page makes them the visitor's starting point while unpacking
+(`shareDesk.adoptLocalSetup`), and a locked view is held for the visit by the
+renderer (`stores/deskView`'s `lock`, never persisted). The Workcentre
+arrangement lives in `desk_layouts`, keyed by account -- and a visitor has none
+(the renderer uses `'local'`), so the sender's row was never read: the
+Workcentre came up auto-arranged with the tiles the sender hid showing. The
+Worker now copies the sender's row to `'local'` when it unpacks
+(`shareCopy.adoptPresentation`), keeping the arrangement but not the sender's
+camera: the canvas opens on the top-left of the content. It also creates
+`desk_layouts` before importing, because that table is made on first use and
+`importDeskBundle` skips a table that does not exist -- on a first visit every
+layout row was being dropped.
+
+**What each website shows.** On the desktop a browser widget is a real browser;
+here it can only be an iframe, and most sites refuse to be framed. Of the 11
+sites on a real standing link, nine refused, and the visitor saw nine "refused
+to connect" boxes -- worse, `EmbeddedSiteWidget` rendered without its
+`WidgetFrame`, so on the canvas all of them were piled in the top-left corner,
+and the Workcentre and Columns used the desktop `<webview>` (blank) for every
+website. The sender's desktop now visits each site when the link is made
+(`main/sitePreviewLoader.ts`): first framed exactly as this page frames it
+(same sandbox, same referrer), then -- if the browser refuses -- on its own,
+in a hidden window with a new in-memory session, so no account of the sender's
+can appear. Each site becomes one of:
+
+| | when | the visitor sees |
+| --- | --- | --- |
+| live | the framed look displayed | the site, framed |
+| embed | the site has an official embed (YouTube, Vimeo, Loom, Spotify, TradingView), or -- when the site blocks frames -- a free TradingView widget does its job (a screener, a futures board, a crypto market list, an economic calendar, a news feed; `equivalentEmbedFor`) | that, live, labelled with what it is and opening the original site |
+| picture | framing refused, the page answered | a picture labelled with when it was taken, opening the real site |
+| link | no usable picture (a bot wall, a rate limit, or the sender's choice) | a card that opens the site |
+
+Pictures travel inside the presentation, not as Drive files, and land in the
+file store under an id derived from the widget (`sitepic-<widgetId>.jpg`), so a
+desk's pictures go wherever its widgets go: replaced with a new version,
+removed with the desk (`shareCopy.deskRows`). Nothing a bundle says is trusted:
+`readPresentation` keeps only entries for widgets the bundle brings, http(s)
+addresses, pictures under their own widget's id, and the Worker writes only
+bytes that are a JPEG. The embed a visitor sees is worked out from the address,
+never taken from the bundle -- which is also why a link sent before any of this
+gets the official and TradingView embeds the moment the share page is deployed,
+with no new bundle. Pictures are packed after the desk's own files,
+smallest first, within the same link budget; one that does not fit becomes a
+link card and the sender is told.
+
+`node scripts/verify-site-pictures.mjs` drives the real loader in Electron
+against local pages with known framing behaviour (including a page that only
+refuses when requested as a frame, and one that refuses the share page's
+referrer); `--live URL…` reports real sites as well.
+
 ### Two gates, and they are not the same gate
 
 Signing up is open to anyone. Reaching a desk is not, and never by anything
