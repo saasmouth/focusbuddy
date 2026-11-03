@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import type { PaneCell, Pane, SplitState, Widget } from '@shared/types'
-import { gridTemplate, type PreviewLayout } from '../../lib/splitGeometry'
+import { capacityFor, gridTemplate, makeRoomFrom, type PreviewLayout } from '../../lib/splitGeometry'
 import FocusPane from './FocusPane'
 import DropWell from './DropWell'
 
@@ -53,19 +54,69 @@ export default function SplitGrid({
   const wells: PaneCell[] = previewing ? preview!.wells : []
   const showChrome = panes.length + wells.length > 1
 
+  // The make-room slide (owner, 2026-11-03: it never ran). The tracks shown are
+  // `seam` for a moment, else the real ones (`tpl`). When the shape GROWS (a
+  // well opens, or a pane is added), or the 1→2 well moves to the other side
+  // mid-drag, the next layout is committed first with its incoming cell
+  // collapsed to a seam (makeRoomFrom) — the same track count as the target,
+  // unlike the old shape — and two frames later with its real tracks, so the
+  // CSS transition on .fb-split-cluster springs the pane into its cell while
+  // the well grows out of the seam. A shrink (cancel, close) snaps.
+  //
+  // Decided DURING render (derived state), never in an effect: the real tracks
+  // must never be committed first. A layout read by another component between
+  // that commit and an effect (the drop target measures the body) made the
+  // browser compute them, and the slide ran real → seam → real instead.
+  //
+  // `seen` starts from the COMMITTED layout: a single focused pane renders the
+  // classic card, so this grid mounts only once a drag opens a well — already
+  // in the next shape; against the committed shape that mount is a growth.
+  // Reduced motion: no seam, and no transition (globals.css).
+  const incoming: PaneCell | null = wells[0] ?? null
+  const paneKey = panes.map((p) => p.id).join(',')
+  const [seen, setSeen] = useState({ shape: state.shape, incoming: null as PaneCell | null, paneKey: state.panes.map((p) => p.id).join(',') })
+  const [seam, setSeam] = useState<{ columns: string; rows: string } | null>(null)
+  if (seen.shape !== shape || seen.incoming !== incoming || seen.paneKey !== paneKey) {
+    const reduced = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const grew = capacityFor(shape) > capacityFor(seen.shape)
+    const flipped = shape === 'halves' && seen.shape === 'halves' && !!incoming && !!seen.incoming && incoming !== seen.incoming
+    const before = new Set(seen.paneKey.split(','))
+    const cell = incoming ?? panes.find((p) => !before.has(p.id))?.cell
+    setSeen({ shape, incoming, paneKey })
+    if (!reduced && (grew || flipped)) {
+      const m = makeRoomFrom(shape, state.ratios, cell)
+      setSeam({ columns: m.columns, rows: m.rows })
+    } else if (seen.shape !== shape) setSeam(null)
+  }
+  useEffect(() => {
+    if (!seam) return
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setSeam(null))
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [seam])
+  const tracks = seam ?? { columns: tpl.columns, rows: tpl.rows }
+
   return (
     <div
       data-testid="focus-split-grid"
       data-shape={shape}
       data-previewing={previewing ? 'true' : 'false'}
+      // While the seam frame is up the transition is off (globals.css), so the
+      // seam is reached at once even mid-slide; it springs from there.
+      data-seam={seam ? 'true' : undefined}
       // Mission-Control feel: an even gap keeps a clean frame between tiles while
       // each pane fills its own tile. gap ≈ clamp(14–22px) — airy, not congested.
       // .fb-split-cluster carries the grid-template-* spring transition (mock).
       className="fb-split-cluster w-full h-full grid"
       style={{
         gap: 'clamp(14px, 1.6vw, 22px)',
-        gridTemplateColumns: tpl.columns,
-        gridTemplateRows: tpl.rows,
+        gridTemplateColumns: tracks.columns,
+        gridTemplateRows: tracks.rows,
         gridTemplateAreas: tpl.areas
       }}
     >

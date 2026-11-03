@@ -3187,3 +3187,24 @@ span.tc-delete {
   }
 }
 
+/* ── Focus view: the make-room slide ───────────────────────────────────────
+   SplitGrid (components/focus/SplitGrid.tsx) paints a growing shape first with
+   its incoming cell collapsed to a seam, then sets the real tracks; this
+   transition springs between the two, so the pane already open shrinks into
+   its cell while the drop well grows out of the seam. The class was referenced
+   from the start but never defined, so the split snapped (fixed 2026-11-03). */
+.fb-split-cluster {
+  transition:
+    grid-template-columns var(--dur-base) var(--ease-spring-snap),
+    grid-template-rows var(--dur-base) var(--ease-spring-snap);
+}
+/* The seam frame is reached at once, not eased into: a well that changes side
+   mid-drag re-opens from its seam instead of drifting. */
+.fb-split-cluster[data-seam='true'] {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-split-cluster {
+    transition: none;
+  }
+}
