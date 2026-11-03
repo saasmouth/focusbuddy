@@ -127,8 +127,8 @@ describe('a website on a share page', () => {
     expect(kind).toBe('embed')
     const frame = host.querySelector('[data-testid="embedded-site-embed"]') as HTMLIFrameElement
     expect(frame.getAttribute('src')!.startsWith('https://www.tradingview-widget.com/embed-widget/market-overview/')).toBe(true)
-    expect(frame.getAttribute('title')).toBe('TradingView futures board, standing in for finviz.com')
-    expect(host.querySelector('[data-testid="embedded-site-label"]')?.textContent).toBe('Live · TradingView futures board')
+    expect(frame.getAttribute('title')).toBe('TradingView markets board, standing in for finviz.com')
+    expect(host.querySelector('[data-testid="embedded-site-label"]')?.textContent).toBe('Live · TradingView markets board')
     expect(host.querySelector('[data-testid="embedded-site-open"]')?.getAttribute('href')).toBe('https://finviz.com/futures')
   })
 

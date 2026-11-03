@@ -390,7 +390,7 @@ export function officialEmbedFor(raw: string | null | undefined): { embedUrl: st
 // What the visitor sees is TradingView's data, so the widget is labelled with
 // what it is, and the original site stays one click away.
 //
-// Only pages whose JOB a widget does are mapped: a screener, a futures board,
+// Only pages whose JOB a widget does are mapped: a screener, a markets board,
 // a crypto market list, an economic calendar, a news FEED. A single article, a
 // single company or a page that needs a sign-in has no equivalent, and keeps
 // its picture or link card.
@@ -412,28 +412,33 @@ const TV_STOCK_HEATMAP = (): string =>
     dataSource: 'SPX500', grouping: 'sector', blockSize: 'market_cap_basic', blockColor: 'change',
     hasTopBar: true, isDataSetEnabled: true, isZoomEnabled: true, hasSymbolTooltip: true
   })
-const TV_FUTURES = (): string =>
+// A markets board, not a futures board: TradingView's free widgets get no data
+// for exchange futures (CME, NYMEX, COMEX, CBOT all came back "No data here
+// yet", measured 2026-11-03), so this shows the index, commodity, FX and
+// crypto prices they do serve, and is labelled as what it is.
+const TV_MARKETS = (): string =>
   tvWidget('market-overview', {
     dateRange: '1D', showChart: true, showSymbolLogo: true, showFloatingTooltip: true,
     tabs: [
       { title: 'Indices', symbols: [
-        { s: 'CME_MINI:ES1!', d: 'S&P 500 E-mini' }, { s: 'CME_MINI:NQ1!', d: 'Nasdaq 100 E-mini' },
-        { s: 'CBOT_MINI:YM1!', d: 'Dow E-mini' }, { s: 'CME_MINI:RTY1!', d: 'Russell 2000 E-mini' }
+        { s: 'FOREXCOM:SPXUSD', d: 'S&P 500' }, { s: 'FOREXCOM:NSXUSD', d: 'Nasdaq 100' },
+        { s: 'FOREXCOM:DJI', d: 'Dow 30' }, { s: 'AMEX:IWM', d: 'Russell 2000 (IWM)' }
       ] },
-      { title: 'Energy', symbols: [{ s: 'NYMEX:CL1!', d: 'Crude oil' }, { s: 'NYMEX:NG1!', d: 'Natural gas' }, { s: 'NYMEX:RB1!', d: 'Gasoline' }] },
-      { title: 'Metals', symbols: [{ s: 'COMEX:GC1!', d: 'Gold' }, { s: 'COMEX:SI1!', d: 'Silver' }, { s: 'COMEX:HG1!', d: 'Copper' }] },
-      { title: 'Rates & FX', symbols: [
-        { s: 'CBOT:ZN1!', d: '10-year note' }, { s: 'CBOT:ZB1!', d: '30-year bond' },
-        { s: 'CME:6E1!', d: 'Euro' }, { s: 'CME:6J1!', d: 'Yen' }
+      { title: 'Energy', symbols: [
+        { s: 'TVC:USOIL', d: 'WTI crude' }, { s: 'TVC:UKOIL', d: 'Brent crude' }, { s: 'CAPITALCOM:NATURALGAS', d: 'Natural gas' }
       ] },
-      { title: 'Grains', symbols: [{ s: 'CBOT:ZC1!', d: 'Corn' }, { s: 'CBOT:ZS1!', d: 'Soybeans' }, { s: 'CBOT:ZW1!', d: 'Wheat' }] }
+      { title: 'Metals', symbols: [{ s: 'TVC:GOLD', d: 'Gold' }, { s: 'TVC:SILVER', d: 'Silver' }, { s: 'CAPITALCOM:COPPER', d: 'Copper' }] },
+      { title: 'FX & crypto', symbols: [
+        { s: 'FX:EURUSD', d: 'EUR/USD' }, { s: 'FX:USDJPY', d: 'USD/JPY' }, { s: 'BITSTAMP:BTCUSD', d: 'Bitcoin' }
+      ] },
+      { title: 'Grains', symbols: [{ s: 'CAPITALCOM:CORN', d: 'Corn' }, { s: 'CAPITALCOM:WHEAT', d: 'Wheat' }] }
     ]
   })
 
 const EQUIVALENTS: Array<{ test: (host: string, path: string) => boolean; label: string; url: () => string }> = [
   // Finviz: screener, futures, heat map, news. Not a single quote page.
   { test: (h, p) => h === 'finviz.com' && /^\/(screener(\.ashx|\/.*)?|screener)$/.test(p), label: 'stock screener', url: TV_STOCK_SCREENER },
-  { test: (h, p) => h === 'finviz.com' && /^\/futures(\.ashx)?$/.test(p), label: 'futures board', url: TV_FUTURES },
+  { test: (h, p) => h === 'finviz.com' && /^\/futures(\.ashx)?$/.test(p), label: 'markets board', url: TV_MARKETS },
   { test: (h, p) => h === 'finviz.com' && /^\/(map\.ashx|map)$/.test(p), label: 'stock heat map', url: TV_STOCK_HEATMAP },
   { test: (h, p) => h === 'finviz.com' && /^\/news(\.ashx|\.php)?$/.test(p), label: 'market news', url: TV_MARKET_NEWS },
   // Crypto market lists.
