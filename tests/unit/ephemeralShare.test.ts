@@ -200,10 +200,14 @@ describe('opening the desk that was sent', () => {
     const src = readFileSync(resolve(__dirname, '../../src/renderer/src/App.tsx'), 'utf8')
     const i = src.indexOf('A share window opens on the desk it was sent')
     expect(i).toBeGreaterThan(-1)
-    const block = src.slice(i, i + 1200)
+    // The whole share effect, however long it grows (a room link added goRoom).
+    const end = src.indexOf('}, [shareView, nodesForShare])', i)
+    expect(end).toBeGreaterThan(i)
+    const block = src.slice(i, end)
     // setActive was the first attempt and it did nothing: an effect below syncs
     // activeTaskId FROM currentView, so the dashboard won on the next render.
     expect(block).toContain('goTask')
+    expect(block).toContain('goRoom')
     expect(block).not.toContain('setActive')
   })
 })
@@ -253,5 +257,25 @@ describe('the gate layer does not sit on top of the desk', () => {
     expect(body.length).toBeGreaterThan(500)
     expect(body).toContain("classList.add('fb-share-bar')")
     expect(body).toContain("classList.remove('fb-share-bar')")
+  })
+})
+
+describe('a room link lands on the room (shareLanding)', () => {
+  const room = { id: 'room', kind: 'folder', parentId: null }
+  it('opens a room with several desks as the room, not as an empty desk', async () => {
+    const { shareLanding, deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
+    const nodes = [room, { id: 'd1', kind: 'task', parentId: 'room' }, { id: 'd2', kind: 'task', parentId: 'room' }]
+    expect(shareLanding(nodes, 'room')).toEqual({ kind: 'room', id: 'room' })
+    // The old answer was the room's own id, opened as a desk.
+    expect(deskToOpen(nodes, 'room')).toBeNull()
+  })
+  it('opens a room holding one desk straight onto that desk', async () => {
+    const { shareLanding } = await import('../../src/renderer/src/lib/shareMode')
+    expect(shareLanding([room, { id: 'd1', kind: 'task', parent_id: 'room' }], 'room')).toEqual({ kind: 'desk', id: 'd1' })
+  })
+  it('still opens a desk link on its desk, and an empty room as the room', async () => {
+    const { shareLanding } = await import('../../src/renderer/src/lib/shareMode')
+    expect(shareLanding([room, { id: 'd1', kind: 'task', parentId: 'room' }], 'd1')).toEqual({ kind: 'desk', id: 'd1' })
+    expect(shareLanding([room], 'room')).toEqual({ kind: 'room', id: 'room' })
   })
 })

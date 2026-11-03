@@ -61,7 +61,7 @@ import { useVaultStore } from './stores/vault'
 import { useAccountStore } from './stores/account'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
-import { isShareRecipient, shareDeskId, deskToOpen, sharePresentation } from './lib/shareMode'
+import { isShareRecipient, shareDeskId, shareLanding, sharePresentation } from './lib/shareMode'
 import { useDeskViewStore } from './stores/deskView'
 import { applyWidgetSkin } from './lib/widgetSkin'
 import { initCrdtSync, stopCrdtSync } from './lib/crdtSync'
@@ -175,9 +175,15 @@ export default function App(): JSX.Element {
   const shareOpened = useRef(false)
   useEffect(() => {
     if (!shareView || shareOpened.current) return
-    const desk = deskToOpen(nodesForShare, shareDeskId())
-    if (!desk) return
+    const landing = shareLanding(nodesForShare, shareDeskId())
+    if (!landing) return
     shareOpened.current = true
+    // A room link lands on the room, its desks as cards (shareLanding says why).
+    if (landing.kind === 'room') {
+      useViewStore.getState().goRoom(landing.id)
+      return
+    }
+    const desk = landing.id
     // The sender's "only this view": held for the visit. (The view itself was
     // already made this desk's last-used one when the copy was unpacked, so an
     // unlocked link opens there too and the visitor may move on.)
