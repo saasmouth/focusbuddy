@@ -9,6 +9,7 @@ import { catalogFor } from '../../lib/widgetCatalog'
 import { registerWebview, unregisterWebviewByWidgetId } from '../../lib/webviewRegistry'
 import { autofillWebview } from '../../lib/vaultAutofill'
 import { normalizeUrl, webviewSrc as resolveWebviewSrc } from '../../lib/browserUrl'
+import { RecentOwnWrites } from '../../lib/recentOwnWrites'
 import { fileSrc } from '../../lib/fileUrl'
 import BrowserSurface, {
   hostnameOf,
@@ -76,6 +77,10 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   const [livePreview, setLivePreview] = useState<{ url: string; title: string } | null>(null)
   // Last URL we persisted into widget.content — avoids redundant DB writes on rapid navs
   const lastPersistedUrl = useRef<string>(widget.content)
+  // EVERY URL we persisted in the last few seconds (lib/recentOwnWrites): the
+  // store's echo of an older save can arrive after newer ones, and taking it
+  // for an outside change reloaded the page in a loop (2026-11-03).
+  const ownWrites = useRef(new RecentOwnWrites(widget.content))
   // ── webviewSrc — the URL we hand BrowserSurface as its load target ────────
   // CRITICAL: this is intentionally NOT derived from widget.content. Binding
   // src={widget.content} causes the webview to reload on every navigation,
@@ -114,6 +119,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
     setDraft(widget.content)
     setEditing(!widget.content)
     lastPersistedUrl.current = widget.content
+    ownWrites.current.reset(widget.content)
     setWebviewSrc(resolveWebviewSrc(widget.content, fileSrc))
     setLivePreview(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,6 +132,10 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   // also sets lastPersistedUrl so we don't double-load there).
   useEffect(() => {
     if (widget.content === lastPersistedUrl.current) return
+    // A late echo of one of OUR saves (an in-page navigation that has since
+    // moved on) is not an outside change: loading it would send the page back
+    // to an address it already left, and restart it.
+    if (ownWrites.current.has(widget.content)) return
     // Genuine external change — sync to webview + adopt as our new baseline.
     lastPersistedUrl.current = widget.content
     setWebviewSrc(resolveWebviewSrc(widget.content, fileSrc))
@@ -143,6 +153,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
         const finalTitle = wvEl.getTitle?.() ?? ''
         if (finalUrl && /^https?:\/\//i.test(finalUrl) && finalUrl !== lastPersistedUrl.current) {
           lastPersistedUrl.current = finalUrl
+          ownWrites.current.note(finalUrl)
           void update(widget.id, {
             content: finalUrl,
             title: finalTitle || hostnameOf(finalUrl)
@@ -163,6 +174,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
     if (url === lastPersistedUrl.current) return
     setLivePreview({ url, title })
     lastPersistedUrl.current = url
+    ownWrites.current.note(url)
     void update(widget.id, {
       content: url,
       title: title || hostnameOf(url)
@@ -272,6 +284,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
     // User-initiated URL change. Mark as our write (so the external-sync
     // useEffect skips it) AND drive the webview load via webviewSrc.
     lastPersistedUrl.current = url
+    ownWrites.current.note(url)
     setWebviewSrc(url)
     void update(widget.id, { content: url, title: hostnameOf(url) })
     setEditing(false)

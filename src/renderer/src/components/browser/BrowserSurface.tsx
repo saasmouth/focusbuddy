@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { navTrailGate } from '@shared/navTrail'
 import Icon from '../Icon'
 import EnginePickerChip from './EnginePickerChip'
@@ -122,15 +122,23 @@ export default function BrowserSurface({
   // never navigates (the widget's proven pattern).
   const [urlDraft, setUrlDraft] = useState('')
   const [urlEditing, setUrlEditing] = useState(false)
-  // Callback ref so the surface's own effects (autofill, registry, popups)
-  // re-run when the element genuinely appears, not on a render race.
-  const setWebviewNode = (el: HTMLElement | null): void => {
-    webviewRef.current = el as WebviewEl | null
-    onWebviewElRef.current?.(el as WebviewEl | null)
-  }
   // Keep the latest onWebviewEl without retriggering the callback ref.
   const onWebviewElRef = useRef(onWebviewEl)
   onWebviewElRef.current = onWebviewEl
+  // Callback ref so the surface's own effects (autofill, registry, popups)
+  // re-run when the element genuinely appears, not on a render race.
+  //
+  // STABLE (useCallback, no deps): React calls a callback ref again whenever
+  // its identity changes — with null, then the element — so a fresh function
+  // per render reported the element twice on EVERY render, and every parent
+  // keeps it in state (setWvEl). Two commit-phase updates per re-render of a
+  // web page: on a desk of busy pages that tipped renders over React's nested
+  // update limit, "Minified React error #185" (owner's crash log, 2026-11-03).
+  // Now: once when the element appears, once (null) when it goes.
+  const setWebviewNode = useCallback((el: HTMLElement | null): void => {
+    webviewRef.current = el as WebviewEl | null
+    onWebviewElRef.current?.(el as WebviewEl | null)
+  }, [])
   const onNavRef = useRef(onNav)
   onNavRef.current = onNav
 
