@@ -43,8 +43,10 @@ import {
 } from './api/readShare'
 import {
   decideShareUpdate, linkRecord, linksSharingDesk, migrateLegacyRecords, othersPresent,
-  requestNewVersion, takeNewVersionRequest, noteVersionDeclined, replaceConfirmation
+  requestNewVersion, takeNewVersionRequest, noteVersionDeclined, replaceConfirmation,
+  keepRecordsForThisPageOnly, recordsArePageOnly
 } from './api/shareVersion'
+import { dbCall } from './api/dbClient'
 import { dropLinkCopy, holdDesk, openLinkDesk, type BundleFetch, type ReplacePlan } from './api/shareDesk'
 import { markShareRecipient, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
 import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
@@ -169,6 +171,11 @@ function EditWarning({ expires, onClose }: { expires: boolean; onClose: () => vo
           <>
             <strong>Nothing here is being saved.</strong> This copy is deleted when the link expires —
             get Plexii free to keep this desk and everything you do to it.
+          </>
+        ) : recordsArePageOnly() ? (
+          <>
+            <strong>This browser cannot keep a copy.</strong> Your changes last until you close or
+            reload this page — get Plexii free to keep this desk and everything you do to it.
           </>
         ) : (
           <>
@@ -379,7 +386,11 @@ function ExpiryBar({
         ) : (
           <>
             <strong>{offer.title || 'Shared desk'}</strong>
-            <span style={S.barFine}> — your copy, in this browser only</span>
+            <span style={S.barFine}>
+              {recordsArePageOnly()
+                ? ' — a copy for this visit: this browser cannot keep it, so it goes when you close or reload the page'
+                : ' — your copy, in this browser only'}
+            </span>
           </>
         )}
       </span>
@@ -540,6 +551,14 @@ function Boot(): React.JSX.Element {
 
         installBrowserApi()
         await installFileServer()
+
+        // Where can this desk live? A browser that refuses durable storage
+        // (phone in-app browsers, private windows) gets a memory-only database
+        // (worker/database.ts). Then this browser's notes about links must not
+        // be trusted or written either, and the page must say plainly that the
+        // copy lasts only until it closes.
+        const where = (await dbCall('shareCopy:storageMode', []).catch(() => null)) as { mode?: string } | null
+        if (where?.mode === 'memory') keepRecordsForThisPageOnly()
 
         const plan = planRef.current
         planRef.current = null

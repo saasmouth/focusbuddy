@@ -22,6 +22,7 @@
 // tests/unit/shareCopyRows.test.ts: this file is the only src/web file that
 // deletes from `nodes`, and only for a subtree it was asked for by root.
 import { getDb } from '../../main/db/database'
+import { storageMode } from './database'
 import {
   importDeskBundle, danglingReferences, fileIdFromContent, fromBase64, DESK_BUNDLE_FORMAT, DESK_BUNDLE_VERSION,
   type DeskBundle, type BundleImportResult
@@ -449,5 +450,7 @@ export const SHARE_COPY_HANDLERS: Record<string, Handler> = {
   'shareCopy:removeDesk': h((rootId: string) => removeDesk(String(rootId ?? ''))),
   'shareCopy:replaceDesk': h((rootIds: string[], bundle: DeskBundle) =>
     replaceDesk(Array.isArray(rootIds) ? rootIds.map(String) : [], bundle)),
-  'shareCopy:importDesk': h((bundle: DeskBundle) => importDeskForShare(bundle))
+  'shareCopy:importDesk': h((bundle: DeskBundle) => importDeskForShare(bundle)),
+  // Durable (OPFS) or this page only (memory): decides what the page promises.
+  'shareCopy:storageMode': h(() => storageMode())
 }
