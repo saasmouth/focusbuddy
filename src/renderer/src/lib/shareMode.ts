@@ -83,15 +83,41 @@ export function shareDeskId(): string | null {
  * seen shows an empty canvas.
  */
 export function deskToOpen(
-  nodes: ReadonlyArray<{ id: string; kind: string; archived?: boolean | null }>,
+  nodes: ReadonlyArray<{ id: string; kind: string; archived?: boolean | null; parent_id?: string | null; parentId?: string | null }>,
   wantedId: string | null
 ): string | null {
-  if (wantedId) {
-    const exact = nodes.find((n) => n.id === wantedId)
-    if (exact) return exact.id
-  }
+  const landing = shareLanding(nodes, wantedId)
+  return landing?.kind === 'desk' ? landing.id : null
+}
+
+type LandingNode = { id: string; kind: string; archived?: boolean | null; parent_id?: string | null; parentId?: string | null }
+
+/**
+ * Where a share window lands: a desk, or -- for a link to a ROOM -- that room.
+ *
+ * A room link's bundle names the room (a 'folder' node) as its root. Opening
+ * that id as a desk showed the room as an empty desk ("This desk has no
+ * objects yet"), with every desk the sender shared hidden inside it. So a room
+ * opens as a room -- its desks as cards -- unless it holds exactly one desk,
+ * which opens straight away.
+ *
+ * Null while the nodes are still loading, which the caller must treat as "not
+ * yet": navigating to an id the store has not seen shows nothing.
+ */
+export function shareLanding(
+  nodes: ReadonlyArray<LandingNode>,
+  wantedId: string | null
+): { kind: 'desk' | 'room'; id: string } | null {
+  const parentOf = (n: LandingNode): string | null => n.parentId ?? n.parent_id ?? null
   const desks = nodes.filter((n) => n.kind === 'task' && !n.archived)
-  return desks.length > 0 ? desks[0].id : null
+  const exact = wantedId ? nodes.find((n) => n.id === wantedId) : undefined
+  if (exact && exact.kind === 'task') return { kind: 'desk', id: exact.id }
+  if (exact && exact.kind === 'folder') {
+    const inside = desks.filter((d) => parentOf(d) === exact.id)
+    if (inside.length === 1) return { kind: 'desk', id: inside[0].id }
+    return { kind: 'room', id: exact.id }
+  }
+  return desks.length > 0 ? { kind: 'desk', id: desks[0].id } : null
 }
 
 // ── How the sender presented the desk ────────────────────────────────────────

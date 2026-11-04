@@ -73,6 +73,9 @@ export function createBrowserApi(): Record<string, Record<string, unknown>> {
  * browser that refuses Service Workers (a private window in some browsers) is
  * better off with a working app and blank images than no app at all.
  */
+/** How long the desk waits for its file server before opening without it. */
+export const FILE_SERVER_WAIT_MS = 4000
+
 export async function installFileServer(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
   try {
@@ -81,8 +84,17 @@ export async function installFileServer(): Promise<void> {
     // to the prefix cannot control a page outside it -- which is why the share
     // route lives under the same prefix as the app.
     const base = webBase()
-    await navigator.serviceWorker.register(`${base}fb-file-sw.js`, { scope: base })
-    await navigator.serviceWorker.ready
+    // Bounded. Phone in-app browsers can accept the registration and never
+    // activate the worker, and `ready` then never settles: the desk sat on
+    // "Opening the desk..." for good. The worker only serves pictures and media,
+    // so after a few seconds the desk opens without it rather than not at all.
+    const ready = (async () => {
+      await navigator.serviceWorker.register(`${base}fb-file-sw.js`, { scope: base })
+      await navigator.serviceWorker.ready
+      return true
+    })()
+    const inTime = await Promise.race([ready, new Promise<false>((r) => setTimeout(() => r(false), FILE_SERVER_WAIT_MS))])
+    if (!inTime) console.warn(`[plexii] file server not ready after ${FILE_SERVER_WAIT_MS / 1000} s; opening without it, so images and media may not load`)
   } catch (err) {
     console.warn('[plexii] file server unavailable; images and media will not load', err)
   }

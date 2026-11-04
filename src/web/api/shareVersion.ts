@@ -149,8 +149,28 @@ function sanitizeRecord(raw: unknown): LinkRecord | null {
   }
 }
 
+/**
+ * Set when the workspace database could only open in memory. The records are
+ * this browser's notes about which desks it holds; with nothing durable behind
+ * them they must not outlive the page either, or a return visit would trust a
+ * note about a desk that no longer exists and open an empty one. So they move
+ * into memory with the database and go when it goes.
+ */
+let pageOnly: { records: LinkRecords; untracked: boolean } | null = null
+
+/** The database is memory-only: keep every link note for this page alone. */
+export function keepRecordsForThisPageOnly(): void {
+  if (!pageOnly) pageOnly = { records: {}, untracked: false }
+}
+
+/** True when nothing this page does will be here after it closes. */
+export function recordsArePageOnly(): boolean {
+  return pageOnly !== null
+}
+
 /** Every link this browser holds a desk from. Empty when there are none or they cannot be read. */
 export function readLinkRecords(): LinkRecords {
+  if (pageOnly) return { ...pageOnly.records }
   try {
     const raw = localStorage.getItem(LINKS_KEY)
     if (!raw) return {}
@@ -168,6 +188,10 @@ export function readLinkRecords(): LinkRecords {
 }
 
 function writeLinkRecords(records: LinkRecords): void {
+  if (pageOnly) {
+    pageOnly.records = { ...records }
+    return
+  }
   try {
     if (Object.keys(records).length === 0) localStorage.removeItem(LINKS_KEY)
     else localStorage.setItem(LINKS_KEY, JSON.stringify(records))
@@ -198,6 +222,7 @@ export function linksSharingDesk(token: string): string[] {
 
 /** May this browser hold desks no record accounts for? (an older build's copy) */
 export function untrackedDesksPossible(): boolean {
+  if (pageOnly) return pageOnly.untracked
   try {
     return localStorage.getItem(UNTRACKED_KEY) === '1'
   } catch {
@@ -207,6 +232,10 @@ export function untrackedDesksPossible(): boolean {
 }
 
 export function setUntrackedDesksPossible(possible: boolean): void {
+  if (pageOnly) {
+    pageOnly.untracked = possible
+    return
+  }
   try {
     if (possible) localStorage.setItem(UNTRACKED_KEY, '1')
     else localStorage.removeItem(UNTRACKED_KEY)
@@ -349,6 +378,10 @@ export function forgetLinkRecordsForDesk(rootId: string): void {
 
 /** The whole store is gone; so is everything known about it. */
 export function forgetAllLinkRecords(): void {
+  if (pageOnly) {
+    pageOnly = { records: {}, untracked: false }
+    return
+  }
   try {
     for (const k of [LINKS_KEY, UNTRACKED_KEY, LEGACY_IMPORTED_KEY, LEGACY_OFFER_KEY, LEGACY_COPY_KEY]) localStorage.removeItem(k)
   } catch {
