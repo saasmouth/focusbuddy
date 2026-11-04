@@ -21,6 +21,8 @@
 //        not in its widget's DOM.
 //   WV-2 focus tiled: browser pane beside the table pane; the page renders
 //        inline in its pane.
+//   WV-3 the standalone Browser (the web panel at the right of the window,
+//        outside the desk): dragged from it onto a table on the desk.
 
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { createServer, type Server } from 'node:http'
@@ -322,4 +324,28 @@ test('WV-2 — focus tiled: the browser pane beside the table pane; a picture dr
   const webviewSel = '[data-testid="focus-split-grid"][data-previewing="false"] webview'
   await expect(window.locator(webviewSel)).toHaveCount(1, { timeout: 10_000 })
   await proveBrowserDrop(window, app, seed, webviewSel, '[data-testid="focus-split-grid"][data-previewing="false"] [data-testid="table-cell-0-1"]', 'WV-2-browser-drag-split')
+})
+
+test('WV-3 — the standalone Browser (web panel): a picture dragged from it onto a table on the desk lands', async () => {
+  test.setTimeout(120_000)
+  const { window, app, seed } = await boot()
+  // The table on the desk's left, clear of the panel that opens on the right.
+  await window.evaluate(async ({ table }) => {
+    const st = (window as unknown as { __fbWidgets: { getState: () => { update: (id: string, p: Record<string, number>) => Promise<void> } } }).__fbWidgets.getState()
+    await st.update(table, { x: 300, y: 520 })
+  }, { table: seed.table })
+  await window.evaluate((url: string) => {
+    ;(window as unknown as { __fbWebPanel: { getState: () => { openWeb: (u: string, o?: { expanded?: boolean }) => void } } }).__fbWebPanel.getState().openWeb(url, { expanded: false })
+  }, `${origin}/page?panel=1`)
+  const panel = window.locator('[data-testid="web-panel"][data-expanded="false"]')
+  await expect(panel).toBeVisible({ timeout: 10_000 })
+  const webviewSel = '[data-testid="web-panel"] webview'
+  await expect(window.locator(webviewSel)).toHaveCount(1, { timeout: 10_000 })
+  const cellSel = `[data-widget-id="${seed.table}"] [data-testid="table-cell-0-1"]`
+  await expect(window.locator(cellSel)).toBeVisible({ timeout: 10_000 })
+  // The panel does not cover the cell.
+  const cb = (await window.locator(cellSel).boundingBox())!
+  const pb = (await panel.boundingBox())!
+  expect(cb.x + cb.width, 'the table cell is left of the panel').toBeLessThan(pb.x)
+  await proveBrowserDrop(window, app, seed, webviewSel, cellSel, 'WV-3-browser-drag-web-panel')
 })
