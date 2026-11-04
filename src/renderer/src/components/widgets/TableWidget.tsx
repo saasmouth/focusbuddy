@@ -25,6 +25,7 @@ import { useActionHistory } from '../../stores/actionHistory'
 import { useWidgetStore } from '../../stores/widgets'
 import { tableFitWidth } from '@shared/widgetSizing'
 import FieldEditor from '../fields/FieldEditor'
+import { ATTACHMENT_DROP_OVER_CLASS, AttachmentDropZone, type AttachmentDropBinding } from '../fields/AttachmentDrop'
 import { DOC_DRAG_MIME, readDocDrag, primeDocMeta } from '../../lib/docMetaCache'
 import RelationConfigEditor from '../fields/RelationConfigEditor'
 import { coerceCellValue } from '../../lib/actionExecutor'
@@ -544,6 +545,12 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
   function row0Cells(rowId: string): Record<string, unknown> {
     return rows.find((r) => r.id === rowId)?.cells ?? {}
   }
+  // A cell's value as the store holds it NOW: a dropped picture may take
+  // seconds to fetch, and whatever landed meanwhile must be kept.
+  function latestCell(rowId: string, columnId: string): unknown {
+    if (!tableId) return undefined
+    return useTablesStore.getState().rows[tableId]?.find((r) => r.id === rowId)?.cells[columnId]
+  }
   function cellAcceptsDoc(e: React.DragEvent, col: { type: string }): void {
     if (col.type === 'doc-ref' && e.dataTransfer.types.includes(DOC_DRAG_MIME)) {
       e.preventDefault()
@@ -949,65 +956,83 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
             </button>
           </div>
         </td>
-        {table!.schema.columns.map((col, ci) => (
-          <td
-            key={col.id}
-            data-testid={`table-cell-${idx}-${ci}`}
-            className={`border-r border-[var(--edge-soft)] align-top ${
-              cellSelectable && inCellRange(selRange, idx, ci) ? 'bg-accent/[0.12]' : ''
-            } ${
-              cellSelectable && activeCell?.r === idx && activeCell?.c === ci
-                ? 'ring-2 ring-inset ring-accent'
-                : ''
-            }`}
-            style={{ minWidth: 140 }}
-            onMouseDownCapture={(e) => {
-              // Was this cell being edited BEFORE the right-click? The press
-              // itself focuses the cell's input, so that must be read now. A
-              // cell that was not being edited stays that way: the press does
-              // not move focus into it (the cell menu opens instead).
-              if (e.button !== 2) return
-              cellEditingAtRightDown.current = cellIsBeingEdited(e.currentTarget)
-              if (!cellEditingAtRightDown.current) e.preventDefault()
-            }}
-            onMouseDown={(e) => onCellSelDown(idx, ci, e.shiftKey)}
-            onMouseEnter={() => onCellSelEnter(idx, ci)}
-            onDragOver={(e) => cellAcceptsDoc(e, col)}
-            onDrop={(e) => onCellDocDrop(e, row.id, col)}
-            onContextMenu={(e) => {
-              // As in PlexiiCells (SPEC §9.3): a cell being edited is text, so
-              // its right-click is the text menu's; a cell that is not being
-              // edited is an object, and gets the cell menu. Every cell is an
-              // input, so "being edited" means it had focus before the press
-              // (or has it now, for the keyboard's menu key).
-              const editing = cellEditingAtRightDown.current ?? cellIsBeingEdited(e.currentTarget)
-              cellEditingAtRightDown.current = null
-              if (editing && isTextContextTarget(e.target)) return
-              e.preventDefault()
-              const rawCell = row.cells[col.id]
-              const cellStr =
-                rawCell == null
-                  ? ''
-                  : typeof rawCell === 'string'
-                    ? rawCell
-                    : String(rawCell)
-              setCellCtxMenu({
-                x: e.clientX,
-                y: e.clientY,
-                columnLabel: col.label,
-                cellText: cellStr,
-                rowId: row.id
-              })
-            }}
-          >
-            <FieldEditor
-              def={col}
-              value={row.cells[col.id] ?? defaultValue(col.type)}
-              variant="cell"
-              onCommit={(next) => commitCell(row.id, col.id, next)}
-            />
-          </td>
-        ))}
+        {table!.schema.columns.map((col, ci) => {
+          // An attachment cell is a drop zone as a whole (AttachmentDropZone):
+          // a picture dragged in from a browser, or a file from Finder, is
+          // attached to this record. Other cells keep the office-file drop.
+          const cell = (drop?: AttachmentDropBinding): JSX.Element => (
+            <td
+              key={col.id}
+              data-testid={`table-cell-${idx}-${ci}`}
+              data-attachment-drop={drop ? (drop.over ? 'over' : 'idle') : undefined}
+              className={`border-r border-[var(--edge-soft)] align-top ${
+                cellSelectable && inCellRange(selRange, idx, ci) ? 'bg-accent/[0.12]' : ''
+              } ${
+                cellSelectable && activeCell?.r === idx && activeCell?.c === ci
+                  ? 'ring-2 ring-inset ring-accent'
+                  : ''
+              } ${drop?.over ? ATTACHMENT_DROP_OVER_CLASS : ''}`}
+              style={{ minWidth: 140 }}
+              onMouseDownCapture={(e) => {
+                // Was this cell being edited BEFORE the right-click? The press
+                // itself focuses the cell's input, so that must be read now. A
+                // cell that was not being edited stays that way: the press does
+                // not move focus into it (the cell menu opens instead).
+                if (e.button !== 2) return
+                cellEditingAtRightDown.current = cellIsBeingEdited(e.currentTarget)
+                if (!cellEditingAtRightDown.current) e.preventDefault()
+              }}
+              onMouseDown={(e) => onCellSelDown(idx, ci, e.shiftKey)}
+              onMouseEnter={() => onCellSelEnter(idx, ci)}
+              onDragEnter={drop?.handlers.onDragEnter}
+              onDragLeave={drop?.handlers.onDragLeave}
+              onDragOver={drop ? drop.handlers.onDragOver : (e) => cellAcceptsDoc(e, col)}
+              onDrop={drop ? drop.handlers.onDrop : (e) => onCellDocDrop(e, row.id, col)}
+              onContextMenu={(e) => {
+                // As in PlexiiCells (SPEC §9.3): a cell being edited is text, so
+                // its right-click is the text menu's; a cell that is not being
+                // edited is an object, and gets the cell menu. Every cell is an
+                // input, so "being edited" means it had focus before the press
+                // (or has it now, for the keyboard's menu key).
+                const editing = cellEditingAtRightDown.current ?? cellIsBeingEdited(e.currentTarget)
+                cellEditingAtRightDown.current = null
+                if (editing && isTextContextTarget(e.target)) return
+                e.preventDefault()
+                const rawCell = row.cells[col.id]
+                const cellStr =
+                  rawCell == null
+                    ? ''
+                    : typeof rawCell === 'string'
+                      ? rawCell
+                      : String(rawCell)
+                setCellCtxMenu({
+                  x: e.clientX,
+                  y: e.clientY,
+                  columnLabel: col.label,
+                  cellText: cellStr,
+                  rowId: row.id
+                })
+              }}
+            >
+              <FieldEditor
+                def={col}
+                value={row.cells[col.id] ?? defaultValue(col.type)}
+                variant="cell"
+                onCommit={(next) => commitCell(row.id, col.id, next)}
+              />
+            </td>
+          )
+          if (col.type !== 'attachment') return cell()
+          return (
+            <AttachmentDropZone
+              key={col.id}
+              current={() => latestCell(row.id, col.id)}
+              commit={(next) => commitCell(row.id, col.id, next)}
+            >
+              {(drop) => cell(drop)}
+            </AttachmentDropZone>
+          )
+        })}
         <td className="border-r border-[var(--edge-soft)]" />
       </tr>
     )
@@ -1120,6 +1145,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           rows={filteredRows}
           viewConfig={viewConfig}
           commitCell={commitCell}
+          readCell={latestCell}
           addRow={() => void addRow(table.id)}
           deleteRow={(id) => void deleteRow(id)}
           setViewConfig={setViewConfig}
@@ -1131,6 +1157,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           rows={filteredRows}
           viewConfig={viewConfig}
           commitCell={commitCell}
+          readCell={latestCell}
           addRow={() => void addRow(table.id)}
           deleteRow={(id) => void deleteRow(id)}
           setViewConfig={setViewConfig}
@@ -1142,6 +1169,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           rows={filteredRows}
           viewConfig={viewConfig}
           commitCell={commitCell}
+          readCell={latestCell}
           addRow={() => void addRow(table.id)}
           deleteRow={(id) => void deleteRow(id)}
           setViewConfig={setViewConfig}

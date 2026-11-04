@@ -6,6 +6,7 @@ import type {
   TableViewConfig
 } from '@shared/fields'
 import FieldEditor from '../fields/FieldEditor'
+import { ATTACHMENT_DROP_OVER_CLASS, AttachmentDropZone } from '../fields/AttachmentDrop'
 import { defaultValue } from '@shared/fields'
 import Icon from '../Icon'
 
@@ -32,6 +33,49 @@ interface ViewProps {
   // Updates the view config (the per-view config bar uses this to repin
   // which column drives kanban lanes / calendar dates / etc.).
   setViewConfig: (next: TableViewConfig) => void
+  // A cell's value as stored NOW (TableWidget reads its store). A picture
+  // dropped on an attachment field appends to this when its fetch lands, not to
+  // the value it was rendered with.
+  readCell?: (rowId: string, columnId: string) => unknown
+}
+
+/**
+ * One field's block (its label and its editor). An attachment field's block is
+ * a drop zone as a whole: a picture dragged in from a browser, or a file from
+ * Finder, dropped anywhere on it is attached to this record.
+ */
+function FieldBlock({
+  col,
+  row,
+  commitCell,
+  readCell,
+  className,
+  children
+}: {
+  col: FieldDefinition
+  row: FbRow
+  commitCell: ViewProps['commitCell']
+  readCell?: ViewProps['readCell']
+  className: string
+  children: React.ReactNode
+}): JSX.Element {
+  if (col.type !== 'attachment') return <div className={className}>{children}</div>
+  return (
+    <AttachmentDropZone
+      current={() => (readCell ? readCell(row.id, col.id) : row.cells[col.id])}
+      commit={(next) => commitCell(row.id, col.id, next)}
+    >
+      {(drop) => (
+        <div
+          {...drop.handlers}
+          data-attachment-drop={drop.over ? 'over' : 'idle'}
+          className={`${className} rounded ${drop.over ? ATTACHMENT_DROP_OVER_CLASS : ''}`}
+        >
+          {children}
+        </div>
+      )}
+    </AttachmentDropZone>
+  )
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -122,7 +166,8 @@ export function ListView({
   viewConfig,
   commitCell,
   addRow,
-  deleteRow
+  deleteRow,
+  readCell
 }: ViewProps): JSX.Element {
   const titleCol = pickTitleColumn(schema, viewConfig)
   const detailCols = schema.columns.filter((c) => c.id !== titleCol?.id)
@@ -148,8 +193,12 @@ export function ListView({
               {detailCols.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-2.5">
                   {detailCols.map((c) => (
-                    <div
+                    <FieldBlock
                       key={c.id}
+                      col={c}
+                      row={row}
+                      commitCell={commitCell}
+                      readCell={readCell}
                       className="inline-flex items-center gap-1 text-[11px] min-w-0"
                     >
                       <span className="text-[var(--ink-40)] uppercase tracking-wider">
@@ -163,7 +212,7 @@ export function ListView({
                           onCommit={(v) => commitCell(row.id, c.id, v)}
                         />
                       </div>
-                    </div>
+                    </FieldBlock>
                   ))}
                 </div>
               )}
@@ -195,7 +244,8 @@ export function CardsView({
   viewConfig,
   commitCell,
   addRow,
-  deleteRow
+  deleteRow,
+  readCell
 }: ViewProps): JSX.Element {
   const titleCol = pickTitleColumn(schema, viewConfig)
   const detailCols = schema.columns.filter((c) => c.id !== titleCol?.id)
@@ -220,7 +270,14 @@ export function CardsView({
               </div>
             )}
             {detailCols.map((c) => (
-              <div key={c.id} className="flex flex-col gap-0.5">
+              <FieldBlock
+                key={c.id}
+                col={c}
+                row={row}
+                commitCell={commitCell}
+                readCell={readCell}
+                className="flex flex-col gap-0.5"
+              >
                 <span className="text-[9px] uppercase tracking-wider text-[var(--ink-40)]">
                   {c.label}
                 </span>
@@ -230,7 +287,7 @@ export function CardsView({
                   variant="cell"
                   onCommit={(v) => commitCell(row.id, c.id, v)}
                 />
-              </div>
+              </FieldBlock>
             ))}
             <button
               onClick={() => deleteRow(row.id)}
