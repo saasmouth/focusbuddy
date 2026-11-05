@@ -201,7 +201,9 @@ test('WL-3 — a widget on top of a page stays on top: you see it, and a click l
   // What is actually painted there: the sticky, not the page's green.
   const painted = await app.evaluate(async ({ BrowserWindow }, p: { x: number; y: number }) => {
     const win = BrowserWindow.getAllWindows().find((w) => w.isVisible())!
-    const img = await win.webContents.capturePage({ x: p.x, y: p.y, width: 1, height: 1 })
+    // Page pixels to window points: the window may be zoomed (capturePage takes points).
+    const z = win.webContents.getZoomFactor()
+    const img = await win.webContents.capturePage({ x: Math.round(p.x * z), y: Math.round(p.y * z), width: 1, height: 1 })
     const b = img.toBitmap() // BGRA
     return [b[2], b[1], b[0]]
   }, { x: px, y: py })
@@ -210,7 +212,9 @@ test('WL-3 — a widget on top of a page stays on top: you see it, and a click l
   // And where only the page is, it IS the page.
   const pagePixel = await app.evaluate(async ({ BrowserWindow }, p: { x: number; y: number }) => {
     const win = BrowserWindow.getAllWindows().find((w) => w.isVisible())!
-    const img = await win.webContents.capturePage({ x: p.x, y: p.y, width: 1, height: 1 })
+    // Page pixels to window points: the window may be zoomed (capturePage takes points).
+    const z = win.webContents.getZoomFactor()
+    const img = await win.webContents.capturePage({ x: Math.round(p.x * z), y: Math.round(p.y * z), width: 1, height: 1 })
     const b = img.toBitmap()
     return [b[2], b[1], b[0]]
     // Right-hand side, clear of the floating side menu (glass: it tints what is under it).
