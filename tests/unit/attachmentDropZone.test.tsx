@@ -225,6 +225,33 @@ describe('inside a zone that owns the drop (a table cell, a List or Cards block)
     expect(parentDrops).toEqual([])
   })
 
+  it('a picture let go ON an attachment already in the cell (its thumbnail, its name) is the cell’s drop', async () => {
+    // The real drag in attachmentDropNative NAT-1 (a7, 2026-11-05, uiScale 0.9)
+    // was released over the existing picture's chip, not the cell's empty part.
+    // A person aims at the picture that is there, so that spot must take it too.
+    const commits: unknown[] = []
+    const parentDrops: string[] = []
+    renderCell(['old'], commits, parentDrops)
+    await settle()
+    const thumb = host.querySelector('[data-testid="attachment-chip"] [data-testid="attachment-thumb"]')
+    const name = host.querySelector('[data-testid="attachment-chip"] a')
+    expect(thumb, 'the existing picture shows as a thumbnail').not.toBeNull()
+    expect(name, 'and its name').not.toBeNull()
+    const over = fire(thumb!, 'dragover', { 'text/uri-list': 'https://e.com/a.png' })
+    expect(over.defaultPrevented, 'the drop is accepted over the thumbnail').toBe(true)
+    expect(host.querySelector('[data-testid="cell"]')!.getAttribute('data-over')).toBe('true')
+    const drop = fire(thumb!, 'drop', { 'text/uri-list': 'https://e.com/a.png' })
+    expect(drop.defaultPrevented).toBe(true)
+    fire(name!, 'drop', { 'text/uri-list': 'https://e.com/b.png' })
+    await settle()
+    expect(ingestUrl).toHaveBeenCalledTimes(2)
+    expect(commits).toEqual([
+      { by: 'cell', v: ['old', 'new-1'] },
+      { by: 'cell', v: ['old', 'new-2'] }
+    ])
+    expect(parentDrops, 'the desk underneath takes nothing').toEqual([])
+  })
+
   it('the editor inside shows the cell’s progress', async () => {
     let release: () => void = () => undefined
     ingestUrl.mockImplementationOnce(() => new Promise((r) => { release = () => r({ ok: true, file: { id: 'x' } }) }))

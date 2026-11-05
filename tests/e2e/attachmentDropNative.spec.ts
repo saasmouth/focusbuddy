@@ -17,7 +17,9 @@
 //
 // Real input owns the one screen: the lock (_realInputLock) is held from
 // beforeAll to afterAll, the window is pinned on top, and the cursor is put
-// back where it was.
+// back where it was. It takes the owner's pointer, so it runs only with
+// PLEXII_REAL_INPUT=1, once they have said the Mac is free; a hand on the mouse
+// mid-run is reported as such (the driven-path check), not as a failed drop.
 
 import { test, expect, type Page } from '@playwright/test'
 import { createServer, type Server } from 'node:http'
@@ -26,9 +28,21 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 import { acquireRealInput, releaseRealInput } from './_realInputLock'
-import { cursorLocation, moveMouse, path, pinWindowForRealInput, postMouse, screenIsLocked, unpinWindow, type ScreenPoint } from './_macMouse'
+import {
+  cursorLocation,
+  moveMouse,
+  path,
+  pinWindowForRealInput,
+  postMouse,
+  realInputAllowed,
+  REAL_INPUT_SKIP,
+  screenIsLocked,
+  unpinWindow,
+  type ScreenPoint
+} from './_macMouse'
 
 test.skip(process.platform !== 'darwin', 'posts macOS mouse events')
+test.skip(!realInputAllowed(), REAL_INPUT_SKIP)
 // A locked screen takes every real event: nothing could reach the app, and a
 // red here would blame the app for it. Say so instead (the DevTools-level
 // proof, attachmentDropWebviewDrag.spec.ts, needs no screen).
@@ -168,8 +182,10 @@ const deskObjects = (window: Page, taskId: string): Promise<string[]> =>
 
 /**
  * The centre of the page's <img>, in the desk page's coordinates: the guest's
- * own rect, scaled and offset by where the <webview> sits (the web layer
- * scales a page to the canvas zoom).
+ * own rect, scaled and offset by where the <webview> sits. The scale is the
+ * webview's drawn width over the guest's own viewport width, so it holds
+ * whatever zooms are in play: the web layer's canvas zoom, the app's uiScale
+ * (0.9 on a 1512x904 screen) and the guest's own zoom, followed or not.
  */
 async function pictureInPage(window: Page, webviewSel: string): Promise<{ x: number; y: number }> {
   await expect
@@ -190,27 +206,39 @@ async function pictureInPage(window: Page, webviewSel: string): Promise<{ x: num
   return window.evaluate(async (sel) => {
     const wv = document.querySelector(sel) as HTMLElement & { executeJavaScript: (c: string) => Promise<unknown> }
     const r = wv.getBoundingClientRect()
-    const scale = r.width / (wv.offsetWidth || r.width)
     const g = (await wv.executeJavaScript(
-      '(() => { const b = document.getElementById("pic").getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } })()'
-    )) as { x: number; y: number }
+      '(() => { const b = document.getElementById("pic").getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, iw: window.innerWidth } })()'
+    )) as { x: number; y: number; iw: number }
+    const scale = r.width / (g.iw || r.width)
     return { x: r.left + g.x * scale, y: r.top + g.y * scale }
   }, webviewSel)
 }
 
-/** Record every drag event the desk's own page sees (capture phase), for the log and the assertions. */
+/**
+ * Record every drag event the desk's own page sees (capture phase), for the log
+ * and the assertions. An event inside a table cell names the cell first
+ * ("table-cell-0-1>attachment-chip"): the cell owns the drop wherever in it the
+ * pointer is let go, and a real hand aims at the picture already there (NAT-1,
+ * a7 2026-11-05, let go over the existing chip). Every dragover's point is kept
+ * too, to tell a pointer that left the path this spec drives from a drop that
+ * went wrong.
+ */
 async function watchDrags(window: Page): Promise<void> {
   await window.evaluate(() => {
-    const w = window as unknown as { __dragLog: string[]; __dropTypes: string[] }
+    const w = window as unknown as { __dragLog: string[]; __dropTypes: string[]; __dragPts: Array<{ x: number; y: number }> }
     w.__dragLog = []
     w.__dropTypes = []
+    w.__dragPts = []
     for (const t of ['dragenter', 'dragover', 'dragleave', 'drop', 'dragend']) {
       window.addEventListener(
         t,
         (e) => {
           const ev = e as DragEvent
           const el = ev.target as HTMLElement | null
-          const where = el?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? el?.tagName ?? '?'
+          const inner = el?.closest?.('[data-testid]')?.getAttribute('data-testid') ?? el?.tagName ?? '?'
+          const cell = el?.closest?.('[data-testid^="table-cell-"]')?.getAttribute('data-testid')
+          const where = cell && cell !== inner ? `${cell}>${inner}` : inner
+          if (t === 'dragover' && w.__dragPts.length < 600) w.__dragPts.push({ x: ev.clientX, y: ev.clientY })
           if (t === 'drop') w.__dropTypes = Array.from(ev.dataTransfer?.types ?? [])
           const last = w.__dragLog[w.__dragLog.length - 1]
           const entry = `${t}@${where}`
@@ -220,6 +248,14 @@ async function watchDrags(window: Page): Promise<void> {
       )
     }
   })
+}
+
+function distanceToSegment(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
 }
 
 async function realDrag(from: ScreenPoint, to: ScreenPoint): Promise<void> {
@@ -258,12 +294,31 @@ async function proveRealDrop(
   const under = await window.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-attachment-drop]')?.getAttribute('data-attachment-drop') ?? null, target)
   expect(under, 'the attachment cell is what sits under the drop point').not.toBeNull()
   await watchDrags(window)
-  await realDrag(await toScreenOf(window, pic), await toScreenOf(window, target))
+  const to = await toScreenOf(window, target)
+  await realDrag(await toScreenOf(window, pic), to)
+  const cursorAfter = cursorLocation()
   const log = await window.evaluate(() => (window as unknown as { __dragLog: string[] }).__dragLog.join(' '))
   const types = await window.evaluate(() => (window as unknown as { __dropTypes: string[] }).__dropTypes)
   console.log(`[${shot}] desk drag log: ${log}`)
   console.log(`[${shot}] drop carried: ${JSON.stringify(types)}`)
-  expect(log, 'the drag out of the browser reached the desk page and was dropped on the cell').toMatch(/drop@table-cell-0-1/)
+  // The pointer must have followed the path this spec drove: a straight line
+  // from the picture to the cell (the nudge that starts the drag is under
+  // 20 page px off it). A point far off it means the pointer was moved by
+  // something else (a hand on the mouse: the owner works at this Mac) or the
+  // app reads drag positions wrongly; either way the drop's result proves
+  // nothing about the drop, so say which, before blaming the drop.
+  const pts = await window.evaluate(() => (window as unknown as { __dragPts: Array<{ x: number; y: number }> }).__dragPts)
+  const offPath = pts
+    .map((q) => ({ ...q, off: Math.round(distanceToSegment(q, pic, target)) }))
+    .filter((q) => q.off > 40)
+  const moved = Math.hypot(cursorAfter.x - to.x, cursorAfter.y - to.y)
+  console.log(`[${shot}] dragover points: ${pts.length}, off the driven path: ${offPath.length}; cursor ${Math.round(moved)} px from the release point`)
+  expect(
+    offPath.slice(0, 5),
+    `${offPath.length} of ${pts.length} drag points were over 40 px off the driven path` +
+      ` (cursor ended ${Math.round(moved)} px from the release point): someone moved the mouse during the run, or drag positions are mapped wrongly`
+  ).toEqual([])
+  expect(log, 'the drag out of the browser reached the desk page and was dropped in the cell').toMatch(/drop@table-cell-0-1(?:>|\s|$)/)
   await expect.poll(() => attachments(window, seed), { timeout: 20_000, message: 'one more attachment' }).toHaveLength(before.length + 1)
   const after = await attachments(window, seed)
   expect(after.slice(0, before.length), 'appended, nothing replaced').toEqual(before)

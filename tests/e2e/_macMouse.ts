@@ -37,6 +37,17 @@ export function screenIsLocked(): boolean {
   }
 }
 
+/**
+ * May this run move the real mouse and keyboard? The owner works at this Mac
+ * while suites run (2026-11-05): real input takes their pointer, so a spec that
+ * posts it runs only when asked for, with PLEXII_REAL_INPUT=1 set once the owner
+ * has said the Mac is free. Use: test.skip(!realInputAllowed(), REAL_INPUT_SKIP).
+ */
+export function realInputAllowed(): boolean {
+  return process.env.PLEXII_REAL_INPUT === '1'
+}
+export const REAL_INPUT_SKIP = 'moves the real mouse: set PLEXII_REAL_INPUT=1 once the owner has said the Mac is free'
+
 /** Where the OS cursor is now, in global display coordinates. */
 export function cursorLocation(): ScreenPoint {
   return JSON.parse(
