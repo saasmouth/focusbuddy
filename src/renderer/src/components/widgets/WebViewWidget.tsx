@@ -315,6 +315,32 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   const partition = widget.sourceAppId
     ? `persist:connectedapp-${widget.sourceAppId}`
     : 'persist:webview-default'
+
+  // Whether the site on screen may show notifications (main/webNotifications):
+  // blocked until allowed, per site. Null where the runtime cannot say, and for
+  // a connected app (always allowed), so the menu offers no switch there.
+  const [notifAllowed, setNotifAllowed] = useState<boolean | null>(null)
+  const notifOrigin = (() => {
+    try {
+      return new URL(livePreview?.url ?? widget.content).origin
+    } catch {
+      return ''
+    }
+  })()
+  useEffect(() => {
+    const api = window.api.webNotifications
+    if (widget.sourceAppId || !api || !notifOrigin) {
+      setNotifAllowed(null)
+      return
+    }
+    let live = true
+    void api.get(notifOrigin).then((on) => {
+      if (live) setNotifAllowed(on)
+    })
+    return () => {
+      live = false
+    }
+  }, [notifOrigin, widget.sourceAppId])
   // A widget bound to a connected app is another window onto that app's
   // session, so the page it settles on feeds the same signed-out detector.
   useSignInWatch(wvEl as unknown as HTMLElement | null, widget.sourceAppId ?? null)
@@ -637,7 +663,7 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   // the toolbar button, Change URL… opens the hint-rich form the ✎ button opens,
   // and Pin to Apps is offered only while it would do something.
   const headerMenuExtras = webViewMenuExtras(
-    { hasUrl: !!widget.content, boundToApp: !!sourceApp },
+    { hasUrl: !!widget.content, boundToApp: !!sourceApp, notificationsAllowed: notifAllowed ?? undefined },
     {
       pinToApps: () => void handlePinToApps(),
       reload: () => {
@@ -648,7 +674,13 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
         }
       },
       openFullScreen,
-      changeUrl: () => setEditing(true)
+      changeUrl: () => setEditing(true),
+      toggleNotifications: () => {
+        const url = livePreview?.url ?? widget.content
+        const api = window.api.webNotifications
+        if (!api || !url) return
+        void api.set(url, !notifAllowed).then((on) => setNotifAllowed(on))
+      }
     }
   )
 

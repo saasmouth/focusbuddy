@@ -335,6 +335,12 @@ export interface WebViewExtrasInput {
   hasUrl: boolean
   /** Already bound to a Connected App (Pin to Apps would be a no-op). */
   boundToApp: boolean
+  /**
+   * Whether this site may show notifications (main/webNotifications.ts): web
+   * pages are blocked until allowed. Absent where the runtime cannot say (the
+   * web app) or for a connected app, which is always allowed: no row then.
+   */
+  notificationsAllowed?: boolean
 }
 
 export interface WebViewExtrasActions {
@@ -342,6 +348,7 @@ export interface WebViewExtrasActions {
   reload: () => void
   openFullScreen: () => void
   changeUrl: () => void
+  toggleNotifications?: () => void
 }
 
 /**
@@ -354,6 +361,10 @@ export function webViewMenuExtras(m: WebViewExtrasInput, a: WebViewExtrasActions
   items.push({ label: 'Reload', icon: 'refresh', onClick: a.reload })
   items.push({ label: 'Change URL…', icon: 'edit', onClick: a.changeUrl })
   if (m.hasUrl && !m.boundToApp) items.push({ label: 'Pin to Apps', icon: 'push_pin', onClick: a.pinToApps })
+  // An on/off setting: a check mark, not ": on" in the label.
+  if (m.hasUrl && !m.boundToApp && m.notificationsAllowed !== undefined && a.toggleNotifications) {
+    items.push({ label: 'Notifications from this site', icon: 'notifications', checked: m.notificationsAllowed, onClick: a.toggleNotifications })
+  }
   return items
 }
 

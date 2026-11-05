@@ -29,6 +29,7 @@ import { decidePopup } from './popupRouter'
 import { allowPopupResponse } from './deskPopups'
 import { isAgentDrivenWc } from './ai/browserActions'
 import { cleanWebviewUserAgent } from './userAgent'
+import { noteWebviewPartition, notificationsAllowed } from './webNotifications'
 import { getFile } from './db/files'
 import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
@@ -252,10 +253,18 @@ const DENIED_PERMISSIONS = new Set<string>([
 ])
 
 function applyPermissionPolicy(ses: Electron.Session): void {
-  ses.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(!DENIED_PERMISSIONS.has(permission))
+  // Notifications: a desk-browser page only after the person allowed that site;
+  // connected apps and the app itself as before (webNotifications.ts).
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    if (DENIED_PERMISSIONS.has(permission)) return callback(false)
+    if (permission === 'notifications') return callback(notificationsAllowed(ses, details.requestingUrl ?? ''))
+    callback(true)
   })
-  ses.setPermissionCheckHandler((_wc, permission) => !DENIED_PERMISSIONS.has(permission))
+  ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
+    if (DENIED_PERMISSIONS.has(permission)) return false
+    if (permission === 'notifications') return notificationsAllowed(ses, requestingOrigin)
+    return true
+  })
 }
 
 // Screen sharing (PlexiMeet "Share screen" / collaborative screen-share mode).
@@ -680,6 +689,11 @@ app.on('web-contents-created', (_, contents) => {
     // Browser widgets legitimately load arbitrary web pages, so the scheme
     // allowlist stays deliberately wide. A guest loading from disk is the case
     // nothing in this app asks for and an attacker does.
+    // Which kind of page this session holds (a desk-browser page or a
+    // connected app): Electron's Session has no name, and this is the one
+    // moment the partition is known (webNotifications.ts).
+    noteWebviewPartition(typeof params.partition === 'string' ? params.partition : undefined)
+
     const src = String(params.src ?? '')
     if (src && /^(file|blob):/i.test(src)) {
       console.warn(`[webview] refused a guest loading from ${src.slice(0, 12)}`)

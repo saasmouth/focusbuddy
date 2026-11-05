@@ -394,6 +394,8 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'vault:updateEntry': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }],
   'voice:setProvider': [{ kind: 'string', optional: false, nullable: false }],
   'webhooks:send': [{ kind: 'object', optional: false, nullable: false }],
+  'webNotifications:get': [{ kind: 'string', optional: false, nullable: false }],
+  'webNotifications:set': [{ kind: 'string', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }],
   'widgetFiles:create': [{ kind: 'object', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'widgetFiles:createAndPlace': [{ kind: 'object', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'widgetFiles:export': [{ kind: 'string', optional: false, nullable: false }],

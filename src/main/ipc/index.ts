@@ -1,4 +1,5 @@
 import { widgetCountsByTask, syncTableWidgetTitles } from '../db/widgets'
+import { setSiteNotifications, siteNotificationsAllowed } from '../webNotifications'
 import {
   listContacts,
   listContactsForNode,
@@ -1362,6 +1363,11 @@ export function registerIpcHandlers(): void {
     return clearSession()
   })
   ipcMain.handle('account:setSkipped', (_e, skipped: boolean) => setSkipped(skipped))
+  // Desk-browser notifications, per site (webNotifications.ts).
+  ipcMain.handle('webNotifications:get', (_e, url: string) => (typeof url === 'string' ? siteNotificationsAllowed(url) : false))
+  ipcMain.handle('webNotifications:set', (_e, url: string, on: boolean) =>
+    typeof url === 'string' ? setSiteNotifications(url, on === true) : false
+  )
   // Settings > Account > Download my data: the renderer fetches the server's
   // ZIP (it holds the session token) and this saves it where the person picks.
   ipcMain.handle('account:saveExport', async (_e, bytes: Uint8Array, fileName: string) => {

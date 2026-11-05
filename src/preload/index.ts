@@ -494,6 +494,14 @@ const api = {
       ipcRenderer.invoke('activity:logPress', input),
     wipe: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('activity:wipe')
   },
+  /**
+   * Notifications from sites in the desk browser (main/webNotifications.ts):
+   * blocked until the person allows a site; connected apps are not affected.
+   */
+  webNotifications: {
+    get: (url: string): Promise<boolean> => ipcRenderer.invoke('webNotifications:get', url),
+    set: (url: string, on: boolean): Promise<boolean> => ipcRenderer.invoke('webNotifications:set', url, on)
+  },
   account: {
     load: (): Promise<{
       sessionToken: string | null
