@@ -47,4 +47,17 @@ describe('cleanWebviewUserAgent', () => {
         '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
     )
   })
+
+  it('sends the REDUCED Chrome version real Chrome sends (major.0.0.0), never the full build', () => {
+    // Electron 44's real default UA (measured 2026-11-05). No shipping Chrome
+    // has sent a full build number since Chrome 110; that alone marks a page
+    // as not-Chrome to identity providers and bot checks.
+    const electron44 =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+      'plexii/4.3.46-wc.3 Chrome/152.0.7977.149 Electron/44.7.2 Safari/537.36'
+    expect(cleanWebviewUserAgent(electron44)).toBe(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36'
+    )
+    expect(cleanWebviewUserAgent(cleanWebviewUserAgent(electron44))).toBe(cleanWebviewUserAgent(electron44))
+  })
 })

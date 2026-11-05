@@ -690,6 +690,13 @@ app.on('web-contents-created', (_, contents) => {
   // Pop-ups a page opened (sign-in windows, window.open), on the desk or as
   // native windows: they are web content too and get the same menu.
   if (contents.getType() === 'window' && (contents as unknown as { opener?: unknown }).opener) {
+    // A sign-in pop-up is where an identity provider looks hardest: it gets
+    // the clean desktop-Chrome UA on itself, not only via its session.
+    try {
+      contents.setUserAgent(cleanWebviewUserAgent(contents.getUserAgent()))
+    } catch {
+      // torn-down contents
+    }
     attachWebContextMenu(contents, 'popup')
     return
   }
@@ -713,7 +720,16 @@ app.on('web-contents-created', (_, contents) => {
   // share the session (see popupRouter) inherit the clean UA too. Also install
   // the permission denylist on this session so embedded sites can't grab
   // geolocation / WebHID / WebSerial / WebUSB. See userAgent.ts.
+  //
+  // On the CONTENTS as well as its session. session.setUserAgent "doesn't
+  // affect existing WebContents" (Electron docs), and this contents already
+  // exists: setting only the session left the FIRST page of every session on
+  // Electron's own UA ("plexii/4.3.46 … Electron/44.7.2"). Every connected app
+  // has its own session, so its first page, often a Google sign-in, went out
+  // announcing an embedded browser (measured 2026-11-05, packaged wc.3:
+  // 1 of 2 pages leaked; tests/e2e/browserIdentity).
   try {
+    contents.setUserAgent(cleanWebviewUserAgent(contents.getUserAgent()))
     const ses = contents.session
     ses.setUserAgent(cleanWebviewUserAgent(ses.getUserAgent()))
     applyPermissionPolicy(ses)

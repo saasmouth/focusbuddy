@@ -42,6 +42,11 @@ const STRIP_PATTERNS: RegExp[] = [
 export function cleanWebviewUserAgent(defaultUA: string): string {
   let ua = defaultUA
   for (const re of STRIP_PATTERNS) ua = ua.replace(re, '')
+  // Chrome has sent a REDUCED version since Chrome 110: "Chrome/156.0.0.0",
+  // the major version only. Electron sends the full build
+  // ("Chrome/152.0.7977.149"), which no shipping Chrome does, so the full
+  // form alone marks the page as not-Chrome. The major version stays real.
+  ua = ua.replace(/\bChrome\/(\d+)\.\d+\.\d+\.\d+/, 'Chrome/$1.0.0.0')
   // Collapse any double spaces left by the removals and trim.
   return ua.replace(/\s{2,}/g, ' ').trim()
 }
