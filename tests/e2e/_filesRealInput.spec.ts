@@ -14,6 +14,10 @@ import { test, expect, type Page, type ElectronApplication } from '@playwright/t
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
+import { realInputAllowed, REAL_INPUT_SKIP } from './_macMouse'
+// Moves the owner's real pointer or keyboard: never unasked (owner, 2026-11-05).
+test.skip(!realInputAllowed(), REAL_INPUT_SKIP)
+
 
 const TOOLS = process.env.FILES_REAL_TOOLS ?? '/private/tmp/claude-501/files-flyout-logs/real'
 const CLICK = process.env.FILES_REAL_CLICK ?? '/private/tmp/claude-501/vsreal/click'

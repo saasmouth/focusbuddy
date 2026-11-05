@@ -20,6 +20,10 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 import { seedDrawDoc, openDocument, v1Body } from './_drawHelpers'
+import { realInputAllowed, REAL_INPUT_SKIP } from './_macMouse'
+// Moves the owner's real pointer or keyboard: never unasked (owner, 2026-11-05).
+test.skip(!realInputAllowed(), REAL_INPUT_SKIP)
+
 
 const CLICK = process.env.RAILS_REAL_CLICK ?? '/private/tmp/claude-501/vsreal/click'
 const DRAG = process.env.RAILS_REAL_DRAG ?? '/private/tmp/claude-501/files-flyout-logs/real/drag'

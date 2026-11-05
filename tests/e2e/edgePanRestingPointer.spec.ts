@@ -29,7 +29,11 @@
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 import { acquireRealInput, releaseRealInput } from './_realInputLock'
-import { cursorLocation, moveMouse, path, pinWindowForRealInput, postMouse, unpinWindow, type ScreenPoint } from './_macMouse'
+import { cursorLocation, moveMouse, path, pinWindowForRealInput, postMouse, unpinWindow, type ScreenPoint, realInputAllowed, REAL_INPUT_SKIP } from './_macMouse'
+
+// Moves the owner's real pointer or keyboard: never unasked (owner, 2026-11-05).
+test.skip(!realInputAllowed(), REAL_INPUT_SKIP)
+
 
 test.skip(process.platform !== 'darwin', 'posts macOS mouse events')
 

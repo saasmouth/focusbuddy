@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { exec } from 'child_process'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { realInputAllowed } from './_macMouse'
 
 // Local-app integration: create with kind='local', drag-to-canvas spawns the
 // launcher widget (not webview), and the launch IPC actually runs `open -a`.
@@ -92,6 +93,8 @@ test('create + persist a local Connected App round-trips through the DB', async 
 })
 
 test('launching a local app via IPC returns ok (TextEdit opens)', async () => {
+  // Opens a real TextEdit window on the owner's screen and takes focus (owner, 2026-11-05).
+  test.skip(!realInputAllowed(), "opens a real TextEdit window on the owner's screen: set PLEXII_REAL_INPUT=1 once the owner has said the Mac is free")
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)

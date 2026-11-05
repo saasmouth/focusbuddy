@@ -13,7 +13,11 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 import { acquireRealInput, releaseRealInput } from './_realInputLock'
-import { cursorLocation, moveMouse, postMouse, postRightClick, type ScreenPoint } from './_macMouse'
+import { cursorLocation, moveMouse, postMouse, postRightClick, type ScreenPoint, realInputAllowed, REAL_INPUT_SKIP } from './_macMouse'
+
+// Moves the owner's real pointer or keyboard: never unasked (owner, 2026-11-05).
+test.skip(!realInputAllowed(), REAL_INPUT_SKIP)
+
 
 const SHOTS = process.env.MENUS_REAL_SHOTS ?? '/private/tmp/claude-501/menu-contract-real-shots'
 

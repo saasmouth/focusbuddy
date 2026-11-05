@@ -19,6 +19,10 @@ import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { acquireRealInput, releaseRealInput } from './_realInputLock'
 import { barTab, keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, storedView, v1Body } from './_drawHelpers'
 import { KEY, postKeyToPid, readPasteboard } from './_macPasteboard'
+import { realInputAllowed, REAL_INPUT_SKIP } from './_macMouse'
+// Moves the owner's real pointer or keyboard: never unasked (owner, 2026-11-05).
+test.skip(!realInputAllowed(), REAL_INPUT_SKIP)
+
 
 let app: LaunchedApp
 let window: Page
