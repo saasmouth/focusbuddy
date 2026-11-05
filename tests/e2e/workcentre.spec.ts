@@ -188,7 +188,7 @@ test('WC-2 — resize by the corner, move by the title; neighbours pushed, no ov
   // A hand-set size is shown exactly as set — fill does not spring it back.
   expect(await unit(window, id, 'w')).toBe(await unit(window, id, 'base-w'))
   expect(await unit(window, id, 'h')).toBe(setH)
-  expect(noOverlaps(await tileRects(window)), 'after resize').toEqual([])
+  await expect.poll(async () => noOverlaps(await tileRects(window)), { timeout: 3_000, message: 'after resize' }).toEqual([])
   const w1 = await unit(window, id, 'w')
   const h1 = await unit(window, id, 'h')
 
@@ -201,7 +201,8 @@ test('WC-2 — resize by the corner, move by the title; neighbours pushed, no ov
   await window.mouse.up()
   await expect.poll(() => unit(window, timer, 'x')).toBe(0)
   expect(await unit(window, timer, 'y')).toBe(0)
-  expect(noOverlaps(await tileRects(window)), 'after move').toEqual([])
+  // Neighbours glide aside (left/top transitions): measure once they land.
+  await expect.poll(async () => noOverlaps(await tileRects(window)), { timeout: 3_000, message: 'after move' }).toEqual([])
 
   // Persists across a reload (device-local, desk_layouts).
   await openDesk(window, seed.taskId)
