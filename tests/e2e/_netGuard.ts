@@ -43,10 +43,11 @@
 // spec that calls fetch() from Node is not covered, and none may target
 // production (the allowlist rule applies to them too, by review).
 
+import { quietElectronExecutable } from './_quietElectron'
 import { _electron as electron, expect, test, type ElectronApplication, type Route, type WebSocketRoute } from '@playwright/test'
 import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
-import { basename, join } from 'path'
+import { basename, dirname, join } from 'path'
 import { ACTIVE } from '../../src/shared/productDomains'
 import { PRODUCTION_ALLOWED_SPECS } from './_netGuardAllowlist'
 import { bundledModelsEnv } from './_bundledModels'
@@ -79,6 +80,7 @@ const HOOK = join(__dirname, '_netGuardMain.cjs')
 // (the owner works at this Mac while tests run). PLEXII_E2E_VISIBLE=1 shows
 // the window for debugging; real-input specs (PLEXII_REAL_INPUT=1) need it.
 const BACKGROUND_HOOK = join(__dirname, '_backgroundMain.cjs')
+const PLAYWRIGHT_ELECTRON_LOADER = join(dirname(require.resolve('playwright-core/package.json')), 'lib', 'server', 'electron', 'loader.js')
 export function e2eRunsInBackground(): boolean {
   return process.env.PLEXII_E2E_VISIBLE !== '1' && process.env.PLEXII_REAL_INPUT !== '1'
 }
@@ -205,9 +207,17 @@ export async function launchGuarded(
   }
 
   const args = ['-r', HOOK, ...(e2eRunsInBackground() ? ['-r', BACKGROUND_HOOK] : []), ...(options.args ?? [])]
+  // Background runs launch a Dock-less copy of Electron (_quietElectron.ts):
+  // macOS shows a plain bundle in the Dock at launch, before any script runs.
+  const quiet = e2eRunsInBackground() && !options.executablePath ? quietElectronExecutable() : null
   const app = await electron.launch({
     ...options,
-    args,
+    ...(quiet ? { executablePath: quiet } : {}),
+    // With an executablePath Playwright takes the app for a packaged one and
+    // leaves out its own loader (which every hook above relies on: it holds
+    // 'ready' until the test client attaches). Put it back, first, as
+    // Playwright itself does for node_modules' Electron.
+    args: quiet ? ['-r', PLAYWRIGHT_ELECTRON_LOADER, ...args] : args,
     env: {
       // Main's own signal base (src/main/ai/creditMode.ts SIGNAL_BASE) defaults
       // to focusbuddy-signal.fly.dev — production under its other name — and a

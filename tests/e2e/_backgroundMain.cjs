@@ -22,7 +22,7 @@
 // or keyboard. Specs that must drive the real OS input (CGEvents, _macMouse)
 // are opt-in (PLEXII_REAL_INPUT=1) and run visible.
 'use strict'
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, dialog, shell } = require('electron')
 
 if (process.platform === 'darwin') {
   try {
@@ -62,12 +62,60 @@ BrowserWindow.prototype.isFocused = function () {
   return this.isDestroyed() ? realIsFocused.call(this) : true
 }
 
+// A window created with show:true (Electron's default) appears at construction,
+// before any show() call: the native pop-ups a page opens (PLEXI_POPUPS_NATIVE,
+// the desk-popup fallback) did exactly that in the first full background run
+// (2026-11-05: deskPopups.spec, 3 samples of a window on screen, the app
+// frontmost). Every pop-up is made hidden below; this hides anything else the
+// moment it exists.
+const realHide = BrowserWindow.prototype.hide
+app.on('browser-window-created', (_e, win) => {
+  try {
+    if (realIsVisible.call(win)) realHide.call(win)
+  } catch {
+    /* destroyed */
+  }
+})
+
+// Native dialogs and other apps take the screen on their own: a save sheet, a
+// message box, the browser openExternal starts, Finder for showItemInFolder.
+// They answer as if the person cancelled (no spec can drive a real dialog;
+// a spec that needs an answer stubs it itself, after launch, and wins).
+dialog.showSaveDialog = async () => ({ canceled: true, filePath: '' })
+dialog.showSaveDialogSync = () => undefined
+dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] })
+dialog.showOpenDialogSync = () => undefined
+dialog.showMessageBox = async (a, b) => {
+  const opts = (b || a || {})
+  return { response: typeof opts.cancelId === 'number' ? opts.cancelId : 0, checkboxChecked: false }
+}
+dialog.showMessageBoxSync = (a, b) => {
+  const opts = (b || a || {})
+  return typeof opts.cancelId === 'number' ? opts.cancelId : 0
+}
+dialog.showErrorBox = noop
+shell.openExternal = async () => undefined
+shell.openPath = async () => ''
+shell.showItemInFolder = noop
+
 app.on('web-contents-created', (_e, contents) => {
   try {
     contents.setBackgroundThrottling(false)
   } catch {
     /* torn down */
   }
+  // Pop-ups a page opens are created HIDDEN: wrap the handler the app installs
+  // (it does so in its own web-contents-created, after this one) so an allowed
+  // pop-up's window options always carry show:false.
+  const realSet = contents.setWindowOpenHandler.bind(contents)
+  contents.setWindowOpenHandler = (handler) =>
+    realSet((details) => {
+      const r = handler(details)
+      if (r && r.action === 'allow') {
+        return { ...r, overrideBrowserWindowOptions: { ...(r.overrideBrowserWindowOptions || {}), show: false } }
+      }
+      return r
+    })
   // Focus emulation for the app's own windows (not web pages: a site's own
   // focus logic is left alone).
   if (contents.getType() !== 'window') return
