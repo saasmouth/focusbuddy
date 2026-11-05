@@ -15,6 +15,8 @@ import { PlexiiDocIcon } from '../PlexiiIcon'
 import DocPickerModal from '../DocPickerModal'
 import { useDocMetas, primeDocMeta } from '../../lib/docMetaCache'
 import { fileSrc } from '../../lib/fileUrl'
+import { appendAttachmentIds } from '../../lib/attachmentDrop'
+import { ATTACHMENT_DROP_OVER_CLASS, useAttachmentDrop, useAttachmentDropScope } from './AttachmentDrop'
 
 // One field editor used everywhere a typed value is edited: standalone canvas
 // field widgets, table cells, page-block fields. The component is variant-
@@ -502,10 +504,27 @@ function DateInput({ def, value, variant, onCommit }: SubProps<number | null>): 
 
 function Attachment({
   value,
+  variant,
   onCommit
 }: SubProps<string[]>): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [attachError, setAttachError] = useState<string | null>(null)
+  // A picture dragged in from a browser (a desk browser, Chrome, Safari) or a
+  // file from Finder is attached too (AttachmentDrop). Here, unless the cell or
+  // block around this editor owns the drop: then that whole area is the target
+  // and this editor only shows its progress.
+  const scope = useAttachmentDropScope()
+  const valueRef = useRef(value)
+  valueRef.current = value
+  const commitRef = useRef(onCommit)
+  commitRef.current = onCommit
+  const ownDrop = useAttachmentDrop({
+    current: () => valueRef.current,
+    commit: (next) => commitRef.current(next),
+    disabled: scope.owned
+  })
+  const busy = scope.owned ? scope.busy : ownDrop.busy
+  const over = !scope.owned && ownDrop.over
   async function onPick(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     // Every file the user picked, not just the first.
     //
@@ -534,7 +553,7 @@ function Attachment({
         failed.push(file.name)
       }
     }
-    if (ids.length > 0) onCommit([...value, ...ids])
+    if (ids.length > 0) onCommit(appendAttachmentIds(valueRef.current, ids))
     if (failed.length > 0) {
       // Honest about the gap: silently attaching 3 of 5 is how someone later
       // discovers the other two were never there.
@@ -551,8 +570,21 @@ function Attachment({
     onCommit(value.filter((v) => v !== id))
     await window.api.files.delete(id)
   }
+  // The widget variant (a Field work widget, a form) has room for a visible
+  // drop area; a table cell stays one compact row.
+  const roomy = variant === 'widget'
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div
+      {...ownDrop.handlers}
+      data-testid="attachment-field"
+      data-drop-over={over ? 'true' : undefined}
+      data-attaching={busy ? 'true' : undefined}
+      // No transition on the highlight: drag feedback must be there the moment
+      // the pointer is, not ease in behind it.
+      className={`flex items-center gap-1 flex-wrap rounded ${
+        roomy ? 'min-h-[64px] p-2 border border-dashed border-[var(--edge-firm)]' : ''
+      } ${over ? ATTACHMENT_DROP_OVER_CLASS : ''}`}
+    >
       {value.map((id) => (
         <AttachmentChip key={id} fileId={id} onRemove={() => void onRemove(id)} />
       ))}
@@ -563,6 +595,15 @@ function Attachment({
         <Icon name="add" size={10} />
         attach
       </button>
+      {busy && (
+        <span className="inline-flex items-center gap-1 text-[10px] text-[var(--ink-50)]" role="status" data-testid="attachment-busy">
+          <Icon name="progress_activity" size={10} className="animate-spin" />
+          Attaching…
+        </span>
+      )}
+      {roomy && value.length === 0 && !busy && (
+        <span className="text-[11px] text-[var(--ink-40)]">or drop a picture or file here</span>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -587,18 +628,38 @@ export function AttachmentChip({
   onRemove: () => void
 }): JSX.Element {
   const [name, setName] = useState<string>('…')
+  const [isImage, setIsImage] = useState(false)
+  const [thumbFailed, setThumbFailed] = useState(false)
   useEffect(() => {
     let cancelled = false
     void window.api.files.get(fileId).then((f) => {
-      if (!cancelled && f) setName(f.originalName)
+      if (cancelled || !f) return
+      setName(f.originalName)
+      setIsImage(/^image\//i.test(f.mimeType ?? ''))
     })
     return () => {
       cancelled = true
     }
   }, [fileId])
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[var(--surface-sunken)]">
-      <Icon name="attach_file" size={10} />
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[var(--surface-sunken)]"
+      data-testid="attachment-chip"
+      data-file-id={fileId}
+    >
+      {isImage && !thumbFailed ? (
+        // A picture shows itself: a small thumbnail, not a paperclip.
+        <img
+          src={fileSrc(fileId)}
+          alt=""
+          data-testid="attachment-thumb"
+          className="h-5 w-5 rounded-[3px] object-cover ring-1 ring-black/[0.06] dark:ring-white/[0.08] shrink-0"
+          draggable={false}
+          onError={() => setThumbFailed(true)}
+        />
+      ) : (
+        <Icon name="attach_file" size={10} />
+      )}
       <a
         href={fileSrc(fileId)}
         // A download, never a page. In the browser build this address is on

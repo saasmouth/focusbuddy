@@ -334,7 +334,9 @@ describe('one record per link (M3)', () => {
     await boot(`/s/${A}`)
     await ready()
     expect(bundleFetches(A)).toBe(1)
-    expect(worker.calls.map((c) => c.channel)).toEqual(['shareCopy:deskPresent'])
+    // The storage question (durable or memory-only) is read-only and asked first
+    // at every open; after it, A's desk is only looked at, nothing else touched.
+    expect(worker.calls.map((c) => c.channel)).toEqual(['shareCopy:storageMode', 'shareCopy:deskPresent'])
   })
 
   it('A edited, B opened, B updated: B’s new version loads without asking, and A’s edits are untouched', async () => {

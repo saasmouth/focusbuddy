@@ -1370,6 +1370,8 @@ const api = {
     } | null> => ipcRenderer.invoke('files:thumbnail', id, opts),
     // Store a linked image in the Drive. Desktop only: a main-process fetch has
     // no CORS to satisfy, which a browser tab would not get past for most hosts.
+    // Takes http(s) and data:image addresses; refuses anything that is not an
+    // image or is over 25 MB (main/db/filesFromUrl.ts).
     ingestUrl: (
       url: string,
       parentId?: string | null

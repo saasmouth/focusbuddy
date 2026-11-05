@@ -232,6 +232,46 @@ against local pages with known framing behaviour (including a page that only
 refuses when requested as a frame, and one that refuses the share page's
 referrer); `--live URL…` reports real sites as well.
 
+### A read link that can be copied
+
+A desk shared as "a snapshot they can read" lives at
+`view.plexiidesk.com/share/<token>`: a frozen JSON snapshot (16-character token,
+`lib/shareTokens.ts`). With scope `copy` the sender said anyone may have it, but
+having it used to mean signing up there and installing the desktop app to find
+it in an inbox -- a dead end for a prospect with no Plexii at all. The viewer's
+"Open this desk in your browser" now sends them to `/share/c/<token>` here, and
+this page opens it exactly as it opens a `use` link.
+
+- **The token.** `/c/` plus exactly 16 letters of the alphabet the desktop
+  mints with, followed by anything that cannot be part of a token
+  (`readShare.readTokenFromUrl`). A `/s/` link and a `/c/` link can never be
+  read as each other: different path, different length, different alphabet.
+- **The routes.** `GET /share/<token>?meta=1` for the offer (kind, scope,
+  title, expiry; not counted as a view), and `GET /share/<token>` for the
+  snapshot, once, when the desk is unpacked. Signal answers both from the
+  plexiidesk.com origins. It answers unknown, revoked and expired alike (404
+  `{ ok: false }`), so the page says "no longer working" and no more.
+- **The gate.** Only `scope: 'copy'` and `kind: 'task'`. A `view` link is
+  refused for copying ("shared to be read, not copied") with a button back to
+  the viewer, and so is anything that is not a desk. Neither removes anything.
+- **The desk.** The snapshot is made into a desk bundle (`snapshotDesk.ts`) --
+  the sender's ids kept, every field read as untrusted -- and from there it is a
+  `use` link: `shareDesk.openLinkDesk` with the snapshot as its source, the same
+  per-link record, the same duplicate checks, the same "a gone link takes only
+  its own copy". The desk id is inside the snapshot, so a first visit fetches it
+  before opening and hands that same text on (`readShare.resolveFirstVisit`); a
+  return visit finds the desk from its record and downloads nothing.
+- **What it does not have.** A snapshot carries no documents or files behind
+  widgets that point at them, no connector wires, no view or Workcentre
+  arrangement and no website pictures, so websites show their official or
+  TradingView embed where there is one and a live frame otherwise. Tables keep
+  their select choices only in snapshots made since they travel
+  (`shareSnapshot.serializeColumn`); older ones show those cells empty, as the
+  app shows any value whose choice it cannot find.
+
+The marketing site serves `/share/c/*` with the share app
+(`plexii-site/compose.mjs`), as it does `/share/s/*`.
+
 ### Two gates, and they are not the same gate
 
 Signing up is open to anyone. Reaching a desk is not, and never by anything

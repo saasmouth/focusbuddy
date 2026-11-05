@@ -20,6 +20,23 @@ export interface ScreenPoint {
   y: number
 }
 
+/**
+ * Is the Mac's screen locked? Then every real event goes to the lock screen and
+ * none can reach the app: a real-input spec cannot run, and must say so rather
+ * than fail as if the app had ignored it.
+ */
+export function screenIsLocked(): boolean {
+  try {
+    return (
+      jxa(
+        `ObjC.import('CoreGraphics'); var d = ObjC.deepUnwrap(ObjC.castRefToObject($.CGSessionCopyCurrentDictionary())); String(!!(d && (d.CGSSessionScreenIsLocked === true || d.CGSSessionScreenIsLocked === 1)))`
+      ) === 'true'
+    )
+  } catch {
+    return false
+  }
+}
+
 /** Where the OS cursor is now, in global display coordinates. */
 export function cursorLocation(): ScreenPoint {
   return JSON.parse(

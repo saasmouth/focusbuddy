@@ -13,6 +13,12 @@
 //   a live share token  → unpack the desk and hand the renderer over to it
 //   anything else       → the download page
 //
+// A share token comes in two shapes. /s/<token> is a 'use' link: the sender
+// packed the desk for this page. /c/<token> is a read link the sender made
+// copyable (view.plexiidesk.com's "Open this desk in your browser"): its
+// snapshot is made into the same kind of desk here (api/readShare.ts), and
+// from then on the two are opened, kept and removed by the same code.
+//
 // and neither of them ever erases a desk that came from a different link. A
 // browser can hold desks from several links (api/shareVersion.ts keeps a record
 // per link); a bare visit, a mistyped link or another link that was turned off
@@ -28,14 +34,20 @@ import ReactDOM from 'react-dom/client'
 import { installBrowserApi, installFileServer } from './api/bridge'
 import {
   shareTokenFromUrl, previewShare, fetchShareBundle, countdown, msLeft, linkExpires, downloadBundle,
-  linkIsGone, refreshCachedOffer, refusalLine, whenRefused, finishPendingWipe,
+  linkIsGone, readInstead, refreshCachedOffer, refusalLine, whenRefused, finishPendingWipe,
   type ShareOffer, type ShareRefusal
 } from './api/share'
 import {
+  readTokenFromUrl, previewReadShare, fetchReadShareBundle, offerWithRecordedDesk, readLinkViewerUrl,
+  resolveFirstVisit
+} from './api/readShare'
+import {
   decideShareUpdate, linkRecord, linksSharingDesk, migrateLegacyRecords, othersPresent,
-  requestNewVersion, takeNewVersionRequest, noteVersionDeclined, replaceConfirmation
+  requestNewVersion, takeNewVersionRequest, noteVersionDeclined, replaceConfirmation,
+  keepRecordsForThisPageOnly, recordsArePageOnly
 } from './api/shareVersion'
-import { dropLinkCopy, holdDesk, openLinkDesk, type ReplacePlan } from './api/shareDesk'
+import { dbCall } from './api/dbClient'
+import { dropLinkCopy, holdDesk, openLinkDesk, type BundleFetch, type ReplacePlan } from './api/shareDesk'
 import { markShareRecipient, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
 import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
 
@@ -44,11 +56,33 @@ import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
 // audience the page exists to convert. Follow the configured site instead.
 const DESKTOP_DOWNLOAD_URL = `${ACTIVE.site}/download`
 
+/** The link in the address bar, and which kind it is. */
+interface Link {
+  token: string
+  /** 'use': a desk the sender packed (/s/). 'copy': a copyable read link (/c/). */
+  kind: 'use' | 'copy'
+}
+
+function linkFromUrl(): Link | null {
+  const use = shareTokenFromUrl()
+  if (use) return { token: use, kind: 'use' }
+  const copy = readTokenFromUrl()
+  return copy ? { token: copy, kind: 'copy' } : null
+}
+
+const previewLink = (link: Link): ReturnType<typeof previewShare> =>
+  link.kind === 'use' ? previewShare(link.token) : previewReadShare(link.token)
+
+const fetchLinkBundle = (link: Link): ReturnType<BundleFetch> =>
+  link.kind === 'use' ? fetchShareBundle(link.token) : fetchReadShareBundle(link.token)
+
 /** The page for everyone who did not arrive with a live link. */
-function DownloadPage({ reason }: { reason?: ShareRefusal }): React.JSX.Element {
+function DownloadPage({ reason, readUrl }: { reason?: ShareRefusal; readUrl?: string }): React.JSX.Element {
   // A link that is only unreachable for now is worth another try; one that is
-  // gone needs a new link from the sender.
+  // gone needs a new link from the sender. One the sender made read-only still
+  // works, as a page to read: that is where it goes.
   const transient = reason === 'offline' || reason === 'unavailable'
+  const read = readInstead(reason) && !!readUrl
   return (
     <div style={S.shell}>
       <div style={S.card}>
@@ -57,8 +91,11 @@ function DownloadPage({ reason }: { reason?: ShareRefusal }): React.JSX.Element 
         {transient && (
           <button style={S.primary} onClick={() => window.location.reload()}>Try again</button>
         )}
-        <a style={transient ? S.secondary : S.primary} href={DESKTOP_DOWNLOAD_URL}>Download Plexii for desktop</a>
-        {reason && !transient && (
+        {read && (
+          <a style={S.primary} href={readUrl} data-testid="share-read-instead">Read it</a>
+        )}
+        <a style={transient || read ? S.secondary : S.primary} href={DESKTOP_DOWNLOAD_URL}>Download Plexii for desktop</a>
+        {reason && !transient && !readInstead(reason) && (
           <div style={S.fine}>
             If you still need this desk, ask whoever sent it for a fresh link.
           </div>
@@ -73,6 +110,12 @@ function ShareOfferCard({
   offer, busy, onOpen
 }: { offer: ShareOffer; busy: boolean; onOpen: () => void }): React.JSX.Element {
   const expires = linkExpires(offer)
+  // A read link's size is not known until its snapshot is fetched (0): left
+  // out, rather than shown as "0.0 MB".
+  const what = [
+    expires ? countdown(offer.expiresAt) : null,
+    offer.sizeBytes > 0 ? `${(offer.sizeBytes / 1e6).toFixed(1)} MB` : null
+  ].filter(Boolean).join(' · ')
   return (
     <div style={S.shell}>
       <div style={S.card}>
@@ -80,9 +123,7 @@ function ShareOfferCard({
         <div style={S.offer}>
           <div style={S.offerWho}>A desk has been shared with you</div>
           <div style={S.offerTitle}>{offer.title || 'A desk'}</div>
-          <div style={S.offerWhat}>
-            {expires && `${countdown(offer.expiresAt)} · `}{(offer.sizeBytes / 1e6).toFixed(1)} MB
-          </div>
+          {what && <div style={S.offerWhat}>{what}</div>}
         </div>
         <div style={S.sub}>
           {expires ? (
@@ -130,6 +171,11 @@ function EditWarning({ expires, onClose }: { expires: boolean; onClose: () => vo
           <>
             <strong>Nothing here is being saved.</strong> This copy is deleted when the link expires —
             get Plexii free to keep this desk and everything you do to it.
+          </>
+        ) : recordsArePageOnly() ? (
+          <>
+            <strong>This browser cannot keep a copy.</strong> Your changes last until you close or
+            reload this page — get Plexii free to keep this desk and everything you do to it.
           </>
         ) : (
           <>
@@ -340,7 +386,11 @@ function ExpiryBar({
         ) : (
           <>
             <strong>{offer.title || 'Shared desk'}</strong>
-            <span style={S.barFine}> — your copy, in this browser only</span>
+            <span style={S.barFine}>
+              {recordsArePageOnly()
+                ? ' — a copy for this visit: this browser cannot keep it, so it goes when you close or reload the page'
+                : ' — your copy, in this browser only'}
+            </span>
           </>
         )}
       </span>
@@ -377,7 +427,8 @@ function Boot(): React.JSX.Element {
   // A new version fetched by the boot, before the database was opened, waiting
   // to be put in place of this link's desk by open().
   const planRef = useRef<ReplacePlan | null>(null)
-  const token = shareTokenFromUrl()
+  const [link] = useState<Link | null>(linkFromUrl)
+  const token = link?.token ?? null
 
   useEffect(() => {
     let cancelled = false
@@ -388,15 +439,23 @@ function Boot(): React.JSX.Element {
       migrateLegacyRecords()
       await finishPendingWipe()
       if (cancelled) return
-      if (!token) {
+      if (!link || !token) {
         // No link: this app has nothing else to offer, and says so. Nothing is
         // erased -- a bare visit, or a link mangled past reading, is not a
         // reason to take anybody's copy of anything.
         setState({ kind: 'download' })
         return
       }
-      const preview = await previewShare(token)
+      const preview = await previewLink(link)
       if (cancelled) return
+      if (!preview.ok && readInstead(preview.reason)) {
+        // The sender's choice, not the link's state: it is read-only, or not a
+        // desk. Nothing is removed and nothing is opened -- not even a copy
+        // this browser may hold from before -- and the page says where it can
+        // still be read.
+        setState({ kind: 'download', reason: preview.reason })
+        return
+      }
       if (!preview.ok) {
         // A gone link takes its OWN copy (whenRefused): nothing, when this
         // browser never unpacked it. A link that is only unreachable (offline,
@@ -416,7 +475,9 @@ function Boot(): React.JSX.Element {
         setReopen(true)
         return
       }
-      const offer = preview.offer
+      // A read link's metadata does not name its desk; this browser's record of
+      // the link does, once it has been unpacked here (readShare.ts).
+      const offer = link.kind === 'copy' ? offerWithRecordedDesk(preview.offer, linkRecord(token)) : preview.offer
       // This browser holds this link's desk, so this is a return rather than an
       // arrival -- whichever links were opened in between.
       const returning = linkRecord(token) !== null
@@ -432,7 +493,7 @@ function Boot(): React.JSX.Element {
           // metadata route answering is no promise that the desk can be read
           // (a payload the server cannot open answers 503), and removing first
           // would trade the visitor's copy for nothing.
-          const next = await fetchShareBundle(token)
+          const next = link.kind === 'use' ? await fetchShareBundle(token) : await fetchReadShareBundle(token)
           if (cancelled) return
           if (!next.ok) {
             if (linkIsGone(next.reason)) {
@@ -463,20 +524,45 @@ function Boot(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [link, token])
 
   const open = useCallback(() => {
-    if (state.kind !== 'offer' || !token) return
+    if (state.kind !== 'offer' || !token || !link) return
     setBusy(true)
-    const offer = state.offer
+    let offer = state.offer
     void (async () => {
       try {
+        let fetchBundle: BundleFetch = () => fetchLinkBundle(link)
+        if (link.kind === 'copy' && !offer.rootId) {
+          // A first visit to a read link: the desk is named only inside its
+          // snapshot, so the snapshot is fetched now -- once; openLinkDesk is
+          // handed the same text -- and the offer completed from it.
+          const first = await resolveFirstVisit(token, offer)
+          if (!first.ok) {
+            // Nothing of this link's is here yet, so there is nothing to take
+            // out: say why, as the preview would have.
+            setState({ kind: 'download', reason: first.reason })
+            return
+          }
+          offer = first.offer
+          fetchBundle = first.fetchBundle
+          setShareDeskId(offer.rootId)
+        }
+
         installBrowserApi()
         await installFileServer()
 
+        // Where can this desk live? A browser that refuses durable storage
+        // (phone in-app browsers, private windows) gets a memory-only database
+        // (worker/database.ts). Then this browser's notes about links must not
+        // be trusted or written either, and the page must say plainly that the
+        // copy lasts only until it closes.
+        const where = (await dbCall('shareCopy:storageMode', []).catch(() => null)) as { mode?: string } | null
+        if (where?.mode === 'memory') keepRecordsForThisPageOnly()
+
         const plan = planRef.current
         planRef.current = null
-        const outcome = await openLinkDesk(token, offer, plan)
+        const outcome = await openLinkDesk(token, offer, plan, fetchBundle)
         if (outcome.kind === 'refused') {
           // It was alive a moment ago at the preview. Gone since then (revoked,
           // or the clock ran out between the two calls): its own copy has
@@ -505,7 +591,7 @@ function Boot(): React.JSX.Element {
         setBusy(false)
       }
     })()
-  }, [state, token])
+  }, [state, token, link])
 
   // A reload of a desk already unpacked goes straight back to it.
   useEffect(() => {
@@ -529,22 +615,29 @@ function Boot(): React.JSX.Element {
   // visitor, who was not made to download it again just to reload -- fetched
   // now that it is actually wanted.
   const saveDeskFile = useCallback(async (): Promise<boolean> => {
-    if (!token || state.kind !== 'ready') return false
+    if (!token || !link || state.kind !== 'ready') return false
     let text = bundleRef.current
     if (text === null) {
-      const got = await fetchShareBundle(token)
+      const got = await fetchLinkBundle(link)
       if (!got.ok) return false
       text = got.text
       bundleRef.current = text
     }
     downloadBundle(text, state.offer.title)
     return true
-  }, [token, state])
+  }, [token, link, state])
 
   if (state.kind === 'checking') {
     return <div style={S.shell}><div style={S.sub}>Checking that link…</div></div>
   }
-  if (state.kind === 'download') return <DownloadPage reason={state.reason} />
+  if (state.kind === 'download') {
+    return (
+      <DownloadPage
+        reason={state.reason}
+        readUrl={link?.kind === 'copy' ? readLinkViewerUrl(link.token) : undefined}
+      />
+    )
+  }
   if (state.kind === 'offer') return <ShareOfferCard offer={state.offer} busy={busy} onOpen={open} />
   if (state.kind === 'failed') {
     return (
