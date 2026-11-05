@@ -203,7 +203,8 @@ test('WL-3 — a widget on top of a page stays on top: you see it, and a click l
     const win = BrowserWindow.getAllWindows().find((w) => w.isVisible())!
     // Page pixels to window points: the window may be zoomed (capturePage takes points).
     const z = win.webContents.getZoomFactor()
-    const img = await win.webContents.capturePage({ x: Math.round(p.x * z), y: Math.round(p.y * z), width: 1, height: 1 })
+    // stayHidden: background e2e never shows the window, even to capture it.
+    const img = await win.webContents.capturePage({ x: Math.round(p.x * z), y: Math.round(p.y * z), width: 1, height: 1 }, { stayHidden: true })
     const b = img.toBitmap() // BGRA
     return [b[2], b[1], b[0]]
   }, { x: px, y: py })
@@ -214,7 +215,8 @@ test('WL-3 — a widget on top of a page stays on top: you see it, and a click l
     const win = BrowserWindow.getAllWindows().find((w) => w.isVisible())!
     // Page pixels to window points: the window may be zoomed (capturePage takes points).
     const z = win.webContents.getZoomFactor()
-    const img = await win.webContents.capturePage({ x: Math.round(p.x * z), y: Math.round(p.y * z), width: 1, height: 1 })
+    // stayHidden: background e2e never shows the window, even to capture it.
+    const img = await win.webContents.capturePage({ x: Math.round(p.x * z), y: Math.round(p.y * z), width: 1, height: 1 }, { stayHidden: true })
     const b = img.toBitmap()
     return [b[2], b[1], b[0]]
     // Right-hand side, clear of the floating side menu (glass: it tints what is under it).

@@ -74,6 +74,14 @@ export interface NetGuard {
 type LaunchOptions = NonNullable<Parameters<typeof electron.launch>[0]>
 
 const HOOK = join(__dirname, '_netGuardMain.cjs')
+// Background e2e (_backgroundMain.cjs): the app never shows a window, never
+// comes to the front, never takes the keyboard. The default since 2026-11-05
+// (the owner works at this Mac while tests run). PLEXII_E2E_VISIBLE=1 shows
+// the window for debugging; real-input specs (PLEXII_REAL_INPUT=1) need it.
+const BACKGROUND_HOOK = join(__dirname, '_backgroundMain.cjs')
+export function e2eRunsInBackground(): boolean {
+  return process.env.PLEXII_E2E_VISIBLE !== '1' && process.env.PLEXII_REAL_INPUT !== '1'
+}
 const SIGNAL = new URL(ACTIVE.api)
 
 /**
@@ -196,7 +204,7 @@ export async function launchGuarded(
     consumed = Math.max(consumed, lines.length - 1)
   }
 
-  const args = ['-r', HOOK, ...(options.args ?? [])]
+  const args = ['-r', HOOK, ...(e2eRunsInBackground() ? ['-r', BACKGROUND_HOOK] : []), ...(options.args ?? [])]
   const app = await electron.launch({
     ...options,
     args,
