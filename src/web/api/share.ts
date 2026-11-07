@@ -38,6 +38,12 @@ import {
 
 export interface ShareOffer {
   title: string
+  /**
+   * What the visitor may do (web/api/shareGate.ts VisitorMode): 'use' for a
+   * desk they can use or a copyable read link, 'view' for a live link or a
+   * read-only one. Absent (older records) is 'use'.
+   */
+  mode?: 'use' | 'view'
   /** When the link stops working, or null when it never does. */
   expiresAt: number | null
   /** When the sender last replaced the desk behind the link. Absent from older servers. */
@@ -64,6 +70,8 @@ export function linkExpires(offer: Pick<ShareOffer, 'expiresAt'>): boolean {
 export type ShareRefusal =
   | 'unknown' | 'revoked' | 'expired' | 'offline' | 'unavailable'
   | 'gone' | 'view-only' | 'not-a-desk' | 'unreadable'
+  // A live link whose desk the sender's app has not sent yet (liveShare.ts).
+  | 'not-ready'
 
 /** The refusals that mean the link is gone for good, so its copy goes too. */
 export type GoneRefusal = 'unknown' | 'revoked' | 'expired' | 'gone'
@@ -79,7 +87,7 @@ export function linkIsGone(reason: ShareRefusal): reason is GoneRefusal {
  * points there.
  */
 export function readInstead(reason: ShareRefusal | undefined): boolean {
-  return reason === 'view-only' || reason === 'not-a-desk'
+  return reason === 'view-only' || reason === 'not-a-desk' || reason === 'not-ready'
 }
 
 /**
@@ -169,6 +177,8 @@ export function refusalLine(reason?: ShareRefusal): string {
       return 'That link shares something other than a desk, so there is no desk to open here. You can still read it.'
     case 'unreadable':
       return 'That shared desk could not be read by this page.'
+    case 'not-ready':
+      return 'This live desk is not ready to open in the full app yet: the person sharing it needs to open Plexii once. You can watch it live in the meantime.'
     default:
       return 'Plexii is a desktop app. Your desks, files and notes live on your own machine.'
   }

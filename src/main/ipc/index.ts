@@ -46,6 +46,7 @@ import type { ExternalCalendarDraft } from '@shared/types'
 import {
   createLiveDesk,
   publishProjection,
+  publishLiveBundle,
   uploadLiveAsset,
   setLivePaused,
   stopLiveDesk,
@@ -1257,6 +1258,19 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('liveDesk:publish', (_e, deskId: string, projection: unknown) =>
     publishProjection(deskId, projection)
   )
+  // The desk itself behind a live link, for the full web app (livePublisher
+  // publishLiveBundle). Packed here exactly as a "desk they can use" link packs
+  // it (shares:buildDeskBundle), with the sender's saved presentation.
+  ipcMain.handle('liveDesk:publishBundle', async (_e, deskId: string, presentation?: SharePresentationRequest) => {
+    const id = String(deskId || '')
+    try {
+      const resolved = presentation ? await resolvePresentation(id, presentation) : null
+      const bundle = await buildDeskBundle(id, resolved ? { presentation: resolved.input } : {})
+      return await publishLiveBundle(id, JSON.stringify(bundle))
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  })
   ipcMain.handle('liveDesk:uploadAsset', (_e, deskId: string, assetId: string, mime: string, bytes: Uint8Array) =>
     uploadLiveAsset(deskId, assetId, mime, bytes)
   )

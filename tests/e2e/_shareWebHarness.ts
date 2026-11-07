@@ -23,13 +23,16 @@ export const MAC_INSTALLER = 'https://dl.plexiidesk.com/v4.3.46/PlexiDesk-4.3.46
 export const DESK_ID = 'd0d0d0d0-0000-4000-8000-000000000001'
 export const STICKY_ID = 'd0d0d0d0-0000-4000-8000-000000000002'
 export const NOTE_ID = 'd0d0d0d0-0000-4000-8000-000000000003'
+/** A live web view link (view.plexiidesk.com/share/dsk_…), opened at /share/l/<token>. */
+export const LIVE_TOKEN = 'dsk_80375edef54b39e65855eb11f6d882cb7aacfcad'
+export const LIVE_NOTE_ID = 'd0d0d0d0-0000-4000-8000-000000000009'
 
 const NOW = 1_762_400_000_000
 const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36'
 
-/** The desk the link shares: a sender's day-trading desk with two notes. */
-export function fixtureBundle(): string {
+/** The desk the link shares: a sender's day-trading desk with two notes (and, when `extra`, a third). */
+export function fixtureBundle(extra?: string): string {
   const node = {
     id: DESK_ID, parent_id: null, kind: 'task', title: 'Day trading desk', description: '', status: 'open',
     priority: 3, interest: 3, importance: 3, sort_order: 0, created_at: NOW, updated_at: NOW,
@@ -47,7 +50,11 @@ export function fixtureBundle(): string {
     counts: { nodes: 1, widgets: 2 },
     tables: {
       nodes: [node],
-      widgets: [widget(STICKY_ID, 'Watch AAPL at the open', 120), widget(NOTE_ID, 'Risk 1% per trade', 420)],
+      widgets: [
+        widget(STICKY_ID, 'Watch AAPL at the open', 120),
+        widget(NOTE_ID, 'Risk 1% per trade', 420),
+        ...(extra ? [widget(LIVE_NOTE_ID, extra, 720)] : [])
+      ],
       widget_links: [], fb_tables: [], fb_rows: [], documents: [], fb_files: [], desk_layouts: []
     },
     files: [],
@@ -74,6 +81,8 @@ export interface ShareWeb {
   /** Page errors (uncaught exceptions). */
   errors: string[]
   close: () => Promise<void>
+  /** Play the sender of the live link changing the desk: a newer version, with this note on it. */
+  bumpLive: (note: string) => void
   /** The gates the page opened: what was tried, and through which channel. */
   gates: () => Promise<Array<{ what: string; channel: string | null }>>
 }
@@ -99,7 +108,13 @@ export function assertWebBuild(): void {
   }
 }
 
-export async function openShareWeb(opts: { deskHandoff?: boolean; serverHandoff?: boolean; userAgent?: string } = {}): Promise<ShareWeb> {
+export async function openShareWeb(opts: {
+  deskHandoff?: boolean
+  serverHandoff?: boolean
+  userAgent?: string
+  /** False: the live link's sender has not sent the desk yet (bundleUpdatedAt null). */
+  liveBundle?: boolean
+} = {}): Promise<ShareWeb> {
   const browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({
     serviceWorkers: 'block',
@@ -111,6 +126,10 @@ export async function openShareWeb(opts: { deskHandoff?: boolean; serverHandoff?
   const out: ShareWeb = {
     browser, context, page, downloads: [], handoffs: [], escaped: [], errors: [],
     close: async () => { await browser.close() },
+    bumpLive: (note: string) => {
+      live.version += 1000
+      live.note = note
+    },
     gates: () =>
       page.evaluate(() => {
         const f = (window as unknown as { plexiiShareGates?: () => Array<{ what: string; channel: string | null }> }).plexiiShareGates
@@ -122,6 +141,7 @@ export async function openShareWeb(opts: { deskHandoff?: boolean; serverHandoff?
   const api = new URL(ACTIVE.api).origin
   const offer = { title: 'Day trading desk', expiresAt: null, updatedAt: NOW, sizeBytes: 2048, rootId: DESK_ID }
   let handoffCount = 0
+  const live = { version: NOW + 1000, note: null as string | null }
 
   await context.route('**/*', async (route) => {
     const req: Request = route.request()
@@ -153,6 +173,20 @@ export async function openShareWeb(opts: { deskHandoff?: boolean; serverHandoff?
       if (url.pathname === `/public/shares/${TOKEN}/bundle`) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle() })
       }
+      if (url.pathname === `/share/${LIVE_TOKEN}`) {
+        return json(200, {
+          ok: true,
+          record: {
+            token: LIVE_TOKEN, kind: 'desk', title: 'Day trading desk', revoked: false, scope: 'view',
+            fromHandle: 'SaaSMouth', createdAt: NOW, expiresAt: null, viewCount: 0,
+            bundleUpdatedAt: opts.liveBundle === false ? null : live.version
+          }
+        })
+      }
+      if (url.pathname === `/share/${LIVE_TOKEN}/desk/bundle`) {
+        if (opts.liveBundle === false) return json(404, { ok: false, error: 'no_bundle' })
+        return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle(live.note ?? undefined) })
+      }
       if (url.pathname === '/public/server-features') {
         return json(200, { ok: true, serverFeatures: opts.serverHandoff === false ? [] : ['desk_handoff'] })
       }
@@ -176,9 +210,9 @@ export async function openShareWeb(opts: { deskHandoff?: boolean; serverHandoff?
 }
 
 /** Open the link and the desk, the way a visitor does. */
-export async function openTheDesk(web: ShareWeb): Promise<void> {
+export async function openTheDesk(web: ShareWeb, path: string = `/share/s/${TOKEN}`): Promise<void> {
   const { page } = web
-  await page.goto(`${SITE}/share/s/${TOKEN}`)
+  await page.goto(`${SITE}${path}`)
   await page.getByRole('button', { name: 'Open the desk' }).click({ timeout: 60_000 })
   await page.locator('[data-testid="share-take-desk"]').waitFor({ timeout: 90_000 })
   await page.locator(`[data-widget-id="${STICKY_ID}"]`).first().waitFor({ timeout: 60_000 })

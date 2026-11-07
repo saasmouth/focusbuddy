@@ -208,17 +208,26 @@ describe('a copyable read link, opened as a desk', () => {
 })
 
 describe('what a read link does not allow', () => {
-  it('a view-only link is refused for copying, says so, and points at where it can be read', async () => {
+  it('a view-only link opens too -- as a desk to look at (owner, 2026-11-07: every link opens the full app)', async () => {
     serve(VIEW, { scope: 'view' })
     await boot(`/share/c/${VIEW}`)
+    await until(() => text().includes('Open the desk'), 'the offer card')
+    expect(text()).toContain('A desk has been shared with you to look at')
+    await act(async () => button('Open the desk')!.click())
+    await until(() => text().includes('Get Plexii'), 'the desk to open')
+    // Looking at it, not taking it: no desk file, and the bar offers Plexii itself.
+    expect(text()).toContain('shared to look at')
+    expect(text()).not.toContain('Save desk file')
+    expect(text()).not.toContain('Download this desk')
+    expect(imports()).toBe(1)
+    expect(records()[VIEW]).toBeTruthy()
+  })
+
+  it('the viewer link it points at for what it cannot open asks the viewer to keep it (?classic=1)', async () => {
+    serve(R, { kind: 'folder' })
+    await boot(`/share/c/${R}`)
     await until(() => byTestId('share-refusal') !== null, 'the refusal')
-    expect(byTestId('share-refusal')!.textContent).toMatch(/to be read, not copied/)
-    const read = byTestId('share-read-instead') as HTMLAnchorElement
-    expect(read.getAttribute('href')).toBe(`https://view.plexiidesk.com/share/${VIEW}`)
-    expect(text()).not.toContain('Open the desk')
-    expect(snapshotFetches(VIEW)).toBe(0)
-    expect(imports()).toBe(0)
-    expect(records()[VIEW]).toBeUndefined()
+    expect((byTestId('share-read-instead') as HTMLAnchorElement).getAttribute('href')).toBe(`https://view.plexiidesk.com/share/${R}?classic=1`)
   })
 
   it('a link that is not a desk is refused the same way', async () => {

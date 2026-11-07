@@ -5,6 +5,10 @@ import { useLinksStore } from '../stores/links'
 import { useNodeStore } from '../stores/nodes'
 import { buildProjection, type ProjectionResolvers } from './publicDeskProjection'
 import { warmCache } from './liveDeskResolvers'
+import { useAccountStore } from '../stores/account'
+import { resolveDeskView, useDeskViewStore } from '../stores/deskView'
+import { loadChoices, presentationRequest } from '../components/share/sharePresentationChoices'
+import { cloudAppUrl } from './signalConfig'
 
 // Keeps a published desk current.
 //
@@ -26,6 +30,12 @@ export interface LiveDeskStatus {
 const PUBLISH_SETTLE_MS = 800
 /** How often a live desk checks whether what it published is still current. */
 const RECONCILE_MS = 20_000
+/**
+ * The desk itself goes at most this often. Packing it reads every file the
+ * desk shows and may visit its websites (sitePreview), which is not something
+ * to do on every keystroke; the full web app looks for a newer one every 30 s.
+ */
+const BUNDLE_MIN_INTERVAL_MS = 20_000
 
 const EMPTY: LiveDeskStatus = {
   token: null,
@@ -126,6 +136,39 @@ export function useLiveDeskPublisher(deskId: string | null): {
   const cache = useRef(new Map<string, unknown>())
   // The last projection actually queued, so an identical rebuild is a no-op.
   const lastSentRef = useRef<string>('')
+  // The desk itself, behind the live link, for the full web app (owner,
+  // 2026-11-07: every share link opens the full app). Sent after the
+  // projection, at most every BUNDLE_MIN_INTERVAL_MS, whenever the desk changed
+  // since it was last sent -- and once per app session, so a desk published
+  // before this existed gets one.
+  const bundleSentRef = useRef<string>('')
+  const bundleBusyRef = useRef(false)
+  const bundleAtRef = useRef(0)
+  const bundleUnsupportedRef = useRef(false)
+  const sendBundle = useCallback(
+    async (fingerprint: string): Promise<void> => {
+      if (!deskId || bundleBusyRef.current || bundleUnsupportedRef.current) return
+      if (Date.now() - bundleAtRef.current < BUNDLE_MIN_INTERVAL_MS) return
+      bundleBusyRef.current = true
+      bundleAtRef.current = Date.now()
+      try {
+        const view = resolveDeskView(useDeskViewStore.getState(), deskId)
+        const request = presentationRequest('task', deskId, loadChoices(deskId, view), {
+          accountId: useAccountStore.getState().account?.id ?? null,
+          cloudAppUrl: cloudAppUrl()
+        })
+        const res = await window.api.liveDesk.publishBundle(deskId, request)
+        if (res.ok) bundleSentRef.current = fingerprint
+        else if (res.unsupported) bundleUnsupportedRef.current = true
+        else void window.api.liveDesk.note(deskId, `desk not sent: ${String(res.error ?? '').slice(0, 80)}`)
+      } catch (e) {
+        void window.api.liveDesk.note(deskId, `desk not sent: ${String(e).slice(0, 80)}`)
+      } finally {
+        bundleBusyRef.current = false
+      }
+    },
+    [deskId]
+  )
   const [warmTick, setWarmTick] = useState(0)
   const resolvers = useResolvers(cache)
 
@@ -193,6 +236,8 @@ export function useLiveDeskPublisher(deskId: string | null): {
         return
       }
       const fingerprint = projectionFingerprint(projection)
+      // The desk itself follows the projection, throttled (sendBundle).
+      if (fingerprint !== bundleSentRef.current) void sendBundle(fingerprint)
       if (fingerprint === lastSentRef.current) {
         void window.api.liveDesk.note(deskId, null)
         return
@@ -209,7 +254,7 @@ export function useLiveDeskPublisher(deskId: string | null): {
     }
     const timer = setInterval(tick, RECONCILE_MS)
     return () => clearInterval(timer)
-  }, [deskId, status.token, status.paused, storeHasDesk, build, refresh])
+  }, [deskId, status.token, status.paused, storeHasDesk, build, refresh, sendBundle])
 
   // Fetch the bodies the projection needs, then rebuild. Publishing waits for
   // this rather than shipping placeholders where real content exists: a public

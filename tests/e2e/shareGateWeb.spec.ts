@@ -11,7 +11,7 @@
 // (_shareWebHarness.ts). Build it first:  VITE_WEB_BASE=/share/ npm run web:build
 import { test, expect } from '@playwright/test'
 import {
-  assertWebBuild, openShareWeb, openTheDesk, DESK_ID, MAC_INSTALLER, STICKY_ID, TOKEN, type ShareWeb
+  assertWebBuild, openShareWeb, openTheDesk, DESK_ID, LIVE_TOKEN, MAC_INSTALLER, STICKY_ID, TOKEN, type ShareWeb
 } from './_shareWebHarness'
 
 let web: ShareWeb | null = null
@@ -228,4 +228,80 @@ test('SG-8 on a phone, nothing is downloaded: the link goes to the computer', as
   await expect(page.locator('[data-testid="share-gate-phone"]')).toBeVisible()
   await page.waitForTimeout(800)
   expect(web.downloads).toEqual([])
+})
+
+// ── Every link is the full app; only what the visitor may do changes ────────
+// Owner, 2026-11-07: "they all should be the same, just the interactivity that
+// changes. Should be full web version of the local app." A Live web view link
+// (view.plexiidesk.com/share/dsk_…, which the viewer now sends to
+// /share/l/<token>) opens the same app, to look at: arranging is the
+// visitor's own business, adding to the sender's desk is not.
+
+test('SG-9 a live web view link opens the full app, to look at', async () => {
+  test.setTimeout(180_000)
+  web = await openShareWeb()
+  await openTheDesk(web, `/share/l/${LIVE_TOKEN}`)
+  const { page } = web
+  for (const id of ['desk-sidebar', 'topbar-search', 'assistant-pill', 'files-panel-toggle']) {
+    await expect(page.locator(`[data-testid="${id}"]`).first(), id).toBeVisible()
+  }
+  await expect(page.locator('[data-testid="share-take-desk"]')).toHaveText('Get Plexii')
+  await expect(page.getByText(' — live: it changes as it is worked on')).toBeVisible()
+  await expect(page.getByText('Save desk file')).toHaveCount(0)
+
+  // Arranging it: theirs to do.
+  const grab = page.locator(`[data-widget-id="${STICKY_ID}"] [data-testid="widget-grab"]`).first()
+  const g = (await grab.boundingBox())!
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(g.x + 160, g.y + 100, { steps: 8 })
+  await page.mouse.up()
+  await page.waitForTimeout(600)
+  expect(await web.gates(), 'arranging a live desk opened the gate').toEqual([])
+
+  // Adding to the sender's desk: not on a link to look at.
+  const canvas = page.locator('[data-canvas-surface]').first()
+  await page.locator('[data-testid="sidemenu-widget-timer"]').dragTo(canvas, { targetPosition: { x: 700, y: 420 } })
+  await expect(gate(web)).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('#share-gate-title')).toHaveText('Get Plexii')
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toHaveText('Adding things to this desk is part of the Plexii app. Plexii is free to start.')
+  await expect(page.locator('[data-testid="share-gate-open-in-plexii"]')).toHaveCount(0)
+  await expect.poll(() => web!.downloads).toEqual([MAC_INSTALLER])
+  expect(await widgetCount(web)).toBe(2)
+  expect(web.handoffs).toEqual([])
+  expect(realErrors(web)).toEqual([])
+  expect(web.escaped).toEqual([])
+})
+
+test('SG-10 a live desk follows the person who shared it', async () => {
+  test.setTimeout(240_000)
+  web = await openShareWeb()
+  await openTheDesk(web, `/share/l/${LIVE_TOKEN}`)
+  const { page } = web
+  expect(await widgetCount(web)).toBe(2)
+
+  // Left alone, the desk simply becomes the newer one when the visitor comes back.
+  web.bumpLive('Close the AAPL position by 3pm')
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByText('Close the AAPL position by 3pm').first()).toBeVisible({ timeout: 90_000 })
+  expect(await widgetCount(web)).toBe(3)
+
+  // Busy with it (a click just now), it is offered instead of pulled out from under them.
+  const canvas = page.locator('[data-canvas-surface]').first()
+  const box = (await canvas.boundingBox())!
+  web.bumpLive('Trail the stop to break-even')
+  await page.mouse.click(box.x + box.width - 140, box.y + box.height - 180)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.locator('[data-testid="share-live-updated"]')).toBeVisible({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'Show the latest' }).click()
+  await expect(page.getByText('Trail the stop to break-even').first()).toBeVisible({ timeout: 90_000 })
+})
+
+test('SG-11 a live link whose desk has not been sent yet points at the viewer, without a loop', async () => {
+  test.setTimeout(120_000)
+  web = await openShareWeb({ liveBundle: false })
+  const { page } = web
+  await page.goto(`https://plexiidesk.com/share/l/${LIVE_TOKEN}`)
+  await expect(page.locator('[data-testid="share-refusal"]')).toContainText('not ready to open in the full app yet', { timeout: 60_000 })
+  await expect(page.locator('[data-testid="share-read-instead"]')).toHaveAttribute('href', `https://view.plexiidesk.com/share/${LIVE_TOKEN}?classic=1`)
 })

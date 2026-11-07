@@ -31,6 +31,31 @@ export const USER_ACTED_MS = 4000
  */
 export const ADD_WINDOW_MS = 20_000
 
+/**
+ * What kind of link the visitor came by (owner, 2026-11-07: every share link
+ * opens the full app; "just the interactivity that changes").
+ *
+ *   'use'   A desk they can use (/s/), or a copyable read link (/c/): look
+ *           around, arrange, and drag apps, widgets, files and tools on.
+ *   'view'  A live web view (/l/) or a read-only snapshot: look around and
+ *           arrange it for themselves, nothing added. The sender chose
+ *           "to look at", not "to use".
+ *
+ * Everything else is the gate in both.
+ */
+export type VisitorMode = 'use' | 'view'
+
+let mode: VisitorMode = 'use'
+
+/** Set before the renderer loads, from the link (boot.tsx). */
+export function setVisitorMode(m: VisitorMode): void {
+  mode = m === 'view' ? 'view' : 'use'
+}
+
+export function visitorMode(): VisitorMode {
+  return mode
+}
+
 export interface CallContext {
   /** The visitor clicked, typed or dropped within USER_ACTED_MS. */
   userActed: boolean
@@ -38,6 +63,8 @@ export interface CallContext {
   adding: boolean
   /** A widget the visitor added in this browser. */
   ownWidget: (id: string) => boolean
+  /** The kind of link (VisitorMode). Absent means 'use'. */
+  mode?: VisitorMode
 }
 
 let lastAct = -Infinity
@@ -75,7 +102,8 @@ export function callContext(at: number = now()): CallContext {
   return {
     userActed: at - lastAct <= USER_ACTED_MS,
     adding: at - lastDrop <= ADD_WINDOW_MS,
-    ownWidget: (id) => own.has(id)
+    ownWidget: (id) => own.has(id),
+    mode
   }
 }
 
@@ -104,7 +132,13 @@ export function openShareGate(what: string, channel: string | null = null): void
 }
 
 /** Test seam. */
+/** How long since the visitor last did anything (a live desk refreshes when they are idle). */
+export function msSinceLastAct(at: number = now()): number {
+  return at - lastAct
+}
+
 export function resetShareGestures(): void {
+  mode = 'use'
   lastAct = -Infinity
   lastDrop = -Infinity
   own.clear()

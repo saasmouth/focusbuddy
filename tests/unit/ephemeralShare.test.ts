@@ -241,7 +241,9 @@ describe('the gate layer does not sit on top of the desk', () => {
   })
 
   it('starts the app below the bar rather than behind it', () => {
-    expect(html()).toMatch(/html\.fb-share-bar #root \{[^}]*padding-top: 40px/)
+    // The bar's 40px, plus any notice under it (boot.tsx sets --fb-share-top),
+    // so a notice never covers the app's own titlebar.
+    expect(html()).toMatch(/html\.fb-share-bar #root \{[^}]*padding-top: var\(--fb-share-top, 40px\)/)
   })
 
   it('adds that class only while the bar is mounted', async () => {

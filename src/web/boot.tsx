@@ -50,7 +50,8 @@ import { dbCall } from './api/dbClient'
 import { dropLinkCopy, holdDesk, openLinkDesk, type BundleFetch, type ReplacePlan } from './api/shareDesk'
 import { markShareRecipient, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
 import { SHARE_EDIT_EVENT, hasEditedShare, shareEditCount } from './api/shareEdits'
-import { installShareGestures, openShareGate } from './api/shareGate'
+import { installShareGestures, msSinceLastAct, openShareGate, setVisitorMode } from './api/shareGate'
+import { classicViewerUrl, fetchLiveShareBundle, liveBundleUpdatedAt, liveTokenFromUrl, previewLiveShare } from './api/liveShare'
 import {
   installerFor, loadInstallers, sendCopy, serverKeepsHandoffs, startDownload, visitorPlatform,
   type HandoffOutcome, type Installers
@@ -65,6 +66,10 @@ const DESKTOP_DOWNLOAD_URL = `${ACTIVE.site}/download`
 /** The installer starts once per visit, not at every gate: a second copy is clutter. */
 const DOWNLOAD_STARTED_KEY = 'fb.share.downloadStarted'
 
+/** How often a live link looks for a newer desk, and how long the visitor must be idle for it to swap in. */
+const LIVE_POLL_MS = 30_000
+const LIVE_IDLE_MS = 15_000
+
 /** How long "Open this desk in Plexii" waits to send a newer copy before opening Plexii anyway. */
 const RESEND_WAIT_MS = 4000
 
@@ -72,10 +77,13 @@ const RESEND_WAIT_MS = 4000
 interface Link {
   token: string
   /** 'use': a desk the sender packed (/s/). 'copy': a copyable read link (/c/). */
-  kind: 'use' | 'copy'
+  kind: 'use' | 'copy' | 'live'
 }
 
 function linkFromUrl(): Link | null {
+  // A live web view (/l/dsk_…): the desk the sender keeps live (liveShare.ts).
+  const live = liveTokenFromUrl()
+  if (live) return { token: live, kind: 'live' }
   const use = shareTokenFromUrl()
   if (use) return { token: use, kind: 'use' }
   const copy = readTokenFromUrl()
@@ -83,10 +91,14 @@ function linkFromUrl(): Link | null {
 }
 
 const previewLink = (link: Link): ReturnType<typeof previewShare> =>
-  link.kind === 'use' ? previewShare(link.token) : previewReadShare(link.token)
+  link.kind === 'use' ? previewShare(link.token) : link.kind === 'live' ? previewLiveShare(link.token) : previewReadShare(link.token)
 
 const fetchLinkBundle = (link: Link): ReturnType<BundleFetch> =>
-  link.kind === 'use' ? fetchShareBundle(link.token) : fetchReadShareBundle(link.token)
+  link.kind === 'use' ? fetchShareBundle(link.token) : link.kind === 'live' ? fetchLiveShareBundle(link.token) : fetchReadShareBundle(link.token)
+
+/** Where a link this page will not open can still be seen. */
+const elsewhereUrl = (link: Link | null): string | undefined =>
+  link?.kind === 'copy' ? readLinkViewerUrl(link.token) : link?.kind === 'live' ? classicViewerUrl(link.token) : undefined
 
 /** The page for everyone who did not arrive with a live link. */
 function DownloadPage({ reason, readUrl }: { reason?: ShareRefusal; readUrl?: string }): React.JSX.Element {
@@ -119,8 +131,8 @@ function DownloadPage({ reason, readUrl }: { reason?: ShareRefusal; readUrl?: st
 
 /** The offer, before the desk is downloaded. */
 function ShareOfferCard({
-  offer, busy, onOpen
-}: { offer: ShareOffer; busy: boolean; onOpen: () => void }): React.JSX.Element {
+  offer, busy, onOpen, live
+}: { offer: ShareOffer; busy: boolean; onOpen: () => void; live: boolean }): React.JSX.Element {
   const expires = linkExpires(offer)
   // A read link's size is not known until its snapshot is fetched (0): left
   // out, rather than shown as "0.0 MB".
@@ -133,12 +145,24 @@ function ShareOfferCard({
       <div style={S.card}>
         <div style={S.brand}>Plexii</div>
         <div style={S.offer}>
-          <div style={S.offerWho}>A desk has been shared with you</div>
+          <div style={S.offerWho}>{offer.mode === 'view' ? (live ? 'A live desk has been shared with you' : 'A desk has been shared with you to look at') : 'A desk has been shared with you'}</div>
           <div style={S.offerTitle}>{offer.title || 'A desk'}</div>
           {what && <div style={S.offerWhat}>{what}</div>}
         </div>
         <div style={S.sub}>
-          {expires ? (
+          {offer.mode === 'view' ? (
+            live ? (
+              <>
+                Look around it in Plexii — zoom in, open anything, arrange it your way. It is live:
+                it changes as the person who shared it works on it.
+              </>
+            ) : (
+              <>
+                Look around it in Plexii — zoom in, open anything, arrange it your way. Nothing you
+                do reaches the person who shared it.
+              </>
+            )
+          ) : expires ? (
             <>
               Explore it in full — zoom in, rearrange it, change anything you like. Nothing you
               do reaches the sender, and nothing is kept: this copy and everything in it is
@@ -217,6 +241,8 @@ type UpdateNotice =
   | { kind: 'ask' | 'ask-unsure'; version: number | null; shared: boolean; existing?: boolean }
   | { kind: 'blocked'; why: 'open-elsewhere' | 'unreadable' }
   | { kind: 'loaded' }
+  // A live link's sender changed the desk while the visitor was busy.
+  | { kind: 'live' }
   // The server could not be asked, or could not serve the desk: this is the
   // visitor's copy as they left it.
   | { kind: 'unavailable'; offline: boolean }
@@ -254,6 +280,18 @@ function UpdateBanner({
         </span>
         <span style={S.barActions}>
           <button style={S.barGhost} onClick={onClose}>Dismiss</button>
+        </span>
+      </div>
+    )
+  }
+
+  if (notice.kind === 'live') {
+    return (
+      <div style={S.notice} role="status" data-testid="share-live-updated">
+        <span style={S.warnText}>This desk has just changed.</span>
+        <span style={S.barActions}>
+          <button style={S.barPrimaryButton} onClick={replace}>Show the latest</button>
+          <button style={S.barGhost} onClick={onClose}>Later</button>
         </span>
       </div>
     )
@@ -332,9 +370,11 @@ function UpdateBanner({
 }
 
 function ExpiryBar({
-  offer, onSave, onExpired, onTakeIt, children
+  offer, onSave, onExpired, onTakeIt, live = false, children
 }: {
   offer: ShareOffer
+  /** A live web view: the desk follows the sender. */
+  live?: boolean
   /** "Download this desk": the gate, asked for. */
   onTakeIt: () => void
   /**
@@ -360,8 +400,28 @@ function ExpiryBar({
   }, [])
   useEffect(() => {
     document.documentElement.classList.add('fb-share-bar')
-    return () => document.documentElement.classList.remove('fb-share-bar')
+    return () => {
+      document.documentElement.classList.remove('fb-share-bar')
+      document.documentElement.style.removeProperty('--fb-share-top')
+    }
   }, [])
+  // The app starts below the bar AND below any notice under it (index.html
+  // --fb-share-top), so a notice never covers the app's own titlebar.
+  const noticesRef = useRef<HTMLDivElement>(null)
+  const hasNotices = !!children || (warned && !dismissed)
+  useEffect(() => {
+    const root = document.documentElement
+    const el = noticesRef.current
+    if (!el || !hasNotices) {
+      root.style.setProperty('--fb-share-top', '40px')
+      return
+    }
+    const apply = (): void => root.style.setProperty('--fb-share-top', `${40 + Math.ceil(el.getBoundingClientRect().height)}px`)
+    apply()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [hasNotices, children])
   const [, tick] = useState(0)
   useEffect(() => {
     if (!expires) return
@@ -385,7 +445,7 @@ function ExpiryBar({
   return (
     <>
     {(children || showWarning) && (
-      <div style={S.notices}>
+      <div style={S.notices} ref={noticesRef}>
         {children}
         {showWarning && <EditWarning expires={expires} onClose={() => setDismissed(true)} onTakeIt={onTakeIt} />}
       </div>
@@ -396,6 +456,11 @@ function ExpiryBar({
           <>
             <strong>{offer.title || 'Shared desk'}</strong> · {countdown(offer.expiresAt)}
             <span style={S.barFine}> — changes are not saved · deleted when the timer ends</span>
+          </>
+        ) : offer.mode === 'view' ? (
+          <>
+            <strong>{offer.title || 'Shared desk'}</strong>
+            <span style={S.barFine}>{live ? ' — live: it changes as it is worked on' : ' — shared to look at'}</span>
           </>
         ) : (
           <>
@@ -409,12 +474,14 @@ function ExpiryBar({
         )}
       </span>
       <span style={S.barActions}>
-        {onSave && (
+        {onSave && offer.mode !== 'view' && (
           <button style={S.barGhost} onClick={() => void save()} disabled={saving === 'saving'}>
             {saving === 'saving' ? 'Fetching the desk file…' : saving === 'failed' ? 'Could not fetch it — try again' : 'Save desk file'}
           </button>
         )}
-        <button style={S.barPrimaryButton} onClick={onTakeIt} data-testid="share-take-desk">Download this desk</button>
+        <button style={S.barPrimaryButton} onClick={onTakeIt} data-testid="share-take-desk">
+          {offer.mode === 'view' ? 'Get Plexii' : 'Download this desk'}
+        </button>
       </span>
     </div>
     </>
@@ -439,9 +506,11 @@ type Carry =
  * with everything they added, into Plexii once they have signed up.
  */
 function GateModal({
-  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onClose
+  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onClose, viewOnly = false
 }: {
   what: string
+  /** A link to look at: Plexii is offered, not this desk. */
+  viewOnly?: boolean
   platform: ReturnType<typeof visitorPlatform>
   installers: Installers | null
   downloadUrl: string | null
@@ -469,9 +538,12 @@ function GateModal({
   return (
     <div style={S.scrim} role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={S.gate} role="dialog" aria-modal="true" aria-labelledby="share-gate-title" data-testid="share-gate">
-        <div style={S.gateTitle} id="share-gate-title">Download this desk on Plexii</div>
+        {/* A link to look at is the sender's desk, not the visitor's to take:
+            the gate offers Plexii itself (owner, 2026-11-07: every link opens
+            the full app, "just the interactivity that changes"). */}
+        <div style={S.gateTitle} id="share-gate-title">{viewOnly ? 'Get Plexii' : 'Download this desk on Plexii'}</div>
         <div style={S.sub} data-testid="share-gate-lead">
-          {lead}Take this desk with you{carry.kind === 'off' ? '' : ' — everything you added comes too'}.
+          {viewOnly ? `${lead}Plexii is free to start.` : <>{lead}Take this desk with you{carry.kind === 'off' ? '' : ' — everything you added comes too'}.</>}
         </div>
 
         {platform === 'phone' ? (
@@ -555,6 +627,10 @@ function Boot(): React.JSX.Element {
   // "Download this desk on Plexii": the gate, what was tried, the installer and
   // the visitor's copy on its way to the app (GateModal).
   const [gate, setGate] = useState<string | null>(null)
+  const gateOpenRef = useRef(false)
+  useEffect(() => {
+    gateOpenRef.current = gate !== null
+  }, [gate])
   const [platform] = useState(() => visitorPlatform())
   const [installers, setInstallers] = useState<Installers | null>(null)
   const [carry, setCarry] = useState<Carry>({ kind: 'off' })
@@ -614,7 +690,7 @@ function Boot(): React.JSX.Element {
       }
       // A read link's metadata does not name its desk; this browser's record of
       // the link does, once it has been unpacked here (readShare.ts).
-      const offer = link.kind === 'copy' ? offerWithRecordedDesk(preview.offer, linkRecord(token)) : preview.offer
+      const offer = link.kind !== 'use' ? offerWithRecordedDesk(preview.offer, linkRecord(token)) : preview.offer
       // This browser holds this link's desk, so this is a return rather than an
       // arrival -- whichever links were opened in between.
       const returning = linkRecord(token) !== null
@@ -630,7 +706,7 @@ function Boot(): React.JSX.Element {
           // metadata route answering is no promise that the desk can be read
           // (a payload the server cannot open answers 503), and removing first
           // would trade the visitor's copy for nothing.
-          const next = link.kind === 'use' ? await fetchShareBundle(token) : await fetchReadShareBundle(token)
+          const next = await fetchLinkBundle(link)
           if (cancelled) return
           if (!next.ok) {
             if (linkIsGone(next.reason)) {
@@ -670,11 +746,11 @@ function Boot(): React.JSX.Element {
     void (async () => {
       try {
         let fetchBundle: BundleFetch = () => fetchLinkBundle(link)
-        if (link.kind === 'copy' && !offer.rootId) {
+        if ((link.kind === 'copy' || link.kind === 'live') && !offer.rootId) {
           // A first visit to a read link: the desk is named only inside its
           // snapshot, so the snapshot is fetched now -- once; openLinkDesk is
           // handed the same text -- and the offer completed from it.
-          const first = await resolveFirstVisit(token, offer)
+          const first = await resolveFirstVisit(token, offer, link.kind === 'live' ? fetchLiveShareBundle : undefined)
           if (!first.ok) {
             // Nothing of this link's is here yet, so there is nothing to take
             // out: say why, as the preview would have.
@@ -690,6 +766,8 @@ function Boot(): React.JSX.Element {
         // Who did what, and when, for the bridge to decide each call by
         // (api/shareGate.ts): looking, arranging and dropping are free.
         installShareGestures()
+        // What this kind of link lets the visitor do (api/shareGate.ts).
+        setVisitorMode(offer.mode ?? 'use')
         await installFileServer()
 
         // Where can this desk live? A browser that refuses durable storage
@@ -774,6 +852,7 @@ function Boot(): React.JSX.Element {
   // server keeps them). Asked up front so the gate can start the download in
   // the same moment it appears.
   const ready = state.kind === 'ready'
+  const viewOnly = state.kind === 'ready' ? state.offer.mode === 'view' : null
   useEffect(() => {
     if (!ready) return
     let cancelled = false
@@ -781,7 +860,8 @@ function Boot(): React.JSX.Element {
       const inst = await loadInstallers()
       if (cancelled) return
       setInstallers(inst)
-      const offered = !!inst?.deskHandoff && (await serverKeepsHandoffs())
+      // A link to look at is not the visitor's to take: nothing is carried.
+      const offered = viewOnly === false && !!inst?.deskHandoff && (await serverKeepsHandoffs())
       if (cancelled) return
       carryOffered.current = offered
       // Nothing is sent until the gate opens.
@@ -790,7 +870,42 @@ function Boot(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [ready])
+  }, [ready, viewOnly])
+
+  // A live link follows the sender: a newer desk is looked for every 30 s, and
+  // put in place once the visitor has left the page alone for a little while
+  // (a reload: an untouched copy is replaced without asking, shareVersion.ts).
+  // While they are busy, a notice offers it instead of pulling the desk out
+  // from under them.
+  const liveSince = state.kind === 'ready' && link?.kind === 'live' ? (state.offer.updatedAt ?? 0) : null
+  useEffect(() => {
+    if (liveSince === null || !token) return
+    let stopped = false
+    const look = async (): Promise<void> => {
+      const at = await liveBundleUpdatedAt(token)
+      if (stopped || at === null || at <= liveSince) return
+      if (msSinceLastAct() >= LIVE_IDLE_MS && gateOpenRef.current === false) {
+        requestNewVersion()
+        window.location.reload()
+      } else {
+        setUpdate({ kind: 'live' })
+      }
+    }
+    const t = window.setInterval(() => void look(), LIVE_POLL_MS)
+    // And the moment the visitor comes back to the tab: the first thing they
+    // see after a while away should be the desk as it is now.
+    const onBack = (): void => {
+      if (document.visibilityState !== 'hidden') void look()
+    }
+    window.addEventListener('focus', onBack)
+    document.addEventListener('visibilitychange', onBack)
+    return () => {
+      stopped = true
+      window.clearInterval(t)
+      window.removeEventListener('focus', onBack)
+      document.removeEventListener('visibilitychange', onBack)
+    }
+  }, [liveSince, token])
 
   const downloadUrl = installerFor(platform, installers)
 
@@ -806,7 +921,8 @@ function Boot(): React.JSX.Element {
   }, [downloadUrl])
 
   const send = useCallback(async (): Promise<Carry> => {
-    if (state.kind !== 'ready' || !token || !link || !carryOffered.current) return { kind: 'off' }
+    // A live link is the sender's desk to look at: never carried (carryOffered stays false too).
+    if (state.kind !== 'ready' || !token || !link || link.kind === 'live' || !carryOffered.current) return { kind: 'off' }
     setCarry({ kind: 'sending' })
     const edits = shareEditCount()
     const out = await sendCopy({ token, kind: link.kind, rootId: state.offer.rootId, title: state.offer.title })
@@ -872,11 +988,11 @@ function Boot(): React.JSX.Element {
     return (
       <DownloadPage
         reason={state.reason}
-        readUrl={link?.kind === 'copy' ? readLinkViewerUrl(link.token) : undefined}
+        readUrl={elsewhereUrl(link)}
       />
     )
   }
-  if (state.kind === 'offer') return <ShareOfferCard offer={state.offer} busy={busy} onOpen={open} />
+  if (state.kind === 'offer') return <ShareOfferCard offer={state.offer} busy={busy} onOpen={open} live={link?.kind === 'live'} />
   if (state.kind === 'failed') {
     return (
       <div style={S.shell}>
@@ -900,6 +1016,7 @@ function Boot(): React.JSX.Element {
     <>
       <ExpiryBar
         offer={state.offer}
+        live={link?.kind === 'live'}
         onSave={update?.kind === 'unavailable' && bundleRef.current === null ? null : saveDeskFile}
         onExpired={expire}
         onTakeIt={() => openGate('')}
@@ -918,6 +1035,7 @@ function Boot(): React.JSX.Element {
           onRetryCarry={() => void send()}
           onDownload={download}
           onClose={() => setGate(null)}
+          viewOnly={state.offer.mode === 'view'}
         />
       )}
     </>
@@ -955,7 +1073,9 @@ const S: Record<string, React.CSSProperties> = {
   barGhost: { padding: '5px 10px', borderRadius: 6, border: '1px solid #39404f',
     background: 'transparent', color: '#e7e9ee', fontSize: 12, cursor: 'pointer' },
   // Everything that sits under the bar, stacked, so two notices never overlap.
-  notices: { position: 'fixed', top: 40, left: 0, right: 0, zIndex: 61,
+  // Above the app's own chrome (its titlebar is z 195 and sits right under the
+  // bar, since visitors get the whole app) and below the gate (400).
+  notices: { position: 'fixed', top: 40, left: 0, right: 0, zIndex: 300,
     display: 'flex', flexDirection: 'column' },
   warn: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     flexWrap: 'wrap', padding: '10px 12px', background: '#3a2216', borderBottom: '1px solid #5a3a20',

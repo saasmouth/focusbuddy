@@ -20,11 +20,21 @@
          canvas could not be panned, zoomed or clicked at all, because nothing
          reached it. pointer-events are handed back by the children, so a
          full-screen gate card still works and the bar still takes its clicks. */
-      #boot { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+      /* Above EVERYTHING the app draws. Since 2026-11-07 a visitor gets the
+         whole app -- its titlebar (z 195) sits right under the bar, and its
+         assistant, menus and modals reach 200-plus -- so a layer at 100 put
+         the update notices under the titlebar (their buttons could not be
+         clicked) and the "Download this desk on Plexii" gate under the app's
+         own overlays. This layer holds only the bar, its notices and the gate,
+         and passes every other click through (pointer-events below). */
+      #boot { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; }
       #boot > * { pointer-events: auto; }
       #boot:empty { display: none; }
       /* With the bar showing, the app starts below it rather than under it. */
-      html.fb-share-bar #root { padding-top: 40px; box-sizing: border-box; height: 100%; }
+      /* --fb-share-top is the bar plus any notice under it (boot.tsx measures
+         them): with the whole app under the bar, a notice laid over it would
+         hide the app's titlebar and the top of its side menu. */
+      html.fb-share-bar #root { padding-top: var(--fb-share-top, 40px); box-sizing: border-box; height: 100%; }
     </style>
   </head>
   <body class="bg-desk-50">

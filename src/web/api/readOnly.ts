@@ -309,8 +309,14 @@ export function decideCall(channel: string, args: unknown[], ctx: CallContext = 
   if (LAYOUT_ONLY.has(channel) || NAVIGATION_NAMESPACES.has(ns) || LOOKING.has(channel)) return { allowed: true, args, edits: false }
   if (channel === 'widgets:update' && !edits) return { allowed: true, args, edits: false }
 
-  // Finishing a drop onto the desk.
-  if (ctx.adding && ADD_CHANNELS.has(channel)) return { allowed: true, args, edits: true }
+  // Finishing a drop onto the desk -- on a link to use. A link to look at
+  // (VisitorMode 'view') adds nothing.
+  if (ctx.adding && ADD_CHANNELS.has(channel)) {
+    if (ctx.mode === 'view' && ctx.userActed) {
+      return { allowed: false, args, why: GATE_WHY, gate: 'Adding things to this desk' }
+    }
+    if (ctx.mode !== 'view') return { allowed: true, args, edits: true }
+  }
 
   // Taking back a widget the visitor dropped.
   if (REMOVE_WIDGET.has(channel) && typeof args[0] === 'string' && ctx.ownWidget(args[0])) {

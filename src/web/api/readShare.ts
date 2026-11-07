@@ -61,9 +61,12 @@ export function readTokenFromUrl(href = window.location.href): string | null {
   }
 }
 
-/** Where the visitor can still READ a link this page will not copy. */
+/**
+ * Where the visitor can still READ a link this page will not open. ?classic=1:
+ * the viewer sends desk links on to this page, and must not send this one back.
+ */
 export function readLinkViewerUrl(token: string): string {
-  return viewerUrlFor(encodeURIComponent(token))
+  return `${viewerUrlFor(encodeURIComponent(token))}?classic=1`
 }
 
 const urlFor = (path: string): string => signalConfig.httpUrl.replace(/\/+$/, '') + path
@@ -106,6 +109,24 @@ export function copyRefusal(record: ReadRecord): ShareRefusal | null {
 }
 
 /**
+ * Whether the link opens here at all (owner, 2026-11-07: every share link
+ * opens the full app, "just the interactivity that changes"). A desk opens
+ * whatever its scope; the scope decides what the visitor may do (readMode).
+ * Something other than a desk -- a document, a file, a room snapshot, which
+ * carries no desks inside -- is still the viewer's.
+ */
+export function openRefusal(record: ReadRecord): ShareRefusal | null {
+  if (record.revoked === true) return 'gone'
+  if (record.kind !== 'task') return 'not-a-desk'
+  return null
+}
+
+/** A copyable link is a desk to use; any other scope is a desk to look at. */
+export function readMode(record: ReadRecord): 'use' | 'view' {
+  return record.scope === 'copy' ? 'use' : 'view'
+}
+
+/**
  * What the link offers, before anything is downloaded -- and before the view
  * counter moves (?meta=1).
  *
@@ -122,11 +143,14 @@ export async function previewReadShare(token: string): Promise<
     const res = await fetch(urlFor(`/share/${encodeURIComponent(token)}?meta=1`), { cache: 'no-store' })
     const body = (await res.json().catch(() => null)) as { ok?: boolean; record?: ReadRecord } | null
     if (res.ok && body?.ok && body.record) {
-      const refused = copyRefusal(body.record)
+      const refused = openRefusal(body.record)
       if (refused) return { ok: false, reason: refused }
       const title = typeof body.record.title === 'string' ? body.record.title : ''
       const expiresAt = typeof body.record.expiresAt === 'number' ? body.record.expiresAt : null
-      return { ok: true, offer: { title, expiresAt: normaliseExpiresAt(expiresAt), sizeBytes: 0, rootId: '' } }
+      return {
+        ok: true,
+        offer: { title, expiresAt: normaliseExpiresAt(expiresAt), sizeBytes: 0, rootId: '', mode: readMode(body.record) }
+      }
     }
     return { ok: false, reason: readRefusalFrom(res.status, body) }
   } catch {
@@ -146,7 +170,7 @@ export async function fetchReadShareBundle(
     const res = await fetch(urlFor(`/share/${encodeURIComponent(token)}`), { cache: 'no-store' })
     const body = (await res.json().catch(() => null)) as { ok?: boolean; record?: ReadRecord } | null
     if (res.ok && body?.ok && body.record) {
-      const refused = copyRefusal(body.record)
+      const refused = openRefusal(body.record)
       if (refused) return { ok: false, reason: refused }
       const made = snapshotToDeskBundle(body.record.snapshot, { fromHandle: body.record.fromHandle })
       if (!made.ok) return { ok: false, reason: made.why }

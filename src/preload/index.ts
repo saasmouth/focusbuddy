@@ -2457,6 +2457,13 @@ const api = {
   liveDesk: {
     get: (deskId: string): Promise<LiveDeskRecord | null> =>
       ipcRenderer.invoke('liveDesk:get', deskId),
+    // The desk itself behind a live link, for the full web app (main
+    // livePublisher.publishLiveBundle). Latest only.
+    publishBundle: (
+      deskId: string,
+      presentation?: SharePresentationRequest
+    ): Promise<{ ok: boolean; bundleUpdatedAt?: number; error?: string; unsupported?: boolean }> =>
+      ipcRenderer.invoke('liveDesk:publishBundle', deskId, presentation),
     start: (deskId: string, fromHandle?: string): Promise<{ ok: boolean; token?: string; error?: string }> =>
       ipcRenderer.invoke('liveDesk:start', deskId, fromHandle),
     publish: (deskId: string, projection: unknown): Promise<{ ok: boolean; revision?: number; error?: string }> =>

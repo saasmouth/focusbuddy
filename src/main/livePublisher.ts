@@ -125,6 +125,43 @@ export async function publishProjection(
   }
 }
 
+/**
+ * The real desk behind a live link (owner, 2026-11-07: every share link opens
+ * the full web version of the app, only what a visitor may do changes). The
+ * projection above is what the old read-only viewer draws; the full web app
+ * needs the desk itself -- the same bundle a "desk they can use" link carries
+ * -- so the latest one is kept beside it (PUT /shares/desks/:token/bundle).
+ *
+ * Latest only: the server keeps one per link. A server without the route yet
+ * answers 404 for the route itself, which is "not supported", not a failure
+ * worth recording against the desk's publishing.
+ */
+export async function publishLiveBundle(
+  deskId: string,
+  bundleJson: string
+): Promise<{ ok: boolean; bundleUpdatedAt?: number; error?: string; unsupported?: boolean }> {
+  const record = getLiveDesk(deskId)
+  if (!record) return { ok: false, error: 'This desk is not published.' }
+  if (record.paused) return { ok: false, error: 'Publishing is paused for this desk.' }
+  const headers = authHeaders()
+  if (!headers) return { ok: false, error: 'Sign in to publish a desk to the web.' }
+  try {
+    const res = await fetch(`${SIGNAL_BASE}/shares/desks/${record.token}/bundle`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ bundle: bundleJson })
+    })
+    const body = (await res.json().catch(() => ({}))) as { bundleUpdatedAt?: number; error?: string; message?: string }
+    if (res.status === 404 && /^Route .* not found/i.test(String(body.message ?? ''))) {
+      return { ok: false, unsupported: true, error: 'This server does not keep live desks yet.' }
+    }
+    if (!res.ok) return { ok: false, error: body.message ?? body.error ?? `HTTP ${res.status}` }
+    return { ok: true, bundleUpdatedAt: body.bundleUpdatedAt }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Could not reach the server.' }
+  }
+}
+
 export async function uploadLiveAsset(
   deskId: string,
   assetId: string,

@@ -552,7 +552,8 @@ describe('kept in step across files (round 2)', () => {
   it('the share page fetches a new version before anything of the old desk is removed', async () => {
     const boot = await read('src/web/boot.tsx')
     const branch = boot.slice(boot.indexOf("if (decision === 'load') {"))
-    const fetched = branch.indexOf('await fetchShareBundle(token)')
+    // Fetched for whichever kind of link this is (fetchLinkBundle: use, read or live).
+    const fetched = branch.indexOf('await fetchLinkBundle(link)')
     expect(fetched).toBeGreaterThan(-1)
     // The fetched text is what open() puts in place; nothing is removed here.
     expect(branch.indexOf('planRef.current = { text: next.text, asked }')).toBeGreaterThan(fetched)

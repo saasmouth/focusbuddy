@@ -229,6 +229,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'liveDesk:get': [{ kind: 'string', optional: false, nullable: false }],
   'liveDesk:note': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: true }],
   'liveDesk:publish': [{ kind: 'string', optional: false, nullable: false }, { kind: 'any', optional: false, nullable: false }],
+  'liveDesk:publishBundle': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'liveDesk:setPaused': [{ kind: 'string', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }],
   'liveDesk:start': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: true, nullable: false }],
   'liveDesk:stop': [{ kind: 'string', optional: false, nullable: false }],
