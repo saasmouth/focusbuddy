@@ -435,6 +435,40 @@ function layoutTableFirst(db: CopyDb): void {
   ensureDeskLayoutSchema(db as unknown as Parameters<typeof ensureDeskLayoutSchema>[0])
 }
 
+/**
+ * Make every row in this browser the visitor's own, unshared workspace.
+ *
+ * A desk in a TEAM workspace travels with its team's org id on every row
+ * (nodes, tables, documents, files…). The app lists only the active
+ * workspace's rows -- for a visitor, 'personal' -- so such a desk was
+ * imported in full and then filtered out of sight: the page opened on the
+ * app's Home with no desk at all (measured 2026-11-07 on the owner's live
+ * "Lesson Planning" link, org_777a…). This database only ever holds visitors'
+ * copies of shared desks (the share page has no workspace of its own), so
+ * re-homing all of it is safe, and running it at every open also repairs
+ * copies unpacked before this existed. Returns how many rows moved.
+ */
+export function adoptVisitorScope(db: CopyDb): number {
+  let moved = 0
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>
+  for (const { name } of tables) {
+    let cols: string[]
+    try {
+      cols = (db.prepare(`PRAGMA table_info("${name}")`).all() as Array<{ name: string }>).map((c) => c.name)
+    } catch {
+      continue
+    }
+    if (!cols.includes('org_id')) continue
+    const team = cols.includes('team_id') ? ', team_id = NULL' : ''
+    try {
+      moved += db.prepare(`UPDATE "${name}" SET org_id = 'personal'${team} WHERE org_id IS NOT NULL AND org_id <> 'personal'`).run().changes
+    } catch {
+      /* a table this build cannot write: left as it is */
+    }
+  }
+  return moved
+}
+
 type Handler = (...args: never[]) => unknown
 const h = (fn: (...a: never[]) => unknown): Handler => fn
 
@@ -453,6 +487,8 @@ export const SHARE_COPY_HANDLERS: Record<string, Handler> = {
   'shareCopy:importDesk': h((bundle: DeskBundle) => importDeskForShare(bundle)),
   // Durable (OPFS) or this page only (memory): decides what the page promises.
   'shareCopy:storageMode': h(() => storageMode()),
+  // Every row the visitor's own workspace's, so a team desk is not hidden.
+  'shareCopy:adoptVisitorScope': h(() => adoptVisitorScope(getDb() as unknown as CopyDb)),
   // "Download this desk on Plexii": the visitor's copy, as it is now (with what
   // they dragged onto it), packed the way the desktop packs a link -- the same
   // builder and the same size budget Signal accepts -- to be handed to the app

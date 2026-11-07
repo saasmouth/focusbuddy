@@ -791,6 +791,10 @@ function Boot(): React.JSX.Element {
           return
         }
         if (outcome.kind === 'failed') throw new Error(outcome.detail)
+        // A desk from a team workspace carries its team's id on every row, and
+        // the app shows only the visitor's own workspace: without this it was
+        // unpacked and then filtered out of sight (worker/shareCopy.ts).
+        await dbCall('shareCopy:adoptVisitorScope', []).catch(() => null)
         bundleRef.current = outcome.bundleText
         if (outcome.notice) setUpdate(outcome.notice)
         // This tab shows the desk from here on: no other tab replaces or

@@ -305,3 +305,17 @@ test('SG-11 a live link whose desk has not been sent yet points at the viewer, w
   await expect(page.locator('[data-testid="share-refusal"]')).toContainText('not ready to open in the full app yet', { timeout: 60_000 })
   await expect(page.locator('[data-testid="share-read-instead"]')).toHaveAttribute('href', `https://view.plexiidesk.com/share/${LIVE_TOKEN}?classic=1`)
 })
+
+test('SG-12 a desk from a team workspace opens on the desk, by either kind of link', async () => {
+  // The owner's live "Lesson Planning" link (2026-11-07) carried its team's
+  // org id: unpacked in full, then filtered out of sight -- the page showed
+  // the app's Home with no desk. (openTheDesk waits for the desk's own note.)
+  test.setTimeout(240_000)
+  web = await openShareWeb({ orgId: 'org_777a2068e04f4d2c06' })
+  await openTheDesk(web)
+  expect(await widgetCount(web)).toBe(2)
+  await web.close()
+  web = await openShareWeb({ orgId: 'org_777a2068e04f4d2c06' })
+  await openTheDesk(web, `/share/l/${LIVE_TOKEN}`)
+  expect(await widgetCount(web)).toBe(2)
+})

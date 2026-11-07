@@ -337,7 +337,8 @@ describe('one record per link (M3)', () => {
     expect(bundleFetches(A)).toBe(1)
     // The storage question (durable or memory-only) is read-only and asked first
     // at every open; after it, A's desk is only looked at, nothing else touched.
-    expect(worker.calls.map((c) => c.channel)).toEqual(['shareCopy:storageMode', 'shareCopy:deskPresent'])
+    // (adoptVisitorScope: every open makes the copy the visitor's own workspace's, so a team desk is not hidden.)
+    expect(worker.calls.map((c) => c.channel)).toEqual(['shareCopy:storageMode', 'shareCopy:deskPresent', 'shareCopy:adoptVisitorScope'])
   })
 
   it('A edited, B opened, B updated: B’s new version loads without asking, and A’s edits are untouched', async () => {

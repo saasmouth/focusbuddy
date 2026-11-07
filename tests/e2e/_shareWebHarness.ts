@@ -32,11 +32,11 @@ const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36'
 
 /** The desk the link shares: a sender's day-trading desk with two notes (and, when `extra`, a third). */
-export function fixtureBundle(extra?: string): string {
+export function fixtureBundle(extra?: string, orgId: string = 'personal'): string {
   const node = {
     id: DESK_ID, parent_id: null, kind: 'task', title: 'Day trading desk', description: '', status: 'open',
     priority: 3, interest: 3, importance: 3, sort_order: 0, created_at: NOW, updated_at: NOW,
-    extensions_minutes: 0, org_id: 'personal'
+    extensions_minutes: 0, org_id: orgId
   }
   const widget = (id: string, content: string, x: number) => ({
     id, task_id: DESK_ID, kind: 'sticky', title: '', content, x, y: 80, width: 240, height: 180, z_index: 1,
@@ -114,6 +114,8 @@ export async function openShareWeb(opts: {
   userAgent?: string
   /** False: the live link's sender has not sent the desk yet (bundleUpdatedAt null). */
   liveBundle?: boolean
+  /** The desk's workspace: a team's org id, as a desk in a team workspace carries. */
+  orgId?: string
 } = {}): Promise<ShareWeb> {
   const browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({
@@ -171,7 +173,7 @@ export async function openShareWeb(opts: {
     if (url.origin === api) {
       if (url.pathname === `/public/shares/${TOKEN}`) return json(200, { ok: true, share: offer })
       if (url.pathname === `/public/shares/${TOKEN}/bundle`) {
-        return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle() })
+        return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle(undefined, opts.orgId) })
       }
       if (url.pathname === `/share/${LIVE_TOKEN}`) {
         return json(200, {
@@ -185,7 +187,7 @@ export async function openShareWeb(opts: {
       }
       if (url.pathname === `/share/${LIVE_TOKEN}/desk/bundle`) {
         if (opts.liveBundle === false) return json(404, { ok: false, error: 'no_bundle' })
-        return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle(live.note ?? undefined) })
+        return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle(live.note ?? undefined, opts.orgId) })
       }
       if (url.pathname === '/public/server-features') {
         return json(200, { ok: true, serverFeatures: opts.serverHandoff === false ? [] : ['desk_handoff'] })

@@ -178,7 +178,14 @@ describe('opening the desk that was sent', () => {
     // first desk in it is the right answer rather than a guess.
     const { deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
     expect(deskToOpen(nodes, null)).toBe('desk-a')
-    expect(deskToOpen(nodes, 'not-here')).toBe('desk-a')
+  })
+
+  it('never opens a DIFFERENT desk for a link that names one (2026-11-07)', async () => {
+    // A browser holds desks from several links. The owner's Lesson Planning
+    // link, hidden by the workspace filter, opened "Year 2 grant report" from
+    // an earlier link instead. A named desk that is not (yet) here is "not yet".
+    const { deskToOpen } = await import('../../src/renderer/src/lib/shareMode')
+    expect(deskToOpen(nodes, 'not-here')).toBeNull()
   })
 
   it('says "not yet" while the nodes are still loading', async () => {

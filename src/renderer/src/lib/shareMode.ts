@@ -117,6 +117,14 @@ export function shareLanding(
     if (inside.length === 1) return { kind: 'desk', id: inside[0].id }
     return { kind: 'room', id: exact.id }
   }
+  // A link that NAMES its desk opens that desk or nothing ("not yet": the
+  // caller waits for the nodes to change). This browser can hold desks from
+  // several links, so "the first desk here" may be somebody else's: the owner's
+  // Lesson Planning link opened a different desk, "Year 2 grant report", from
+  // an earlier link (2026-11-07), when Lesson Planning was hidden by the
+  // workspace filter (worker/shareCopy adoptVisitorScope). Only a link that
+  // names nothing -- minted before the id travelled -- falls back.
+  if (wantedId) return null
   return desks.length > 0 ? { kind: 'desk', id: desks[0].id } : null
 }
 
