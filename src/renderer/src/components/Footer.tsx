@@ -12,6 +12,7 @@ import TermsModal from './TermsModal'
 import UpdaterBanner from './UpdaterBanner'
 import TrialBadge from './TrialBadge'
 import { confirmDialog } from './plexi/PromptDialog'
+import { isShareRecipient } from '../lib/shareMode'
 
 // Compact, always-visible sync status.
 //
@@ -101,6 +102,7 @@ export default function Footer(): JSX.Element {
   // electron-vite's `define`. Bump package.json on every release; this
   // footer (and any other display) updates automatically.
   const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+  const shareVisitor = isShareRecipient()
 
   return (
     <>
@@ -114,6 +116,9 @@ export default function Footer(): JSX.Element {
               second product name. The version stays: it is what you read out
               when something goes wrong, and it is the anchor for the update
               check. */}
+          {/* Not on a shared desk in the browser: there is nothing to update
+              there, and a public page has no business showing a build tag. */}
+          {!shareVisitor && (
           <Tooltip
             placement="top"
             content={`PlexiiDesk ${appVersion}${buildDate ? ` · build ${buildDate}` : ''} — click to check for updates`}
@@ -127,6 +132,7 @@ export default function Footer(): JSX.Element {
               {buildDate && ` · ${buildDate}`}
             </button>
           </Tooltip>
+          )}
           {/* Updates and the trial badge are the reason this bar exists: both
               self-hide, and when they appear they are genuinely interrupting. */}
           <UpdaterBanner />

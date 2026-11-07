@@ -37,6 +37,8 @@ test('SG-1 the whole app is there, and looking around never opens the gate', asy
   for (const id of ['desk-sidebar', 'topbar-search', 'files-panel-toggle', 'assistant-pill', 'sync-indicator', 'sidemenu-widgets']) {
     await expect(page.locator(`[data-testid="${id}"]`).first(), id).toBeVisible()
   }
+  // ...without the build tag and update check, which mean nothing here.
+  await expect(page.locator('footer').getByText(/^v\d+\.\d+/)).toHaveCount(0)
 
   // Looking around: pan and zoom the canvas, open and close Files, search,
   // move a note, step into the rooms view and back.
