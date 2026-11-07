@@ -88,12 +88,12 @@ describe('a read link opens whatever its scope; the scope decides what the visit
   })
 })
 
-describe('a link to look at: arranging yes, adding no', () => {
+describe('a link to look at: adding no', () => {
   const VIEW_ACTED: CallContext = { userActed: true, adding: false, ownWidget: () => false, mode: 'view' }
   const VIEW_DROP: CallContext = { userActed: true, adding: true, ownWidget: () => false, mode: 'view' }
   const USE_DROP: CallContext = { userActed: true, adding: true, ownWidget: () => false, mode: 'use' }
 
-  it('arranges freely', () => {
+  it('the app\'s own layout saves pass (the visitor\'s moves are refused at the gesture, renderer lib/shareGate.ts)', () => {
     expect(decideCall('widgets:update', ['w', { x: 1, y: 2 }], VIEW_ACTED).allowed).toBe(true)
     expect(decideCall('deskLayout:saveWorkcentre', ['u', 'd', 'desktop', {}], VIEW_ACTED).allowed).toBe(true)
   })
@@ -105,7 +105,8 @@ describe('a link to look at: arranging yes, adding no', () => {
   })
 
   it('everything else is the gate, as on any link -- and the refusal says what the gate says', () => {
-    expect(decideCall('nodes:create', [{ kind: 'task' }], VIEW_ACTED)).toMatchObject({ gate: 'Creating a desk', why: 'Get Plexii to do that.' })
+    // The same words on every link (owner, 2026-11-07).
+    expect(decideCall('nodes:create', [{ kind: 'task' }], VIEW_ACTED)).toMatchObject({ gate: 'Creating a desk', why: 'Download this desk on Plexii to do that.' })
     expect(decideCall('nodes:create', [{ kind: 'task' }], { ...VIEW_ACTED, mode: 'use' }).why).toBe('Download this desk on Plexii to do that.')
     expect(decideCall('chat:sendStream', [{}], VIEW_ACTED).gate).toBe('AI')
   })

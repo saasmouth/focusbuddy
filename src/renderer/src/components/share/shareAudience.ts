@@ -61,21 +61,24 @@ export const PUBLIC_MODES: PublicModeSpec[] = [
     id: 'use',
     label: 'A desk they can use',
     blurb:
-      'Opens in a browser — no account, no install. They can move things, type, and try it. Their changes stay theirs and never come back to you. Best for a demo.',
+      // What a visitor may do is the share page's rule (owner, 2026-11-07):
+      // look around and drag things on; anything more is "Download this desk
+      // on Plexii" (web/api/readOnly.ts). Say so to the sender.
+      'Opens in a browser — no account, no install. They can look around it and drag apps, work widgets and files onto it. To do more, they download it on Plexii and take a copy with them. Nothing they do comes back to you. Best for a demo.',
     expires: true
   },
   {
     id: 'watch',
     label: 'A live view they can watch',
     blurb:
-      'A read-only page that follows your changes. Good for a status board, or a client who should see progress but not touch it.',
+      'A page that follows your changes. They can look around it but not change it. Anyone who wants it can download a copy of it as it is on Plexii. Good for a status board, or a client who should see progress.',
     expires: false
   },
   {
     id: 'read',
     label: 'A snapshot they can read',
     blurb:
-      'A frozen copy of this desk as it is right now. It does not update. Anyone who wants it can add it to their own workspace.',
+      'A frozen copy of this desk as it is right now. It does not update. Anyone who wants it can download it on Plexii or add it to their own workspace, unless you untick that below.',
     expires: true
   }
 ]

@@ -6,6 +6,10 @@
 //   the desk, it says download this desk on plexii and initiates the download.
 //   From there they will need to sign up for the trial to use the desk locally."
 //
+// Owner, later the same day, "yes" to: should every link say "Download this
+// desk on Plexii" (view-only and live links included), and should moving and
+// resizing show the gate too.
+//
 // The share page is the real web build, opened in headless Chromium at its real
 // address with Signal and the download host answered locally
 // (_shareWebHarness.ts). Build it first:  VITE_WEB_BASE=/share/ npm run web:build
@@ -41,7 +45,8 @@ test('SG-1 the whole app is there, and looking around never opens the gate', asy
   await expect(page.locator('footer').getByText(/^v\d+\.\d+/)).toHaveCount(0)
 
   // Looking around: pan and zoom the canvas, open and close Files, search,
-  // move a note, step into the rooms view and back.
+  // click a note's header (a press that does not travel: selecting it, not
+  // moving it), step into the rooms view and back.
   const canvas = page.locator('[data-canvas-surface]').first()
   const box = (await canvas.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
@@ -54,13 +59,11 @@ test('SG-1 the whole app is there, and looking around never opens the gate', asy
   await page.keyboard.type('trading')
   await page.keyboard.press('Escape')
   const grab = page.locator(`[data-widget-id="${STICKY_ID}"] [data-testid="widget-grab"]`).first()
-  if (await grab.count()) {
-    const g = (await grab.boundingBox())!
-    await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(g.x + 140, g.y + 90, { steps: 8 })
-    await page.mouse.up()
-  }
+  const g = (await grab.boundingBox())!
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(g.x + g.width / 2 + 1, g.y + g.height / 2 + 1) // a hand's tremble
+  await page.mouse.up()
   await page.getByText('All desks', { exact: true }).first().click()
   await page.waitForTimeout(500)
   await page.locator('[data-testid="history-back"]').click()
@@ -209,8 +212,8 @@ test('SG-7 no promise to carry the desk when the released app cannot take it', a
   const { page } = web
   await page.locator('[data-testid="share-take-desk"]').click()
   await expect(gate(web)).toBeVisible()
-  await expect(page.locator('[data-testid="share-gate-lead"]')).toHaveText('Take this desk with you.')
-  await expect(gate(web)).toContainText('Build your own desks.')
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toHaveText('Plexii is free to start.')
+  await expect(gate(web)).toContainText('Build your own desks. This one stays here, in this browser.')
   await expect(page.locator('[data-testid="share-gate-open-in-plexii"]')).toHaveCount(0)
   await page.waitForTimeout(800)
   expect(web.handoffs).toEqual([])
@@ -234,10 +237,11 @@ test('SG-8 on a phone, nothing is downloaded: the link goes to the computer', as
 // Owner, 2026-11-07: "they all should be the same, just the interactivity that
 // changes. Should be full web version of the local app." A Live web view link
 // (view.plexiidesk.com/share/dsk_…, which the viewer now sends to
-// /share/l/<token>) opens the same app, to look at: arranging is the
-// visitor's own business, adding to the sender's desk is not.
+// /share/l/<token>) opens the same app, to look at: nothing is added to the
+// sender's desk, nothing is moved -- and its desk, as it is, goes into Plexii
+// like any other.
 
-test('SG-9 a live web view link opens the full app, to look at', async () => {
+test('SG-9 a live web view link opens the full app, to look at; its gate is "Download this desk on Plexii" and carries it', async () => {
   test.setTimeout(180_000)
   web = await openShareWeb()
   await openTheDesk(web, `/share/l/${LIVE_TOKEN}`)
@@ -245,30 +249,42 @@ test('SG-9 a live web view link opens the full app, to look at', async () => {
   for (const id of ['desk-sidebar', 'topbar-search', 'assistant-pill', 'files-panel-toggle']) {
     await expect(page.locator(`[data-testid="${id}"]`).first(), id).toBeVisible()
   }
-  await expect(page.locator('[data-testid="share-take-desk"]')).toHaveText('Get Plexii')
+  await expect(page.locator('[data-testid="share-take-desk"]')).toHaveText('Download this desk')
   await expect(page.getByText(' — live: it changes as it is worked on')).toBeVisible()
   await expect(page.getByText('Save desk file')).toHaveCount(0)
 
-  // Arranging it: theirs to do.
+  // Moving a note: the gate, and the note stays where it was.
+  const note = page.locator(`[data-widget-id="${STICKY_ID}"]`).first()
+  const before = (await note.boundingBox())!
   const grab = page.locator(`[data-widget-id="${STICKY_ID}"] [data-testid="widget-grab"]`).first()
   const g = (await grab.boundingBox())!
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
   await page.mouse.down()
   await page.mouse.move(g.x + 160, g.y + 100, { steps: 8 })
   await page.mouse.up()
-  await page.waitForTimeout(600)
-  expect(await web.gates(), 'arranging a live desk opened the gate').toEqual([])
+  await expect(gate(web)).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('#share-gate-title')).toHaveText('Download this desk on Plexii')
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toHaveText(
+    'Moving things on this desk is part of the Plexii app. Take this desk with you — everything you added comes too.'
+  )
+  expect(await note.boundingBox()).toEqual(before)
+
+  // Its desk goes into Plexii as it is now, from the live link.
+  await expect(page.locator('[data-testid="share-gate-open-in-plexii"]')).toBeVisible({ timeout: 20_000 })
+  const post = web.handoffs.find((h) => h.method === 'POST')!
+  expect(post.body).toMatchObject({ shareToken: LIVE_TOKEN, kind: 'live', title: 'Day trading desk' })
+  await expect.poll(() => web!.downloads).toEqual([MAC_INSTALLER])
+  await page.locator('[data-testid="share-gate-close"]').click()
 
   // Adding to the sender's desk: not on a link to look at.
   const canvas = page.locator('[data-canvas-surface]').first()
   await page.locator('[data-testid="sidemenu-widget-timer"]').dragTo(canvas, { targetPosition: { x: 700, y: 420 } })
   await expect(gate(web)).toBeVisible({ timeout: 10_000 })
-  await expect(page.locator('#share-gate-title')).toHaveText('Get Plexii')
-  await expect(page.locator('[data-testid="share-gate-lead"]')).toHaveText('Adding things to this desk is part of the Plexii app. Plexii is free to start.')
-  await expect(page.locator('[data-testid="share-gate-open-in-plexii"]')).toHaveCount(0)
-  await expect.poll(() => web!.downloads).toEqual([MAC_INSTALLER])
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toHaveText(
+    'Adding things to this desk is part of the Plexii app. Take this desk with you — everything you added comes too.'
+  )
   expect(await widgetCount(web)).toBe(2)
-  expect(web.handoffs).toEqual([])
+  expect(web.downloads).toEqual([MAC_INSTALLER])
   expect(realErrors(web)).toEqual([])
   expect(web.escaped).toEqual([])
 })
@@ -329,13 +345,99 @@ test('SG-13 a room link opens the full app on the room, its desks one click away
   await page.goto(`https://plexiidesk.com/share/c/${ROOM_TOKEN}`)
   await page.getByRole('button', { name: 'Open the desk' }).click({ timeout: 60_000 })
   await page.locator('[data-testid="desk-sidebar"]').first().waitFor({ timeout: 90_000 })
-  await expect(page.locator('[data-testid="share-take-desk"]')).toHaveText('Get Plexii')
+  await expect(page.locator('[data-testid="share-take-desk"]')).toHaveText('Download this desk')
   await expect(page.getByText('Math lessons').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('ELA lessons').first()).toBeVisible()
   // Into a desk: looking around, so no gate.
   await page.getByText('Math lessons').first().click()
   await expect(page.locator('[data-widget-id="room-desk-math-note"]').first()).toBeVisible({ timeout: 30_000 })
   expect(await web.gates()).toEqual([])
+
+  // Its sender kept it to read only (scope 'view'): the gate says what every
+  // gate says, and says plainly that this one stays -- no copy is sent.
+  await page.locator('[data-testid="share-take-desk"]').click()
+  await expect(page.locator('#share-gate-title')).toHaveText('Download this desk on Plexii')
+  await expect(gate(web)).toContainText('Whoever shared this one kept it to read only, so it stays on this page.')
+  await expect(page.locator('[data-testid="share-gate-open-in-plexii"]')).toHaveCount(0)
+  await page.waitForTimeout(800)
+  expect(web.handoffs).toEqual([])
+  expect(realErrors(web)).toEqual([])
+  expect(web.escaped).toEqual([])
+})
+
+// ── Moving and resizing (owner, 2026-11-07: "yes") ──────────────────────────
+// Refused where the gesture starts (renderer lib/shareGate.ts): the widget never
+// moves on screen while its save is refused, and a press that does not travel
+// is still a click.
+
+test('SG-14 moving or resizing a widget is the gate, on the canvas and in the Workcentre; nothing moves', async () => {
+  test.setTimeout(240_000)
+  web = await openShareWeb()
+  await openTheDesk(web)
+  const { page } = web
+  const note = page.locator(`[data-widget-id="${STICKY_ID}"]`).first()
+  // Where it is once it has stopped: the desk settles after it opens (the
+  // camera, the bar above it), so a single early read can catch it mid-way.
+  const at = async () => {
+    let last = (await note.boundingBox())!
+    for (;;) {
+      await page.waitForTimeout(300)
+      const now = (await note.boundingBox())!
+      if (JSON.stringify(now) === JSON.stringify(last)) return now
+      last = now
+    }
+  }
+
+  // A press on the header that does not travel: a click, no gate.
+  await at()
+  const g = (await page.locator(`[data-widget-id="${STICKY_ID}"] [data-testid="widget-grab"]`).first().boundingBox())!
+  await page.mouse.click(g.x + g.width / 2, g.y + g.height / 2)
+  await page.waitForTimeout(400)
+  expect(await web.gates()).toEqual([])
+  const start = await at()
+
+  // Dragging it by the header.
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(g.x + 180, g.y + 120, { steps: 10 })
+  await page.mouse.up()
+  await expect(gate(web)).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toContainText('Moving things on this desk is part of the Plexii app.')
+  expect(await at()).toEqual(start)
+  await page.locator('[data-testid="share-gate-close"]').click()
+
+  // Pulling its bottom-right corner.
+  await page.mouse.move(start.x + start.width - 2, start.y + start.height - 2)
+  await page.mouse.down()
+  await page.mouse.move(start.x + start.width + 160, start.y + start.height + 120, { steps: 10 })
+  await page.mouse.up()
+  await expect(gate(web)).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toContainText('Resizing things on this desk is part of the Plexii app.')
+  expect(await at()).toEqual(start)
+  await page.locator('[data-testid="share-gate-close"]').click()
+
+  // The same desk in the Workcentre: a tile dragged is the gate, and stays put.
+  await page.locator('[data-testid="view-selector-btn"]').first().click()
+  await page.locator('[data-testid="view-opt-workcentre"]').click()
+  const tile = page.locator(`[data-testid="workcentre-tile-${STICKY_ID}"]`).first()
+  await expect(tile).toBeVisible({ timeout: 20_000 })
+  await page.waitForTimeout(1200) // tiles glide into place
+  const tileAt = (await tile.boundingBox())!
+  const handle = (await page.locator(`[data-testid="workcentre-move-${STICKY_ID}"]`).first().boundingBox())!
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handle.x + 260, handle.y + 200, { steps: 10 })
+  await page.mouse.up()
+  await expect(gate(web)).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('[data-testid="share-gate-lead"]')).toContainText('Moving things on this desk is part of the Plexii app.')
+  await page.locator('[data-testid="share-gate-close"]').click()
+  await page.waitForTimeout(800)
+  expect((await tile.boundingBox())!).toEqual(tileAt)
+
+  const gates = (await web.gates()).map((x) => x.what)
+  expect(gates).toEqual(['Moving things on this desk', 'Resizing things on this desk', 'Moving things on this desk'])
+  // The installer started with the first gate, once.
+  expect(web.downloads).toEqual([MAC_INSTALLER])
   expect(realErrors(web)).toEqual([])
   expect(web.escaped).toEqual([])
 })

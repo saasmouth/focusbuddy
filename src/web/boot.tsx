@@ -48,7 +48,7 @@ import {
 } from './api/shareVersion'
 import { dbCall } from './api/dbClient'
 import { dropLinkCopy, holdDesk, openLinkDesk, type BundleFetch, type ReplacePlan } from './api/shareDesk'
-import { markShareRecipient, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
+import { markShareRecipient, setShareCanAdd, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
 import { SHARE_EDIT_EVENT, hasEditedShare, shareEditCount } from './api/shareEdits'
 import { installShareGestures, msSinceLastAct, openShareGate, setVisitorMode } from './api/shareGate'
 import { classicViewerUrl, fetchLiveShareBundle, liveBundleUpdatedAt, liveTokenFromUrl, previewLiveShare } from './api/liveShare'
@@ -129,6 +129,13 @@ function DownloadPage({ reason, readUrl }: { reason?: ShareRefusal; readUrl?: st
   )
 }
 
+/** Who shared what: a desk or a room, live or not. */
+function offerWho(offer: ShareOffer, live: boolean): string {
+  if (live) return 'A live desk has been shared with you'
+  const what = offer.root === 'room' ? 'A room' : 'A desk'
+  return offer.mode === 'view' ? `${what} has been shared with you to look at` : `${what} has been shared with you`
+}
+
 /** The offer, before the desk is downloaded. */
 function ShareOfferCard({
   offer, busy, onOpen, live
@@ -145,34 +152,37 @@ function ShareOfferCard({
       <div style={S.card}>
         <div style={S.brand}>Plexii</div>
         <div style={S.offer}>
-          <div style={S.offerWho}>{offer.mode === 'view' ? (live ? 'A live desk has been shared with you' : 'A desk has been shared with you to look at') : 'A desk has been shared with you'}</div>
-          <div style={S.offerTitle}>{offer.title || 'A desk'}</div>
+          <div style={S.offerWho}>{offerWho(offer, live)}</div>
+          <div style={S.offerTitle}>{offer.title || (offer.root === 'room' ? 'A room' : 'A desk')}</div>
           {what && <div style={S.offerWhat}>{what}</div>}
         </div>
         <div style={S.sub}>
+          {/* What a visitor may do (owner, 2026-11-07): look around, and on a
+              link to use, drag things on. Everything else -- moving and
+              resizing included -- is "Download this desk on Plexii". */}
           {offer.mode === 'view' ? (
             live ? (
               <>
-                Look around it in Plexii — zoom in, open anything, arrange it your way. It is live:
-                it changes as the person who shared it works on it.
+                Look around it in Plexii — zoom in and open anything. It is live: it changes as
+                the person who shared it works on it.
               </>
             ) : (
               <>
-                Look around it in Plexii — zoom in, open anything, arrange it your way. Nothing you
-                do reaches the person who shared it.
+                Look around it in Plexii — zoom in and open anything. Nothing you do reaches the
+                person who shared it.
               </>
             )
           ) : expires ? (
             <>
-              Explore it in full — zoom in, rearrange it, change anything you like. Nothing you
-              do reaches the sender, and nothing is kept: this copy and everything in it is
-              deleted when the link expires. Plexii is free, and keeps it for good.
+              Look around it in Plexii — zoom in, open anything, and drag apps, work widgets and
+              files onto it. Nothing you do reaches the sender, and nothing is kept: this copy is
+              deleted when the link expires. Download it on Plexii to keep it and work on it.
             </>
           ) : (
             <>
-              Explore it in full — zoom in, rearrange it, change anything you like. Nothing you
-              do reaches the sender, and your copy lives only in this browser. Plexii is free,
-              and keeps it for good.
+              Look around it in Plexii — zoom in, open anything, and drag apps, work widgets and
+              files onto it. Nothing you do reaches the sender, and your copy lives only in this
+              browser. Download it on Plexii to keep it and work on it.
             </>
           )}
         </div>
@@ -479,8 +489,9 @@ function ExpiryBar({
             {saving === 'saving' ? 'Fetching the desk file…' : saving === 'failed' ? 'Could not fetch it — try again' : 'Save desk file'}
           </button>
         )}
+        {/* Every link (owner, 2026-11-07): "Download this desk on Plexii". */}
         <button style={S.barPrimaryButton} onClick={onTakeIt} data-testid="share-take-desk">
-          {offer.mode === 'view' ? 'Get Plexii' : 'Download this desk'}
+          Download this desk
         </button>
       </span>
     </div>
@@ -497,20 +508,26 @@ type Carry =
   | { kind: 'failed'; why: Exclude<HandoffOutcome, { ok: true }>['why'] }
 
 /**
- * "Download this desk on Plexii" (owner, 2026-11-07).
+ * "Download this desk on Plexii" (owner, 2026-11-07), on every link.
  *
- * Shown when a visitor does anything past looking around, arranging the desk
- * and dragging things onto it. The installer has already started (once per
- * visit, see Boot); this says what to do with it, and -- when the released app
- * and the server can both do it -- carries the visitor's copy of the desk,
- * with everything they added, into Plexii once they have signed up.
+ * Shown when a visitor does anything past looking around and dragging things
+ * onto the desk -- moving and resizing included. The installer has already
+ * started (once per visit, see Boot); this says what to do with it, and --
+ * when the released app and the server can both do it -- carries the
+ * visitor's copy of the desk, with everything they added, into Plexii once
+ * they have signed up. A live link's desk is carried as it is now.
+ *
+ * One desk is never carried: a snapshot whose sender unticked "Let them add
+ * it to their own workspace" (DeskShareSheet). The server refuses that copy
+ * too (signal deskHandoffs.checkSourceLink); the gate says so instead of
+ * promising it.
  */
 function GateModal({
-  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onClose, viewOnly = false
+  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onClose, senderKeepsIt = false
 }: {
   what: string
-  /** A link to look at: Plexii is offered, not this desk. */
-  viewOnly?: boolean
+  /** The sender did not let this desk be copied: it stays on the page. */
+  senderKeepsIt?: boolean
   platform: ReturnType<typeof visitorPlatform>
   installers: Installers | null
   downloadUrl: string | null
@@ -538,12 +555,9 @@ function GateModal({
   return (
     <div style={S.scrim} role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={S.gate} role="dialog" aria-modal="true" aria-labelledby="share-gate-title" data-testid="share-gate">
-        {/* A link to look at is the sender's desk, not the visitor's to take:
-            the gate offers Plexii itself (owner, 2026-11-07: every link opens
-            the full app, "just the interactivity that changes"). */}
-        <div style={S.gateTitle} id="share-gate-title">{viewOnly ? 'Get Plexii' : 'Download this desk on Plexii'}</div>
+        <div style={S.gateTitle} id="share-gate-title">Download this desk on Plexii</div>
         <div style={S.sub} data-testid="share-gate-lead">
-          {viewOnly ? `${lead}Plexii is free to start.` : <>{lead}Take this desk with you{carry.kind === 'off' ? '' : ' — everything you added comes too'}.</>}
+          {carry.kind === 'off' ? `${lead}Plexii is free to start.` : <>{lead}Take this desk with you — everything you added comes too.</>}
         </div>
 
         {platform === 'phone' ? (
@@ -567,7 +581,9 @@ function GateModal({
           <li style={S.stepItem}><strong>Install Plexii.</strong> Open the file you downloaded.</li>
           <li style={S.stepItem}><strong>Start your free trial.</strong> Plexii asks you to sign up when it first opens.</li>
           <li style={S.stepItem}>
-            {carry.kind === 'off' ? (
+            {carry.kind === 'off' && senderKeepsIt ? (
+              <><strong>Build your own desks.</strong> Whoever shared this one kept it to read only, so it stays on this page.</>
+            ) : carry.kind === 'off' ? (
               <><strong>Build your own desks.</strong> This one stays here, in this browser.</>
             ) : (
               <><strong>Open this desk in Plexii.</strong> It opens as soon as you are signed in, with everything you added.</>
@@ -768,6 +784,7 @@ function Boot(): React.JSX.Element {
         installShareGestures()
         // What this kind of link lets the visitor do (api/shareGate.ts).
         setVisitorMode(offer.mode ?? 'use')
+        setShareCanAdd((offer.mode ?? 'use') === 'use')
         // A call the gate refused is answered by the gate itself ("Download
         // this desk on Plexii"); the app code that made it often does not catch
         // the refusal, which left an "Uncaught (in promise)" in every visitor's
@@ -864,7 +881,12 @@ function Boot(): React.JSX.Element {
   // server keeps them). Asked up front so the gate can start the download in
   // the same moment it appears.
   const ready = state.kind === 'ready'
-  const viewOnly = state.kind === 'ready' ? state.offer.mode === 'view' : null
+  // A read link's mode is its scope (readShare.readMode): 'view' there means
+  // the sender unticked "Let them add it to their own workspace". A live link
+  // is 'view' too, but only for what the visitor may do on the page: its desk
+  // is carried like any other (owner, 2026-11-07: every link is "Download this
+  // desk on Plexii").
+  const senderKeepsIt = state.kind === 'ready' && link?.kind === 'copy' && state.offer.mode === 'view'
   useEffect(() => {
     if (!ready) return
     let cancelled = false
@@ -872,8 +894,7 @@ function Boot(): React.JSX.Element {
       const inst = await loadInstallers()
       if (cancelled) return
       setInstallers(inst)
-      // A link to look at is not the visitor's to take: nothing is carried.
-      const offered = viewOnly === false && !!inst?.deskHandoff && (await serverKeepsHandoffs())
+      const offered = !senderKeepsIt && !!inst?.deskHandoff && (await serverKeepsHandoffs())
       if (cancelled) return
       carryOffered.current = offered
       // Nothing is sent until the gate opens.
@@ -882,7 +903,7 @@ function Boot(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [ready, viewOnly])
+  }, [ready, senderKeepsIt])
 
   // A live link follows the sender: a newer desk is looked for every 30 s, and
   // put in place once the visitor has left the page alone for a little while
@@ -933,8 +954,7 @@ function Boot(): React.JSX.Element {
   }, [downloadUrl])
 
   const send = useCallback(async (): Promise<Carry> => {
-    // A live link is the sender's desk to look at: never carried (carryOffered stays false too).
-    if (state.kind !== 'ready' || !token || !link || link.kind === 'live' || !carryOffered.current) return { kind: 'off' }
+    if (state.kind !== 'ready' || !token || !link || !carryOffered.current) return { kind: 'off' }
     setCarry({ kind: 'sending' })
     const edits = shareEditCount()
     const out = await sendCopy({ token, kind: link.kind, rootId: state.offer.rootId, title: state.offer.title })
@@ -1047,7 +1067,7 @@ function Boot(): React.JSX.Element {
           onRetryCarry={() => void send()}
           onDownload={download}
           onClose={() => setGate(null)}
-          viewOnly={state.offer.mode === 'view'}
+          senderKeepsIt={senderKeepsIt}
         />
       )}
     </>

@@ -70,6 +70,7 @@ import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import Icon from '../Icon'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
+import { arrangingIsGated, MOVING, RESIZING, shareGate, shareGateOnDrag } from '../../lib/shareGate'
 import { GROW_CEILING, minSizeFor } from '../../lib/widgetSizing'
 import WidgetHeaderOverflow, { type OverflowItem } from './WidgetHeaderOverflow'
 import {
@@ -260,7 +261,15 @@ export default function WidgetFrame({
     lastShiftToggleRef.current = now
     toggleSelection(widget.id)
   }
-  const [pinPickerOpen, setPinPickerOpen] = useState(false)
+  const [pinPickerOpen, setPinPickerOpenRaw] = useState(false)
+  // On a shared desk, pinning is arranging it: the gate (lib/shareGate.ts).
+  const setPinPickerOpen = useCallback((open: boolean) => {
+    if (open && shareGate('Pinning things on this desk')) return
+    setPinPickerOpenRaw(open)
+  }, [])
+  // A visitor to a shared desk does not move or resize what is on it; the
+  // gesture opens the gate instead (owner, 2026-11-07).
+  const shareArranging = arrangingIsGated()
   // ── Header fold (lib/widgetHeaderActions) ──────────────────────────────────
   // The header measures what it can spare for tools after a minimum title and a
   // minimum grab area; the tools that do not fit go behind "…". The pickers
@@ -370,6 +379,7 @@ export default function WidgetFrame({
   // applies to ProseMirror editors and any component with internal state.
   function scaleWidgetBy(factor: number): void {
     if (isChildOfSection) return
+    if (shareGate(RESIZING)) return
     // Any size, so a work widget, file or tool can show all of itself (owner,
     // 4.3.41); the ceiling only stops one runaway press from filling the desk.
     const { w: MAX_W, h: MAX_H } = GROW_CEILING
@@ -1013,7 +1023,7 @@ export default function WidgetFrame({
       // must NOT start a drag — otherwise react-draggable swallows the
       // double-click that opens the editor. `cancel` excludes it from dragging.
       cancel=".widget-nodrag"
-      disableDragging={embedded || dragDisabled}
+      disableDragging={embedded || dragDisabled || shareArranging}
       enableResizing={
         // Resizing on a dashboard would write a size back to the desk the
         // object still lives on.
@@ -1123,7 +1133,12 @@ export default function WidgetFrame({
         // doesn't run our onClick activation logic.
         dragJustEnded.current = performance.now()
       }}
-      onResizeStart={() => setActive(widget.id)}
+      onResizeStart={() => {
+        // A shared desk's visitor grabbed an edge: the gate, and no resize.
+        if (shareGate(RESIZING)) return false
+        setActive(widget.id)
+        return undefined
+      }}
       onResizeStop={(_, __, ref, ___, pos) => {
         const newW = ref.offsetWidth
         const newH = ref.offsetHeight
@@ -1360,6 +1375,9 @@ export default function WidgetFrame({
           ref={headerRef}
           data-widget-header
           className={`${draggableHandleClass} ${headerAccent} fb-widget-header flex items-center px-2 py-1 cursor-move select-none border-b border-[color:var(--edge-soft)] backdrop-blur-sm`}
+          // Dragging is off on a shared desk (disableDragging): a press that
+          // travels is the gate, a press that stays is still a click.
+          onPointerDown={shareArranging ? (e) => void shareGateOnDrag(e, MOVING) : undefined}
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()

@@ -22,6 +22,7 @@ import {
   type UniversalKey
 } from './types'
 import { collectWidgetContribution, collectPluginContributions } from './registry'
+import { arrangingMenuItem, shareGate } from '../shareGate'
 import { buildAiAssistContribution } from './aiAssist'
 import {
   buildAttention,
@@ -122,7 +123,16 @@ function toItem(c: MenuContribution, ctx: MenuContext): CtxMenuItem | null {
     ...(c.checked !== undefined ? { checked: c.checked } : {}),
     ...(c.testid ? { testid: c.testid } : {}),
     ...(disabled ? { disabled: true, ...(hint ? { hint } : {}) } : {}),
-    onClick: c.onSelect ? () => void c.onSelect?.(ctx) : undefined,
+    // On a shared desk, an item that only arranges it (bring to front, move
+    // out of a section, pin) is the gate (lib/shareGate.ts); the rest are
+    // decided where their call passes.
+    onClick: c.onSelect
+      ? () => {
+          const gated = arrangingMenuItem(c.id)
+          if (gated && shareGate(gated)) return
+          void c.onSelect?.(ctx)
+        }
+      : undefined,
     children: children && children.length ? children : undefined
   }
 }

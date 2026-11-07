@@ -127,11 +127,18 @@ export function isReadOnlyCall(channel: string): boolean {
 // other than drag apps, widgets, files and tools to the desk, it says download
 // this desk on plexii and initiates the download."
 //
-// Free: looking (every read), arranging (the furniture, below), and adding what
-// was dragged onto the desk -- within the window a drop opens (shareGate.ts).
-// The visitor may also take back a widget they added. Everything else the
-// VISITOR does is the gate. What the app does on its own, with nobody behind
-// it, is not the visitor doing anything: it is left as it was.
+// Free: looking (every read) and adding what was dragged onto the desk --
+// within the window a drop opens (shareGate.ts). The visitor may also take
+// back a widget they added. Everything else the VISITOR does is the gate.
+// What the app does on its own, with nobody behind it, is not the visitor
+// doing anything: it is left as it was.
+//
+// Moving and resizing are the gate too (owner, 2026-11-07), but not here: the
+// renderer refuses the gesture before anything moves (renderer
+// lib/shareGate.ts shareGateOnDrag). The saves they would make stay allowed
+// below, because the app moves things on its own a moment after a click or a
+// drop -- a drop pushing its neighbours aside, a Workcentre settling its
+// tiles -- and gating those saves here would open the gate on every drop.
 
 /**
  * Calls that finish a drop: a widget placed, a file stored, the document or
@@ -265,11 +272,12 @@ export function gateLabel(channel: string, args: unknown[]): string {
   return 'That'
 }
 
-/** The refusal a gated call carries, for code that shows a rejected call's message. */
+/**
+ * The refusal a gated call carries, for code that shows a rejected call's
+ * message. The same on every link (owner, 2026-11-07).
+ */
 export const GATE_WHY = 'Download this desk on Plexii to do that.'
-/** The same, on a link to look at, where the gate offers Plexii itself. */
-export const GATE_WHY_VIEW = 'Get Plexii to do that.'
-const gateWhy = (ctx: CallContext): string => (ctx.mode === 'view' ? GATE_WHY_VIEW : GATE_WHY)
+const gateWhy = (_ctx: CallContext): string => GATE_WHY
 
 /** No moment given: a call the app made on its own. */
 const AUTOMATIC: CallContext = { userActed: false, adding: false, ownWidget: () => false }
@@ -307,7 +315,8 @@ export function decideCall(channel: string, args: unknown[], ctx: CallContext = 
     return { allowed: false, args, why: 'That is not something a shared desk can do.', gate }
   }
 
-  // Arranging the furniture, and moving around.
+  // Where things sit, and moving around. The visitor's own moves never get
+  // this far (the gesture is the gate); what arrives is the app's.
   const edits = changesContent(channel, args)
   if (LAYOUT_ONLY.has(channel) || NAVIGATION_NAMESPACES.has(ns) || LOOKING.has(channel)) return { allowed: true, args, edits: false }
   if (channel === 'widgets:update' && !edits) return { allowed: true, args, edits: false }

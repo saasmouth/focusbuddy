@@ -1,9 +1,9 @@
 // What a shared desk's visitor just did, for the bridge to decide their calls by
 // (readOnly.ts decideCall), and the gate those decisions open.
 //
-// Owner, 2026-11-07: the visitor may look around, arrange the desk, and drag
-// apps, widgets, files and tools onto it. Anything else says "Download this
-// desk on Plexii" and starts the download.
+// Owner, 2026-11-07: the visitor may look around and drag apps, widgets,
+// files and tools onto the desk. Anything else -- moving and resizing too --
+// says "Download this desk on Plexii" and starts the download.
 //
 // A call alone cannot say which of those it is. widgets:create is a widget
 // dragged from the palette -- or "Add to desk" picked from a menu; nodes:update
@@ -36,12 +36,14 @@ export const ADD_WINDOW_MS = 20_000
  * opens the full app; "just the interactivity that changes").
  *
  *   'use'   A desk they can use (/s/), or a copyable read link (/c/): look
- *           around, arrange, and drag apps, widgets, files and tools on.
- *   'view'  A live web view (/l/) or a read-only snapshot: look around and
- *           arrange it for themselves, nothing added. The sender chose
- *           "to look at", not "to use".
+ *           around, and drag apps, widgets, files and tools on.
+ *   'view'  A live web view (/l/) or a read-only snapshot: look around,
+ *           nothing added. The sender chose "to look at", not "to use".
  *
- * Everything else is the gate in both.
+ * Everything else -- moving and resizing included -- is the gate in both, and
+ * the gate is "Download this desk on Plexii" on every link. Whether the desk
+ * then comes into Plexii is not the mode's to say: a live link's desk does, a
+ * snapshot whose sender kept it does not (boot.tsx senderKeepsIt).
  */
 export type VisitorMode = 'use' | 'view'
 
@@ -86,6 +88,14 @@ export function installShareGestures(target: Window = window): void {
   const act = (): void => {
     lastAct = now()
   }
+  // Every gate, whoever opened it: a refused call (openShareGate, below) or the
+  // renderer itself -- a widget dragged or resized, settings, signing in
+  // (renderer lib/shareGate.ts), which dispatch the event directly.
+  target.addEventListener(SHARE_GATE_EVENT, (e) => {
+    const d = (e as CustomEvent<ShareGateDetail>).detail
+    gateLog.push({ what: d?.what ?? '', channel: d?.channel ?? null, at: Date.now() })
+    if (gateLog.length > 50) gateLog.shift()
+  })
   target.addEventListener('pointerdown', act, true)
   target.addEventListener('keydown', (e) => {
     if (!NOT_AN_ACT.has((e as KeyboardEvent).key)) act()
@@ -120,12 +130,10 @@ export function shareGateLog(): ReadonlyArray<{ what: string; channel: string | 
   return gateLog
 }
 
-/** Open the gate: the share page shows "Download this desk on Plexii". */
+/** Open the gate: the share page shows "Download this desk on Plexii" (and logs it, installShareGestures). */
 export function openShareGate(what: string, channel: string | null = null): void {
-  gateLog.push({ what, channel, at: Date.now() })
-  if (gateLog.length > 50) gateLog.shift()
   try {
-    window.dispatchEvent(new CustomEvent<ShareGateDetail>(SHARE_GATE_EVENT, { detail: { what } }))
+    window.dispatchEvent(new CustomEvent<ShareGateDetail>(SHARE_GATE_EVENT, { detail: { what, channel } }))
   } catch {
     /* no window: nothing to show it in */
   }

@@ -23,6 +23,7 @@ import { resolveEntityIcon } from '../../lib/plexiiIconMap'
 import AgeHalo from '../AgeHalo'
 import { SectionLayoutContext } from './sectionLayoutContext'
 import { confirmDialog } from '../plexi/PromptDialog'
+import { arrangingIsGated, MOVING, shareGateOnDrag } from '../../lib/shareGate'
 
 const SECTION_COLORS = [
   '#737373',
@@ -175,6 +176,8 @@ export default function SectionWidget({
       style={{ zIndex: 0, position: 'absolute', pointerEvents: 'auto' }}
       enableResizing={false}
       dragHandleClassName="section-handle"
+      // A shared desk's visitor does not move it: the handle is the gate (lib/shareGate.ts).
+      disableDragging={arrangingIsGated()}
       onDragStart={() => setActive(widget.id)}
       onDrag={(_, d) => {
         // Mirror WidgetFrame's behaviour — push the live position into the
@@ -261,6 +264,7 @@ export default function SectionWidget({
         <div
           className="section-handle absolute top-0 left-3 -translate-y-1/2 px-2 py-0.5 rounded-md shadow flex items-center gap-1.5 cursor-move select-none flex-wrap max-w-[calc(100%-24px)]"
           style={{ backgroundColor: color }}
+          onPointerDown={arrangingIsGated() ? (e) => void shareGateOnDrag(e, MOVING) : undefined}
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -529,6 +533,8 @@ function useEjectDrag(
 
   const onPointerDown = (e: React.PointerEvent): void => {
     if (e.button !== 0) return
+    // Dragging a child out of its section is moving it: the gate on a shared desk.
+    if (shareGateOnDrag(e, MOVING)) return
     const start = { x: e.clientX, y: e.clientY }
     movedRef.current = false
     const move = (ev: PointerEvent): void => {

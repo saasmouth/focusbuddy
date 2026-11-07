@@ -131,6 +131,8 @@ import {
 } from '../lib/pinLayout'
 import LinkOverlay, { type PendingLinkPick } from './LinkOverlay'
 import { tidyPositions, type TidyOptions } from '../lib/autoArrange'
+import { ARRANGING, shareGate } from '../lib/shareGate'
+import { shareCanAdd } from '../lib/shareMode'
 import { useLinksStore } from '../stores/links'
 import { useAccountStore } from '../stores/account'
 import { currentDeviceClass } from '../lib/deviceClass'
@@ -2509,6 +2511,8 @@ export default function Canvas(): JSX.Element {
 
   async function handleAutoArrange(opts: TidyOptions = { mode: 'flow' }): Promise<void> {
     if (widgets.length === 0 || !dropRef.current) return
+    // Tidying a shared desk is arranging it: the gate (lib/shareGate.ts).
+    if (shareGate(ARRANGING)) return
     const rect = dropRef.current.getBoundingClientRect()
     const visibleW = rect.width / zoom
     const PADDING = 60
@@ -2988,9 +2992,13 @@ export default function Canvas(): JSX.Element {
           )}
           {widgets.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="fb-glass-panel rounded-full px-4 py-2 inline-flex items-center gap-2 text-[var(--ink-50)]">
+              <div className="fb-glass-panel rounded-full px-4 py-2 inline-flex items-center gap-2 text-[var(--ink-50)]" data-testid="empty-desk-hint">
                 <Icon name="widgets" size={16} />
-                <p className="text-sm">Drag a work widget from Work widgets in the side menu onto the desk.</p>
+                {/* A shared desk to look at takes nothing dragged on, so it
+                    does not invite it (lib/shareMode.ts shareCanAdd). */}
+                <p className="text-sm">
+                  {shareCanAdd() ? 'Drag a work widget from Work widgets in the side menu onto the desk.' : 'Nothing is on this desk yet.'}
+                </p>
               </div>
             </div>
           )}

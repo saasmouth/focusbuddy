@@ -36,6 +36,7 @@ import { FILES_DRAG_MIME, readFilesDrag } from '../../lib/filesDrag'
 import { placeFilesOnDesk } from '../../lib/filesDrop'
 import { spawnPositionFor } from '../../lib/spawnPosition'
 import { useNoticeStore } from '../../stores/notice'
+import { ARRANGING, MOVING, RESIZING, shareGate, shareGateOnDrag } from '../../lib/shareGate'
 
 // The Workcentre desk view (owner, 4.3.41): the Desk as a dashboard. Every work
 // widget, file and tool is a tile on a snapping grid that never overlaps, can be
@@ -252,6 +253,9 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
 
   function begin(e: React.PointerEvent, id: string, kind: Gesture['kind'], edge: Gesture['edge'] = 'rb'): void {
     if (e.button !== 0 || !layout) return
+    // A shared desk's visitor: a press that travels is the gate, a press that
+    // stays is still a click on the tile (lib/shareGate.ts).
+    if (shareGateOnDrag(e, kind === 'move' ? MOVING : RESIZING)) return
     e.preventDefault()
     e.stopPropagation()
     const base = toTiles(layout)
@@ -349,6 +353,7 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
     if (!d) return
     e.preventDefault()
     e.stopPropagation()
+    if (shareGate(e.shiftKey ? RESIZING : MOVING)) return
     const base = toTiles(layout)
     const shownNow = fillWithCornerKeepOut(base, cols, viewRows, keepRows).shown
     const s = shownNow.find((x) => x.id === id)
@@ -363,6 +368,7 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
 
   function fitTile(id: string): void {
     if (!layout) return
+    if (shareGate(RESIZING)) return
     persist(fromTiles(cols, fitAgain(toTiles(layout), id)))
     pulse()
   }
@@ -500,7 +506,7 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
           <button
             type="button"
             className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 h-7 text-[12px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
-            onClick={() => persist({ ...layout, hidden: [] })}
+            onClick={() => !shareGate(ARRANGING) && persist({ ...layout, hidden: [] })}
             title="Show every hidden work widget in the Workcentre again"
             data-testid="workcentre-show-hidden"
           >
@@ -632,7 +638,7 @@ export default function WorkcentreView({ taskId, widgets }: { taskId: string; wi
                     <button
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => {
-                        if (!layout) return
+                        if (!layout || shareGate(ARRANGING)) return
                         const kept = { ...layout.items }
                         delete kept[w.id]
                         persist({ ...layout, items: kept, hidden: [...hidden, w.id] })

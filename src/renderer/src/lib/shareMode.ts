@@ -60,6 +60,22 @@ export function setShareDeskId(deskId: string): void {
   deskMemo = deskId
 }
 
+/**
+ * May this share window's visitor drag things onto the desk? A link to use
+ * may; a link to look at (a live view, a snapshot kept read only) may not
+ * (web/api/shareGate.ts VisitorMode). Told by the share page before the app
+ * loads; true until then, which is also the desktop's answer.
+ */
+let canAdd = true
+
+export function setShareCanAdd(v: boolean): void {
+  canAdd = v
+}
+
+export function shareCanAdd(): boolean {
+  return !isShareRecipient() || canAdd
+}
+
 export function shareDeskId(): string | null {
   if (deskMemo) return deskMemo
   try {

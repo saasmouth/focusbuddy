@@ -24,6 +24,7 @@ import CanvasContextMenu, { type CtxMenuItem } from './CanvasContextMenu'
 import UnifiedWidgetMenu from './contextMenu/UnifiedWidgetMenu'
 import { columnCardContext } from '../lib/contextMenu/buildContext'
 import type { MenuContext } from '../lib/contextMenu/types'
+import { ARRANGING, MOVING, RESIZING, shareGateOnDrag } from '../lib/shareGate'
 
 // The desk Columns view: the same desk objects laid out as vertical, independently
 // scrolling walls, the whole set scrolling horizontally. Columns are hand-made
@@ -202,6 +203,8 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
   // dropOn() commit path (status field / freeform assignment).
   function beginCardDrag(w: Widget, e: React.MouseEvent): void {
     if (!canDrag || e.button !== 0) return
+    // A shared desk's visitor: a press that travels is the gate (lib/shareGate.ts).
+    if (shareGateOnDrag(e, MOVING)) return
     e.preventDefault()
     e.stopPropagation()
     dragSrcRef.current = w.id
@@ -232,6 +235,7 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
 
   // Pointer-based column resize (drag the right edge). Persists on release.
   function beginResize(colId: string, startWidth: number, e: React.MouseEvent): void {
+    if (shareGateOnDrag(e, RESIZING)) return
     e.preventDefault()
     e.stopPropagation()
     const startX = e.clientX
@@ -255,6 +259,7 @@ export default function ColumnsView({ taskId, widgets }: { taskId: string; widge
   // approach as the card drag; commits + persists on release.
   function beginColumnDrag(colId: string, e: React.MouseEvent): void {
     if (!isFreeform || e.button !== 0) return
+    if (shareGateOnDrag(e, ARRANGING)) return
     e.preventDefault()
     e.stopPropagation()
     setColDragId(colId)

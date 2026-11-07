@@ -46,7 +46,7 @@ export default function LiveWebViewPanel({ deskId }: { deskId: string }): JSX.El
         <div className="min-w-0">
           <div className="text-xs font-medium">Live web view</div>
           <div className="text-[11px] text-stone-500">
-            A public, read-only page that updates as you work.
+            A public page that updates as you work. Visitors cannot change it, but anyone can download a copy of it on Plexii.
           </div>
         </div>
         <span className={`text-[10px] uppercase tracking-[0.16em] shrink-0 ${tone}`}>

@@ -44,6 +44,8 @@ export interface ShareOffer {
    * read-only one. Absent (older records) is 'use'.
    */
   mode?: 'use' | 'view'
+  /** What the link opens: a desk, or a room with its desks. Absent is a desk. */
+  root?: 'desk' | 'room'
   /** When the link stops working, or null when it never does. */
   expiresAt: number | null
   /** When the sender last replaced the desk behind the link. Absent from older servers. */

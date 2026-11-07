@@ -150,7 +150,14 @@ export async function previewReadShare(token: string): Promise<
       const expiresAt = typeof body.record.expiresAt === 'number' ? body.record.expiresAt : null
       return {
         ok: true,
-        offer: { title, expiresAt: normaliseExpiresAt(expiresAt), sizeBytes: 0, rootId: '', mode: readMode(body.record) }
+        offer: {
+          title,
+          expiresAt: normaliseExpiresAt(expiresAt),
+          sizeBytes: 0,
+          rootId: '',
+          mode: readMode(body.record),
+          root: body.record.kind === 'folder' ? 'room' : 'desk'
+        }
       }
     }
     return { ok: false, reason: readRefusalFrom(res.status, body) }

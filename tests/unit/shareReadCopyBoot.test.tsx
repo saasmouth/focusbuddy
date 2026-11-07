@@ -214,11 +214,13 @@ describe('what a read link does not allow', () => {
     await until(() => text().includes('Open the desk'), 'the offer card')
     expect(text()).toContain('A desk has been shared with you to look at')
     await act(async () => button('Open the desk')!.click())
-    await until(() => text().includes('Get Plexii'), 'the desk to open')
-    // Looking at it, not taking it: no desk file, and the bar offers Plexii itself.
-    expect(text()).toContain('shared to look at')
+    await until(() => text().includes('shared to look at'), 'the desk to open')
+    // Looking at it, not taking it: no desk file. The bar says what every
+    // link's bar says (owner, 2026-11-07: "Download this desk on Plexii" on
+    // every link); the gate, not the bar, says this one stays here.
     expect(text()).not.toContain('Save desk file')
-    expect(text()).not.toContain('Download this desk')
+    expect(byTestId('share-take-desk')?.textContent).toBe('Download this desk')
+    expect(text()).not.toContain('Get Plexii')
     expect(imports()).toBe(1)
     expect(records()[VIEW]).toBeTruthy()
   })
@@ -234,8 +236,10 @@ describe('what a read link does not allow', () => {
     })
     await boot(`/share/c/${ROOM}`)
     await until(() => text().includes('Open the desk'), 'the offer card')
+    // A room says it is a room (it said "A desk" until 2026-11-07).
+    expect(text()).toContain('A room has been shared with you to look at')
     await act(async () => button('Open the desk')!.click())
-    await until(() => text().includes('Get Plexii'), 'the room to open')
+    await until(() => byTestId('share-take-desk') !== null, 'the room to open')
     expect(imports()).toBe(1)
     expect(records()[ROOM]?.rootId).toBe('room-6')
   })

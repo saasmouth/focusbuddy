@@ -166,7 +166,8 @@ export type HandoffOutcome =
 export interface HandoffSource {
   /** The link this copy came from. */
   token: string
-  kind: 'use' | 'copy'
+  /** A desk to use (/s/), a copyable snapshot (/c/), or a live desk (/l/). */
+  kind: 'use' | 'copy' | 'live'
   /** The desk (or room) the link opened. */
   rootId: string
   title: string
