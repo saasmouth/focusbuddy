@@ -33,7 +33,7 @@ import { ACTIVE } from '@shared/productDomains'
 import ReactDOM from 'react-dom/client'
 import { installBrowserApi, installFileServer } from './api/bridge'
 import {
-  shareTokenFromUrl, previewShare, fetchShareBundle, countdown, msLeft, linkExpires, downloadBundle,
+  shareTokenFromUrl, previewShare, fetchShareBundle, countdown, msLeft, linkExpires, downloadBundle, deskSize,
   linkIsGone, readInstead, refreshCachedOffer, refusalLine, whenRefused, finishPendingWipe,
   type ShareOffer, type ShareRefusal
 } from './api/share'
@@ -145,7 +145,7 @@ function ShareOfferCard({
   // out, rather than shown as "0.0 MB".
   const what = [
     expires ? countdown(offer.expiresAt) : null,
-    offer.sizeBytes > 0 ? `${(offer.sizeBytes / 1e6).toFixed(1)} MB` : null
+    offer.sizeBytes > 0 ? deskSize(offer.sizeBytes) : null
   ].filter(Boolean).join(' · ')
   return (
     <div style={S.shell}>

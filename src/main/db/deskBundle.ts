@@ -21,6 +21,7 @@
 import { getDb } from './database'
 import { fileBlobs } from './fileBlobs'
 import { LINK_SHARE_BUNDLE_BUDGET, LINK_SHARE_LIMIT_WORDS, linkMegabytes, utf8Bytes } from '@shared/shareExpiry'
+import { PRIVATE_WIDGET_KINDS, placeholderReasonFor } from '@shared/publicDesk'
 import {
   sitePictureId,
   type BundledPresentation,
@@ -245,8 +246,43 @@ function selectIn(db: Db, table: string, column: string, ids: string[]): Array<R
   return out
 }
 
+/** A row that is not in the trash (trashed_at null = live, migrations.ts). */
+const notTrashed = (r: Record<string, unknown>): boolean => r.trashed_at == null
+
+/**
+ * The columns a placeholder keeps: where the widget sat and what it is called
+ * by id, nothing it says. Everything else -- content, title, config, sync
+ * state, anything a later migration adds -- is left behind, so a column added
+ * tomorrow cannot carry a secret out through a placeholder.
+ */
+const PLACEHOLDER_COLUMNS = [
+  'id', 'task_id', 'x', 'y', 'width', 'height', 'z_index', 'created_at', 'updated_at',
+  'pinned', 'pinned_zone', 'pinned_screen_x', 'pinned_screen_y', 'parent_section_id'
+]
+
+/**
+ * A widget as a public bundle may carry it: as it is, or -- for a private kind
+ * (publicDesk.ts PRIVATE_WIDGET_KINDS) -- a note in its place that says it is
+ * not available publicly, where it sat and the size it was.
+ */
+export function publicWidgetRow(w: Record<string, unknown>): Record<string, unknown> {
+  const kind = String(w.kind ?? '')
+  if (!PRIVATE_WIDGET_KINDS.has(kind)) return w
+  const out: Record<string, unknown> = {}
+  for (const c of PLACEHOLDER_COLUMNS) if (c in w) out[c] = w[c]
+  return { ...out, kind: 'sticky', title: '', content: placeholderReasonFor(kind), color: null }
+}
+
 /**
  * Pack a desk and everything on it.
+ *
+ * What is in the trash is not on the desk, and never travels: trashed desks
+ * under a room, trashed widgets, tables, rows, documents and files.
+ *
+ * `audience: 'public'` is for a bundle anyone may fetch without signing in --
+ * the desk behind a live link. Private kinds go as placeholders there
+ * (publicWidgetRow). A link the sender made "to use" carries the desk as it is,
+ * which is what that link says it does.
  *
  * Two budgets, both optional:
  *   maxBytes      raw file bytes carried inline (DEFAULT_MAX_BUNDLE_BYTES)
@@ -261,7 +297,7 @@ function selectIn(db: Db, table: string, column: string, ids: string[]): Array<R
  */
 export async function buildDeskBundle(
   deskId: string,
-  opts: { maxBytes?: number; maxBodyBytes?: number; presentation?: PresentationInput } = {}
+  opts: { maxBytes?: number; maxBodyBytes?: number; presentation?: PresentationInput; audience?: 'link' | 'public' } = {}
 ): Promise<DeskBundle> {
   const db = getDb() as unknown as Db
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BUNDLE_BYTES
@@ -282,26 +318,29 @@ export async function buildDeskBundle(
   // bundle that imported cleanly row by row and then failed at COMMIT with a
   // constraint error naming nothing in particular. Descendants keep their
   // parents, which are all in the bundle; only the root is re-homed.
-  tables.nodes = selectIn(db, 'nodes', 'id', nodeIds).map((n) =>
-    n.id === deskId ? { ...n, parent_id: null } : n
-  )
-  tables.widgets = selectIn(db, 'widgets', 'task_id', nodeIds)
+  // The desk itself is what was shared, whatever its state; below it, only
+  // what is not in the trash -- and nothing on a desk that is.
+  const nodeRows = selectIn(db, 'nodes', 'id', nodeIds).filter((n) => n.id === deskId || notTrashed(n))
+  const liveNodeIds = nodeRows.map((n) => String(n.id))
+  tables.nodes = nodeRows.map((n) => (n.id === deskId ? { ...n, parent_id: null } : n))
+  const widgetRows = selectIn(db, 'widgets', 'task_id', liveNodeIds).filter(notTrashed)
+  tables.widgets = opts.audience === 'public' ? widgetRows.map(publicWidgetRow) : widgetRows
 
   // A link is only carried when BOTH of its ends are. Its endpoints are foreign
   // keys onto widgets, and a link reaching a widget on a desk that is not being
   // shared would fail the same way -- at COMMIT, after everything looked fine.
   const widgetIds = new Set(tables.widgets.map((w) => String(w.id)))
-  tables.widget_links = selectIn(db, 'widget_links', 'task_id', nodeIds).filter(
+  tables.widget_links = selectIn(db, 'widget_links', 'task_id', liveNodeIds).filter(
     (l) => widgetIds.has(String(l.source_widget_id)) && widgetIds.has(String(l.target_widget_id))
   )
-  tables.fb_tables = selectIn(db, 'fb_tables', 'task_id', nodeIds)
+  tables.fb_tables = selectIn(db, 'fb_tables', 'task_id', liveNodeIds).filter(notTrashed)
   tables.fb_rows = selectIn(
     db,
     'fb_rows',
     'table_id',
     tables.fb_tables.map((t) => String(t.id))
-  )
-  tables.desk_layouts = selectIn(db, 'desk_layouts', 'desk_id', nodeIds)
+  ).filter(notTrashed)
+  tables.desk_layouts = selectIn(db, 'desk_layouts', 'desk_id', liveNodeIds)
 
   // Documents and files are not filed under a desk; they are pointed at from it.
   const docIds: string[] = []
@@ -315,8 +354,8 @@ export async function buildDeskBundle(
       if (id) fileIds.push(id)
     }
   }
-  tables.documents = selectIn(db, 'documents', 'id', [...new Set(docIds)])
-  tables.fb_files = selectIn(db, 'fb_files', 'id', [...new Set(fileIds)])
+  tables.documents = selectIn(db, 'documents', 'id', [...new Set(docIds)]).filter(notTrashed)
+  tables.fb_files = selectIn(db, 'fb_files', 'id', [...new Set(fileIds)]).filter(notTrashed)
 
   const counts: Record<string, number> = {}
   for (const [t, rows] of Object.entries(tables)) counts[t] = rows.length

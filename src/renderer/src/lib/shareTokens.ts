@@ -34,3 +34,36 @@ const VIEWER_BASE = (
 export function viewerUrlFor(token: string): string {
   return `${VIEWER_BASE}/share/${token}`
 }
+
+/**
+ * What a link pasted into "Shared with me" is.
+ *
+ * Four shapes reach that box, because a share link's address changes on the
+ * way to the person holding it:
+ *   view.plexiidesk.com/share/<token>     what the sender sends (a read link)
+ *   plexiidesk.com/share/c/<token>        what the browser shows once the
+ *                                         viewer has forwarded that link to the
+ *                                         full web app -- the address a
+ *                                         recipient copies (23, 2026-11-07:
+ *                                         it was read as the token "c")
+ *   plexiidesk.com/share/s/<token>        a desk to use, in the browser
+ *   .../share/dsk_<…>, .../share/l/dsk_<…> a live desk
+ * Only a read link is added here; the other two are said plainly.
+ */
+export type PastedShareLink =
+  | { kind: 'read'; token: string }
+  | { kind: 'use' }
+  | { kind: 'live' }
+  | null
+
+export function parsePastedShareLink(text: string): PastedShareLink {
+  const raw = (text ?? '').trim()
+  if (/(^|\/)(l\/)?dsk_[A-Za-z0-9_-]{8,}/.test(raw)) return { kind: 'live' }
+  const path = /\/share\/(?:(c|s)\/)?([A-Za-z0-9_-]+)/.exec(raw)
+  if (path) {
+    if (path[1] === 's') return { kind: 'use' }
+    return /^[a-z0-9]{8,64}$/i.test(path[2]) ? { kind: 'read', token: path[2] } : null
+  }
+  // The token alone, as somebody might copy it out of a link.
+  return /^[a-z0-9]{16}$/i.test(raw) ? { kind: 'read', token: raw } : null
+}

@@ -1259,13 +1259,15 @@ export function registerIpcHandlers(): void {
     publishProjection(deskId, projection)
   )
   // The desk itself behind a live link, for the full web app (livePublisher
-  // publishLiveBundle). Packed here exactly as a "desk they can use" link packs
-  // it (shares:buildDeskBundle), with the sender's saved presentation.
+  // publishLiveBundle). Packed as a "desk they can use" link packs it
+  // (shares:buildDeskBundle), with the sender's saved presentation -- but for
+  // anyone, without signing in: private work widgets go as placeholders, as
+  // the live view has always shown them (deskBundle.ts publicWidgetRow).
   ipcMain.handle('liveDesk:publishBundle', async (_e, deskId: string, presentation?: SharePresentationRequest) => {
     const id = String(deskId || '')
     try {
       const resolved = presentation ? await resolvePresentation(id, presentation) : null
-      const bundle = await buildDeskBundle(id, resolved ? { presentation: resolved.input } : {})
+      const bundle = await buildDeskBundle(id, { audience: 'public', ...(resolved ? { presentation: resolved.input } : {}) })
       return await publishLiveBundle(id, JSON.stringify(bundle))
     } catch (e) {
       return { ok: false, error: (e as Error).message }

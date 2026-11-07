@@ -54,6 +54,12 @@ export interface ShareOffer {
   rootId: string
 }
 
+/** A desk's size as a person reads it: a small desk in KB, never "0.0 MB". */
+export function deskSize(bytes: number): string {
+  if (bytes < 100_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`
+  return `${(bytes / 1e6).toFixed(1)} MB`
+}
+
 /** Does this link run out? False for a link that never expires. */
 export function linkExpires(offer: Pick<ShareOffer, 'expiresAt'>): boolean {
   return !expiresNever(offer.expiresAt)

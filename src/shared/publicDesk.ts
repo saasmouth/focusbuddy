@@ -389,6 +389,26 @@ export function mayCapture(kind: string): boolean {
   return PUBLIC_CAPTURE_ALLOWED.has(kind)
 }
 
+/**
+ * Work widget kinds that never leave the sender's computer in a PUBLIC desk
+ * bundle: the desk behind a live link (GET /share/<dsk_token>/desk/bundle,
+ * no sign-in), which the full web app opens and a visitor can carry into
+ * Plexii. Each goes as a "not available publicly" placeholder in its place
+ * (deskBundle.ts publicWidgetRow), as the live view has always shown it.
+ *
+ * Narrower than PUBLIC_PLACEHOLDER_REASON on purpose. That list is also every
+ * kind the projection cannot draw (a calculator, a design, the minimap); the
+ * full app draws those, so they travel. This list is only what is private:
+ *   agent, webhook, inbound-hook        instructions, URLs, secrets
+ *   streamdeck, local-app-launcher      runs software on the sender's computer
+ *   email, chat-thread, mail-thread     somebody's correspondence
+ *   meeting-record                      a private record
+ */
+export const PRIVATE_WIDGET_KINDS: ReadonlySet<string> = new Set([
+  'agent', 'webhook', 'inbound-hook', 'streamdeck', 'local-app-launcher',
+  'email', 'chat-thread', 'mail-thread', 'meeting-record'
+])
+
 export function placeholderReasonFor(kind: string): string {
   return PUBLIC_PLACEHOLDER_REASON[kind] ?? 'Not available publicly'
 }

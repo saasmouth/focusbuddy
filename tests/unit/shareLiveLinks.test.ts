@@ -115,3 +115,13 @@ describe('a link to look at: adding no', () => {
     expect(decideCall('widgets:create', [{}], { ...VIEW_DROP, userActed: false }).gate).toBeUndefined()
   })
 })
+
+describe('the offer card says how big the desk is, readably', () => {
+  it('a small desk in KB, never "0.0 MB" (23, 2026-11-07: Wedding Planning)', async () => {
+    const { deskSize } = await import('../../src/web/api/share')
+    expect(deskSize(31_000)).toBe('31 KB')
+    expect(deskSize(400)).toBe('1 KB')
+    expect(deskSize(99_999)).toBe('100 KB')
+    expect(deskSize(2_345_678)).toBe('2.3 MB')
+  })
+})

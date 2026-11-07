@@ -8,6 +8,7 @@ import { promptText } from '../plexi/PromptDialog'
 import Icon from '../Icon'
 import PlexiiIcon from '../PlexiiIcon'
 import { DashboardHeader, PLEXI_CARD } from '../plexi'
+import { parsePastedShareLink } from '../../lib/shareTokens'
 
 // The Shared index — rooms, desks and widgets other people have shared with you.
 // This replaces the old inline "Shared with me" sidebar tree; it now lives as a
@@ -44,13 +45,21 @@ export default function SharedView(): JSX.Element {
       confirmLabel: 'Add share'
     })
     if (!url) return
-    const m = url.match(/\/share\/([a-z0-9]+)/i)
-    if (!m) {
-      setError('That does not look like a PlexiiDesk share link.')
+    const link = parsePastedShareLink(url)
+    if (!link) {
+      setError('That does not look like a Plexii share link.')
+      return
+    }
+    if (link.kind === 'use') {
+      setError('That link opens a desk in a browser, so it is not added here. Open it, and choose Download this desk to bring it into Plexii.')
+      return
+    }
+    if (link.kind === 'live') {
+      setError('That is a live desk, so it is not added here. Open it in a browser to watch it, and choose Download this desk to bring a copy into Plexii.')
       return
     }
     try {
-      await useSharesStore.getState().acceptByToken(m[1])
+      await useSharesStore.getState().acceptByToken(link.token)
     } catch (err) {
       setError(`Could not accept share: ${(err as Error).message}`)
     }
