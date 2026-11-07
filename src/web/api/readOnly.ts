@@ -267,6 +267,9 @@ export function gateLabel(channel: string, args: unknown[]): string {
 
 /** The refusal a gated call carries, for code that shows a rejected call's message. */
 export const GATE_WHY = 'Download this desk on Plexii to do that.'
+/** The same, on a link to look at, where the gate offers Plexii itself. */
+export const GATE_WHY_VIEW = 'Get Plexii to do that.'
+const gateWhy = (ctx: CallContext): string => (ctx.mode === 'view' ? GATE_WHY_VIEW : GATE_WHY)
 
 /** No moment given: a call the app made on its own. */
 const AUTOMATIC: CallContext = { userActed: false, adding: false, ownWidget: () => false }
@@ -313,7 +316,7 @@ export function decideCall(channel: string, args: unknown[], ctx: CallContext = 
   // (VisitorMode 'view') adds nothing.
   if (ctx.adding && ADD_CHANNELS.has(channel)) {
     if (ctx.mode === 'view' && ctx.userActed) {
-      return { allowed: false, args, why: GATE_WHY, gate: 'Adding things to this desk' }
+      return { allowed: false, args, why: gateWhy(ctx), gate: 'Adding things to this desk' }
     }
     if (ctx.mode !== 'view') return { allowed: true, args, edits: true }
   }
@@ -329,7 +332,7 @@ export function decideCall(channel: string, args: unknown[], ctx: CallContext = 
   // The visitor changing the desk, or using one of Plexii's features: that
   // needs Plexii itself.
   if (DESK_NAMESPACES.has(ns) || FEATURE_NAMESPACES.has(ns)) {
-    return { allowed: false, args, why: GATE_WHY, gate: gateLabel(channel, args) }
+    return { allowed: false, args, why: gateWhy(ctx), gate: gateLabel(channel, args) }
   }
 
   // Anything else is the app's own bookkeeping (a cache, a preference, a

@@ -11,7 +11,7 @@
 // (_shareWebHarness.ts). Build it first:  VITE_WEB_BASE=/share/ npm run web:build
 import { test, expect } from '@playwright/test'
 import {
-  assertWebBuild, openShareWeb, openTheDesk, DESK_ID, LIVE_TOKEN, MAC_INSTALLER, STICKY_ID, TOKEN, type ShareWeb
+  assertWebBuild, openShareWeb, openTheDesk, DESK_ID, LIVE_TOKEN, MAC_INSTALLER, ROOM_TOKEN, STICKY_ID, TOKEN, type ShareWeb
 } from './_shareWebHarness'
 
 let web: ShareWeb | null = null
@@ -22,8 +22,8 @@ test.afterEach(async () => {
 })
 
 const gate = (w: ShareWeb) => w.page.locator('[data-testid="share-gate"]')
-/** Page errors other than a gated call's own refusal, which callers may not catch. */
-const realErrors = (w: ShareWeb) => w.errors.filter((e) => !e.startsWith('Download this desk on Plexii to do that.'))
+/** Every page error. The gate's own refusals are absorbed by the page (boot.tsx), so none are expected. */
+const realErrors = (w: ShareWeb) => w.errors
 const widgetCount = (w: ShareWeb) => w.page.locator('[data-canvas-surface] [data-widget-id]').count()
 
 test('SG-1 the whole app is there, and looking around never opens the gate', async () => {
@@ -318,4 +318,24 @@ test('SG-12 a desk from a team workspace opens on the desk, by either kind of li
   web = await openShareWeb({ orgId: 'org_777a2068e04f4d2c06' })
   await openTheDesk(web, `/share/l/${LIVE_TOKEN}`)
   expect(await widgetCount(web)).toBe(2)
+})
+
+test('SG-13 a room link opens the full app on the room, its desks one click away', async () => {
+  // A room shared by "Create public link" used to stay in the old viewer
+  // (owner, 2026-11-07: every share link opens the full web app).
+  test.setTimeout(180_000)
+  web = await openShareWeb()
+  const { page } = web
+  await page.goto(`https://plexiidesk.com/share/c/${ROOM_TOKEN}`)
+  await page.getByRole('button', { name: 'Open the desk' }).click({ timeout: 60_000 })
+  await page.locator('[data-testid="desk-sidebar"]').first().waitFor({ timeout: 90_000 })
+  await expect(page.locator('[data-testid="share-take-desk"]')).toHaveText('Get Plexii')
+  await expect(page.getByText('Math lessons').first()).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('ELA lessons').first()).toBeVisible()
+  // Into a desk: looking around, so no gate.
+  await page.getByText('Math lessons').first().click()
+  await expect(page.locator('[data-widget-id="room-desk-math-note"]').first()).toBeVisible({ timeout: 30_000 })
+  expect(await web.gates()).toEqual([])
+  expect(realErrors(web)).toEqual([])
+  expect(web.escaped).toEqual([])
 })

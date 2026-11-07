@@ -341,8 +341,8 @@ describe('a read link’s snapshot, made into a desk', () => {
     expect(one<{ n: number }>('SELECT COUNT(*) AS n FROM fb_rows WHERE table_id = ?', tw.content).n).toBe(2)
   })
 
-  it('refuses what is not a desk, and what it cannot read', () => {
-    expect(snapshotToDeskBundle({ _version: 1, kind: 'folder', folder: {}, tasks: [] })).toEqual({ ok: false, why: 'not-a-desk' })
+  it('refuses what is not a desk or a room, and what it cannot read', () => {
+    expect(snapshotToDeskBundle({ _version: 1, kind: 'folder', folder: {}, tasks: [] })).toEqual({ ok: false, why: 'unreadable' }) // a room with no id
     expect(snapshotToDeskBundle({ _version: 1, kind: 'document', title: 'x', html: '' })).toEqual({ ok: false, why: 'not-a-desk' })
     expect(snapshotToDeskBundle(null)).toEqual({ ok: false, why: 'unreadable' })
     expect(snapshotToDeskBundle({ _version: 2, kind: 'task', task: { id: 'd', widgets: [] } })).toEqual({ ok: false, why: 'unreadable' })
@@ -350,3 +350,49 @@ describe('a read link’s snapshot, made into a desk', () => {
     expect(snapshotToDeskBundle({ _version: 1, kind: 'task', task: { id: 'd' } })).toEqual({ ok: false, why: 'unreadable' })
   })
 })
+
+// A room link opens in the full app too (owner, 2026-11-07: every share link
+// opens the full web app). A room snapshot carries every desk in it, each with
+// its widgets (renderer lib/shareSnapshot buildFolderSnapshot).
+describe('a room, made into the room and its desks', () => {
+  const task = (id: string, title: string, widgets: unknown[]) => ({
+    id, kind: 'task', title, description: '', status: 'open', priority: 3, importance: 3, interest: 3,
+    createdAt: 1, updatedAt: 1, completedAt: null, dueDate: null, estimateMinutes: null, widgets
+  })
+  const room = {
+    _version: 1, kind: 'folder', fromHandle: 'silent-tortoise', capturedAt: 1_793_000_000_000,
+    folder: { id: 'room-1', kind: 'folder', title: 'Year 6', description: '', status: 'open' },
+    tasks: [
+      task('desk-math', 'Math', [
+        { id: 'w-1', kind: 'sticky', title: 'Ratios', content: 'Unit 1', x: 0, y: 0, width: 200, height: 160 },
+        { id: 'w-t', kind: 'table', title: 'Schedule', content: 'tbl-1', x: 300, y: 0, width: 400, height: 300,
+          tableSnapshot: { title: 'Schedule', columns: [{ id: 'c1', name: 'Lesson', kind: 'text-short' }], rows: [{ id: 'r1', cells: { c1: 'Ratios' } }] } }
+      ]),
+      task('desk-ela', 'ELA', [{ id: 'w-1', kind: 'sticky', title: 'Reading', content: 'RL.6', x: 0, y: 0, width: 200, height: 160 }])
+    ]
+  }
+
+  it('the room is the root; its desks sit inside it, each with its widgets', () => {
+    const r = snapshotToDeskBundle(room)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.bundle.desk).toEqual({ id: 'room-1', title: 'Year 6' })
+    const nodes = r.bundle.tables.nodes as Array<Record<string, unknown>>
+    expect(nodes.map((n) => [n.id, n.kind, n.parent_id])).toEqual([
+      ['room-1', 'folder', null], ['desk-math', 'task', 'room-1'], ['desk-ela', 'task', 'room-1']
+    ])
+    const widgets = r.bundle.tables.widgets as Array<Record<string, unknown>>
+    expect(widgets.filter((w) => w.task_id === 'desk-math')).toHaveLength(2)
+    expect(widgets.filter((w) => w.task_id === 'desk-ela').map((w) => w.content)).toEqual(['RL.6'])
+    // Two desks both used the widget id "w-1": the second is made unique, not dropped.
+    expect(new Set(widgets.map((w) => w.id)).size).toBe(3)
+    expect((r.bundle.tables.fb_tables as unknown[]).length).toBe(1)
+    expect((r.bundle.tables.fb_rows as unknown[]).length).toBe(1)
+  })
+
+  it('an empty room is still a room', () => {
+    const r = snapshotToDeskBundle({ ...room, tasks: [] })
+    expect(r.ok && (r.bundle.tables.nodes as unknown[]).length).toBe(1)
+  })
+})
+

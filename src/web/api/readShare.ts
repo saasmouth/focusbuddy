@@ -112,12 +112,13 @@ export function copyRefusal(record: ReadRecord): ShareRefusal | null {
  * Whether the link opens here at all (owner, 2026-11-07: every share link
  * opens the full app, "just the interactivity that changes"). A desk opens
  * whatever its scope; the scope decides what the visitor may do (readMode).
- * Something other than a desk -- a document, a file, a room snapshot, which
- * carries no desks inside -- is still the viewer's.
+ * A room opens too, with its desks. Something other than a desk or a room --
+ * a document, a file, one widget -- is still the viewer's.
  */
 export function openRefusal(record: ReadRecord): ShareRefusal | null {
   if (record.revoked === true) return 'gone'
-  if (record.kind !== 'task') return 'not-a-desk'
+  // A desk, or a room of desks (snapshotDesk.ts makes either into one).
+  if (record.kind !== 'task' && record.kind !== 'folder') return 'not-a-desk'
   return null
 }
 

@@ -223,15 +223,32 @@ describe('what a read link does not allow', () => {
     expect(records()[VIEW]).toBeTruthy()
   })
 
+  it('a room link opens too: the room and its desks are unpacked, and the room is what the link names', async () => {
+    const ROOM = 'z7k6g7wn5xq32uqw'
+    const desk = snapshot('desk-math', 'Math').task
+    serve(ROOM, {
+      kind: 'folder', scope: 'view', title: 'Year 6',
+      snapshot: { _version: 1, kind: 'folder', fromHandle: 'silent-tortoise', capturedAt: 1_793_687_619_562,
+        folder: { id: 'room-6', kind: 'folder', title: 'Year 6', description: '', status: 'open' },
+        tasks: [desk, { ...snapshot('desk-ela', 'ELA').task }] }
+    })
+    await boot(`/share/c/${ROOM}`)
+    await until(() => text().includes('Open the desk'), 'the offer card')
+    await act(async () => button('Open the desk')!.click())
+    await until(() => text().includes('Get Plexii'), 'the room to open')
+    expect(imports()).toBe(1)
+    expect(records()[ROOM]?.rootId).toBe('room-6')
+  })
+
   it('the viewer link it points at for what it cannot open asks the viewer to keep it (?classic=1)', async () => {
-    serve(R, { kind: 'folder' })
+    serve(R, { kind: 'document' })
     await boot(`/share/c/${R}`)
     await until(() => byTestId('share-refusal') !== null, 'the refusal')
     expect((byTestId('share-read-instead') as HTMLAnchorElement).getAttribute('href')).toBe(`https://view.plexiidesk.com/share/${R}?classic=1`)
   })
 
   it('a link that is not a desk is refused the same way', async () => {
-    serve(R, { kind: 'folder' })
+    serve(R, { kind: 'document' })
     await boot(`/share/c/${R}`)
     await until(() => byTestId('share-refusal') !== null, 'the refusal')
     expect(byTestId('share-refusal')!.textContent).toMatch(/something other than a desk/)

@@ -768,6 +768,14 @@ function Boot(): React.JSX.Element {
         installShareGestures()
         // What this kind of link lets the visitor do (api/shareGate.ts).
         setVisitorMode(offer.mode ?? 'use')
+        // A call the gate refused is answered by the gate itself ("Download
+        // this desk on Plexii"); the app code that made it often does not catch
+        // the refusal, which left an "Uncaught (in promise)" in every visitor's
+        // console and in any error monitoring. The page's own refusals are
+        // expected and are absorbed here; every other error still surfaces.
+        window.addEventListener('unhandledrejection', (e) => {
+          if ((e.reason as { name?: unknown } | null)?.name === 'ShareBlockedError') e.preventDefault()
+        })
         await installFileServer()
 
         // Where can this desk live? A browser that refuses durable storage

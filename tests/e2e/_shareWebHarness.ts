@@ -23,6 +23,22 @@ export const MAC_INSTALLER = 'https://dl.plexiidesk.com/v4.3.46/PlexiDesk-4.3.46
 export const DESK_ID = 'd0d0d0d0-0000-4000-8000-000000000001'
 export const STICKY_ID = 'd0d0d0d0-0000-4000-8000-000000000002'
 export const NOTE_ID = 'd0d0d0d0-0000-4000-8000-000000000003'
+/** A room shared as a read link (view.plexiidesk.com/share/<16>), opened at /share/c/<token>. */
+export const ROOM_TOKEN = 'z7k6g7wn5xq32uqw'
+/** The room's snapshot: two desks, each with a note (renderer lib/shareSnapshot's folder shape). */
+function roomSnapshot(): unknown {
+  const desk = (id: string, title: string, note: string) => ({
+    id, kind: 'task', title, description: '', status: 'open', priority: 3, importance: 3, interest: 3,
+    createdAt: NOW, updatedAt: NOW, completedAt: null, dueDate: null, estimateMinutes: null,
+    widgets: [{ id: `${id}-note`, kind: 'sticky', title: '', content: note, x: 120, y: 80, width: 240, height: 180, color: null }]
+  })
+  return {
+    _version: 1, kind: 'folder', fromHandle: 'silent-tortoise', capturedAt: NOW,
+    folder: { id: 'room-year-6', kind: 'folder', title: 'Year 6 lessons', description: '', status: 'open' },
+    tasks: [desk('room-desk-math', 'Math lessons', 'Ratios first'), desk('room-desk-ela', 'ELA lessons', 'Read RL.6')]
+  }
+}
+
 /** A live web view link (view.plexiidesk.com/share/dsk_…), opened at /share/l/<token>. */
 export const LIVE_TOKEN = 'dsk_80375edef54b39e65855eb11f6d882cb7aacfcad'
 export const LIVE_NOTE_ID = 'd0d0d0d0-0000-4000-8000-000000000009'
@@ -174,6 +190,10 @@ export async function openShareWeb(opts: {
       if (url.pathname === `/public/shares/${TOKEN}`) return json(200, { ok: true, share: offer })
       if (url.pathname === `/public/shares/${TOKEN}/bundle`) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: fixtureBundle(undefined, opts.orgId) })
+      }
+      if (url.pathname === `/share/${ROOM_TOKEN}`) {
+        const rec = { token: ROOM_TOKEN, kind: 'folder', title: 'Year 6 lessons', revoked: false, scope: 'view', fromHandle: 'silent-tortoise', createdAt: NOW, expiresAt: null, viewCount: 1 }
+        return json(200, { ok: true, record: url.searchParams.has('meta') ? rec : { ...rec, snapshot: roomSnapshot() } })
       }
       if (url.pathname === `/share/${LIVE_TOKEN}`) {
         return json(200, {

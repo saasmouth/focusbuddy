@@ -76,8 +76,9 @@ describe('a read link opens whatever its scope; the scope decides what the visit
     expect(readMode({})).toBe('view') // no scope is not permission to add
   })
 
-  it('what is not a desk, or is gone, still does not', () => {
-    expect(openRefusal({ kind: 'folder', scope: 'copy' })).toBe('not-a-desk')
+  it('a room opens too; what is neither a desk nor a room, or is gone, does not', () => {
+    expect(openRefusal({ kind: 'folder', scope: 'view' })).toBeNull()
+    expect(openRefusal({ kind: 'document', scope: 'copy' })).toBe('not-a-desk')
     expect(openRefusal({ kind: 'task', scope: 'copy', revoked: true })).toBe('gone')
   })
 
@@ -103,8 +104,9 @@ describe('a link to look at: arranging yes, adding no', () => {
     expect(decideCall('widgets:create', [{}], USE_DROP)).toMatchObject({ allowed: true, edits: true })
   })
 
-  it('everything else is the gate, as on any link', () => {
-    expect(decideCall('nodes:create', [{ kind: 'task' }], VIEW_ACTED).gate).toBe('Creating a desk')
+  it('everything else is the gate, as on any link -- and the refusal says what the gate says', () => {
+    expect(decideCall('nodes:create', [{ kind: 'task' }], VIEW_ACTED)).toMatchObject({ gate: 'Creating a desk', why: 'Get Plexii to do that.' })
+    expect(decideCall('nodes:create', [{ kind: 'task' }], { ...VIEW_ACTED, mode: 'use' }).why).toBe('Download this desk on Plexii to do that.')
     expect(decideCall('chat:sendStream', [{}], VIEW_ACTED).gate).toBe('AI')
   })
 

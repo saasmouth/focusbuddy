@@ -97,28 +97,26 @@ function optionsOf(raw: unknown): Array<{ id: string; label: string; color?: str
   return out
 }
 
-/**
- * Make a desk bundle from a read link's snapshot.
- *
- * `snapshot` is the `record.snapshot` Signal returns for GET /share/<token>.
- * `fromHandle` is the record's sender handle, used when the snapshot has none.
- */
-export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unknown; now?: number } = {}): SnapshotDeskResult {
-  if (!isObj(snapshot)) return { ok: false, why: 'unreadable' }
-  if (snapshot.kind !== 'task') {
-    // A snapshot of another kind is still a snapshot; it is just not a desk.
-    return typeof snapshot.kind === 'string' ? { ok: false, why: 'not-a-desk' } : { ok: false, why: 'unreadable' }
-  }
-  if (snapshot._version !== READABLE_SNAPSHOT_VERSION) return { ok: false, why: 'unreadable' }
-  const task = snapshot.task
-  if (!isObj(task) || !Array.isArray(task.widgets)) return { ok: false, why: 'unreadable' }
-  const deskId = id(task.id)
-  if (!deskId) return { ok: false, why: 'unreadable' }
+/** The ids already used in this bundle, shared across a room's desks. */
+interface Seen {
+  widgets: Set<string>
+  rows: Set<string>
+  tables: Map<string, Obj>
+}
 
-  const captured = finite(snapshot.capturedAt)
-  const at = captured !== null && captured > 0 ? captured : (opts.now ?? Date.now())
+/**
+ * One desk of a snapshot (a task snapshot's task, or one of a room's tasks)
+ * as rows: its node, widgets, and the tables and rows its table widgets carry.
+ */
+function deskRows(
+  task: Obj,
+  ctx: { at: number; handle: string | null; parentId: string | null; sortOrder: number; seen: Seen }
+): { node: Obj; widgets: Obj[]; rows: Obj[] } | null {
+  if (!Array.isArray(task.widgets)) return null
+  const deskId = id(task.id)
+  if (!deskId) return null
+  const { at, handle, seen } = ctx
   const title = str(task.title, 500).trim() || 'Shared desk'
-  const handle = (str(snapshot.fromHandle, 64) || str(opts.fromHandle, 64)).trim() || null
   const whole = (v: unknown, fallback: number): number => {
     const n = finite(v)
     return n === null ? fallback : Math.round(n)
@@ -130,7 +128,7 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
 
   const node: Obj = {
     id: deskId,
-    parent_id: null,
+    parent_id: ctx.parentId,
     kind: 'task',
     title,
     description: str(task.description),
@@ -138,7 +136,7 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
     priority: whole(task.priority, 3),
     importance: whole(task.importance, 3),
     interest: whole(task.interest, 3),
-    sort_order: 0,
+    sort_order: ctx.sortOrder,
     created_at: when(task.createdAt) ?? at,
     updated_at: when(task.updatedAt) ?? at,
     completed_at: when(task.completedAt),
@@ -148,10 +146,8 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
   }
 
   const widgets: Obj[] = []
-  const tables = new Map<string, Obj>()
   const rows: Obj[] = []
-  const rowIds = new Set<string>()
-  const widgetIds = new Set<string>()
+  const deskWidgetIds = new Set<string>()
   const sections: Array<[Obj, unknown]> = []
 
   task.widgets.forEach((raw: unknown, i: number) => {
@@ -159,8 +155,9 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
     const kind = str(raw.kind, 64).trim()
     if (!kind) return
     let wid = id(raw.id) ?? `${deskId}-w${i + 1}`
-    if (widgetIds.has(wid)) wid = `${wid}-${i + 1}`
-    widgetIds.add(wid)
+    if (seen.widgets.has(wid)) wid = `${wid}-${i + 1}`
+    seen.widgets.add(wid)
+    deskWidgetIds.add(wid)
 
     let content = str(raw.content, 2_000_000)
     if (kind === 'streamdeck') content = stripRunShellFromDeckContent(content)
@@ -169,11 +166,11 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
     if (snap) {
       const tableId = id(content.trim()) ?? `${wid}-table`
       content = tableId
-      if (!tables.has(tableId)) {
+      if (!seen.tables.has(tableId)) {
         const columns = (Array.isArray(snap.columns) ? snap.columns : [])
           .map(columnOf)
           .filter((c): c is Obj => c !== null)
-        tables.set(tableId, {
+        seen.tables.set(tableId, {
           id: tableId,
           task_id: deskId,
           title: str(snap.title, 500) || str(raw.title, 500) || 'Untitled',
@@ -184,8 +181,8 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
         ;(Array.isArray(snap.rows) ? snap.rows : []).forEach((r: unknown, j: number) => {
           if (!isObj(r)) return
           let rid = id(r.id) ?? `${tableId}-r${j + 1}`
-          if (rowIds.has(rid)) rid = `${rid}-${j + 1}`
-          rowIds.add(rid)
+          if (seen.rows.has(rid)) rid = `${rid}-${j + 1}`
+          seen.rows.add(rid)
           rows.push({
             id: rid,
             table_id: tableId,
@@ -221,23 +218,94 @@ export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unk
     if (raw.parentSectionId != null) sections.push([widget, raw.parentSectionId])
   })
 
-  // Section membership only for a section that is here: a widget filed under
-  // one that is not would be drawn inside nothing, which is to say not at all.
+  // Section membership only for a section that is here, on this desk: a widget
+  // filed under one that is not would be drawn inside nothing.
   for (const [widget, parent] of sections) {
     const pid = id(parent)
-    if (pid && pid !== widget.id && widgetIds.has(pid)) widget.parent_section_id = pid
+    if (pid && pid !== widget.id && deskWidgetIds.has(pid)) widget.parent_section_id = pid
+  }
+  return { node, widgets, rows }
+}
+
+/**
+ * Make a desk bundle from a read link's snapshot: a DESK (kind 'task'), or a
+ * ROOM (kind 'folder') -- the room and every desk in it, each with its widgets
+ * (owner, 2026-11-07: every share link opens the full web app; a room link
+ * used to stay in the viewer). A room's nested rooms arrive flattened, as the
+ * snapshot carries them.
+ *
+ * `snapshot` is the `record.snapshot` Signal returns for GET /share/<token>.
+ * `fromHandle` is the record's sender handle, used when the snapshot has none.
+ */
+export function snapshotToDeskBundle(snapshot: unknown, opts: { fromHandle?: unknown; now?: number } = {}): SnapshotDeskResult {
+  if (!isObj(snapshot)) return { ok: false, why: 'unreadable' }
+  if (snapshot.kind !== 'task' && snapshot.kind !== 'folder') {
+    // A snapshot of another kind is still a snapshot; it is just not a desk.
+    return typeof snapshot.kind === 'string' ? { ok: false, why: 'not-a-desk' } : { ok: false, why: 'unreadable' }
+  }
+  if (snapshot._version !== READABLE_SNAPSHOT_VERSION) return { ok: false, why: 'unreadable' }
+
+  const captured = finite(snapshot.capturedAt)
+  const at = captured !== null && captured > 0 ? captured : (opts.now ?? Date.now())
+  const handle = (str(snapshot.fromHandle, 64) || str(opts.fromHandle, 64)).trim() || null
+  const seen: Seen = { widgets: new Set(), rows: new Set(), tables: new Map() }
+  const nodes: Obj[] = []
+  const widgets: Obj[] = []
+  const rows: Obj[] = []
+  let root: { id: string; title: string }
+
+  if (snapshot.kind === 'task') {
+    const task = snapshot.task
+    if (!isObj(task)) return { ok: false, why: 'unreadable' }
+    const desk = deskRows(task, { at, handle, parentId: null, sortOrder: 0, seen })
+    if (!desk) return { ok: false, why: 'unreadable' }
+    nodes.push(desk.node)
+    widgets.push(...desk.widgets)
+    rows.push(...desk.rows)
+    root = { id: String(desk.node.id), title: String(desk.node.title) }
+  } else {
+    const folder = snapshot.folder
+    const tasks = snapshot.tasks
+    if (!isObj(folder) || !Array.isArray(tasks)) return { ok: false, why: 'unreadable' }
+    const roomId = id(folder.id)
+    if (!roomId) return { ok: false, why: 'unreadable' }
+    const title = str(folder.title, 500).trim() || 'Shared room'
+    nodes.push({
+      id: roomId,
+      parent_id: null,
+      kind: 'folder',
+      title,
+      description: str(folder.description),
+      status: str(folder.status, 32) || 'open',
+      priority: 3,
+      importance: 3,
+      interest: 3,
+      sort_order: 0,
+      created_at: at,
+      updated_at: at,
+      shared_from_handle: handle
+    })
+    tasks.forEach((t: unknown, i: number) => {
+      if (!isObj(t)) return
+      const desk = deskRows(t, { at, handle, parentId: roomId, sortOrder: i, seen })
+      if (!desk || nodes.some((n) => n.id === desk.node.id)) return
+      nodes.push(desk.node)
+      widgets.push(...desk.widgets)
+      rows.push(...desk.rows)
+    })
+    root = { id: roomId, title }
   }
 
-  const fbTables = [...tables.values()]
+  const fbTables = [...seen.tables.values()]
   return {
     ok: true,
     bundle: {
       format: FORMAT,
       formatVersion: VERSION,
       exportedAt: new Date(at).toISOString(),
-      desk: { id: deskId, title },
-      counts: { nodes: 1, widgets: widgets.length, fb_tables: fbTables.length, fb_rows: rows.length },
-      tables: { nodes: [node], widgets, fb_tables: fbTables, fb_rows: rows },
+      desk: root,
+      counts: { nodes: nodes.length, widgets: widgets.length, fb_tables: fbTables.length, fb_rows: rows.length },
+      tables: { nodes, widgets, fb_tables: fbTables, fb_rows: rows },
       files: [],
       filesOmitted: []
     }
