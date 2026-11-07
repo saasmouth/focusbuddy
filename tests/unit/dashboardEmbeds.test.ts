@@ -89,7 +89,9 @@ describe('embedded objects cannot be dragged, resized or mispositioned', () => {
   })
 
   it('drag and resize are off, so nothing writes back to the desk', () => {
-    expect(frame).toContain('disableDragging={embedded || dragDisabled}')
+    // `embedded` leads the disableDragging condition, whatever else joins it
+    // (a shared desk's visitor joined it, 2026-11-07: lib/shareGate.ts).
+    expect(frame).toMatch(/disableDragging=\{embedded \|\| dragDisabled[ |}]/)
     // `embedded` leads the enableResizing condition, whatever else joins it.
     // Written as a pattern rather than one literal because the condition grew
     // when section children gained resizing (2026-10-30) without the rule
