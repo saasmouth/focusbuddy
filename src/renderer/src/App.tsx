@@ -41,6 +41,8 @@ import PeerBodyDoubleDialog from './components/PeerBodyDoubleDialog'
 import CommandCenter from './components/CommandCenter'
 import MetricsOverlay from './components/MetricsOverlay'
 import LaunchSignInModal from './components/LaunchSignInModal'
+import DeskHandoffEffects from './components/DeskHandoffEffects'
+import { shareGate } from './lib/shareGate'
 import UpgradePromptModal from './components/UpgradePromptModal'
 import CreditPromptModal from './components/CreditPromptModal'
 import LocalAiPrompts from './components/LocalAiPrompts'
@@ -146,11 +148,14 @@ export default function App(): JSX.Element {
   // phantom empty strip where the hidden dock would be. Same predicate the
   // overlay uses: focus mode genuinely showing, not a stale focusedWidgetId.
   const focusedWidgetId = useWidgetStore((s) => s.focusedWidgetId)
-  // A 48-hour share shows the desk and nothing else. The recipient has no
-  // workspace of their own to navigate, so a sidebar of desks they do not have,
-  // a titlebar of tools they cannot keep and a footer are all noise around the
-  // one thing they were sent. The countdown and the download call-to-action are
-  // rendered by the cloud entry, above this.
+  // A shared desk opens with the whole app around it (owner, 2026-11-07:
+  // "make the shared rooms and desk features work just like plexii local, with
+  // menus, ai etc"): the titlebar, the side menu with the rooms and desks the
+  // link carried, Files, the assistant, the footer. What a visitor may DO is
+  // held at the bridge (src/web/api/readOnly.ts) and at the few doors that make
+  // no call (lib/shareGate.ts): look around, arrange, drag things onto the desk.
+  // Anything else says "Download this desk on Plexii". The share bar and the
+  // gate itself are rendered by the cloud entry, above this.
   // Stamp the widget skin on the document once, so the CSS overrides apply
   // before the first widget paints rather than after a flash of the other one.
   useEffect(() => {
@@ -275,6 +280,11 @@ export default function App(): JSX.Element {
   const account = useAccountStore((s) => s.account)
   const sessionToken = useAccountStore((s) => s.sessionToken)
   const adoptHandoff = useAccountStore((s) => s.adoptHandoff)
+  // Whether anyone is signed in yet: until they are, the workspace is not drawn
+  // at all (see the lock above the return).
+  const accountBoot = useAccountStore((s) => s.bootStatus)
+  const offlineSession = useAccountStore((s) => s.offlineSession)
+  const anonymousAllowed = useAccountStore((s) => s.anonymousAllowed)
   // Messaging: open the persistent, authenticated socket while signed in so
   // DMs + shared-space chat arrive in real time; tear it down on sign-out.
   const connectMessaging = useMessagingStore((s) => s.connect)
@@ -579,6 +589,7 @@ export default function App(): JSX.Element {
   // Anchored where the gear sits, so it opens from the expected corner.
   useEffect(() => {
     function onOpen(e: Event): void {
+      if (shareGate('Settings')) return
       const tab = (e as CustomEvent<{ tab?: SettingsTab }>).detail?.tab
       setSettingsOpen({ x: window.innerWidth - 24, y: 48, tab })
     }
@@ -587,6 +598,9 @@ export default function App(): JSX.Element {
   }, [])
 
   function toggleSettings(): void {
+    // A shared desk's visitor sees the button (the app is the app), and
+    // pressing it is one of the things that needs Plexii itself.
+    if (!settingsOpen && shareGate('Settings')) return
     if (settingsOpen) {
       setSettingsOpen(null)
       return
@@ -595,6 +609,18 @@ export default function App(): JSX.Element {
     if (!rect) return
     setSettingsOpen({ x: rect.right, y: rect.bottom + 6 })
   }
+
+  // Nobody opens Plexii without signing in (owner, 2026-11-07, "as a rule").
+  // The sign-in used to sit over the workspace on a translucent, lightly
+  // blurred scrim: the desks, their names and what was on them were all there
+  // to read before anyone had signed in, and the app's own shortcuts still
+  // reached them. Now nothing of the workspace is drawn until someone is --
+  // online, or offline with the password last used here. A shared desk's
+  // visitor is not signed in by design and never sees this; the e2e harness
+  // (anonymousAllowed) drives the app with no server.
+  const workspaceLocked =
+    !shareView && !anonymousAllowed && (accountBoot !== 'ready' || (!account && !sessionToken && !offlineSession))
+  if (workspaceLocked) return <SignedOutScreen isMac={isMac} />
 
   return (
     <div className="fb-app-shell flex flex-col">
@@ -613,7 +639,7 @@ export default function App(): JSX.Element {
       {releaseEntry && (
         <ReleaseModal entry={releaseEntry} onClose={() => setReleaseEntry(null)} />
       )}
-      {!shareView && (
+      {(
       <header
         // `relative z-[195]` so menus OPENED FROM the header paint over the
         // canvas. The header had no stacking context, and <main> is a later
@@ -701,7 +727,7 @@ export default function App(): JSX.Element {
             }
           >
             <button
-              onClick={() => canSmartStack && setSmartStackOpen(true)}
+              onClick={() => canSmartStack && !shareGate('Smart Stack') && setSmartStackOpen(true)}
               disabled={!canSmartStack}
               className={`icon-btn ${canSmartStack ? '!text-accent' : ''}`}
               aria-label="Smart Stack"
@@ -722,7 +748,7 @@ export default function App(): JSX.Element {
             }
           >
             <button
-              onClick={() => setBodyDoubleOpen(true)}
+              onClick={() => !shareGate('Body doubling') && setBodyDoubleOpen(true)}
               className="icon-btn relative"
               aria-label="Body double"
               data-testid="header-body-double"
@@ -794,7 +820,7 @@ export default function App(): JSX.Element {
       )}
       <main
         className="flex-1 min-h-0 relative flex bg-[var(--surface-base)]"
-        style={shareView ? undefined : mainPad}
+        style={mainPad}
       >
         {segmentTakeover ? (
           // Grow the segment shell to fill <main> up to the reserved assistant
@@ -822,19 +848,19 @@ export default function App(): JSX.Element {
               behind it, while the inset margin lets the desk surface show around
               the card so it reads as floating above the surface. Minimising it
               collapses the column entirely, giving the content the full width. */}
-          {!shareView && (
+          {(
             <SidebarDock collapsed={sidebarMinimized} onToggle={toggleSidebar} fullBleed={canvasFullBleed} />
           )}
           {/* Files beside your work docks right of the side menu; pinned, it
               reserves its width here (components/files/FilesDock). */}
-          {!shareView && <FilesDockSlot overCanvas={canvasFullBleed} />}
+          <FilesDockSlot overCanvas={canvasFullBleed} />
           {/* The assistant no longer lives in a desk-only split here — it is a
               global overlay (AssistantOverlay, mounted below) so it exists on
               every screen. Sidebar mode reserves its width via mainPad above. */}
           <div
-            className={canvasFullBleed && !shareView ? 'absolute inset-y-0' : 'flex-1 min-w-0 h-full'}
+            className={canvasFullBleed ? 'absolute inset-y-0' : 'flex-1 min-w-0 h-full'}
             style={
-              canvasFullBleed && !shareView
+              canvasFullBleed
                 ? { left: mainPad.paddingLeft ?? 0, right: mainPad.paddingRight ?? 0 }
                 : undefined
             }
@@ -845,28 +871,73 @@ export default function App(): JSX.Element {
         </>
         )}
       </main>
-      {!shareView && <OpenTray />}
-      {!shareView && <Footer />}
+      <OpenTray />
+      <Footer />
 
-      {/* Everything Plexii does BESIDES showing this desk.
+      {/* The parts of Plexii a shared desk's visitor gets too: the command
+          centre (search and commands), the assistant, Files, menus' hosts and
+          the toasts that answer them. What they may actually DO from these is
+          held at the bridge and by lib/shareGate.ts -- the gate says "Download
+          this desk on Plexii" for everything past looking, arranging and
+          dragging things onto the desk. */}
+      <CommandCenter
+        onOpenBodyDouble={() => !shareGate('Body doubling') && setBodyDoubleOpen(true)}
+        onOpenSmartStack={() => canSmartStack && !shareGate('Smart Stack') && setSmartStackOpen(true)}
+        canSmartStack={canSmartStack}
+      />
+      <UndoToast />
+      {/* The one AI Assist preview (work widget menu and web page menu), the
+          Add to desk picker, and what the web page right-click menu asks for. */}
+      <AiAssistPreview />
+      <AddToDeskPicker />
+      <WebMenuCommandHost />
+      <CompletionToast />
+      <NoticeToast />
+      {/* Files beside your work: the flyout from the side menu, or floating. */}
+      <FilesFlyout />
+      <FilesFloat />
+      <PromptDialogHost />
+      <DocHistoryPanelHost />
+      {/* A saved snippet opened as a document, from wherever it is
+          placed. Mounted once, globally, for the same reason as the
+          history panel: the embed that opens it is a ProseMirror node
+          view with no React parent to hand it a callback. */}
+      <SnippetSessionHost />
+      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+      {/* Looking at a cited reference without leaving the conversation.
+          Mounted once, globally: a citation can be clicked from the assistant
+          panel, a focus-mode chat block or a proposal card, and all of them
+          should open the same viewer rather than each growing their own. */}
+      <SourcePeekModal />
+      {/* The assistant: a pill on every screen, opening into sidebar /
+          floating / fullscreen over one conversation. */}
+      <AssistantOverlay />
+      {/* The universal pin layer (spec §7): a persistent tray of globally pinned
+          items, reachable on every surface, droppable onto the current desk. */}
+      <PinTray />
+      {smartStackOpen && <SmartStackModal onClose={() => setSmartStackOpen(false)} />}
+      <RelatedDesksModal />
+      {bodyDoubleOpen && (
+        <PeerBodyDoubleDialog onClose={() => setBodyDoubleOpen(false)} />
+      )}
 
-          A share window is one desk and nothing else, and these are the
-          "nothing else": focus sessions, meetings, the assistant, the command
-          centre, onboarding tours, capture, toasts, the pin tray. None of them
-          mean anything to someone who was sent a link and has no workspace.
+      {/* What only a workspace of one's OWN has, kept out of a shared desk.
 
-          Suppressing them is not tidiness. The pre-task bridge -- "what would
-          make this 10% easier right now?" -- fires when a desk is opened and
-          renders a full-screen scrim at z-280, so a recipient got the desk and
-          then could not touch it. FirstRunOnboarding would have done the same
-          on any fresh browser profile. */}
+          These start on their own -- focus sessions, meetings, onboarding,
+          capture, the account and its credits -- and none of them mean
+          anything to someone who was sent a link and has no account. Most
+          would also stand in the way: the pre-task bridge ("what would make
+          this 10% easier right now?") fires when a desk is opened and renders
+          a full-screen scrim at z-280, so a recipient got the desk and then
+          could not touch it; FirstRunOnboarding would do the same on any fresh
+          browser profile. The account sign-in never appears to a visitor:
+          everything it would offer is the download gate's to offer. */}
       {!shareView && (
         <>
         {/* The mail reader. Mounted once here because it is opened from places
             that do not know about each other -- an inbox widget on a desk, the
             mail view, a search hit -- and none of them should navigate away to
-            show one message. Suppressed in a share window like everything else
-            that is not the desk. */}
+            show one message. */}
         <MailMessageModal />
         <FocusSessionOverlay />
         <CallOverlay />
@@ -879,66 +950,27 @@ export default function App(): JSX.Element {
         <HyperfocusGuardian />
         <PreTaskBridge />
         <CursorSpotlight />
-        <CommandCenter
-          onOpenBodyDouble={() => setBodyDoubleOpen(true)}
-          onOpenSmartStack={() => canSmartStack && setSmartStackOpen(true)}
-          canSmartStack={canSmartStack}
-        />
         <FirstRunOnboarding />
         <OnboardingTour />
         <FeatureSpotlightPopup />
         <OnboardingHub />
-        <UndoToast />
-        {/* The one AI Assist preview (work widget menu and web page menu), the
-            Add to desk picker, and what the web page right-click menu asks for. */}
-        <AiAssistPreview />
-        <AddToDeskPicker />
-        <WebMenuCommandHost />
-        <CompletionToast />
-        <NoticeToast />
         {/* DEC-075 — yesterday's never-completed blocks greet the launch once. */}
         <MissedTriagePrompt />
         <CaptureConsole />
-        {/* Files beside your work: the flyout from the side menu, or floating. */}
-        <FilesFlyout />
-        <FilesFloat />
-        <PromptDialogHost />
-        <DocHistoryPanelHost />
-        {/* A saved snippet opened as a document, from wherever it is
-            placed. Mounted once, globally, for the same reason as the
-            history panel: the embed that opens it is a ProseMirror node
-            view with no React parent to hand it a callback. */}
-        <SnippetSessionHost />
-        {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
-        {/* Looking at a cited reference without leaving the conversation.
-            Mounted once, globally: a citation can be clicked from the assistant
-            panel, a focus-mode chat block or a proposal card, and all of them
-            should open the same viewer rather than each growing their own. */}
-        <SourcePeekModal />
         <LaunchSignInModal />
         <UpgradePromptModal />
         {/* Growth (Oct 2026): credit refusals, email verification, the one-time
             invite nudge, and the effects with no screen (pending build,
             first_launch). */}
         <GrowthEffects />
+        {/* "Download this desk on Plexii", received: a visitor's copy of a
+            shared desk, imported once someone is signed in. */}
+        <DeskHandoffEffects />
         <CreditPromptModal />
         <LocalAiPrompts />
         <VerifyEmailModal />
         <InviteTeammateNudge />
         <MetricsOverlay />
-        {/* The assistant: a pill on every screen, opening into sidebar /
-            floating / fullscreen over one conversation. */}
-        <AssistantOverlay />
-        {/* The universal pin layer (spec §7): a persistent tray of globally pinned
-            items, reachable on every surface, droppable onto the current desk. */}
-        <PinTray />
-        {/* The bottom-center voice bar retired with A3 (R7): voice lives in the
-            mascot now — hold the pill or Cmd+Shift+Space (AssistantOverlay). */}
-        {smartStackOpen && <SmartStackModal onClose={() => setSmartStackOpen(false)} />}
-        <RelatedDesksModal />
-        {bodyDoubleOpen && (
-          <PeerBodyDoubleDialog onClose={() => setBodyDoubleOpen(false)} />
-        )}
         </>
       )}
 
@@ -961,6 +993,22 @@ export default function App(): JSX.Element {
           initialTab={settingsOpen.tab}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Plexii before anyone has signed in: an empty window -- still draggable by its
+ * top edge -- and the sign-in. Nothing of the workspace is mounted, so nothing
+ * of it can be read, clicked or reached by a shortcut.
+ */
+function SignedOutScreen({ isMac }: { isMac: boolean }): JSX.Element {
+  return (
+    <div className="fb-app-shell flex flex-col bg-[var(--surface-base)]" data-testid="signed-out-screen">
+      <div className={`titlebar-drag h-10 shrink-0 ${isMac ? 'pl-[78px]' : 'pl-3'}`} />
+      <div className="flex-1" />
+      <LaunchSignInModal />
+      <NoticeToast />
     </div>
   )
 }

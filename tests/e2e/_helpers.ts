@@ -225,7 +225,14 @@ export async function waitForReady(
   // The global footer sync chip renders in every view as a sibling of <main>,
   // so it is the robust "shell is up" signal that survives a reload into any
   // view. (The renderer-ready gate above already confirms window.api exists.)
-  await expect(window.locator('[data-testid="footer-sync-chip"]')).toBeVisible({ timeout: 10_000 })
+  //
+  // Or, where an account is required (PLEXI_E2E_REQUIRE_ACCOUNT=1, as in every
+  // packaged build) and nobody is signed in yet: the signed-out screen, which
+  // is all the app draws then (owner, 2026-11-07: nobody opens Plexii without
+  // signing in) -- there is no shell to wait for and nothing to dismiss.
+  const shell = window.locator('[data-testid="footer-sync-chip"], [data-testid="signed-out-screen"]').first()
+  await expect(shell).toBeVisible({ timeout: 10_000 })
+  if (await window.locator('[data-testid="signed-out-screen"]').isVisible().catch(() => false)) return
 
   if (!dismissModals) return
 

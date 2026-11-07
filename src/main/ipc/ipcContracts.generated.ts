@@ -14,9 +14,11 @@ import type { ArgSpec } from './contracts'
 // here. Everything else is deliberately unconstrained; see contracts.ts.
 
 export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
+  'account:rememberOfflineSignIn': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'account:saveExport': [{ kind: 'any', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'account:saveSession': [{ kind: 'object', optional: false, nullable: false }],
   'account:setSkipped': [{ kind: 'boolean', optional: false, nullable: false }],
+  'account:verifyOfflineSignIn': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'activity:logPress': [{ kind: 'object', optional: false, nullable: false }],
   'activity:setEnabled': [{ kind: 'boolean', optional: false, nullable: false }],
   'agent:step': [{ kind: 'object', optional: false, nullable: true }],
@@ -121,6 +123,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'design:planLayout': [{ kind: 'object', optional: false, nullable: false }],
   'design:removeBackground': [{ kind: 'object', optional: false, nullable: false }],
   'design:searchPhotos': [{ kind: 'object', optional: false, nullable: false }],
+  'deskHandoff:import': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'deskLayout:load': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'deskLayout:save': [{ kind: 'object', optional: false, nullable: false }],
   'deskLayout:saveWorkcentre': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }],

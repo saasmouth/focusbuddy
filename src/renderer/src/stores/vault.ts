@@ -71,7 +71,9 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
   unlockMethods: [],
 
   refreshUnlockMethods: async () => {
-    set({ unlockMethods: await window.api.vault.unlockMethods() })
+    // A runtime with no unlock methods to offer (the browser) answers by
+    // refusing the call; that is "none", not an error to throw at the screen.
+    set({ unlockMethods: await window.api.vault.unlockMethods().catch(() => []) })
   },
 
   enrollUnlockMethod: async (id) => {
@@ -107,7 +109,7 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
     const [meta, unlocked, methods] = await Promise.all([
       window.api.vault.meta(),
       window.api.vault.isUnlocked(),
-      window.api.vault.unlockMethods()
+      window.api.vault.unlockMethods().catch(() => [])
     ])
     set({ meta, unlocked, unlockMethods: methods, initStatus: 'ready' })
     if (unlocked) await get().loadEntries()

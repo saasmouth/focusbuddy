@@ -130,7 +130,8 @@ async function until(cond: () => boolean, what: string): Promise<void> {
   }
   throw new Error(`timed out waiting for ${what}; page says: ${text()}`)
 }
-const ready = (): Promise<void> => until(() => text().includes('Get Plexii — free'), 'the desk to open')
+// The bar's call to action is "Download this desk" since the download gate (2026-11-07).
+const ready = (): Promise<void> => until(() => text().includes('Download this desk'), 'the desk to open')
 
 beforeEach(() => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true

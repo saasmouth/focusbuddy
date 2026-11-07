@@ -77,21 +77,20 @@ describe('every way past the modal closes', () => {
     expect(modal).toContain('Continue in your browser')
   })
 
-  it('removes the close button, with exactly one exception', () => {
-    // The gate is inescapable past the free launches — except when the server
-    // cannot be reached. The app is local-first and the session is no longer
-    // kept across launches, so without that exception a single outage locks
-    // every user out of their own local desks.
+  it('removes the close button, with no exception', () => {
+    // The gate is inescapable. Until 2026-11-07 an unreachable server put the
+    // X back (and "Continue offline") for anyone who had signed in here
+    // before: a way in with no password. Owner, 2026-11-07: "Do not allow
+    // anyone to open plexii without signing in first as a rule." The outage
+    // case is now a SIGN-IN (the password last used here, checked offline);
+    // nothing reopens the X.
     //
-    // Pinned as an exact expression on purpose: a third condition added here
-    // would be a new way past the gate, and should fail this test until someone
-    // justifies it the way the offline case is justified above.
-    //
-    // And the exception is for someone who already has an account HERE (owner,
-    // 2026-10-27: "always have to sign up for at least a free account"): a new
-    // user with no network must not reach the app without making one.
-    expect(modal).toMatch(/\{\(!required \|\| offlineEscape\) && \(/)
-    expect(modal).toMatch(/const offlineEscape = serverUnreachable && !!cachedEmail\n/)
+    // Pinned as an exact expression on purpose: a condition added here would
+    // be a way past the gate, and should fail this test until someone
+    // justifies it.
+    expect(modal).toMatch(/\{!required && \(/)
+    expect(modal).not.toMatch(/\{\(!required \|\| offlineEscape\) && \(/)
+    expect(modal).toMatch(/const offlineEscape = serverUnreachable && !!offlineEmail\n/)
     expect(modal).toContain('data-testid="signin-close"')
   })
 
@@ -100,7 +99,7 @@ describe('every way past the modal closes', () => {
     // response — any of which would turn "wrong password" into a free pass.
     expect(modal).toMatch(/result\.code === 'NETWORK'[\s\S]{0,200}setServerUnreachable\(true\)/)
     const sets = modal.match(/setServerUnreachable\(true\)/g) ?? []
-    expect(sets.length, 'the offline escape is unlocked from more than one place').toBe(1)
+    expect(sets.length, 'the offline sign-in is unlocked from more than one place').toBe(1)
   })
 })
 

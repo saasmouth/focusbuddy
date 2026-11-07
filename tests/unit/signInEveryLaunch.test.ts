@@ -86,18 +86,22 @@ describe('an unreachable server does not lock you out of local data', () => {
     expect(modal).toMatch(/result\.code === 'NETWORK'[\s\S]{0,200}setServerUnreachable\(true\)/)
   })
 
-  it('reopens the exit when the server cannot be reached', () => {
+  it('lets the account last signed in here sign in OFFLINE, with its password', () => {
+    // Owner, 2026-11-07: "Do not allow anyone to open plexii without signing
+    // in first as a rule." The local-first promise still holds -- an outage
+    // must not lock anyone out of their own desks -- but the way in is a
+    // sign-in checked against the password last used here, never an escape.
     const modal = read(MODAL)
-    // The gate is deliberately inescapable past the free launches. This is the
-    // one exception, and it has to be, or the local-first promise breaks.
-    // Only for an account that has signed in on this computer before.
-    expect(modal).toMatch(/\{\(!required \|\| offlineEscape\) && \(/)
-    expect(modal).toMatch(/const offlineEscape = serverUnreachable && !!cachedEmail\n/)
+    expect(modal).toMatch(/const offlineEscape = serverUnreachable && !!offlineEmail\n/)
+    expect(modal).toMatch(/data-testid="signin-offline"/)
+    expect(modal).toMatch(/signInOffline\(email\.trim\(\), password\)/)
+    expect(modal).not.toMatch(/signin-continue-offline/)
+    expect(modal).not.toMatch(/Continue offline/)
   })
 
-  it('offers it as a labelled choice, not just a bare X', () => {
+  it('has no close button while an account is required, outage or not', () => {
     const modal = read(MODAL)
-    expect(modal).toMatch(/data-testid="signin-continue-offline"/)
-    expect(modal).toMatch(/Continue offline/)
+    expect(modal).toMatch(/\{!required && \(\n\s*<button\n\s*type="button"\n\s*onClick=\{handleClose\}/)
+    expect(modal).not.toMatch(/setOfflineChosen/)
   })
 })

@@ -57,6 +57,13 @@ interface AccountStore {
   // launch requires an account (growth spec section 3).
   anonymousAllowed: boolean
   cachedEmail: string | null
+  // Signed in with no server: the password typed was checked against the one
+  // last used to sign in on this computer (main db/offlineSignIn.ts). The
+  // workspace opens; nothing syncs until a real session exists.
+  offlineSession: boolean
+  // Check a password offline. 'none' when this computer has nothing to check
+  // it against (no online sign-in here yet, or no OS encryption).
+  signInOffline: (email: string, password: string) => Promise<'ok' | 'wrong' | 'none'>
   // Loaded once on app boot. Validates the cached session, populates
   // account. Idempotent; safe to call multiple times.
   init: () => Promise<void>
@@ -91,6 +98,16 @@ interface AccountStore {
   }) => Promise<AuthResult>
 }
 
+/**
+ * After a successful online sign-in, keep what lets this computer check the
+ * same password when the server cannot be reached. Never awaited: signing in
+ * must not wait on the keychain, and a computer that cannot keep it simply
+ * cannot sign in offline.
+ */
+function rememberForOffline(email: string, password: string): void {
+  void window.api.account.rememberOfflineSignIn?.(email, password)?.catch(() => false)
+}
+
 export const useAccountStore = create<AccountStore>((set, get) => ({
   bootStatus: 'idle',
   sessionToken: null,
@@ -99,6 +116,16 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   anonLaunches: 0,
   anonymousAllowed: false,
   cachedEmail: null,
+  offlineSession: false,
+
+  signInOffline: async (email, password) => {
+    const known = await window.api.account.offlineSignInEmail().catch(() => null)
+    if (!known || known !== email.trim().toLowerCase()) return 'none'
+    const ok = await window.api.account.verifyOfflineSignIn(email, password).catch(() => false)
+    if (!ok) return 'wrong'
+    set({ offlineSession: true, cachedEmail: email.trim() })
+    return 'ok'
+  },
 
   init: async () => {
     if (get().bootStatus !== 'idle') return
@@ -149,6 +176,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   signup: async (input) => {
     const result = await serverSignup({ ...input, deviceId: installDeviceId() })
     if (result.ok) {
+      rememberForOffline(result.account.email, input.password)
       await window.api.account.saveSession({
         token: result.sessionToken,
         email: result.account.email
@@ -175,6 +203,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   login: async (input) => {
     const result = await serverLogin({ ...input, deviceId: installDeviceId() })
     if (result.ok) {
+      rememberForOffline(result.account.email, input.password)
       await window.api.account.saveSession({
         token: result.sessionToken,
         email: result.account.email
@@ -192,6 +221,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   restore: async (input) => {
     const result = await serverRestore({ ...input, deviceId: installDeviceId() })
     if (result.ok) {
+      if (input.password) rememberForOffline(result.account.email, input.password)
       await window.api.account.saveSession({ token: result.sessionToken, email: result.account.email })
       set({
         sessionToken: result.sessionToken,
@@ -211,7 +241,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
       void serverLogout(cur)
     }
     await window.api.account.clearSession()
-    set({ sessionToken: null, account: null })
+    set({ sessionToken: null, account: null, offlineSession: false })
   },
 
   setSkipped: async (skipped) => {

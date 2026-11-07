@@ -22,12 +22,17 @@ import Icon from './Icon'
 // owner decision 2026-10-16). This replaced "three opens free, then required":
 // the trial and its AI credits now start when the email is verified, so the
 // account is what the first session is built on rather than a toll on the
-// fourth. There is no skip, no close button and no per-session dismiss.
-// Two exceptions, each justified where it is used:
-//   - the server cannot be reached (the app is local-first; an outage must not
-//     lock anyone out of their own desks), and
-//   - the e2e harness (main: anonymousLaunchAllowed), which keeps the old
-//     "Continue without account" so specs can drive the app with no server.
+// fourth. There is no skip, no close button and no per-session dismiss, and
+// (owner, 2026-11-07: "Do not allow anyone to open plexii without signing in
+// first as a rule") nothing of the workspace is drawn behind it -- App renders
+// this screen alone until someone is signed in.
+//   - The server cannot be reached: the app is local-first and an outage must
+//     not lock anyone out of their own desks, so the account last signed in
+//     here may sign in OFFLINE -- with its password, checked against the one
+//     last used here (main db/offlineSignIn.ts). It is a sign-in, not a way
+//     around one.
+//   - The e2e harness (main: anonymousLaunchAllowed) keeps the old "Continue
+//     without account" so specs can drive the app with no server.
 //
 // All auth goes through the signal server's /accounts/signup and
 // /accounts/login endpoints (see lib/accountClient.ts).
@@ -97,9 +102,25 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // desks, and the session is no longer carried across launches — which means
   // without this, one unreachable server locks every user out of local data.
   const [serverUnreachable, setServerUnreachable] = useState(false)
-  // Chosen "Continue offline for now": this launch carries on without a
-  // session until they sign in (Settings opens this again).
-  const [offlineChosen, setOfflineChosen] = useState(false)
+  // Signed in with no server (owner, 2026-11-07: nobody opens Plexii without
+  // signing in). The email this computer can check a password for offline --
+  // left by the last online sign-in here (main db/offlineSignIn.ts) -- and
+  // whether that has happened this launch.
+  const [offlineEmail, setOfflineEmail] = useState<string | null>(null)
+  const offlineSession = useAccountStore((s) => s.offlineSession)
+  const signInOffline = useAccountStore((s) => s.signInOffline)
+  useEffect(() => {
+    let live = true
+    void window.api.account
+      .offlineSignInEmail?.()
+      ?.then((e) => {
+        if (live) setOfflineEmail(e)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
   // Set once the server says this account has 2FA on; reveals the code field.
   const [twoFactor, setTwoFactor] = useState(false)
   const [code, setCode] = useState('')
@@ -167,13 +188,14 @@ export default function LaunchSignInModal(): JSX.Element | null {
   //    truly in the "no thanks" state.
   //  - User dismissed in this session.
   if (bootStatus !== 'ready') return null
-  // The offline exit is for someone who already HAS an account here: a sign-in
-  // on this computer is what leaves cachedEmail behind. Owner, 2026-10-27:
-  // "a user should always have to sign up for at least a free account to be
-  // able to use the app". Without this, a new user with no network (or with
-  // the server blocked) pressed "Continue offline" and never made one.
-  const offlineEscape = serverUnreachable && !!cachedEmail
-  if (offlineChosen && !manualOpen) return null
+  // The offline way in is a SIGN-IN, not an escape: the password typed is
+  // checked against the one last used here. So it is only for someone who
+  // already HAS an account here (owner, 2026-10-27: "a user should always have
+  // to sign up for at least a free account to be able to use the app"), and
+  // only once the server has failed to answer. Until 2026-11-07 it was a
+  // button that let that person in with no password at all.
+  const offlineEscape = serverUnreachable && !!offlineEmail
+  if (offlineSession && !manualOpen) return null
   // A signed-in account with NO NAME still has something to do here. The rule
   // is both names (4.3.41), so a legacy account with only one is asked too —
   // "First" alone is not what the people you share with will recognise.
@@ -313,9 +335,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
         // button is hidden then, so there was no way to "continue" at all.
         setServerUnreachable(true)
         setError(
-          cachedEmail
-            ? 'Could not reach the PlexiiDesk server. Your desks are on this machine, so you can carry on offline and sign in when it is back.'
-            : 'Could not reach the PlexiiDesk server. Creating your account needs a connection; it will go through as soon as you are back online.'
+          offlineEmail && email.trim().toLowerCase() === offlineEmail
+            ? 'Could not reach the Plexii server. Your desks are on this computer: sign in offline with the password you last used here.'
+            : 'Could not reach the Plexii server. Signing in for the first time on this computer needs a connection; try again when you are back online.'
         )
         return
       }
@@ -334,12 +356,29 @@ export default function LaunchSignInModal(): JSX.Element | null {
   // Close without recording a week-long skip — used by the X when the modal
   // was opened on demand from Settings.
   function handleClose(): void {
-    // Required, the only exits are the offline ones (both shown only with
-    // offlineEscape), and a dismissal alone does not lift the gate: it only
-    // paces the optional prompt. So going offline is its own state.
-    if (required) setOfflineChosen(true)
+    // Only an optional prompt closes. Required, there is no close: the way in
+    // is signing in, online or (with the password last used here) offline.
     setDismissedThisSession(true)
     closeManual()
+  }
+
+  async function handleOfflineSignIn(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      const outcome = await signInOffline(email.trim(), password)
+      if (outcome === 'ok') {
+        closeManual()
+        return
+      }
+      setError(
+        outcome === 'wrong'
+          ? 'That is not the password last used to sign in on this computer.'
+          : 'This computer has no saved sign-in for that email. Connect to the internet to sign in.'
+      )
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (restoreNotes) {
@@ -519,7 +558,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
           {/* The close button is the other way past this modal, so it goes too.
               A gate with a working X is not a gate — and leaving it visible but
               inert would just look broken. */}
-          {(!required || offlineEscape) && (
+          {!required && (
           <button
             type="button"
             onClick={handleClose}
@@ -877,11 +916,12 @@ export default function LaunchSignInModal(): JSX.Element | null {
           {offlineEscape && (
             <button
               type="button"
-              onClick={handleClose}
-              data-testid="signin-continue-offline"
-              className="mt-2 w-full text-[11px] text-stone-400 hover:text-stone-200 underline decoration-stone-600 underline-offset-2 transition-colors"
+              onClick={() => void handleOfflineSignIn()}
+              disabled={busy || !email || !password}
+              data-testid="signin-offline"
+              className="mt-2 w-full text-[11px] text-stone-400 hover:text-stone-200 underline decoration-stone-600 underline-offset-2 transition-colors disabled:opacity-50"
             >
-              Continue offline for now
+              Sign in offline with this password
             </button>
           )}
         </form>

@@ -24,7 +24,7 @@
 import { getDb } from '../../main/db/database'
 import { storageMode } from './database'
 import {
-  importDeskBundle, danglingReferences, fileIdFromContent, fromBase64, DESK_BUNDLE_FORMAT, DESK_BUNDLE_VERSION,
+  buildDeskBundle, importDeskBundle, danglingReferences, fileIdFromContent, fromBase64, DESK_BUNDLE_FORMAT, DESK_BUNDLE_VERSION,
   type DeskBundle, type BundleImportResult
 } from '../../main/db/deskBundle'
 import { fileBlobs } from '../../main/db/fileBlobs'
@@ -452,5 +452,10 @@ export const SHARE_COPY_HANDLERS: Record<string, Handler> = {
     replaceDesk(Array.isArray(rootIds) ? rootIds.map(String) : [], bundle)),
   'shareCopy:importDesk': h((bundle: DeskBundle) => importDeskForShare(bundle)),
   // Durable (OPFS) or this page only (memory): decides what the page promises.
-  'shareCopy:storageMode': h(() => storageMode())
+  'shareCopy:storageMode': h(() => storageMode()),
+  // "Download this desk on Plexii": the visitor's copy, as it is now (with what
+  // they dragged onto it), packed the way the desktop packs a link -- the same
+  // builder and the same size budget Signal accepts -- to be handed to the app
+  // (shared/deskHandoff.ts).
+  'shareCopy:exportDesk': h(async (rootId: string) => JSON.stringify(await buildDeskBundle(String(rootId ?? ''))))
 }

@@ -25,6 +25,7 @@
 import { isShareRecipient } from '@renderer/lib/shareMode'
 import { decideCall, ReadOnlyShareError } from './readOnly'
 import { noteShareEdit } from './shareEdits'
+import { callContext, noteOwnWidget, openShareGate } from './shareGate'
 
 const LOCK_NAME = 'plexii.db.leader'
 const CHANNEL_NAME = 'plexii.db'
@@ -246,18 +247,26 @@ export function dbCall(channel: string, args: unknown[]): Promise<unknown> {
   // write reaches the database however the visitor got to it -- a menu, a
   // shortcut, a drag, a paste -- and a mutating channel added later is refused
   // without anyone remembering to think about sharing.
+  let created = false
   if (isShareRecipient()) {
-    const decision = decideCall(channel, args)
+    // Decided at the moment it is made: whether the visitor acted just now,
+    // and whether a drop is being completed (shareGate.ts).
+    const decision = decideCall(channel, args, callContext())
     if (!decision.allowed) {
+      // Something the visitor did that needs Plexii itself: the page answers
+      // with "Download this desk on Plexii". A refusal with nobody behind it
+      // stays quiet.
+      if (decision.gate) openShareGate(decision.gate, channel)
       return Promise.reject(new ReadOnlyShareError(channel, decision.why ?? 'Not available here.'))
     }
     // The first change is when the warning matters: an edit that quietly
     // evaporates in 48 hours is worse than one that was refused outright.
     if (decision.edits) noteShareEdit()
     args = decision.args
+    created = channel === 'widgets:create' || channel === 'widgets:createOptional'
   }
   const id = seq++
-  return new Promise((resolve, reject) => {
+  const call = new Promise((resolve, reject) => {
     const waiter: Waiter = { resolve, reject, channel, args, dispatched: false }
     waiters.set(id, waiter)
     // Before a leader exists, calls queue rather than fail: the gap is the
@@ -271,6 +280,9 @@ export function dbCall(channel: string, args: unknown[]): Promise<unknown> {
       bc.postMessage({ kind: 'req', tab: tabId, id, channel, args })
     }
   })
+  // A widget the visitor dropped is theirs to take away again.
+  if (created) void call.then(noteOwnWidget, () => {})
+  return call
 }
 
 /** Subscribe to a pushed channel (the equivalent of webContents.send). */

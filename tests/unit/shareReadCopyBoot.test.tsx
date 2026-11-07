@@ -124,7 +124,8 @@ async function until(cond: () => boolean, what: string): Promise<void> {
   }
   throw new Error(`timed out waiting for ${what}; page says: ${text()}`)
 }
-const ready = (): Promise<void> => until(() => text().includes('Get Plexii — free'), 'the desk to open')
+// The bar's call to action is "Download this desk" since the download gate (2026-11-07).
+const ready = (): Promise<void> => until(() => text().includes('Download this desk'), 'the desk to open')
 
 beforeEach(() => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -157,7 +158,7 @@ describe('a copyable read link, opened as a desk', () => {
     expect(text()).toContain('Day Trading Workcentre')
     expect(text()).not.toContain('0.0 MB') // size unknown until fetched: left out
     // Reading the offer moved no view counter.
-    expect(requested).toEqual([`/share/${R}?meta=1`])
+    expect(requested.filter((p) => p !== '/app-release.json')).toEqual([`/share/${R}?meta=1`])
     expect(worker.desks.size).toBe(0)
 
     await act(async () => button('Open the desk')!.click())
@@ -185,7 +186,7 @@ describe('a copyable read link, opened as a desk', () => {
     expect(worker.desks.size).toBe(1)
     expect(imports()).toBe(0)
     expect(snapshotFetches(R)).toBe(0)
-    expect(requested).toEqual([`/share/${R}?meta=1`])
+    expect(requested.filter((p) => p !== '/app-release.json')).toEqual([`/share/${R}?meta=1`])
     expect(sessionStorage.getItem('fb.share.desk')).toBe('desk-day')
   })
 

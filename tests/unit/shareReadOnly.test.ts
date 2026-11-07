@@ -101,7 +101,10 @@ describe('the gate is wired into the call path', () => {
     const src = readFileSync(resolve(__dirname, '../../src/web/api/dbClient.ts'), 'utf8')
     const fn = src.slice(src.indexOf('export function dbCall('))
     const body = fn.slice(0, fn.indexOf('\n}'))
-    expect(body).toContain('decideCall(channel, args)')
+    // Decided at the moment it is made (shareGate.ts), and a refusal the
+    // visitor caused opens "Download this desk on Plexii".
+    expect(body).toContain('decideCall(channel, args, callContext())')
+    expect(body).toContain('openShareGate(decision.gate, channel)')
     expect(body).toContain('noteShareEdit()')
     expect(body.indexOf('decideCall')).toBeLessThan(body.indexOf('waiters.set'))
   })

@@ -31,7 +31,7 @@ async function serverDown(window: Page): Promise<void> {
   )
 }
 
-async function attempt(window: Page, email: string): Promise<void> {
+async function attempt(window: Page, email: string, password = 'a-long-enough-password'): Promise<void> {
   const d = wall(window)
   await d.locator('input[type="email"]').fill(email)
   const first = d.locator('input[placeholder="Jane"]')
@@ -39,7 +39,7 @@ async function attempt(window: Page, email: string): Promise<void> {
     await first.fill('Sam')
     await d.locator('input[placeholder="Smith"]').fill('Rivera')
   }
-  await d.locator('[data-testid="signin-password"]').fill('a-long-enough-password')
+  await d.locator('[data-testid="signin-password"]').fill(password)
   await d.locator('[data-testid="signin-submit"]').click()
 }
 
@@ -78,22 +78,25 @@ test('AE-2 someone who has never signed in cannot get past the wall by being off
   await serverDown(window)
   await attempt(window, 'new-person@example.com')
   await expect(wall(window)).toContainText(/connection/i, { timeout: 15_000 })
-  await expect(wall(window).locator('[data-testid="signin-continue-offline"]'), 'a new user was offered a way in offline').toHaveCount(0)
+  await expect(wall(window).locator('[data-testid="signin-offline"]'), 'a new user was offered a way in offline').toHaveCount(0)
   await expect(wall(window).locator('[data-testid="signin-close"]')).toHaveCount(0)
   await window.keyboard.press('Escape')
   await expect(wall(window)).toBeVisible()
 })
 
-test('AE-3 someone who has signed in on this computer can reach their own desks during an outage', async () => {
+test('AE-3 during an outage, the account last signed in here signs in OFFLINE, with its password', async () => {
+  // Owner, 2026-11-07: "Do not allow anyone to open plexii without signing in
+  // first as a rule." This was "Continue offline": a button, and no password.
   dir = mkdtempSync(join(tmpdir(), 'plexii-offline-known-'))
   launched = await launchApp({ userDataDir: dir, env: REQUIRE })
   await waitForReady(launched.window, { dismissModals: false })
-  await launched.window.evaluate(() =>
-    (window as unknown as { api: { account: { saveSession: (i: { token: string; email: string }) => Promise<void> } } }).api.account.saveSession({
-      token: 'EARLIER-SESSION',
-      email: 'sam@example.com'
-    })
-  )
+  // What a successful online sign-in leaves behind on this computer.
+  const kept = await launched.window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    await api.account.saveSession({ token: 'EARLIER-SESSION', email: 'sam@example.com' })
+    return api.account.rememberOfflineSignIn('sam@example.com', 'a-long-enough-password')
+  })
+  expect(kept, 'the offline check was not kept (no OS encryption in the harness?)').toBe(true)
   await launched.app.close()
   launched = null
 
@@ -103,8 +106,46 @@ test('AE-3 someone who has signed in on this computer can reach their own desks 
   await expect(wall(window)).toBeVisible({ timeout: 10_000 })
   await serverDown(window)
   await attempt(window, 'sam@example.com')
-  const offline = wall(window).locator('[data-testid="signin-continue-offline"]')
+  const offline = wall(window).locator('[data-testid="signin-offline"]')
   await expect(offline).toBeVisible({ timeout: 15_000 })
+  await expect(wall(window).locator('[data-testid="signin-close"]'), 'an outage reopened the close button').toHaveCount(0)
+
+  // The wrong password does not get in.
+  await wall(window).locator('[data-testid="signin-password"]').fill('not-the-password')
   await offline.click()
-  await expect(wall(window), '"Continue offline" did not let them through').toHaveCount(0, { timeout: 5_000 })
+  await expect(wall(window)).toContainText('not the password last used to sign in on this computer', { timeout: 10_000 })
+  await expect(window.locator('[data-testid="signed-out-screen"]')).toBeVisible()
+  await expect(window.locator('[data-testid="footer-sync-chip"]')).toHaveCount(0)
+
+  // The right one does.
+  await wall(window).locator('[data-testid="signin-password"]').fill('a-long-enough-password')
+  await offline.click()
+  await expect(wall(window), 'the right password did not let them in offline').toHaveCount(0, { timeout: 10_000 })
+  await expect(window.locator('[data-testid="footer-sync-chip"]')).toBeVisible({ timeout: 10_000 })
+})
+
+test('AE-4 nothing of the workspace is drawn, or reachable, before someone signs in', async () => {
+  // The sign-in used to sit over the workspace on a see-through scrim: every
+  // desk name was there to read, and the app's shortcuts still reached it.
+  dir = mkdtempSync(join(tmpdir(), 'plexii-locked-'))
+  launched = await launchApp({ userDataDir: dir, env: REQUIRE })
+  const { window } = launched
+  await waitForReady(window, { dismissModals: false })
+  // A desk with a name nobody signed out should be able to read.
+  await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    await api.nodes.create({ parentId: null, kind: 'task', title: 'Confidential pipeline desk' })
+  })
+  await window.reload()
+  await waitForReady(window, { dismissModals: false })
+  await expect(wall(window)).toBeVisible({ timeout: 10_000 })
+  await expect(window.locator('[data-testid="signed-out-screen"]')).toBeVisible()
+  await expect(window.getByText('Confidential pipeline desk')).toHaveCount(0)
+  await expect(window.locator('[data-testid="footer-sync-chip"]')).toHaveCount(0)
+  await expect(window.locator('[data-widget-id]')).toHaveCount(0)
+  // The command centre's shortcut reaches nothing.
+  await window.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k')
+  await window.waitForTimeout(500)
+  await expect(window.getByText('Confidential pipeline desk')).toHaveCount(0)
+  await expect(wall(window)).toBeVisible()
 })

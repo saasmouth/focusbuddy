@@ -43,6 +43,9 @@ async function keyRequest(
   method: 'GET' | 'PUT' | 'DELETE',
   body?: unknown
 ): Promise<Record<string, unknown> | null> {
+  // No session, no question to ask: a shared desk's visitor has no account,
+  // and an anonymous request only earns a 401 from the real server.
+  if (!sessionToken()) return null
   try {
     const res = await fetch(`${base()}/account/ai-key`, {
       method,

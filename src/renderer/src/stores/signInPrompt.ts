@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { shareGate } from '../lib/shareGate'
 
 // A tiny shared flag so anywhere in the app (the Settings account section, a
 // capability-expired prompt, a "sign in to invite" affordance) can pop the
@@ -13,7 +14,12 @@ interface SignInPromptStore {
 
 export const useSignInPrompt = create<SignInPromptStore>((set) => ({
   open: false,
-  requestOpen: () => set({ open: true }),
+  // A shared desk's visitor has no sign-in here: Plexii's account lives in the
+  // app, so asking for one is the download gate (lib/shareGate.ts).
+  requestOpen: () => {
+    if (shareGate('Signing in')) return
+    set({ open: true })
+  },
   close: () => set({ open: false })
 }))
 

@@ -49,12 +49,24 @@ import {
 import { dbCall } from './api/dbClient'
 import { dropLinkCopy, holdDesk, openLinkDesk, type BundleFetch, type ReplacePlan } from './api/shareDesk'
 import { markShareRecipient, setShareDeskId, setSharePresentation } from '@renderer/lib/shareMode'
-import { SHARE_EDIT_EVENT, hasEditedShare } from './api/shareEdits'
+import { SHARE_EDIT_EVENT, hasEditedShare, shareEditCount } from './api/shareEdits'
+import { installShareGestures, openShareGate } from './api/shareGate'
+import {
+  installerFor, loadInstallers, sendCopy, serverKeepsHandoffs, startDownload, visitorPlatform,
+  type HandoffOutcome, type Installers
+} from './api/deskHandoff'
+import { SHARE_GATE_EVENT, type ShareGateDetail } from '@renderer/lib/shareGate'
 
 // plexii.app has no DNS, so this button went to a browser error page for every
 // visitor who opened the web runtime without a live share link — the one
 // audience the page exists to convert. Follow the configured site instead.
 const DESKTOP_DOWNLOAD_URL = `${ACTIVE.site}/download`
+
+/** The installer starts once per visit, not at every gate: a second copy is clutter. */
+const DOWNLOAD_STARTED_KEY = 'fb.share.downloadStarted'
+
+/** How long "Open this desk in Plexii" waits to send a newer copy before opening Plexii anyway. */
+const RESEND_WAIT_MS = 4000
 
 /** The link in the address bar, and which kind it is. */
 interface Link {
@@ -163,30 +175,30 @@ function ShareOfferCard({
  * makes people feel tricked. It appears when they start working and stays until
  * they close it.
  */
-function EditWarning({ expires, onClose }: { expires: boolean; onClose: () => void }): React.JSX.Element {
+function EditWarning({ expires, onClose, onTakeIt }: { expires: boolean; onClose: () => void; onTakeIt: () => void }): React.JSX.Element {
   return (
     <div style={S.warn} role="status">
       <span style={S.warnText}>
         {expires ? (
           <>
             <strong>Nothing here is being saved.</strong> This copy is deleted when the link expires —
-            get Plexii free to keep this desk and everything you do to it.
+            download this desk on Plexii to keep it and everything you add to it.
           </>
         ) : recordsArePageOnly() ? (
           <>
             <strong>This browser cannot keep a copy.</strong> Your changes last until you close or
-            reload this page — get Plexii free to keep this desk and everything you do to it.
+            reload this page — download this desk on Plexii to keep it and everything you add to it.
           </>
         ) : (
           <>
             <strong>Your changes stay in this browser only.</strong> They are lost if you clear your
-            browser data or the sender turns this link off — get Plexii free to keep this desk and
-            everything you do to it.
+            browser data or the sender turns this link off — download this desk on Plexii to keep it
+            and everything you add to it.
           </>
         )}
       </span>
       <span style={S.barActions}>
-        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Get Plexii — free</a>
+        <button style={S.barPrimaryButton} onClick={onTakeIt}>Download this desk</button>
         <button style={S.barGhost} onClick={onClose} aria-label="Dismiss">Dismiss</button>
       </span>
     </div>
@@ -320,9 +332,11 @@ function UpdateBanner({
 }
 
 function ExpiryBar({
-  offer, onSave, onExpired, children
+  offer, onSave, onExpired, onTakeIt, children
 }: {
   offer: ShareOffer
+  /** "Download this desk": the gate, asked for. */
+  onTakeIt: () => void
   /**
    * Hand the visitor the desk file. Null when it cannot be had (the server is
    * not serving the desk right now). Resolves false when fetching it failed.
@@ -373,7 +387,7 @@ function ExpiryBar({
     {(children || showWarning) && (
       <div style={S.notices}>
         {children}
-        {showWarning && <EditWarning expires={expires} onClose={() => setDismissed(true)} />}
+        {showWarning && <EditWarning expires={expires} onClose={() => setDismissed(true)} onTakeIt={onTakeIt} />}
       </div>
     )}
     <div style={{ ...S.bar, background: urgent ? '#3a2216' : '#171a21' }}>
@@ -400,10 +414,118 @@ function ExpiryBar({
             {saving === 'saving' ? 'Fetching the desk file…' : saving === 'failed' ? 'Could not fetch it — try again' : 'Save desk file'}
           </button>
         )}
-        <a style={S.barPrimary} href={DESKTOP_DOWNLOAD_URL}>Get Plexii — free</a>
+        <button style={S.barPrimaryButton} onClick={onTakeIt} data-testid="share-take-desk">Download this desk</button>
       </span>
     </div>
     </>
+  )
+}
+
+/** Where carrying the desk into Plexii stands. */
+type Carry =
+  | { kind: 'off' } // the released app or the server cannot take it yet
+  | { kind: 'idle' } // it can, and nothing has been sent yet
+  | { kind: 'sending' }
+  | { kind: 'ready'; link: string; sentAtEdits: number }
+  | { kind: 'failed'; why: Exclude<HandoffOutcome, { ok: true }>['why'] }
+
+/**
+ * "Download this desk on Plexii" (owner, 2026-11-07).
+ *
+ * Shown when a visitor does anything past looking around, arranging the desk
+ * and dragging things onto it. The installer has already started (once per
+ * visit, see Boot); this says what to do with it, and -- when the released app
+ * and the server can both do it -- carries the visitor's copy of the desk,
+ * with everything they added, into Plexii once they have signed up.
+ */
+function GateModal({
+  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onClose
+}: {
+  what: string
+  platform: ReturnType<typeof visitorPlatform>
+  installers: Installers | null
+  downloadUrl: string | null
+  downloadStarted: boolean
+  carry: Carry
+  onOpenInPlexii: (e: React.MouseEvent<HTMLAnchorElement>) => void
+  onRetryCarry: () => void
+  onDownload: () => void
+  onClose: () => void
+}): React.JSX.Element {
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    closeRef.current?.focus()
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const computer = platform === 'mac' ? 'Mac' : platform === 'windows' ? 'Windows' : null
+  // Asked for from the bar, there is nothing to explain; refused, it says what.
+  const lead = what ? `${what} is part of the Plexii app. ` : ''
+  const shown = platform === 'windows' ? installers?.winVersion : installers?.version
+  const version = shown ? ` ${shown}` : ''
+  return (
+    <div style={S.scrim} role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={S.gate} role="dialog" aria-modal="true" aria-labelledby="share-gate-title" data-testid="share-gate">
+        <div style={S.gateTitle} id="share-gate-title">Download this desk on Plexii</div>
+        <div style={S.sub} data-testid="share-gate-lead">
+          {lead}Take this desk with you{carry.kind === 'off' ? '' : ' — everything you added comes too'}.
+        </div>
+
+        {platform === 'phone' ? (
+          <div style={S.gateStep}>
+            <div style={S.gateStepText}>Plexii runs on Mac and Windows. Send yourself the download link and open it on your computer.</div>
+            <a style={S.primary} href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener" data-testid="share-gate-phone">Send me the download link</a>
+          </div>
+        ) : downloadUrl && computer ? (
+          <div style={S.gateStatus} data-testid="share-gate-download">
+            {downloadStarted ? `Plexii${version} for ${computer} is downloading.` : `Plexii${version} for ${computer} is ready to download.`}{' '}
+            <button style={S.linkButton} onClick={onDownload}>{downloadStarted ? 'Download again' : 'Download'}</button>
+          </div>
+        ) : (
+          <div style={S.gateStep}>
+            <div style={S.gateStepText}>Plexii runs on Mac and Windows.</div>
+            <a style={S.primary} href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener" data-testid="share-gate-download-page">Download Plexii</a>
+          </div>
+        )}
+
+        <ol style={S.steps}>
+          <li style={S.stepItem}><strong>Install Plexii.</strong> Open the file you downloaded.</li>
+          <li style={S.stepItem}><strong>Start your free trial.</strong> Plexii asks you to sign up when it first opens.</li>
+          <li style={S.stepItem}>
+            {carry.kind === 'off' ? (
+              <><strong>Build your own desks.</strong> This one stays here, in this browser.</>
+            ) : (
+              <><strong>Open this desk in Plexii.</strong> It opens as soon as you are signed in, with everything you added.</>
+            )}
+          </li>
+        </ol>
+
+        {carry.kind === 'ready' && (
+          <a style={S.primary} href={carry.link} onClick={onOpenInPlexii} data-testid="share-gate-open-in-plexii">Open this desk in Plexii</a>
+        )}
+        {(carry.kind === 'sending' || carry.kind === 'idle') && (
+          <div style={S.secondary} aria-busy="true" data-testid="share-gate-sending">Getting your desk ready…</div>
+        )}
+        {carry.kind === 'failed' && (
+          <div style={S.gateStatus} data-testid="share-gate-carry-failed">
+            {carry.why === 'too-large'
+              ? 'This desk is too big to send to Plexii from here. Remove something large you added, then try again.'
+              : carry.why === 'gone'
+                ? 'This shared link has ended, so the desk cannot be sent to Plexii.'
+                : carry.why === 'busy'
+                  ? 'Too many desks were sent from here just now. Try again in a little while.'
+                  : 'Your desk could not be sent to Plexii just now.'}
+            {carry.why !== 'gone' && (
+              <> <button style={S.linkButton} onClick={onRetryCarry}>Try again</button></>
+            )}
+          </div>
+        )}
+        <button ref={closeRef} style={S.secondary} onClick={onClose} data-testid="share-gate-close">Keep looking around</button>
+      </div>
+    </div>
   )
 }
 
@@ -429,6 +551,21 @@ function Boot(): React.JSX.Element {
   const planRef = useRef<ReplacePlan | null>(null)
   const [link] = useState<Link | null>(linkFromUrl)
   const token = link?.token ?? null
+
+  // "Download this desk on Plexii": the gate, what was tried, the installer and
+  // the visitor's copy on its way to the app (GateModal).
+  const [gate, setGate] = useState<string | null>(null)
+  const [platform] = useState(() => visitorPlatform())
+  const [installers, setInstallers] = useState<Installers | null>(null)
+  const [carry, setCarry] = useState<Carry>({ kind: 'off' })
+  const carryOffered = useRef(false)
+  const [downloadStarted, setDownloadStarted] = useState(() => {
+    try {
+      return sessionStorage.getItem(DOWNLOAD_STARTED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -550,6 +687,9 @@ function Boot(): React.JSX.Element {
         }
 
         installBrowserApi()
+        // Who did what, and when, for the bridge to decide each call by
+        // (api/shareGate.ts): looking, arranging and dropping are free.
+        installShareGestures()
         await installFileServer()
 
         // Where can this desk live? A browser that refuses durable storage
@@ -627,6 +767,104 @@ function Boot(): React.JSX.Element {
     return true
   }, [token, link, state])
 
+  // ── "Download this desk on Plexii" ──────────────────────────────────────
+  //
+  // Once the desk is open: which installer this computer gets, and whether the
+  // copy can be carried into the app (the released app takes handoffs AND the
+  // server keeps them). Asked up front so the gate can start the download in
+  // the same moment it appears.
+  const ready = state.kind === 'ready'
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+    void (async () => {
+      const inst = await loadInstallers()
+      if (cancelled) return
+      setInstallers(inst)
+      const offered = !!inst?.deskHandoff && (await serverKeepsHandoffs())
+      if (cancelled) return
+      carryOffered.current = offered
+      // Nothing is sent until the gate opens.
+      setCarry((c) => (offered ? (c.kind === 'off' ? { kind: 'idle' } : c) : { kind: 'off' }))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [ready])
+
+  const downloadUrl = installerFor(platform, installers)
+
+  const download = useCallback(() => {
+    if (!downloadUrl) return
+    startDownload(downloadUrl)
+    setDownloadStarted(true)
+    try {
+      sessionStorage.setItem(DOWNLOAD_STARTED_KEY, '1')
+    } catch {
+      /* this visit remembers it in state */
+    }
+  }, [downloadUrl])
+
+  const send = useCallback(async (): Promise<Carry> => {
+    if (state.kind !== 'ready' || !token || !link || !carryOffered.current) return { kind: 'off' }
+    setCarry({ kind: 'sending' })
+    const edits = shareEditCount()
+    const out = await sendCopy({ token, kind: link.kind, rootId: state.offer.rootId, title: state.offer.title })
+    const next: Carry = out.ok ? { kind: 'ready', link: out.link, sentAtEdits: edits } : { kind: 'failed', why: out.why }
+    setCarry(next)
+    return next
+  }, [state, token, link])
+
+  const openGate = useCallback((what: string) => {
+    setGate(what)
+    // The installer starts with the first gate of the visit.
+    if (!downloadStarted && downloadUrl && (platform === 'mac' || platform === 'windows')) download()
+    // The copy goes as it is now; a later change is sent again on the way to Plexii.
+    if (carryOffered.current && carry.kind !== 'ready' && carry.kind !== 'sending') void send()
+  }, [downloadStarted, downloadUrl, platform, download, carry.kind, send])
+
+  useEffect(() => {
+    if (!ready) return
+    const onGate = (e: Event): void => openGate((e as CustomEvent<ShareGateDetail>).detail?.what ?? '')
+    window.addEventListener(SHARE_GATE_EVENT, onGate)
+    return () => window.removeEventListener(SHARE_GATE_EVENT, onGate)
+  }, [ready, openGate])
+
+  // Typing into the desk -- a note, a document, a cell -- is editing it, and is
+  // the gate BEFORE a single character lands. Left to the bridge alone, the
+  // words would sit on screen unsaved until the editor tried to save them. The
+  // assistant's box and the app's own fields (search, the command centre) are
+  // not the desk and type as normal; sending to the assistant is the gate.
+  useEffect(() => {
+    if (!ready) return
+    const onBeforeInput = (e: Event): void => {
+      const t = e.target
+      if (!(t instanceof Element)) return
+      if (t.closest('[data-testid="assistant-overlay"]')) return
+      if (!t.closest('[data-widget-id]') && !t.closest('.ProseMirror')) return
+      if (e.cancelable) e.preventDefault()
+      openShareGate('Editing this desk')
+    }
+    document.addEventListener('beforeinput', onBeforeInput, true)
+    return () => document.removeEventListener('beforeinput', onBeforeInput, true)
+  }, [ready])
+
+  // "Open this desk in Plexii": a real link, so the browser hands it to the app
+  // the way it hands any app link. If the visitor added something since the
+  // copy was sent, the newer copy goes first (briefly; Plexii opens anyway).
+  const openInPlexii = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (carry.kind !== 'ready' || shareEditCount() === carry.sentAtEdits) return
+    e.preventDefault()
+    const fallback = carry.link
+    void (async () => {
+      const next = await Promise.race([
+        send(),
+        new Promise<Carry>((r) => setTimeout(() => r({ kind: 'ready', link: fallback, sentAtEdits: -1 }), RESEND_WAIT_MS))
+      ])
+      if (next.kind === 'ready') window.location.href = next.link
+    })()
+  }, [carry, send])
+
   if (state.kind === 'checking') {
     return <div style={S.shell}><div style={S.sub}>Checking that link…</div></div>
   }
@@ -659,13 +897,30 @@ function Boot(): React.JSX.Element {
   // capture pointer events -- see index.html. The class insets the app so the
   // desk begins below the bar instead of behind it.
   return (
-    <ExpiryBar
-      offer={state.offer}
-      onSave={update?.kind === 'unavailable' && bundleRef.current === null ? null : saveDeskFile}
-      onExpired={expire}
-    >
-      {update && token && <UpdateBanner notice={update} token={token} onClose={() => setUpdate(null)} />}
-    </ExpiryBar>
+    <>
+      <ExpiryBar
+        offer={state.offer}
+        onSave={update?.kind === 'unavailable' && bundleRef.current === null ? null : saveDeskFile}
+        onExpired={expire}
+        onTakeIt={() => openGate('')}
+      >
+        {update && token && <UpdateBanner notice={update} token={token} onClose={() => setUpdate(null)} />}
+      </ExpiryBar>
+      {gate !== null && (
+        <GateModal
+          what={gate}
+          platform={platform}
+          installers={installers}
+          downloadUrl={downloadUrl}
+          downloadStarted={downloadStarted}
+          carry={carry}
+          onOpenInPlexii={openInPlexii}
+          onRetryCarry={() => void send()}
+          onDownload={download}
+          onClose={() => setGate(null)}
+        />
+      )}
+    </>
   )
 }
 
@@ -712,7 +967,23 @@ const S: Record<string, React.CSSProperties> = {
   barPrimary: { padding: '5px 10px', borderRadius: 6, background: '#4f7cff', color: 'white',
     fontSize: 12, fontWeight: 600, textDecoration: 'none' },
   barPrimaryButton: { padding: '5px 10px', borderRadius: 6, background: '#4f7cff', color: 'white',
-    fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }
+    fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' },
+  // The gate: above the app and its own modals (which reach z-index 280), below nothing.
+  scrim: { position: 'fixed', inset: 0, zIndex: 400, display: 'grid', placeItems: 'center', padding: 16,
+    background: 'rgba(8, 10, 14, 0.62)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+    fontFamily: 'Inter, system-ui, sans-serif', color: '#e7e9ee' },
+  gate: { display: 'flex', flexDirection: 'column', gap: 14, width: 420, maxWidth: '100%', padding: 28,
+    background: '#171a21', border: '1px solid #262b36', borderRadius: 14,
+    boxShadow: '0 24px 64px rgba(0, 0, 0, 0.45)' },
+  gateTitle: { fontSize: 20, fontWeight: 600, letterSpacing: -0.3 },
+  gateStatus: { fontSize: 13, lineHeight: 1.5, padding: '10px 12px', borderRadius: 10,
+    background: '#12203a', border: '1px solid #24406e' },
+  gateStep: { display: 'flex', flexDirection: 'column', gap: 10 },
+  gateStepText: { fontSize: 13, lineHeight: 1.5, opacity: 0.85 },
+  steps: { margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, lineHeight: 1.5 },
+  stepItem: { opacity: 0.9 },
+  linkButton: { background: 'none', border: 'none', padding: 0, color: '#8fb0ff', fontSize: 13,
+    textDecoration: 'underline', cursor: 'pointer' }
 }
 
 ReactDOM.createRoot(document.getElementById('boot') as HTMLElement).render(

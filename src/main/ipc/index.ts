@@ -102,6 +102,8 @@ import {
 import { join as pathJoin } from 'node:path'
 import { buildMeetingIcs } from '@shared/ics'
 import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeetRoom, consumePendingMdEditPath } from '../authProtocol'
+import { clearDeskHandoff, importDeskHandoff, pendingDeskHandoff } from '../deskHandoffReceiver'
+import { offlineSignInEmail, rememberOfflineSignIn, verifyOfflineSignIn } from '../db/offlineSignIn'
 import {
   checkForUpdates,
   getCurrentUpdateState,
@@ -1350,6 +1352,16 @@ export function registerIpcHandlers(): void {
   // a separate boolean used by the launch modal to remember "user
   // dismissed me" between launches.
   ipcMain.handle('account:load', () => ({ ...loadAccountState(), anonymousAllowed: anonymousLaunchAllowed() }))
+  // Signing in with no server (db/offlineSignIn.ts): the last online sign-in
+  // here leaves a keychain-encrypted scrypt verifier; offline, the password
+  // typed is checked against it. Nobody gets in without one.
+  ipcMain.handle('account:offlineSignInEmail', () => offlineSignInEmail())
+  ipcMain.handle('account:rememberOfflineSignIn', (_e, email: string, password: string) =>
+    rememberOfflineSignIn(String(email ?? ''), String(password ?? '')).catch(() => false)
+  )
+  ipcMain.handle('account:verifyOfflineSignIn', (_e, email: string, password: string) =>
+    verifyOfflineSignIn(String(email ?? ''), String(password ?? '')).catch(() => false)
+  )
   ipcMain.handle(
     'account:saveSession',
     (_e, input: { token: string; email: string | null }) =>
@@ -3509,6 +3521,18 @@ export function registerIpcHandlers(): void {
   // Same drain-pending pattern for a share deep link (plexii://share?token=...).
   ipcMain.handle('share:get-pending', () => consumePendingShareToken())
   ipcMain.handle('meet:get-pending', () => consumePendingMeetRoom())
+  // "Download this desk on Plexii" (deskHandoffReceiver.ts): the visitor's copy
+  // of a shared desk, waiting on Signal until someone is signed in to claim it.
+  // The renderer claims it with its session and hands the bundle back here to
+  // be imported under fresh ids, as the signed-in person's own.
+  ipcMain.handle('deskHandoff:pending', () => pendingDeskHandoff())
+  ipcMain.handle('deskHandoff:clear', (_e, id?: string) => {
+    clearDeskHandoff(typeof id === 'string' ? id : undefined)
+    return true
+  })
+  ipcMain.handle('deskHandoff:import', (_e, bundleText: string, accountId: string) =>
+    importDeskHandoff(String(bundleText ?? ''), String(accountId ?? ''))
+  )
   ipcMain.handle('mdext:get-pending', () => consumePendingMdEditPath())
 
   // ── Auto-update ──────────────────────────────────────────────────────────

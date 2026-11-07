@@ -503,6 +503,13 @@ const api = {
     set: (url: string, on: boolean): Promise<boolean> => ipcRenderer.invoke('webNotifications:set', url, on)
   },
   account: {
+    // Signing in with no server: the email this computer can check a password
+    // for, keeping a check after an online sign-in, and checking one.
+    offlineSignInEmail: (): Promise<string | null> => ipcRenderer.invoke('account:offlineSignInEmail'),
+    rememberOfflineSignIn: (email: string, password: string): Promise<boolean> =>
+      ipcRenderer.invoke('account:rememberOfflineSignIn', email, password),
+    verifyOfflineSignIn: (email: string, password: string): Promise<boolean> =>
+      ipcRenderer.invoke('account:verifyOfflineSignIn', email, password),
     load: (): Promise<{
       sessionToken: string | null
       skippedAt: number | null
@@ -2963,6 +2970,30 @@ const api = {
       const handler = (_: unknown, token: string): void => cb(token)
       ipcRenderer.on('share:incoming-token', handler)
       return () => ipcRenderer.removeListener('share:incoming-token', handler)
+    }
+  },
+  // "Download this desk on Plexii": a visitor's copy of a shared desk, handed
+  // over by a plexii://desk?handoff=<id> link (main/deskHandoffReceiver.ts).
+  // Kept by main until a session can claim it; imported under fresh ids.
+  deskHandoff: {
+    pending: (): Promise<{ id: string; at: number } | null> => ipcRenderer.invoke('deskHandoff:pending'),
+    clear: (id?: string): Promise<boolean> => ipcRenderer.invoke('deskHandoff:clear', id),
+    import: (
+      bundleText: string,
+      accountId: string
+    ): Promise<{
+      ok: boolean
+      rootId?: string
+      rootKind?: 'task' | 'folder'
+      title?: string
+      imported?: number
+      filesOmitted?: number
+      reason?: string
+    }> => ipcRenderer.invoke('deskHandoff:import', bundleText, accountId),
+    onIncoming: (cb: (pending: { id: string; at: number }) => void): (() => void) => {
+      const handler = (_: unknown, pending: { id: string; at: number }): void => cb(pending)
+      ipcRenderer.on('deskHandoff:incoming', handler)
+      return () => ipcRenderer.removeListener('deskHandoff:incoming', handler)
     }
   },
   // Meeting-join deep link (plexii://meet?room=...) from an invite email —

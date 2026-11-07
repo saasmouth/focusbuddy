@@ -24,6 +24,8 @@
 
 import { app, BrowserWindow } from 'electron'
 import { ALL_DEEP_LINK_SCHEMES, isDeepLinkArg, isKnownDeepLinkProtocol } from '@shared/deepLink'
+import { parseDeskHandoffLink } from '@shared/deskHandoff'
+import { receiveDeskHandoff } from './deskHandoffReceiver'
 
 // Named in shared/deepLink.ts, because the renderer generates these links too
 // and the two must not drift. See that file for why both schemes are answered
@@ -212,6 +214,14 @@ function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
   const shareToken = parseShareUrl(url)
   if (shareToken) {
     broadcastShare(shareToken)
+    return
+  }
+  // And "Download this desk on Plexii" (plexii://desk?handoff=...) from a
+  // public share page: a visitor's copy of a desk, kept until someone is
+  // signed in to claim it (deskHandoffReceiver.ts).
+  const handoffId = parseDeskHandoffLink(url)
+  if (handoffId) {
+    receiveDeskHandoff(handoffId)
     return
   }
   // And meeting-join links (plexii://meet?room=...) from an invite email.

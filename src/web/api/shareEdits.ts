@@ -20,9 +20,18 @@ import { noteCopyEdited } from './shareVersion'
 export const SHARE_EDIT_EVENT = 'plexii:share-edited'
 
 let announced = false
+// Every change, not just the first: "Download this desk on Plexii" sends the
+// copy again when it changed since it was last sent (deskHandoff.ts).
+let changes = 0
 
-/** Called by the API bridge the first time this window changes anything. */
+/** How many changes this window has made to its copy. */
+export function shareEditCount(): number {
+  return changes
+}
+
+/** Called by the API bridge each time this window changes anything. */
 export function noteShareEdit(): void {
+  changes++
   if (announced) return
   announced = true
   noteCopyEdited()
@@ -41,4 +50,5 @@ export function hasEditedShare(): boolean {
 /** Test seam: forget that the warning has been shown. */
 export function resetShareEditNotice(): void {
   announced = false
+  changes = 0
 }
