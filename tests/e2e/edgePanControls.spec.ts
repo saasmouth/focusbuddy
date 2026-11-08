@@ -115,23 +115,25 @@ test.afterAll(async () => {
   await launched?.dispose()
 })
 
-test('EPC-1 resting on a widget\'s button inside the bottom zone: the desk stays put', async () => {
+test('EPC-1 reaching for a widget\'s header, then its button, inside the bottom zone: the desk stays put', async () => {
   const head = await headerToBottomZone(50)
   const r = await canvasRect()
   expect(r.bottom - head.y, 'the header is inside the 80 px zone').toBeLessThan(80)
-  // Reach for the header, then for its AI button: the last move ends on the button.
+  // Reach for the header (the strip a widget is carried by)...
   await window.mouse.move(head.x, head.y, { steps: 6 })
+  await window.waitForTimeout(150)
+  expect(await travelOver(1500), 'the desk must not creep away from a hand resting on a widget\'s header').toBeLessThan(0.5)
+  // ...then for its AI button: the last move ends on the button.
   const ai = window.locator(`[data-widget-id="${widgetId}"] [data-testid="widget-ai"]`)
   await expect(ai).toBeVisible()
-  const b = (await ai.boundingBox())!
-  expect(r.bottom - (b.y + b.height / 2), 'the button is inside the zone').toBeLessThan(80)
-  await window.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 })
+  const before = (await ai.boundingBox())!
+  expect(r.bottom - (before.y + before.height / 2), 'the button is inside the zone').toBeLessThan(80)
+  await window.mouse.move(before.x + before.width / 2, before.y + before.height / 2, { steps: 4 })
   await window.waitForTimeout(150)
-  const moved = await travelOver(1500)
-  expect(moved, 'the desk must not creep away from a hand resting on a button').toBeLessThan(0.5)
-  // And the button is where the hand left it, so a click lands on it.
-  const b2 = (await ai.boundingBox())!
-  expect(Math.abs(b2.y - b.y)).toBeLessThan(0.5)
+  expect(await travelOver(1500), 'the desk must not creep away from a hand resting on a button').toBeLessThan(0.5)
+  // And the button is where the hand found it, so a click lands on it.
+  const after = (await ai.boundingBox())!
+  expect(Math.abs(after.y - before.y)).toBeLessThan(0.5)
 })
 
 test('EPC-2 the same reach onto the bare desk still pans, and a click there stops it', async () => {

@@ -156,9 +156,11 @@ export const EDGE_PAN_MARGIN = 80
 
 /**
  * What a hand reaches for rather than pans past: native controls, their ARIA
- * equivalents, editable text, and anything that opts in with
- * data-edge-pan-quiet. A widget's frame and body are not controls, so resting
- * on a sticky's paper or a chart at the edge still pans.
+ * equivalents, editable text, the handles a widget or a section is carried by
+ * (its header strip: reaching for it to move the widget is not asking to pan;
+ * carrying it to the edge, once the drag starts, pans), and anything that opts
+ * in with data-edge-pan-quiet. A widget's frame and body are not controls, so
+ * resting on a sticky's paper or a chart at the edge still pans.
  */
 const CONTROL_SELECTOR = [
   'button',
@@ -185,6 +187,8 @@ const CONTROL_SELECTOR = [
   '[contenteditable="true"]',
   '[contenteditable=""]',
   '[contenteditable="plaintext-only"]',
+  '[data-widget-header]',
+  '.section-handle',
   '[data-edge-pan-quiet]'
 ].join(',')
 

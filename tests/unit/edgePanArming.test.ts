@@ -189,10 +189,12 @@ describe('isEdgePanControl', () => {
         <div id="role" role="menuitem">Rename</div>
         <div id="ce" contenteditable="true"><p id="cep">text</p></div>
         <div id="quiet" data-edge-pan-quiet><i id="qi"></i></div>
+        <div data-widget-header><span id="title" data-header-title>Plan</span><span id="grab" class="fb-widget-grab"></span></div>
+        <div class="section-handle"><b id="sh"></b></div>
       </div>`
     document.body.appendChild(canvas)
     const q = (id: string) => canvas.querySelector('#' + id)
-    for (const id of ['b', 'inner', 'link', 'in', 'ta', 'sel', 'role', 'cep', 'qi']) {
+    for (const id of ['b', 'inner', 'link', 'in', 'ta', 'sel', 'role', 'cep', 'qi', 'title', 'grab', 'sh']) {
       expect(isEdgePanControl(q(id), canvas), id).toBe(true)
     }
     for (const id of ['body', 'anchor']) expect(isEdgePanControl(q(id), canvas), id).toBe(false)

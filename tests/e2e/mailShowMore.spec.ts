@@ -11,7 +11,7 @@
 // behaviour in tests/unit/mailPagingStore.test.ts.
 
 import { test, expect, type Page } from '@playwright/test'
-import { launchApp, waitForReady, type LaunchedApp, switchArea } from './_helpers'
+import { launchApp, waitForReady, type LaunchedApp, switchArea, chooseCloudAiSource } from './_helpers'
 
 test.setTimeout(120_000)
 
@@ -25,6 +25,15 @@ test.afterEach(async () => {
 })
 
 async function openMail(window: Page): Promise<void> {
+  // The "Local AI is built in" card sits at the bottom centre, over the Show
+  // more button; it is somebody else's subject here, so it is dismissed first
+  // (as every other spec that clicks near the bottom does). Until 4.3.47 test
+  // 4 failed on the desk creeping first ("element is not stable": edge-pan
+  // armed by the pointer resting on the button); with that fixed, it was this
+  // card intercepting the click.
+  await chooseCloudAiSource(window)
+  await window.reload()
+  await waitForReady(window)
   await switchArea(window, 'office')
   await window.locator('[data-testid="office-comms-app-mail"]').click()
 }
