@@ -8,12 +8,13 @@ import {
   dismissSuggestion
 } from '../lib/deskSuggestions'
 import Icon from './Icon'
+import { isShareRecipient } from '../lib/shareMode'
 
 // The proactive next-step nudge for a desk. Shows one honest, deterministic
 // suggestion (see deskSuggestions.ts) as a small dismissible chip. Acting on it
 // opens the assistant, where the suggested phrase becomes a full build plan the
 // user confirms. Dismissal is remembered per desk + suggestion so it never nags.
-export default function DeskSuggestionChip(): JSX.Element | null {
+function DeskSuggestionChipInner(): JSX.Element | null {
   const activeTaskId = useNodeStore((s) => s.activeTaskId)
   const widgets = useWidgetStore((s) => s.widgets)
   const links = useLinksStore((s) => s.links)
@@ -61,4 +62,12 @@ export default function DeskSuggestionChip(): JSX.Element | null {
       </button>
     </div>
   )
+}
+
+// Suggestions are for the person working on the desk ("You have a table but no
+// agent. Set it up"): to a visitor on a shared desk they are noise, and every
+// one of them is an AI action the page would gate anyway.
+export default function DeskSuggestionChip(): JSX.Element | null {
+  if (isShareRecipient()) return null
+  return <DeskSuggestionChipInner />
 }

@@ -3,6 +3,7 @@ import Icon from './Icon'
 import { promptUpgrade } from '../stores/upgradePrompt'
 import { useStoredTier } from '../stores/capabilities'
 import { showsProUpsell } from '../lib/planDisplay'
+import { isShareRecipient } from '../lib/shareMode'
 
 // One shared Pro upsell card for the foot of every side menu (Desk sidebar,
 // PlexiOffice, and the segment shells), so they all end the same way.
@@ -11,7 +12,7 @@ import { showsProUpsell } from '../lib/planDisplay'
 // session (sessionStorage), and the next launch brings it back.
 const DISMISS_KEY = 'fb.upgradeCard.dismissed'
 
-export default function UpgradeCard({ label }: { label: string }): JSX.Element | null {
+function UpgradeCardInner({ label }: { label: string }): JSX.Element | null {
   // This checked nothing at all, and it is rendered unconditionally by the
   // sidebar, the PlexiOffice shell and every segment shell — so a paying Pro
   // or Team subscriber was asked to upgrade to Pro, on every screen, forever.
@@ -53,4 +54,12 @@ export default function UpgradeCard({ label }: { label: string }): JSX.Element |
       </button>
     </div>
   )
+}
+
+// A visitor on a shared desk has no account to upgrade: the share page's own
+// "Download this desk" is their door, and Plexii's trial comes with signing up
+// (owner's rule: sign-up is the trial, only upgrades go to checkout).
+export default function UpgradeCard({ label }: { label: string }): JSX.Element | null {
+  if (isShareRecipient()) return null
+  return <UpgradeCardInner label={label} />
 }

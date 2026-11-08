@@ -44,7 +44,7 @@ describe('what gets published does not depend on what is on screen', () => {
     // The blanking happened in exactly this window. Publishing "no widgets"
     // because we have not looked yet is worse than publishing nothing.
     expect(SRC).toContain('const haveSource = storeHasDesk || offscreen !== null')
-    expect(SRC).toContain('if (!deskId || !haveSource) return null')
+    expect(SRC).toContain('if (!deskId || !haveSource || deskTitle === undefined) return null')
   })
 
   it('clears the fetched copy once the desk is open, so it cannot go stale', () => {
@@ -131,3 +131,16 @@ describe('the projection itself still reflects its input honestly', () => {
     expect(out.widgets.map((w) => w.id)).toContain('w1')
   })
 })
+
+describe('the desk\'s name is never a stand-in (2026-11-08)', () => {
+  // A sign-in republishes every live desk before the desks have loaded; the
+  // publisher used to fill the gap with "Shared desk", and the owner's "1 ·
+  // All Widgets Tour" link was announced as "Shared desk" until the next edit.
+  it('reads the title from the store as it changes, and publishes nothing while it is unknown', () => {
+    expect(SRC).toContain('const deskTitle = useNodeStore((s) => (deskId ? s.nodes.find((n) => n.id === deskId)?.title : undefined))')
+    expect(SRC).toContain("if (!deskId || !haveSource || deskTitle === undefined) return null")
+    expect(SRC).toMatch(/\[deskId, deskTitle, widgets, links, resolvers, warmTick\]/)
+    expect(SRC).not.toContain("'Shared desk'")
+  })
+})
+

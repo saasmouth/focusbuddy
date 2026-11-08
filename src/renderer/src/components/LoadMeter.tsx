@@ -4,6 +4,7 @@ import { useWidgetStore } from '../stores/widgets'
 import { chimeOut, chimeIn } from '../lib/audioBeep'
 import Icon from './Icon'
 import Tooltip from './Tooltip'
+import { isShareRecipient } from '../lib/shareMode'
 
 // Cognitive Load = a weighted count of "things demanding attention" on the canvas.
 // Tuned so a single browser feels heavier than a single sticky.
@@ -89,7 +90,7 @@ function alarmFor(load: number): {
   }
 }
 
-export default function LoadMeter({
+function LoadMeterInner({
   variant = 'pill'
 }: {
   /**
@@ -347,4 +348,13 @@ function LoadMeterPopover({
       )}
     </div>
   )
+}
+
+// A visitor on a shared desk (the web share page) has no use for the sender's
+// load meter: a red "42 Overloaded" pill reads as an error to a stranger, and
+// parking widgets is not theirs to do (found by 23 on the owner's live link,
+// 2026-11-08).
+export default function LoadMeter(props: { variant?: 'pill' | 'header' } = {}): JSX.Element | null {
+  if (isShareRecipient()) return null
+  return <LoadMeterInner {...props} />
 }

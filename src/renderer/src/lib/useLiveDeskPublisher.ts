@@ -193,12 +193,19 @@ export function useLiveDeskPublisher(deskId: string | null): {
     void refresh()
   }, [refresh])
 
+  // The desk's own name, read from the store as it changes. Read once, it was
+  // "Shared desk" whenever the publisher ran before the desks had loaded --
+  // which is exactly when a sign-in republishes every live desk -- and the
+  // link's card and bar said "Shared desk" until the next edit (found by 23 on
+  // the owner's "1 · All Widgets Tour", 2026-11-08). Unknown is not a name:
+  // nothing is published until the desk is known, and renaming the desk now
+  // republishes it.
+  const deskTitle = useNodeStore((s) => (deskId ? s.nodes.find((n) => n.id === deskId)?.title : undefined))
   const build = useCallback(() => {
-    if (!deskId || !haveSource) return null
-    const node = useNodeStore.getState().nodes.find((n) => n.id === deskId)
+    if (!deskId || !haveSource || deskTitle === undefined) return null
     return buildProjection({
       deskId,
-      title: node?.title ?? 'Shared desk',
+      title: deskTitle,
       revision: 0, // the server assigns the real revision
       widgets: widgets.filter((w) => w.taskId === deskId),
       links: links.map((l) => ({
@@ -209,7 +216,7 @@ export function useLiveDeskPublisher(deskId: string | null): {
       })),
       resolvers
     })
-  }, [deskId, widgets, links, resolvers, warmTick])
+  }, [deskId, deskTitle, widgets, links, resolvers, warmTick])
 
   // A published desk reconciles itself.
   //
@@ -232,7 +239,10 @@ export function useLiveDeskPublisher(deskId: string | null): {
       // old timestamp.
       const projection = build()
       if (!projection) {
-        void window.api.liveDesk.note(deskId, storeHasDesk ? 'no projection built' : 'desk contents unknown')
+        void window.api.liveDesk.note(
+          deskId,
+          deskTitle === undefined ? 'desk not loaded yet' : storeHasDesk ? 'no projection built' : 'desk contents unknown'
+        )
         return
       }
       const fingerprint = projectionFingerprint(projection)
