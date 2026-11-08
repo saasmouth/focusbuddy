@@ -168,7 +168,7 @@ describe('a public bundle (the desk behind a live link)', () => {
   })
 
   it('names every private kind the live view promises to hide', () => {
-    for (const k of ['agent', 'webhook', 'inbound-hook', 'streamdeck', 'local-app-launcher', 'email', 'chat-thread', 'mail-thread', 'meeting-record']) {
+    for (const k of ['agent', 'webhook', 'inbound-hook', 'streamdeck', 'local-app-launcher', 'email', 'chat-thread', 'mail-thread', 'inbox', 'contacts', 'meeting-record']) {
       expect(PRIVATE_WIDGET_KINDS.has(k), k).toBe(true)
     }
   })

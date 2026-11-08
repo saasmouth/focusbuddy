@@ -127,7 +127,7 @@ export function describePrivateKept(kept: PrivateKept[] | undefined): string {
   const shown = names.length > 4 ? [...names.slice(0, 4), `${names.length - 4} more`] : names
   const list = shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0]
   const one = kept.length === 1
-  return `Kept on this computer: ${list}. ${one ? 'It is' : 'They are'} private, so the link shows a note in ${one ? 'its' : 'their'} place; ${one ? 'its' : 'their'} instructions, secrets and messages never leave here.`
+  return `Kept on this computer: ${list}. ${one ? 'It is' : 'They are'} private, so the link shows a note in ${one ? 'its' : 'their'} place; ${one ? 'its' : 'their'} instructions, secrets, messages and people never leave here.`
 }
 
 /** What Signal answered, as far as a refusal needs to know. */

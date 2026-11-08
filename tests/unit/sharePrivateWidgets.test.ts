@@ -106,6 +106,18 @@ describe('a snapshot (read link, a meeting, a single widget) carries no private 
     expect(kept).toHaveLength(1)
   })
 
+  it('a desk\'s contacts and its inbox rule are held back too (4.3.47): people\'s details and mail queries', async () => {
+    const contacts = W('w-people', 'contacts', 'Vendors', JSON.stringify({ contacts: [{ name: 'Sam Lee', email: 'sam@florist.test', phone: '+61 400 000 000' }] }))
+    const inbox = W('w-inbox', 'inbox', 'Wedding mail', JSON.stringify({ rules: [{ from: 'planner@venue.test', subject: 'deposit' }] }))
+    installApi({ desk: [contacts, inbox] })
+    const kept: SnapshotPrivateKept[] = []
+    const snap = await buildTaskSnapshot({ id: 'desk', kind: 'task', title: 'Wedding' } as never, 'h', kept)
+    const json = JSON.stringify(snap)
+    for (const s of ['Sam Lee', 'sam@florist.test', '+61 400', 'planner@venue.test', 'deposit']) expect(json).not.toContain(s)
+    expect(snap.task.widgets.map((w) => w.content)).toEqual(['Contacts — not available publicly', 'Inbox — not available publicly'])
+    expect(kept.map((k) => k.label)).toEqual(['Contacts', 'Inbox'])
+  })
+
   it('every private kind is held back, not only the two the owner named', async () => {
     const all = [...PRIVATE_WIDGET_KINDS].map((k, i) => W(`p${i}`, k, `t${i}`, `${SECRET}-${k}`))
     installApi({ desk: all })
@@ -138,14 +150,14 @@ describe('the sender is told', () => {
     expect(describePrivateKept([])).toBe('')
     expect(describePrivateKept(undefined)).toBe('')
     expect(describePrivateKept([{ widgetId: 'a', kind: 'webhook', label: 'Webhook', title: 'Grades in' }])).toBe(
-      'Kept on this computer: Webhook “Grades in”. It is private, so the link shows a note in its place; its instructions, secrets and messages never leave here.'
+      'Kept on this computer: Webhook “Grades in”. It is private, so the link shows a note in its place; its instructions, secrets, messages and people never leave here.'
     )
     const two = describePrivateKept([
       { widgetId: 'a', kind: 'webhook', label: 'Webhook', title: 'Grades in' },
       { widgetId: 'b', kind: 'agent', label: 'Agent', title: '  ' }
     ])
     expect(two).toBe(
-      'Kept on this computer: Webhook “Grades in” and Agent. They are private, so the link shows a note in their place; their instructions, secrets and messages never leave here.'
+      'Kept on this computer: Webhook “Grades in” and Agent. They are private, so the link shows a note in their place; their instructions, secrets, messages and people never leave here.'
     )
   })
 

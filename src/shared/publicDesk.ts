@@ -344,7 +344,8 @@ export const PUBLIC_PLACEHOLDER_REASON: Readonly<Record<string, string>> = Objec
   agent: 'Agent — not available publicly',
   webhook: 'Webhook — not available publicly',
   'inbound-hook': 'Inbound hook — not available publicly',
-  streamdeck: 'Stream Deck — not available publicly',
+  // The app calls it SpeedDeck; "Stream Deck" is Elgato's name (4.3.47).
+  streamdeck: 'SpeedDeck — not available publicly',
   'local-app-launcher': 'App launcher — not available publicly',
   calculator: 'Calculator — not available publicly',
   email: 'Mail — not available publicly',
@@ -354,6 +355,11 @@ export const PUBLIC_PLACEHOLDER_REASON: Readonly<Record<string, string>> = Objec
   // while this is one specific message someone chose to keep.
   'mail-thread': 'Email — not available publicly',
   'meeting-record': 'Meeting record — not available publicly',
+  // The people a desk is about (names, emails, phones, addresses), and the
+  // rule that narrows the sender's mail to it (addresses, subjects). The
+  // projection never drew either; from 4.3.47 no link carries them at all.
+  contacts: 'Contacts — not available publicly',
+  inbox: 'Inbox — not available publicly',
   minimap: 'Minimap — not available publicly',
   design: 'Design — not available publicly',
   attention: 'Focus — not available publicly'
@@ -402,11 +408,16 @@ export function mayCapture(kind: string): boolean {
  *   agent, webhook, inbound-hook        instructions, URLs, secrets
  *   streamdeck, local-app-launcher      runs software on the sender's computer
  *   email, chat-thread, mail-thread     somebody's correspondence
+ *   inbox                               the rule that finds it (addresses, subjects)
+ *   contacts                            other people's names, emails, phones
  *   meeting-record                      a private record
+ * Contacts and Inbox joined in 4.3.47 (found by 23 checking the help): the
+ * live view always held them back, by failing closed, but a full bundle
+ * carried them, a contact's phone number included.
  */
 export const PRIVATE_WIDGET_KINDS: ReadonlySet<string> = new Set([
   'agent', 'webhook', 'inbound-hook', 'streamdeck', 'local-app-launcher',
-  'email', 'chat-thread', 'mail-thread', 'meeting-record'
+  'email', 'chat-thread', 'mail-thread', 'inbox', 'contacts', 'meeting-record'
 ])
 
 export function placeholderReasonFor(kind: string): string {

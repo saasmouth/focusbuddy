@@ -90,7 +90,7 @@ export const PUBLIC_MODES: PublicModeSpec[] = [
 // publicDeskProjection for the live view), and the server strips any an older
 // app sends (focusbuddy-signal privateWidgets.ts).
 export const PRIVATE_WIDGETS_NOTE =
-  'Every kind of link keeps private work widgets — agents, webhooks, mail and chats — on this computer. The person you send it to sees a note where each one is, never its instructions, secrets or messages.'
+  'Every kind of link keeps private work widgets — agents, webhooks, mail, chats and contacts — on this computer. The person you send it to sees a note where each one is, never its instructions, secrets, messages or people.'
 
 export function publicMode(id: PublicMode): PublicModeSpec {
   const m = PUBLIC_MODES.find((x) => x.id === id)
