@@ -167,6 +167,18 @@ describe('a public bundle (the desk behind a live link)', () => {
     expect(byId.get('w-calc')).toMatchObject({ kind: 'calculator', content: '2+2' })
   })
 
+  it('a mind map goes without its unaccepted AI proposals; a link that stays home keeps them', async () => {
+    const map = { root: { id: 'r', label: 'Plan', children: [], pendingChildren: [{ id: 'p', label: 'AI proposal', children: [] }] } }
+    widget('w-map', 'desk', 'mindmap', 'Plan', JSON.stringify(map))
+    const pub = await mod.buildDeskBundle('desk', { audience: 'public' })
+    const w = pub.tables.widgets.find((x) => x.id === 'w-map')!
+    expect(JSON.parse(String(w.content)).root.pendingChildren).toEqual([])
+    expect(JSON.stringify(pub)).not.toContain('AI proposal')
+    const own = await mod.buildDeskBundle('desk')
+    expect(JSON.stringify(own)).toContain('AI proposal')
+    db.prepare(`DELETE FROM widgets WHERE id = 'w-map'`).run()
+  })
+
   it('names every private kind the live view promises to hide', () => {
     for (const k of ['agent', 'webhook', 'inbound-hook', 'streamdeck', 'local-app-launcher', 'email', 'chat-thread', 'mail-thread', 'inbox', 'contacts', 'meeting-record']) {
       expect(PRIVATE_WIDGET_KINDS.has(k), k).toBe(true)

@@ -1,6 +1,6 @@
 import type { FbNode, NodeKind, SectionLayout, Widget, DocType } from '@shared/types'
 import { MAX_SYNCED_FILE_BYTES } from '@shared/fileSyncLimits'
-import { PRIVATE_WIDGET_KINDS, placeholderReasonFor } from '@shared/publicDesk'
+import { PRIVATE_WIDGET_KINDS, placeholderReasonFor, withoutMindmapProposals } from '@shared/publicDesk'
 
 // Snapshot shapes — the on-the-wire contract between desktop, signal
 // server, and public viewer. Versioned via `_version` so we can evolve
@@ -250,7 +250,8 @@ function serializeWidget(w: Widget, kept?: SnapshotPrivateKept[]): SerializedWid
     id: w.id,
     kind: w.kind,
     title: w.title || '',
-    content: w.content || '',
+    // A mind map goes without the AI's unaccepted proposals (withoutMindmapProposals).
+    content: (w.kind === 'mindmap' ? withoutMindmapProposals(w.content) : null) ?? (w.content || ''),
     x: w.x,
     y: w.y,
     width: w.width,

@@ -21,7 +21,7 @@ import {
   type SnapshotPrivateKept
 } from '../../src/renderer/src/lib/shareSnapshot'
 import { describePrivateKept } from '../../src/renderer/src/lib/ephemeralShareClient'
-import { PRIVATE_WIDGET_KINDS } from '../../src/shared/publicDesk'
+import { PRIVATE_WIDGET_KINDS, withoutMindmapProposals } from '../../src/shared/publicDesk'
 import { PRIVATE_WIDGETS_NOTE } from '../../src/renderer/src/components/share/shareAudience'
 
 const SECRET = 'whsec_live_9f8e7d6c5b4a'
@@ -95,6 +95,24 @@ describe('a snapshot (read link, a meeting, a single widget) carries no private 
     expect(json).not.toContain(INSTRUCTIONS)
     expect(json).toContain('Prep the exit ticket')
     expect(kept.map((k) => k.widgetId)).toEqual(['w-hook', 'w-agent'])
+  })
+
+  it('a mind map travels without the branches the AI proposed and nobody accepted (4.3.47)', async () => {
+    const map = { root: { id: 'r', label: 'Launch', children: [
+      { id: 'c1', label: 'Marketing', children: [], pendingChildren: [{ id: 'p2', label: 'AI idea: poach their CTO', children: [] }] }
+    ], pendingChildren: [{ id: 'p1', label: 'AI idea: cut the budget', children: [] }] } }
+    installApi({ desk: [W('w-map', 'mindmap', 'Launch', JSON.stringify(map))] })
+    const kept: SnapshotPrivateKept[] = []
+    const snap = await buildTaskSnapshot({ id: 'desk', kind: 'task', title: 'Plan' } as never, 'h', kept)
+    const out = JSON.parse(snap.task.widgets[0].content)
+    expect(out.root.pendingChildren).toEqual([])
+    expect(out.root.children[0].pendingChildren).toEqual([])
+    expect(out.root.children[0].label).toBe('Marketing')
+    expect(snap.task.widgets[0].content).not.toMatch(/AI idea/)
+    expect(kept).toEqual([]) // the map itself is not private
+    const plain = JSON.stringify({ root: { id: 'r', label: 'x', children: [], pendingChildren: [] } })
+    expect(withoutMindmapProposals(plain)).toBeNull()
+    expect(withoutMindmapProposals('not json pendingChildren')).toBeNull()
   })
 
   it('a single private widget shared on its own goes as the note too', async () => {

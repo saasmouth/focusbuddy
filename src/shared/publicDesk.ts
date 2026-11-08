@@ -420,6 +420,34 @@ export const PRIVATE_WIDGET_KINDS: ReadonlySet<string> = new Set([
   'email', 'chat-thread', 'mail-thread', 'inbox', 'contacts', 'meeting-record'
 ])
 
+/**
+ * A mind map's content without the branches the AI proposed and nobody has
+ * accepted yet (each node's pendingChildren), or null when it has none. Those
+ * are suggestions on the sender's screen, not the map; the live view never
+ * showed them and no link carries them (4.3.47; found by 23 checking the help).
+ */
+export function withoutMindmapProposals(content: unknown): string | null {
+  if (typeof content !== 'string' || !content.includes('pendingChildren')) return null
+  let doc: unknown
+  try {
+    doc = JSON.parse(content)
+  } catch {
+    return null
+  }
+  let changed = false
+  const walk = (n: unknown): void => {
+    if (!n || typeof n !== 'object') return
+    const node = n as { pendingChildren?: unknown; children?: unknown }
+    if (Array.isArray(node.pendingChildren) && node.pendingChildren.length > 0) {
+      node.pendingChildren = []
+      changed = true
+    }
+    if (Array.isArray(node.children)) node.children.forEach(walk)
+  }
+  walk((doc as { root?: unknown } | null)?.root)
+  return changed ? JSON.stringify(doc) : null
+}
+
 export function placeholderReasonFor(kind: string): string {
   return PUBLIC_PLACEHOLDER_REASON[kind] ?? 'Not available publicly'
 }

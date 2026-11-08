@@ -21,7 +21,7 @@
 import { getDb } from './database'
 import { fileBlobs } from './fileBlobs'
 import { LINK_SHARE_BUNDLE_BUDGET, LINK_SHARE_LIMIT_WORDS, linkMegabytes, utf8Bytes } from '@shared/shareExpiry'
-import { PRIVATE_WIDGET_KINDS, placeholderReasonFor } from '@shared/publicDesk'
+import { PRIVATE_WIDGET_KINDS, placeholderReasonFor, withoutMindmapProposals } from '@shared/publicDesk'
 import {
   sitePictureId,
   type BundledPresentation,
@@ -282,6 +282,10 @@ export function privateKindLabel(kind: string): string {
  */
 export function publicWidgetRow(w: Record<string, unknown>, kept?: PrivateWidgetKept[]): Record<string, unknown> {
   const kind = String(w.kind ?? '')
+  if (kind === 'mindmap') {
+    const content = withoutMindmapProposals(w.content)
+    return content === null ? w : { ...w, content }
+  }
   if (!PRIVATE_WIDGET_KINDS.has(kind)) return w
   kept?.push({ widgetId: String(w.id ?? ''), kind, label: privateKindLabel(kind), title: typeof w.title === 'string' ? w.title : '' })
   const out: Record<string, unknown> = {}
