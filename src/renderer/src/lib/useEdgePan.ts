@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWidgetStore } from '../stores/widgets'
 import { isOverFloatingChrome } from './floatingChrome'
-import { EDGE_PAN_MARGIN, createEdgePanArming, isInEdgeZone, type PointerPlace, type PointerSample } from './edgePanArming'
+import { EDGE_PAN_MARGIN, createEdgePanArming, isEdgePanControl, isInEdgeZone, type PointerPlace, type PointerSample } from './edgePanArming'
 
 // Edge-pan / "infinite map" camera control for the canvas.
 //
@@ -41,6 +41,9 @@ import { EDGE_PAN_MARGIN, createEdgePanArming, isInEdgeZone, type PointerPlace, 
 // started OFF the desk (the Files panel, the side menu) must also have reached
 // the desk's interior first, since it can only arrive across an edge zone.
 // Both are one rule, in lib/edgePanArming; this hook only reports events to it.
+// So is the hand that is not dragging (4.3.47): a real move onto a button or a
+// field in the zone is reaching for it, and a press is acting on what is under
+// the pointer; neither pans. This hook says which events those are.
 //
 // Pauses regardless of drag mode when:
 //   - the camera is mid-animation (animatingPan)
@@ -272,7 +275,7 @@ export function useEdgePan({
       return isInEdgeZone(p, p, marginRef.current) ? 'zone' : 'interior'
     }
 
-    function readPositionFromEvent(e: PointerSample): void {
+    function readPositionFromEvent(e: PointerSample & { target?: EventTarget | null }): void {
       if (!el) return
       refreshSize()
       const p = canvasPoint({ x: e.clientX, y: e.clientY }, geomRef.current)
@@ -290,7 +293,9 @@ export function useEdgePan({
         return
       }
       pointerRef.current = { x: e.clientX, y: e.clientY }
-      arming.observe(e, placeOf(p))
+      // Over a control and carrying nothing: the hand is reaching for it. A
+      // drag is judged by where it is, whatever it passes over.
+      arming.observe(e, placeOf(p), !isDragging() && isEdgePanControl(e.target ?? null, el))
     }
 
     // The floating menus (sidebar, segment/office menus, the minimised-menu
@@ -314,6 +319,14 @@ export function useEdgePan({
         return
       }
       readPositionFromEvent(e)
+    }
+    // A press acts on what is under the pointer (a button, a widget, the desk
+    // itself): it is not a request to pan, so it stops one. The next real move
+    // into the zone arms again -- which is how pressing on a widget's header
+    // and carrying it to the edge pans, once the carrying starts.
+    function onPress(): void {
+      if (isDragging()) return
+      arming.pressed()
     }
     function onLeave(): void {
       // Same as outside-the-canvas behaviour from readPositionFromEvent.
@@ -354,6 +367,7 @@ export function useEdgePan({
 
     el.addEventListener('mousemove', onMove)
     el.addEventListener('mouseleave', onLeave)
+    el.addEventListener('mousedown', onPress, true)
     document.addEventListener('mousemove', onDocMove)
     document.addEventListener('dragover', onDocDragOver, true)
 
@@ -446,6 +460,7 @@ export function useEdgePan({
       cancelAnimationFrame(rafId)
       el.removeEventListener('mousemove', onMove)
       el.removeEventListener('mouseleave', onLeave)
+      el.removeEventListener('mousedown', onPress, true)
       document.removeEventListener('mousemove', onDocMove)
       document.removeEventListener('dragover', onDocDragOver, true)
       document.removeEventListener('dragstart', onHtmlDragStart, true)

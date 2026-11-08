@@ -5,13 +5,14 @@ import LiveWebViewPanel from '../LiveWebViewPanel'
 import { useSharesStore } from '../../stores/shares'
 import { useNodeStore } from '../../stores/nodes'
 import { viewerUrlFor } from '../../lib/shareTokens'
-import { buildFolderSnapshot, buildTaskSnapshot, generateAnonymousHandle } from '../../lib/shareSnapshot'
+import { buildFolderSnapshot, buildTaskSnapshot, generateAnonymousHandle, type SnapshotPrivateKept } from '../../lib/shareSnapshot'
 import {
   mintEphemeralShare,
   listEphemeralShares,
   revokeEphemeralShare,
   updateEphemeralShare,
   describeOmitted,
+  describePrivateKept,
   timeLeft,
   shareUrlFor,
   type EphemeralShare
@@ -20,6 +21,7 @@ import SharePresentationPanel, { useSharePresentation } from './SharePresentatio
 import { describeSitesOmitted, presentationSummary } from './sharePresentationChoices'
 import {
   EXPIRY_CHOICES,
+  PRIVATE_WIDGETS_NOTE,
   PUBLIC_MODES,
   expiryAt,
   publicMode,
@@ -155,7 +157,11 @@ export default function DeskShareSheet({
         setUrl(res.url)
         setToken(res.share?.token ?? null)
         setMintedAt(presentation.revision)
-        setOmittedNote([describeOmitted(res.filesOmitted), describeSitesOmitted(res.sitesOmitted)].filter(Boolean).join(' ') || null)
+        setOmittedNote(
+          [describePrivateKept(res.privateKept), describeOmitted(res.filesOmitted), describeSitesOmitted(res.sitesOmitted)]
+            .filter(Boolean)
+            .join(' ') || null
+        )
         setExpiryNote(
           expiryMs === null && res.share && res.share.expiresAt !== null
             ? `The server gave this link an end date anyway (${timeLeft(res.share.expiresAt).replace(/ left$/, '')} from now): it does not support links that never expire yet.`
@@ -171,10 +177,11 @@ export default function DeskShareSheet({
       // One handle for both the snapshot and the link, so the "shared by" name
       // the recipient sees matches the one stamped on the record.
       const handle = generateAnonymousHandle()
+      const kept: SnapshotPrivateKept[] = []
       const snapshot =
         kind === 'folder'
-          ? await buildFolderSnapshot(node, nodes, handle)
-          : await buildTaskSnapshot(node, handle)
+          ? await buildFolderSnapshot(node, nodes, handle, kept)
+          : await buildTaskSnapshot(node, handle, kept)
       const link = await createFor({
         kind,
         entityId,
@@ -186,6 +193,7 @@ export default function DeskShareSheet({
       })
       setUrl(viewerUrlFor(link.token))
       setToken(link.token)
+      setOmittedNote(describePrivateKept(kept) || null)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -204,7 +212,7 @@ export default function DeskShareSheet({
     })
     const res = await updateEphemeralShare(s.token, s.rootId, presentation.request())
     if (res.ok && res.share) {
-      const omitted = [describeOmitted(res.filesOmitted), describeSitesOmitted(res.sitesOmitted)]
+      const omitted = [describePrivateKept(res.privateKept), describeOmitted(res.filesOmitted), describeSitesOmitted(res.sitesOmitted)]
         .filter(Boolean)
         .map((t) => ` ${t}`)
         .join('')
@@ -335,6 +343,9 @@ export default function DeskShareSheet({
                 </button>
               ))}
             </div>
+            <p className="text-[10.5px] text-[var(--ink-50)] leading-snug mt-1.5" data-testid="share-private-widgets-note">
+              {PRIVATE_WIDGETS_NOTE}
+            </p>
           </div>
 
           {/* 'watch' is a published projection with its own lifecycle (live,

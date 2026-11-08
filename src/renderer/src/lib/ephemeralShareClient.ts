@@ -103,7 +103,31 @@ export interface MintResult {
   url?: string
   filesOmitted?: OmittedFile[]
   sitesOmitted?: OmittedSite[]
+  /** Private work widgets that stayed on this computer as notes in their place. */
+  privateKept?: PrivateKept[]
   error?: string
+}
+
+/** A private work widget a link left behind (main deskBundle.ts PrivateWidgetKept). */
+export interface PrivateKept {
+  widgetId: string
+  kind: string
+  label: string
+  title: string
+}
+
+/**
+ * The private work widgets a link left on this computer, said to the sender:
+ * the person they send it to sees a note where each one was, so it should not
+ * be a surprise. Empty when there were none.
+ */
+export function describePrivateKept(kept: PrivateKept[] | undefined): string {
+  if (!kept?.length) return ''
+  const names = kept.map((k) => (k.title.trim() ? `${k.label} “${k.title.trim()}”` : k.label))
+  const shown = names.length > 4 ? [...names.slice(0, 4), `${names.length - 4} more`] : names
+  const list = shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0]
+  const one = kept.length === 1
+  return `Kept on this computer: ${list}. ${one ? 'It is' : 'They are'} private, so the link shows a note in ${one ? 'its' : 'their'} place; ${one ? 'its' : 'their'} instructions, secrets and messages never leave here.`
 }
 
 /** What Signal answered, as far as a refusal needs to know. */
@@ -221,7 +245,8 @@ export async function mintEphemeralShare(
       // pictures were too big to travel is still worth sharing, but the sender
       // should know before they send it.
       filesOmitted: built.filesOmitted,
-      sitesOmitted: built.sitesOmitted
+      sitesOmitted: built.sitesOmitted,
+      privateKept: built.privateKept
     }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
@@ -245,6 +270,7 @@ export interface UpdateResult {
   share?: EphemeralShare
   filesOmitted?: OmittedFile[]
   sitesOmitted?: OmittedSite[]
+  privateKept?: PrivateKept[]
   error?: string
 }
 
@@ -283,7 +309,13 @@ export async function updateEphemeralShare(
       // with no update route answers, and that deserves a sentence instead.
       return { ok: false, error: linkRefusal(res.status, body, 'update') }
     }
-    return { ok: true, share: normaliseShare(body.share), filesOmitted: built.filesOmitted, sitesOmitted: built.sitesOmitted }
+    return {
+      ok: true,
+      share: normaliseShare(body.share),
+      filesOmitted: built.filesOmitted,
+      sitesOmitted: built.sitesOmitted,
+      privateKept: built.privateKept
+    }
   } catch (e) {
     return { ok: false, error: (e as Error).message }
   }

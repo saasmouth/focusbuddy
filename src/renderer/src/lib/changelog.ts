@@ -37,23 +37,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // 4.3.46 was built and installed for the owner only, never published; its
+  // notes are folded into 4.3.47, the release everyone on 4.3.45 updates to.
   {
-    version: '4.3.46',
-    date: '2026-11-07T10:00:00Z',
-    title: 'PlexiiDesk 4.3.46 — share links open the whole of Plexii, and a Workcentre that fills the screen',
+    version: '4.3.47',
+    date: '2026-11-08T03:00:00Z',
+    title: 'PlexiiDesk 4.3.47 — share links open the whole of Plexii, and a Workcentre that fills the screen',
     tag: 'feature',
     summary:
-      'A desk or room you share by link now opens as the whole of Plexii in any browser. Visitors can look around it and drag things onto it, and one click downloads Plexii with the desk ready to open once they sign up. Workcentre tiles fill the screen and snap into place, web pages on a desk stay put when you switch views, and Plexii asks you to sign in each time it opens.',
+      'A desk or room you share by link now opens as the whole of Plexii in any browser. Visitors can look around it and drag things onto it, and one click downloads Plexii with the desk ready to open once they sign up. Private work widgets never leave your computer in any link. Workcentre tiles fill the screen and snap into place, web pages on a desk stay put when you switch views, and Plexii asks you to sign in each time it opens.',
     highlights: [
       'Share links open the whole app in a browser, phones included: the menus, the side menu and the assistant. Visitors can look around and drag apps, work widgets and files onto a desk. Anything more asks them to download the desk on Plexii, and once they sign up for their trial it opens in Plexii with everything they added.',
-      'Live links open the live desk itself and follow your changes. Private work widgets (mail, chat, agents, webhooks, app launchers and meeting records) only ever show as "not available publicly".',
-      'Room links open the room with all its desks. You choose how websites on a shared desk appear, and a site that refuses to be shown appears as a stand-in, such as a live TradingView chart.',
+      'Private work widgets (agents, webhooks, mail, chats, app launchers and meeting records) never leave your computer in a link of any kind. The person you send it to sees a note where each one is, never its instructions, secrets or messages, and the share sheet tells you which ones it kept. Links made with an older version are cleaned up too.',
+      'Live links open the live desk itself and follow your changes. Room links open the room with all its desks. You choose how websites on a shared desk appear, and a site that refuses to be shown appears as a stand-in, such as a live TradingView chart.',
       'Workcentre: tiles fill the space, snap into place, and anything can be dragged in. Switching between the canvas and the Workcentre no longer reloads the web pages on your desk.',
       'Pictures dragged from a browser drop straight into a table\'s attachment field, in every view and in Focus.',
       'Web pages in Plexii run on the same engine as current Chrome (Chromium 156) and no longer announce themselves as Electron. A site can show notifications only after you allow it, site by site.',
       'Plexii asks you to sign in each time it opens. Without an internet connection you can sign in with your password, once you have signed in online on this computer.',
       'Build with AI is no longer cut short on big desks, and the assistant uses your own Anthropic key when you have added one.',
-      'Also fixed: a Timer error that appeared each time Plexii opened, a false "Changed elsewhere" notice in documents, and the slide that makes room in Focus view.'
+      'Also fixed: the desk creeping away when you rest the pointer on a button near its edge (the desk still pans when you go to the edge itself), a Timer error that appeared each time Plexii opened, a false "Changed elsewhere" notice in documents, and the slide that makes room in Focus view.'
     ]
   },
   {

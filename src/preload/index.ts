@@ -374,6 +374,8 @@ const api = {
           counts: Record<string, number>
           filesOmitted: Array<{ id: string; name: string; sizeBytes: number; why: string }>
           sitesOmitted: Array<{ widgetId: string; host: string; why: string }>
+          // Private work widgets left on this computer as notes (4.3.47).
+          privateKept: Array<{ widgetId: string; kind: string; label: string; title: string }>
         }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('shares:buildDeskBundle', deskId, presentation),

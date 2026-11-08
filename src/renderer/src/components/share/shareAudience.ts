@@ -83,6 +83,15 @@ export const PUBLIC_MODES: PublicModeSpec[] = [
   }
 ]
 
+// Said once under the three choices, because it is true of all three (4.3.47;
+// owner, 2026-11-08: "webhook secrets and agent instructions stay hidden for
+// security"). Each link carries a note where a private work widget is
+// (main deskBundle.ts publicWidgetRow, lib/shareSnapshot.ts serializeWidget,
+// publicDeskProjection for the live view), and the server strips any an older
+// app sends (focusbuddy-signal privateWidgets.ts).
+export const PRIVATE_WIDGETS_NOTE =
+  'Every kind of link keeps private work widgets — agents, webhooks, mail and chats — on this computer. The person you send it to sees a note where each one is, never its instructions, secrets or messages.'
+
 export function publicMode(id: PublicMode): PublicModeSpec {
   const m = PUBLIC_MODES.find((x) => x.id === id)
   if (!m) throw new Error(`unknown public share mode: ${id}`)

@@ -260,14 +260,30 @@ const PLACEHOLDER_COLUMNS = [
   'pinned', 'pinned_zone', 'pinned_screen_x', 'pinned_screen_y', 'parent_section_id'
 ]
 
+/** A private work widget a link left behind, for the sender's own eyes (never in the bundle). */
+export interface PrivateWidgetKept {
+  widgetId: string
+  kind: string
+  /** "Webhook", "Agent": what the placeholder calls it. */
+  label: string
+  /** Its title on the sender's desk; '' when it has none. */
+  title: string
+}
+
+/** What a placeholder calls a private kind: "Webhook", "Agent", "Meeting record". */
+export function privateKindLabel(kind: string): string {
+  return placeholderReasonFor(kind).replace(/\s+—\s+not available publicly$/i, '')
+}
+
 /**
  * A widget as a public bundle may carry it: as it is, or -- for a private kind
  * (publicDesk.ts PRIVATE_WIDGET_KINDS) -- a note in its place that says it is
  * not available publicly, where it sat and the size it was.
  */
-export function publicWidgetRow(w: Record<string, unknown>): Record<string, unknown> {
+export function publicWidgetRow(w: Record<string, unknown>, kept?: PrivateWidgetKept[]): Record<string, unknown> {
   const kind = String(w.kind ?? '')
   if (!PRIVATE_WIDGET_KINDS.has(kind)) return w
+  kept?.push({ widgetId: String(w.id ?? ''), kind, label: privateKindLabel(kind), title: typeof w.title === 'string' ? w.title : '' })
   const out: Record<string, unknown> = {}
   for (const c of PLACEHOLDER_COLUMNS) if (c in w) out[c] = w[c]
   return { ...out, kind: 'sticky', title: '', content: placeholderReasonFor(kind), color: null }
@@ -279,10 +295,15 @@ export function publicWidgetRow(w: Record<string, unknown>): Record<string, unkn
  * What is in the trash is not on the desk, and never travels: trashed desks
  * under a room, trashed widgets, tables, rows, documents and files.
  *
- * `audience: 'public'` is for a bundle anyone may fetch without signing in --
- * the desk behind a live link. Private kinds go as placeholders there
- * (publicWidgetRow). A link the sender made "to use" carries the desk as it is,
- * which is what that link says it does.
+ * `audience: 'public'` is for a bundle anyone holding the link may fetch
+ * without signing in: the desk behind a live link (liveDesk:publishBundle) and
+ * a link to use (shares:buildDeskBundle). Private kinds go as placeholders
+ * there (publicWidgetRow), and `privateKept`, when given, is told which ones,
+ * so the share sheet can say so. (Until 4.3.47 a link to use carried them as
+ * they were, webhook secrets and agent instructions included; owner,
+ * 2026-11-08: "update so webhook secrets and agent instructions stay hidden".)
+ * No audience is a bundle that stays with its owner: a browser visitor
+ * carrying the desk they made into their own Plexii (web shareCopy:exportDesk).
  *
  * Two budgets, both optional:
  *   maxBytes      raw file bytes carried inline (DEFAULT_MAX_BUNDLE_BYTES)
@@ -297,7 +318,13 @@ export function publicWidgetRow(w: Record<string, unknown>): Record<string, unkn
  */
 export async function buildDeskBundle(
   deskId: string,
-  opts: { maxBytes?: number; maxBodyBytes?: number; presentation?: PresentationInput; audience?: 'link' | 'public' } = {}
+  opts: {
+    maxBytes?: number
+    maxBodyBytes?: number
+    presentation?: PresentationInput
+    audience?: 'link' | 'public'
+    privateKept?: PrivateWidgetKept[]
+  } = {}
 ): Promise<DeskBundle> {
   const db = getDb() as unknown as Db
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BUNDLE_BYTES
@@ -324,7 +351,7 @@ export async function buildDeskBundle(
   const liveNodeIds = nodeRows.map((n) => String(n.id))
   tables.nodes = nodeRows.map((n) => (n.id === deskId ? { ...n, parent_id: null } : n))
   const widgetRows = selectIn(db, 'widgets', 'task_id', liveNodeIds).filter(notTrashed)
-  tables.widgets = opts.audience === 'public' ? widgetRows.map(publicWidgetRow) : widgetRows
+  tables.widgets = opts.audience === 'public' ? widgetRows.map((w) => publicWidgetRow(w, opts.privateKept)) : widgetRows
 
   // A link is only carried when BOTH of its ends are. Its endpoints are foreign
   // keys onto widgets, and a link reaching a widget on a desk that is not being

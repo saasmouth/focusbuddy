@@ -548,7 +548,7 @@ import {
   importWorkspaceJson,
   defaultWorkspaceExportName
 } from '../db/workspaceExport'
-import { buildDeskBundle, importDeskBundle, PICTURE_OMITTED_FOR_SIZE } from '../db/deskBundle'
+import { buildDeskBundle, importDeskBundle, PICTURE_OMITTED_FOR_SIZE, type PrivateWidgetKept } from '../db/deskBundle'
 import { listDeskSites, prepareSitePreview, resolvePresentation } from '../sitePreview'
 import type { SharePresentationRequest } from '@shared/sitePresentation'
 import { recordInvocation } from '../ai/agentHistory'
@@ -2677,7 +2677,16 @@ export function registerIpcHandlers(): void {
     try {
       const id = String(deskId || '')
       const resolved = presentation ? await resolvePresentation(id, presentation) : null
-      const bundle = await buildDeskBundle(id, resolved ? { presentation: resolved.input } : {})
+      // Anyone holding a link to use can fetch what it carries without signing
+      // in, so it is packed as a live link's is: private work widgets (an
+      // agent's instructions, a webhook's secret, somebody's mail) stay on this
+      // computer as notes in their place, and the sheet says which (4.3.47).
+      const privateKept: PrivateWidgetKept[] = []
+      const bundle = await buildDeskBundle(id, {
+        audience: 'public',
+        privateKept,
+        ...(resolved ? { presentation: resolved.input } : {})
+      })
       // A picture that was taken but did not fit went out as a link card; say so
       // beside the sites that could not be pictured at all.
       const sitesOmitted = [...(resolved?.notes ?? [])]
@@ -2698,7 +2707,8 @@ export function registerIpcHandlers(): void {
         title: bundle.desk.title,
         counts: bundle.counts,
         filesOmitted: bundle.filesOmitted,
-        sitesOmitted
+        sitesOmitted,
+        privateKept
       }
     } catch (e) {
       return { ok: false as const, error: (e as Error).message }

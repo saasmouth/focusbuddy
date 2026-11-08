@@ -114,12 +114,30 @@ describe('no bundle carries the trash', () => {
   })
 })
 
-describe('a link to use carries the desk as it is (what that link says it does)', () => {
-  it('private kinds travel there unchanged', async () => {
+describe('a bundle with no audience is one that stays with its owner', () => {
+  it('private kinds travel there unchanged (a browser visitor carrying their own desk into Plexii)', async () => {
+    // Since 4.3.47 a link to use is packed with audience 'public'
+    // (sharePrivateWidgets.test.ts); only the owner's own export has none.
     const b = await mod.buildDeskBundle('desk')
     const hook = b.tables.widgets.find((w) => w.id === 'w-hook')!
     expect(hook.kind).toBe('webhook')
     expect(String(hook.content)).toContain(SECRETS[0])
+  })
+})
+
+describe('a public bundle tells the sender what it kept', () => {
+  it('privateKept names each private widget by kind and title; the bundle itself carries none of it', async () => {
+    const kept: Array<{ widgetId: string; kind: string; label: string; title: string }> = []
+    const b = await mod.buildDeskBundle('desk', { audience: 'public', privateKept: kept })
+    expect(kept.map((k) => [k.widgetId, k.label, k.title]).sort()).toEqual([
+      ['w-agent', 'Agent', 'Desk agent'],
+      ['w-hook', 'Webhook', 'Grades in'],
+      ['w-mail', 'Mail', SECRETS[1]],
+      ['w-thread', 'Email', '']
+    ])
+    // The titles are for the sender's screen: an email's subject is private too.
+    expect(JSON.stringify(b)).not.toContain(SECRETS[1])
+    expect(JSON.stringify(b)).not.toContain('Grades in')
   })
 })
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createEdgePanArming, isInEdgeZone } from '../../src/renderer/src/lib/edgePanArming'
+import { createEdgePanArming, isEdgePanControl, isInEdgeZone } from '../../src/renderer/src/lib/edgePanArming'
 
 // Edge-pan used to start whenever the cursor's position RELATIVE to the canvas
 // fell inside the 80 px zone, however it got there. A pointer resting just
@@ -136,6 +136,81 @@ describe('edge-pan arming (pure)', () => {
   })
 })
 
+describe('edge-pan arming: a hand reaching for a control is not asking to pan (4.3.47)', () => {
+  const at = (x: number, y: number, movementX = 0, movementY = 0) => ({ clientX: x, clientY: y, movementX, movementY })
+
+  it('a real move that ends on a control in the zone does not arm', () => {
+    const a = createEdgePanArming()
+    a.observe(at(600, 700, 0, 3), 'interior')
+    expect(a.observe(at(600, 860, 0, 160), 'zone', true)).toBe(false)
+    expect(a.observe(at(601, 861, 1, 1), 'zone', true)).toBe(false) // nudging about on the button
+  })
+
+  it('a real move from the desk onto a control disarms a pan that was running', () => {
+    const a = createEdgePanArming()
+    a.observe(at(600, 700, 0, 3), 'interior')
+    expect(a.observe(at(600, 880, 0, 180), 'zone')).toBe(true)
+    expect(a.observe(at(640, 870, 40, -10), 'zone', true)).toBe(false)
+  })
+
+  it('a fake move that slides a control under a resting pointer does not stall a running pan', () => {
+    const a = createEdgePanArming()
+    a.observe(at(600, 700, 0, 3), 'interior')
+    a.observe(at(600, 880, 0, 180), 'zone')
+    expect(a.observe(at(600, 880), 'zone', true)).toBe(true) // same point: the desk moved, the hand did not
+  })
+
+  it('moving off the control onto the desk in the zone arms, as any move into the zone does', () => {
+    const a = createEdgePanArming()
+    a.observe(at(600, 860, 0, 5), 'zone', true)
+    expect(a.armed).toBe(false)
+    expect(a.observe(at(700, 870, 100, 10), 'zone', false)).toBe(true)
+  })
+
+  it('a press disarms, and the next real move into the zone arms again (carrying a widget to the edge)', () => {
+    const a = createEdgePanArming()
+    a.observe(at(600, 700, 0, 3), 'interior')
+    a.observe(at(600, 880, 0, 180), 'zone')
+    a.pressed()
+    expect(a.armed).toBe(false)
+    expect(a.observe(at(600, 880), 'zone')).toBe(false) // held still after the click: stays put
+    expect(a.observe(at(600, 890, 0, 10), 'zone')).toBe(true)
+  })
+})
+
+describe('isEdgePanControl', () => {
+  it('names native controls, their ARIA equivalents and editable text inside the canvas; not a widget body', () => {
+    const canvas = document.createElement('div')
+    canvas.innerHTML = `
+      <div data-widget-id="w1"><div class="paper"><span id="body">a sticky's paper</span></div>
+        <button id="b"><span id="inner">Next</span></button>
+        <a id="link" href="#x">open</a><a id="anchor">no href</a>
+        <input id="in" /><textarea id="ta"></textarea><select id="sel"></select>
+        <div id="role" role="menuitem">Rename</div>
+        <div id="ce" contenteditable="true"><p id="cep">text</p></div>
+        <div id="quiet" data-edge-pan-quiet><i id="qi"></i></div>
+      </div>`
+    document.body.appendChild(canvas)
+    const q = (id: string) => canvas.querySelector('#' + id)
+    for (const id of ['b', 'inner', 'link', 'in', 'ta', 'sel', 'role', 'cep', 'qi']) {
+      expect(isEdgePanControl(q(id), canvas), id).toBe(true)
+    }
+    for (const id of ['body', 'anchor']) expect(isEdgePanControl(q(id), canvas), id).toBe(false)
+    expect(isEdgePanControl(canvas.querySelector('[data-widget-id]'), canvas)).toBe(false)
+    expect(isEdgePanControl(null, canvas)).toBe(false)
+    canvas.remove()
+  })
+
+  it('a control outside the canvas is not the canvas\'s business', () => {
+    const canvas = document.createElement('div')
+    const outside = document.createElement('button')
+    document.body.append(canvas, outside)
+    expect(isEdgePanControl(outside, canvas)).toBe(false)
+    canvas.remove()
+    outside.remove()
+  })
+})
+
 // The hook itself, driven through real DOM events and a hand-cranked rAF.
 const panBy = vi.fn()
 vi.mock('../../src/renderer/src/stores/widgets', () => ({
@@ -230,6 +305,73 @@ describe('useEdgePan pans only for a pointer that moved into the zone', () => {
     panBy.mockClear()
     step(20) // held still at the edge
     expect(panBy.mock.calls.length).toBeGreaterThanOrEqual(19)
+    h.unmount()
+  })
+
+  it('resting on a widget\'s button near the bottom edge: the desk stays put, before and after the click (4.3.47)', async () => {
+    const h = await mount()
+    const button = document.createElement('button')
+    button.textContent = 'Next'
+    el.appendChild(button)
+    move(800, 600, 0, 4) // the interior
+    step(5)
+    // Reach for the button 70 px above the bottom edge: inside the zone.
+    move(800, 830, 0, 230, button)
+    step(90) // ~1.5 s resting on it
+    expect(panBy).not.toHaveBeenCalled()
+    act(() => {
+      button.dispatchEvent(new MouseEvent('mousedown', { clientX: 800, clientY: 830, bubbles: true }))
+      button.dispatchEvent(new MouseEvent('mouseup', { clientX: 800, clientY: 830, bubbles: true }))
+    })
+    move(800, 830, 0, 0, button) // Chromium's fake move after the click
+    step(90)
+    expect(panBy).not.toHaveBeenCalled()
+    expect(h.result.current.bottom).toBe(0)
+    button.remove()
+    h.unmount()
+  })
+
+  it('the same reach onto the desk itself, not a control, still pans (edge-pan is not switched off)', async () => {
+    const h = await mount()
+    move(800, 600, 0, 4)
+    move(800, 860, 0, 260) // 40 px from the bottom, over the bare desk
+    step(10)
+    expect(panBy).toHaveBeenCalled()
+    const [, dy] = panBy.mock.calls.at(-1)!
+    expect(dy).toBeLessThan(0) // bottom edge → world moves up
+    h.unmount()
+  })
+
+  it('a click on the desk in the zone stops the pan; moving on starts it again', async () => {
+    const h = await mount()
+    move(800, 600, 0, 4)
+    move(800, 860, 0, 260)
+    step(5)
+    expect(panBy).toHaveBeenCalled()
+    act(() => {
+      el.dispatchEvent(new MouseEvent('mousedown', { clientX: 800, clientY: 860, bubbles: true }))
+    })
+    panBy.mockClear()
+    step(60)
+    expect(panBy).not.toHaveBeenCalled()
+    move(800, 870, 0, 10)
+    step(5)
+    expect(panBy).toHaveBeenCalled()
+    h.unmount()
+  })
+
+  it('dragging a widget over a button at the edge still pans', async () => {
+    const h = await mount()
+    const button = document.createElement('button')
+    el.appendChild(button)
+    move(800, 600, 0, 4)
+    act(() => el.dispatchEvent(new MouseEvent('mousedown', { clientX: 800, clientY: 600, bubbles: true })))
+    act(() => document.documentElement.classList.add('fb-canvas-dragging'))
+    await Promise.resolve() // MutationObserver delivery
+    move(800, 860, 0, 260, button)
+    step(10)
+    expect(panBy).toHaveBeenCalled()
+    button.remove()
     h.unmount()
   })
 

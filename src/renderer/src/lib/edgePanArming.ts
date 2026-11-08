@@ -30,6 +30,23 @@
 // it back out to an edge pans the desk as it should. A drag that starts on the
 // desk (a widget, a row out of a sheet on the desk) and plain hover are not
 // affected: they arm on a real move into the zone, as above.
+//
+// And two for a hand that is not dragging anything (4.3.47). The zone is 80 px
+// deep, so a widget near the edge has its buttons inside it, and reaching for
+// one used to arm the pan: the desk crept away from under the hand at a few
+// px/s for as long as it rested there, which is the button sliding off the
+// pointer the moment it is clicked (the 4.3.46 RC's three "element is not
+// stable" e2e failures, and the owner's "the desk creeps when I click near its
+// bottom edge"). So:
+//   - a real move that ends ON A CONTROL (a button, a field, a link, a menu
+//     item; isEdgePanControl) is reaching for that control, not asking to pan:
+//     it disarms and does not arm. A fake move that slides a control under a
+//     resting pointer changes nothing, so a pan already running does not stall
+//     on every button it passes.
+//   - a press is acting on what is under the pointer: it disarms. The next
+//     real move into the zone arms again, so pressing on a widget's header and
+//     dragging it to the edge still pans.
+// A drag ignores both: dragging a widget over a button at the edge must pan.
 
 export interface PointerSample {
   clientX: number
@@ -49,9 +66,13 @@ export type PointerPlace = 'zone' | 'interior' | 'off'
 export interface EdgePanArming {
   /**
    * Feed one pointer event. `place` is where the position it implies falls.
+   * `onControl`: the event is over a control (isEdgePanControl) and nothing
+   * is being dragged; a real move onto one disarms instead of arming.
    * Returns whether edge-pan is armed after this event.
    */
-  observe(sample: PointerSample, place: PointerPlace): boolean
+  observe(sample: PointerSample, place: PointerPlace, onControl?: boolean): boolean
+  /** A press that is not a drag (yet): the hand is acting on what is under it. Disarms. */
+  pressed(): void
   /** Record where the pointer is without judging the zone (events off the canvas). */
   note(sample: PointerSample): void
   /** The cursor left the canvas or the surface changed: disarm. A drag's entry state is kept. */
@@ -81,18 +102,24 @@ export function createEdgePanArming(): EdgePanArming {
   }
 
   return {
-    observe(sample, place) {
+    observe(sample, place, onControl = false) {
       const didMove = moved(sample)
       last = { x: sample.clientX, y: sample.clientY }
       // Only the interior ends an outside drag's entry: passing over the dock
       // or the header on the way in is still "on the way in".
       if (place === 'interior') enteringFromOutside = false
       if (place !== 'zone' || enteringFromOutside) armed = false
-      else if (didMove) armed = true
+      // A real move in the zone arms, unless it ended on a control: that is a
+      // hand reaching for a button, not for the edge.
+      else if (didMove) armed = !onControl
       // In the zone without moving: keep whatever state we had. An armed pan
-      // carries on (the hand is holding still at the edge); an unarmed cursor
-      // that the zone slid under stays unarmed.
+      // carries on (the hand is holding still at the edge, or the desk slid a
+      // button under it); an unarmed cursor that the zone slid under stays
+      // unarmed.
       return armed
+    },
+    pressed() {
+      armed = false
     },
     note(sample) {
       last = { x: sample.clientX, y: sample.clientY }
@@ -126,6 +153,51 @@ export function createEdgePanArming(): EdgePanArming {
  * on has to sit clear of it, or reaching for it pans it away.
  */
 export const EDGE_PAN_MARGIN = 80
+
+/**
+ * What a hand reaches for rather than pans past: native controls, their ARIA
+ * equivalents, editable text, and anything that opts in with
+ * data-edge-pan-quiet. A widget's frame and body are not controls, so resting
+ * on a sticky's paper or a chart at the edge still pans.
+ */
+const CONTROL_SELECTOR = [
+  'button',
+  'a[href]',
+  'input',
+  'select',
+  'textarea',
+  'summary',
+  'label',
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="slider"]',
+  '[role="spinbutton"]',
+  '[role="combobox"]',
+  '[role="option"]',
+  '[role="textbox"]',
+  '[contenteditable="true"]',
+  '[contenteditable=""]',
+  '[contenteditable="plaintext-only"]',
+  '[data-edge-pan-quiet]'
+].join(',')
+
+/**
+ * Is `target` (an event's target) on a control inside `within` (the canvas)?
+ * A control outside it is not this hook's business: the floating menus have
+ * their own rule (lib/floatingChrome).
+ */
+export function isEdgePanControl(target: EventTarget | null, within: Element | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return false
+  const hit = target.closest(CONTROL_SELECTOR)
+  return !!hit && (!within || within.contains(hit))
+}
 
 /** Whether a canvas-relative point is inside the edge zone of a `width` x `height` viewport. */
 export function isInEdgeZone(

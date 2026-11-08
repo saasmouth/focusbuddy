@@ -1,5 +1,6 @@
 import type { FbNode, NodeKind, SectionLayout, Widget, DocType } from '@shared/types'
 import { MAX_SYNCED_FILE_BYTES } from '@shared/fileSyncLimits'
+import { PRIVATE_WIDGET_KINDS, placeholderReasonFor } from '@shared/publicDesk'
 
 // Snapshot shapes — the on-the-wire contract between desktop, signal
 // server, and public viewer. Versioned via `_version` so we can evolve
@@ -208,7 +209,43 @@ function serializeNode(n: FbNode): SerializedNode {
   }
 }
 
-function serializeWidget(w: Widget): SerializedWidget {
+// A private work widget (publicDesk.ts PRIVATE_WIDGET_KINDS: an agent's
+// instructions, a webhook's URL and secret, somebody's mail, a meeting record)
+// never leaves the sender's computer in a snapshot. Every snapshot is served to
+// whoever holds the link, signed in or not (GET /share/:token), so it goes as a
+// note in its place, the size it was, saying what it is -- exactly as a desk
+// link and a live link carry it (deskBundle.ts publicWidgetRow). Owner,
+// 2026-11-08: "webhook secrets and agent instructions stay hidden for security".
+/** A private work widget a snapshot left behind, for the sender's own eyes. */
+export interface SnapshotPrivateKept {
+  widgetId: string
+  kind: string
+  label: string
+  title: string
+}
+
+function serializeWidget(w: Widget, kept?: SnapshotPrivateKept[]): SerializedWidget {
+  if (PRIVATE_WIDGET_KINDS.has(w.kind)) {
+    kept?.push({
+      widgetId: w.id,
+      kind: w.kind,
+      label: placeholderReasonFor(w.kind).replace(/\s+—\s+not available publicly$/i, ''),
+      title: w.title || ''
+    })
+    return {
+      id: w.id,
+      kind: 'sticky',
+      title: '',
+      content: placeholderReasonFor(w.kind),
+      x: w.x,
+      y: w.y,
+      width: w.width,
+      height: w.height,
+      color: null,
+      parentSectionId: w.parentSectionId ?? null,
+      layout: null
+    }
+  }
   return {
     id: w.id,
     kind: w.kind,
@@ -232,13 +269,15 @@ function serializeWidget(w: Widget): SerializedWidget {
 // API; the table-widget table data is fetched separately and inlined.
 export async function buildTaskSnapshot(
   task: FbNode,
-  fromHandle: string
+  fromHandle: string,
+  // Told which private work widgets stayed behind as notes, when given.
+  kept?: SnapshotPrivateKept[]
 ): Promise<TaskSnapshot> {
   const widgets = await window.api.widgets.listByTask(task.id)
   const serializedWidgets: SerializedWidget[] = []
   for (const w of widgets) {
     if (w.archived) continue
-    const base = serializeWidget(w)
+    const base = serializeWidget(w, kept)
     // Expand table widgets — the user wants to see the data, not a
     // "this is a table" placeholder. Cap rows to keep snapshot size sane.
     if (w.kind === 'table' && w.content) {
@@ -283,7 +322,8 @@ export async function buildTaskSnapshot(
 export async function buildFolderSnapshot(
   folder: FbNode,
   allNodes: FbNode[],
-  fromHandle: string
+  fromHandle: string,
+  kept?: SnapshotPrivateKept[]
 ): Promise<FolderSnapshot> {
   // Collect descendant TASKS only (folders inside folders become flat).
   function descendantTasks(parentId: string): FbNode[] {
@@ -299,7 +339,7 @@ export async function buildFolderSnapshot(
   const tasks = descendantTasks(folder.id)
   const taskSnapshots: SerializedTask[] = []
   for (const t of tasks) {
-    const ts = await buildTaskSnapshot(t, fromHandle)
+    const ts = await buildTaskSnapshot(t, fromHandle, kept)
     taskSnapshots.push(ts.task)
   }
   return {
@@ -315,9 +355,10 @@ export async function buildFolderSnapshot(
 // Build a snapshot for a single widget. Lightweight — no descendants.
 export async function buildWidgetSnapshot(
   widget: Widget,
-  fromHandle: string
+  fromHandle: string,
+  kept?: SnapshotPrivateKept[]
 ): Promise<WidgetSnapshot> {
-  const base = serializeWidget(widget)
+  const base = serializeWidget(widget, kept)
   if (widget.kind === 'table' && widget.content) {
     try {
       const tbl = await window.api.tables.get(widget.content)

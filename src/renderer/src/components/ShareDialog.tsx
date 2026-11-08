@@ -17,8 +17,10 @@ import {
   buildWidgetSnapshot,
   buildFileSnapshot,
   generateAnonymousHandle,
-  MAX_PUBLIC_FILE_BYTES
+  MAX_PUBLIC_FILE_BYTES,
+  type SnapshotPrivateKept
 } from '../lib/shareSnapshot'
+import { describePrivateKept } from '../lib/ephemeralShareClient'
 import { buildDocumentSnapshot, buildFolderShareSnapshot } from '../lib/officeShareSnapshot'
 import Icon from './Icon'
 import DeskShareSheet from './share/DeskShareSheet'
@@ -97,6 +99,8 @@ export default function ShareDialog({
   // The most recently minted link — surfaced prominently so the user sees
   // what to copy without scrolling the existing-links list.
   const [fresh, setFresh] = useState<ShareLink | null>(null)
+  // Private work widgets the fresh link kept on this computer (4.3.47).
+  const [keptNote, setKeptNote] = useState<string | null>(null)
   // Invite-by-email state.
   const invite = useSharesStore((s) => s.invite)
   const recipientsByEntity = useSharesStore((s) => s.recipientsByEntity)
@@ -210,19 +214,20 @@ export default function ShareDialog({
       // For a raw-file share the bytes are hosted publicly against the token, so
       // they are read here and handed to the store to upload after the mint.
       let fileBlob: { bytes: ArrayBuffer; mimeType: string; ext: string } | undefined
+      const kept: SnapshotPrivateKept[] = []
       try {
         if (kind === 'folder') {
           const nodes = useNodeStore.getState().nodes
           const node = nodes.find((n) => n.id === entityId)
-          if (node) snapshot = await buildFolderSnapshot(node, nodes, fromHandle)
+          if (node) snapshot = await buildFolderSnapshot(node, nodes, fromHandle, kept)
         } else if (kind === 'task') {
           const nodes = useNodeStore.getState().nodes
           const node = nodes.find((n) => n.id === entityId)
-          if (node) snapshot = await buildTaskSnapshot(node, fromHandle)
+          if (node) snapshot = await buildTaskSnapshot(node, fromHandle, kept)
         } else if (kind === 'widget') {
           const widgets = useWidgetStore.getState().widgets
           const widget = widgets.find((w) => w.id === entityId)
-          if (widget) snapshot = await buildWidgetSnapshot(widget, fromHandle)
+          if (widget) snapshot = await buildWidgetSnapshot(widget, fromHandle, kept)
         } else if (kind === 'document') {
           const doc = await window.api.documents.get(entityId)
           if (doc) snapshot = buildDocumentSnapshot(doc, fromHandle)
@@ -264,6 +269,7 @@ export default function ShareDialog({
         fileBlob
       })
       setFresh(created)
+      setKeptNote(describePrivateKept(kept) || null)
       // Auto-copy fresh links so the common path is one click → in
       // clipboard. The success animation on the chip confirms it landed.
       await copyToClipboard(viewerUrlFor(created.token), created.id)
@@ -416,6 +422,11 @@ export default function ShareDialog({
                   <Icon name="content_copy" size={12} />
                 </button>
               </div>
+              {keptNote && (
+                <p className="text-[10.5px] text-amber-600 leading-snug" role="status" data-testid="share-kept-note">
+                  {keptNote}
+                </p>
+              )}
             </div>
           )}
 
