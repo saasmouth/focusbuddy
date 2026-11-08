@@ -190,9 +190,13 @@ describe('the one channel that packs a link', () => {
     const start = ipc.indexOf("ipcMain.handle('shares:buildDeskBundle'")
     expect(start).toBeGreaterThan(-1)
     const handler = ipc.slice(start, ipc.indexOf('ipcMain.handle(', start + 1))
-    // The only option the handler passes is the presentation; the budgets are
-    // buildDeskBundle's defaults.
-    expect(handler).toContain('buildDeskBundle(id, resolved ? { presentation: resolved.input } : {})')
+    // The handler passes who may fetch it (since 4.3.47 a link to use is
+    // public: private work widgets stay home), the list it reports them in,
+    // and the presentation -- never a budget: those are buildDeskBundle's
+    // defaults.
+    expect(handler.replace(/\s+/g, ' ')).toContain(
+      "buildDeskBundle(id, { audience: 'public', privateKept, ...(resolved ? { presentation: resolved.input } : {}) })"
+    )
     expect(handler).not.toMatch(/maxBytes|maxBodyBytes/)
   })
 })
