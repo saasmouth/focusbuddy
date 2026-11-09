@@ -27,6 +27,16 @@ describe('assemble — bring a widget onto a desk', () => {
     ;(window as unknown as { api: unknown }).api = { widgets: { update, create } }
   })
 
+  it('a widget nobody sized takes the standard size when it moves to another desk', async () => {
+    await bringWidgetToDesk(w({ kind: 'doc', width: 860, height: 760 }), 'deskB', { synced: false })
+    expect(create.mock.calls[0][0]).toMatchObject({ width: 960, height: 660 })
+  })
+
+  it('a widget somebody sized keeps that size when it moves', async () => {
+    await bringWidgetToDesk(w({ kind: 'doc', width: 700, height: 500 }), 'deskB', { synced: false })
+    expect(create.mock.calls[0][0]).toMatchObject({ width: 700, height: 500 })
+  })
+
   it('test_synced_copy_shares_a_new_group_and_stamps_the_source', async () => {
     await bringWidgetToDesk(w({ syncGroupId: null }), 'deskB', { synced: true, x: 40, y: 40 })
     // Source gets a fresh group, and the copy is created into deskB sharing it.

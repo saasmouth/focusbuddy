@@ -1,3 +1,4 @@
+import { startSizeFor } from '@shared/widgetStartSizes'
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { adoptWidgetAsFile, syncWidgetFileFromInstance } from './widgetFiles'
@@ -208,8 +209,9 @@ export function createWidget(draft: WidgetDraft): Widget {
     // Stored at the size the frame renders: never below the kind's minimum
     // (an API, agent or MCP create can ask for less than the canvas allows).
     ...clampToKindMin(draft.kind, {
-      width: draft.width ?? (draft.kind === 'webview' ? 520 : draft.kind === 'living-doc' ? 500 : 260),
-      height: draft.height ?? (draft.kind === 'webview' ? 360 : draft.kind === 'living-doc' ? 400 : 200)
+      // No size given (an agent, MCP, a digest): the standard, not a guess.
+      width: draft.width ?? startSizeFor(draft.kind)?.width ?? 260,
+      height: draft.height ?? startSizeFor(draft.kind)?.height ?? 200
     }),
     zIndex: nextZ(draft.taskId),
     color: draft.color ?? null,

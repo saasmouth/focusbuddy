@@ -47,6 +47,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     highlights: [
       'Open This Room in Plexii: PlexiiLite hands the room to Plexii, which makes a new desk with its own copy of the files, on the canvas or in the Workcentre, wherever the room was. If you are not signed in yet, Plexii waits until you are.',
       'Plexii asks first and tells you what will come in and what will be left out and why. A room can bring up to 200 files and 1 GB. Sub-folders and files that are only in iCloud stay behind, and each one is named.',
+      'New work widgets, apps and browser windows start at a size that suits what they hold, and land neatly on the desk\'s grid. Spreadsheets, slides and designs placed on a desk start with PlexiiAssist closed, so the work gets the room. Anything already on your desks stays exactly as you left it.',
       'Also fixed: a picture you have resized no longer springs back to its original size each time its desk opens.'
     ]
   },

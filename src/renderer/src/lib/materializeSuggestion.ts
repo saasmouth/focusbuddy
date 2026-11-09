@@ -16,7 +16,7 @@
 
 import type { AiBuildSuggestion } from '@shared/types'
 import { cellsFromAiRow } from './actionExecutor'
-import { tableFitWidth } from '@shared/widgetSizing'
+import { tableBornWidth } from '@shared/widgetSizing'
 
 export interface Materialized {
   content: string
@@ -57,8 +57,8 @@ export async function materializeSuggestion(
       })
       content = created.id
       // Wide enough to show every column it was just given. The catalog's
-      // 680px predates the columns; here they exist, so measure instead.
-      width = tableFitWidth(s.tableSchema.columns.length)
+      // 740px predates the columns; here they exist, so measure instead.
+      width = tableBornWidth(s.tableSchema.columns.length)
       // Rows the AI researched arrive WITH the table (ADR-0011). Created
       // after the table and before the widget is spawned, so the grid's first
       // render already has them — a table that pops in empty and fills a

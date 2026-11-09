@@ -1,3 +1,4 @@
+import { WIDGET_START_SIZES } from '@shared/widgetStartSizes'
 import { create } from 'zustand'
 import type { ActionProposal } from '@shared/types'
 import { useMeetingsStore } from './meetings'
@@ -448,12 +449,13 @@ async function runWrapup(
           .create({ taskId: desk.id, kind: 'meeting-record', content: meeting.id, x: 40, y: 40, width: 420, height: 440 })
           .catch(() => null)
         let x = 500
+        const doc = WIDGET_START_SIZES.doc
         for (const docId of [transcriptDocId].filter((d): d is string => !!d)) {
           await useWidgetStore
             .getState()
-            .create({ taskId: desk.id, kind: 'doc', content: docId, x, y: 40, width: 560, height: 420 })
+            .create({ taskId: desk.id, kind: 'doc', content: docId, x, y: 40, width: doc.width, height: doc.height })
             .catch(() => null)
-          x += 600
+          x += doc.width + 40
         }
         await window.api.meetings.update(meeting.id, { deskNodeId: desk.id }).catch(() => null)
       }

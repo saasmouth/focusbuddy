@@ -1,7 +1,9 @@
 // How big a thing dropped on a desk is allowed to be.
 //
 // "Apps when dragged to the desk should be no larger than 3/4 of the view
-// width and 3/4 of the view height."
+// width and 3/4 of the view height." (The owner's starting-sizes standard of
+// 2026-11-09 moved that to 4/5: its browser is 80% of a default workspace, and
+// a lower cap would shrink it off the size the standard chose.)
 //
 // The browser widget opens at 1920×1080 on purpose — sites lay out for that
 // width, so a page renders the way it was designed rather than in a narrowed
@@ -23,8 +25,10 @@
 // scaled by the same factor, so a dropped app keeps its proportions and simply
 // arrives smaller.
 
+import { GRID } from './canvasGrid'
+
 /** The fraction of the visible canvas a dropped widget may occupy. */
-export const DROP_VIEW_FRACTION = 0.75
+export const DROP_VIEW_FRACTION = 0.8
 
 /**
  * Never shrink below this, even in a very small window.
@@ -70,8 +74,9 @@ export function fitDroppedWidget(
   if (scale >= 1) return { width, height }
 
   return {
-    width: Math.max(MIN_DROP_WIDTH, Math.round(width * scale)),
-    height: Math.max(MIN_DROP_HEIGHT, Math.round(height * scale))
+    // Down to the canvas grid, so a shrunk widget still lands on it.
+    width: Math.max(MIN_DROP_WIDTH, Math.floor((width * scale) / GRID) * GRID),
+    height: Math.max(MIN_DROP_HEIGHT, Math.floor((height * scale) / GRID) * GRID)
   }
 }
 

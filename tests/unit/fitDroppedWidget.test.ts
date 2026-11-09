@@ -35,7 +35,19 @@ describe('a dropped app fits the view', () => {
     // Clamping each side independently would turn a 16:9 browser into
     // whatever shape the window happens to be.
     const { width, height } = fitDroppedWidget(1920, 1080, VIEW_W, VIEW_H, 1)
-    expect(width / height).toBeCloseTo(1920 / 1080, 2)
+    // Within a grid step: a shrunk size is rounded down onto the 20 px grid.
+    expect(Math.abs(width / height - 1920 / 1080)).toBeLessThan(0.05)
+  })
+
+  it('lands a shrunk widget on the canvas grid', () => {
+    const { width, height } = fitDroppedWidget(1920, 1080, 1333, 907, 1)
+    expect(width % 20).toBe(0)
+    expect(height % 20).toBe(0)
+  })
+
+  it('leaves the standard browser and Write alone in a default workspace', () => {
+    expect(fitDroppedWidget(1060, 600, 1328, 891, 1)).toEqual({ width: 1060, height: 600 })
+    expect(fitDroppedWidget(960, 660, 1328, 891, 1)).toEqual({ width: 960, height: 660 })
   })
 
   it('leaves something that already fits completely alone', () => {
@@ -66,7 +78,7 @@ describe('the cap means what the user SEES, so zoom counts', () => {
   })
 
   it('at 50% zoom a 1920 browser fits untouched on this view', () => {
-    // 1400 / 0.5 * 0.75 = 2100 canvas units of room, so 1920 is fine.
+    // 1400 / 0.5 * 0.8 = 2240 canvas units of room, so 1920 is fine.
     expect(fitDroppedWidget(1920, 1080, VIEW_W, VIEW_H, 0.5).width).toBe(1920)
   })
 })

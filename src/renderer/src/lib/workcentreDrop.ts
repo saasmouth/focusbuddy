@@ -33,7 +33,7 @@ export function dropSizeFor(types: readonly string[]): { w: number; h: number } 
   if (has(FILES_DRAG_MIME) || has('Files')) return catalogSize('file', 360, 280)
   if (has(CONNECTED_APP_DRAG_MIME) || has('text/uri-list')) return catalogSize('webview', 560, 400)
   if (has(WIDGET_NEW_FILE_DRAG_MIME) || has(WIDGET_FILE_DRAG_MIME) || has(DRAG_MIME)) return { w: 320, h: 240 }
-  if (has(DOC_DRAG_TYPE) || has(DOC_DRAG_MIME)) return { w: 520, h: 400 }
+  if (has(DOC_DRAG_TYPE) || has(DOC_DRAG_MIME)) return catalogSize('doc', 520, 400)
   if (has('text/fb-task-link')) return catalogSize('task-link', 280, 120)
   return null
 }

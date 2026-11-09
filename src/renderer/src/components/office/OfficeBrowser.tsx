@@ -12,6 +12,7 @@
 // the address grammar and every hard-won webview rule are shared rather than
 // reimplemented — a fix there fixes this too.
 
+import { catalogFor } from '../../lib/widgetCatalog'
 import { useEffect, useRef, useState } from 'react'
 import BrowserSurface, { type WebviewEl } from '../browser/BrowserSurface'
 import AgentRunDock from '../browser/AgentRunDock'
@@ -96,8 +97,8 @@ export default function OfficeBrowser(): JSX.Element {
         kind: 'webview',
         title: title || currentUrl.current,
         content: currentUrl.current,
-        width: 520,
-        height: 380
+        width: catalogFor('webview')?.defaultWidth,
+        height: catalogFor('webview')?.defaultHeight
       })
       const desk = desks.find((d) => d.id === deskId)
       useNoticeStore.getState().show({

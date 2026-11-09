@@ -388,6 +388,7 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   } else if (docType === 'sheet') {
     body = (
       <SheetEditor
+        onDesk
         key={`${doc.id}:${bodyEpoch}`}
         body={doc.body as SheetBody}
         title={doc.title}
@@ -396,9 +397,9 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
       />
     )
   } else if (docType === 'slides') {
-    body = <SlidesEditor key={`${doc.id}:${bodyEpoch}`} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <SlidesEditor onDesk key={`${doc.id}:${bodyEpoch}`} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else if (docType === 'design') {
-    body = <DesignEditor key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <DesignEditor onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else if (docType === 'draw') {
     body = <DrawStudio key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else {

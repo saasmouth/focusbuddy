@@ -1,4 +1,5 @@
 import type { Widget } from '@shared/types'
+import { sizeWhenMoved } from '@shared/widgetStartSizes'
 
 // Bring a copy of an existing widget onto another desk. Two modes, matching the
 // SyncWidgetPicker / duplicate-synced behaviour:
@@ -36,8 +37,8 @@ export async function bringWidgetToDesk(
     content: source.content,
     x: opts.x ?? source.x,
     y: opts.y ?? source.y,
-    width: source.width,
-    height: source.height,
+    // Never sized by anybody: the standard. Sized by somebody: as they left it.
+    ...sizeWhenMoved(source.kind, source.width, source.height),
     color: source.color,
     sourceAppId: source.sourceAppId,
     mode: source.mode,

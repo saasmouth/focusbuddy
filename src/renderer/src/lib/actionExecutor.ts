@@ -29,7 +29,7 @@ import { useMessagingStore } from '../stores/messaging'
 import { useViewStore } from '../stores/view'
 import { useNoticeStore } from '../stores/notice'
 import { catalogFor } from './widgetCatalog'
-import { tableFitWidth } from '@shared/widgetSizing'
+import { tableBornWidth } from '@shared/widgetSizing'
 import { applyCreateWidgetFile, applyUpdateWidgetFile } from './widgetFileActions'
 import { applyDeleteWidget, deleteWidgetVerb } from './deleteWidgetAction'
 import { spawnPositionFor } from './spawnPosition'
@@ -1441,8 +1441,8 @@ async function applyCreateTable(
   })
   const entry = catalogFor('table')
   // Born wide enough to show every column it was just given. The catalog's
-  // 680px is a guess made before the columns existed; here they do.
-  const width = tableFitWidth(schema.columns)
+  // 740px is a guess made before the columns existed; here they do.
+  const width = tableBornWidth(schema.columns)
   const height = entry?.defaultHeight ?? 440
   await useWidgetStore.getState().create({
     taskId: ctx.activeTaskId,

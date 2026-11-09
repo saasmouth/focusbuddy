@@ -6,11 +6,11 @@ import type { Widget } from '../../src/shared/types'
 
 const entry = (kind: string) => WIDGET_CATALOG.find((e) => e.kind === kind)
 
-describe('browser opens at a full desktop viewport', () => {
-  it('defaults to 1920 x 1080', () => {
+describe('browser starts just above where sites go to a tablet layout', () => {
+  it('defaults to 1060 x 600', () => {
     const web = entry('webview')
-    expect(web?.defaultWidth).toBe(1920)
-    expect(web?.defaultHeight).toBe(1080)
+    expect(web?.defaultWidth).toBe(1060)
+    expect(web?.defaultHeight).toBe(600)
   })
 
   it('does not let that width distort a desk column', () => {

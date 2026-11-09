@@ -119,6 +119,11 @@ const SHEET_KINDS: SnippetKind[] = officeAccepts('sheet')
 // number.
 
 interface Props {
+  /**
+   * Placed on a desk, where the standard starts the side panel closed: at a
+   * desk's size it would take about a third of the editor. Opening it still works.
+   */
+  onDesk?: boolean
   body: SheetBody
   title: string
   onChange: (body: SheetBody) => void
@@ -268,7 +273,7 @@ function computeFuncMenu(value: string): FuncMenu | null {
   return { items, tokenStart, query }
 }
 
-export default function SheetEditor({ body: rawBody, title, onChange, documentOps, readOnly = false }: Props): JSX.Element {
+export default function SheetEditor({ body: rawBody, title, onChange, documentOps, readOnly = false, onDesk = false }: Props): JSX.Element {
   const [body, setBody] = useState<SheetBodyV2>(() => normalizeBody(rawBody))
   // Accept live external updates (co-editing): when the body prop changes to a
   // new version, fold it into the grid. We deliberately do NOT touch the active
@@ -298,7 +303,8 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
   const docRef = useRef<OfficeCommand[]>([])
   const [pageSetupOpen, setPageSetupOpen] = useState(false)
   // The right-side AI Assistant panel is shown by default and is collapsible.
-  const [aiPanelOpen, setAiPanelOpen] = useState(true)
+  // On a desk it starts closed.
+  const [aiPanelOpen, setAiPanelOpen] = useState(!onDesk)
   const [liveWidth, setLiveWidth] = useState<{ c: number; w: number } | null>(null)
   const [liveHeight, setLiveHeight] = useState<{ r: number; h: number } | null>(null)
   const [status, setStatus] = useState<string | null>(null)

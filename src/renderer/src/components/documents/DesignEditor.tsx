@@ -110,6 +110,11 @@ import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter,
 // AI image generation, brand colors, and per-element styling.
 
 interface Props {
+  /**
+   * Placed on a desk, where the standard starts the side panel closed: at a
+   * desk's size it would take about a third of the editor. Opening it still works.
+   */
+  onDesk?: boolean
   content: unknown
   title: string
   onChange: (body: unknown) => void
@@ -207,7 +212,8 @@ export default function DesignEditor({
   onChange,
   documentOps,
   readOnly = false,
-  foldExternal = false
+  foldExternal = false,
+  onDesk = false
 }: Props): JSX.Element {
   const [design, setDesign] = useState<DesignBody>(() => normalizeDesignBody(content))
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -302,6 +308,7 @@ export default function DesignEditor({
   // Diagrams and Write do; PlexiiAssist is the default so the assistant stays
   // discoverable.
   const [sidePane, setSidePane] = useState<string | null>(() => {
+    if (onDesk) return null
     try {
       const v = localStorage.getItem(SIDE_PANE_KEY)
       return v === null ? 'assist' : (JSON.parse(v) as string | null)

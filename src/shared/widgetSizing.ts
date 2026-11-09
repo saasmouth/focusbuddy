@@ -1,4 +1,5 @@
 import type { WidgetKind } from './types'
+import { WIDGET_START_SIZES } from './widgetStartSizes'
 
 // The smallest a work widget, file or tool can be made, in CSS pixels, shared by
 // the free canvas (react-rnd's minWidth/minHeight) and the Workcentre view (its
@@ -50,10 +51,10 @@ const SELF_SIZED: ReadonlySet<string> = new Set(['section', 'minimap'])
 
 // ── Tables: wide enough to show their columns ───────────────────────────────
 //
-// The catalog spawns every table at 680px (2026-10-30: "make tables large
-// enough to show all columns by default"). That fits three columns and the
-// add-column gutter; a table with six was born needing a horizontal scroll to
-// see what it was for, which is the one thing a table must not hide.
+// The catalog spawns every table at 740px, which fits four columns (2026-10-30:
+// "make tables large enough to show all columns by default"). A table with six
+// was born needing a horizontal scroll to see what it was for, which is the one
+// thing a table must not hide; the standard opens that one at 1,060.
 //
 // These mirror TableWidget's own geometry. They live here, in shared, because
 // the size has to be decided where the widget is CREATED — in the renderer's
@@ -66,8 +67,8 @@ export const TABLE_ROW_HANDLE_W = 32
 export const TABLE_ADD_COL_W = 64
 /** A column with no widthHint of its own. */
 export const TABLE_DEFAULT_COL_W = 160
-/** Frame border plus a scrollbar gutter. Generous: too wide is a non-event, too narrow is the bug. */
-export const TABLE_FRAME_CHROME_W = 16
+/** The frame's border, which is what makes four columns exactly the standard's 740. */
+export const TABLE_FRAME_CHROME_W = 4
 /**
  * The widest a table is BORN. Past this a horizontal scroll is the better
  * answer — a 12-column table opened at 2000px would not fit the screen, and a
@@ -93,7 +94,17 @@ export function tableFitWidth(
       ? columns * TABLE_DEFAULT_COL_W
       : columns.reduce((t, c) => t + (c.widthHint ?? TABLE_DEFAULT_COL_W), 0)
   const needed = TABLE_ROW_HANDLE_W + TABLE_ADD_COL_W + sum + TABLE_FRAME_CHROME_W
-  return Math.min(TABLE_MAX_BORN_W, Math.max(minSizeFor('table').w, needed))
+  // Up to the canvas's 20 px step, so a table lands on the grid like everything else.
+  return Math.min(TABLE_MAX_BORN_W, Math.max(minSizeFor('table').w, Math.ceil(needed / 20) * 20))
+}
+
+/**
+ * How wide a NEW table starts: wide enough for its columns, and never under the
+ * standard's table. Only for creating one. TableWidget widens an open table to
+ * tableFitWidth, and a floor there would resize tables already on desks.
+ */
+export function tableBornWidth(columns: Parameters<typeof tableFitWidth>[0]): number {
+  return Math.max(WIDGET_START_SIZES.table.width, tableFitWidth(columns))
 }
 
 /**

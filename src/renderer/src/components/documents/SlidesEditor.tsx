@@ -96,6 +96,11 @@ const writePref = (k: string, v: unknown): void => {
 const SLIDE_KINDS: SnippetKind[] = officeAccepts('slide')
 
 interface Props {
+  /**
+   * Placed on a desk, where the standard starts the side panel closed: at a
+   * desk's size it would take about a third of the editor. Opening it still works.
+   */
+  onDesk?: boolean
   body: SlidesBody
   title: string
   onChange: (body: SlidesBody) => void
@@ -122,7 +127,7 @@ interface Props {
   documentOps?: DocumentOps
 }
 
-export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false, singleSlide = false, documentOps }: Props): JSX.Element {
+export default function SlidesEditor({ body: rawBody, title, onChange, readOnly = false, singleSlide = false, documentOps, onDesk = false }: Props): JSX.Element {
   const [body, setBody] = useState<SlidesBody>(() => migrateSlidesBody(rawBody))
   // Accept live external updates (co-editing): fold a new body prop into the
   // deck without disturbing the current slide selection or any active element
@@ -161,6 +166,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // first time and is remembered after that.
   const sidePaneUnset = useRef(readPref<string | null | undefined>(SIDE_KEY, undefined) === undefined)
   const [sidePane, setSidePaneState] = useState<DeckSidePane | null>(() => {
+    if (onDesk) return null
     const v = readPref<string | null>(SIDE_KEY, 'ai')
     return v === 'ai' || v === 'generate' ? v : null
   })
