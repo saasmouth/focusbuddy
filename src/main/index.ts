@@ -34,6 +34,7 @@ import { getFile } from './db/files'
 import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
 import { registerDeepLinkProtocol } from './authProtocol'
+import { claimsDeepLinks } from '../shared/deepLink'
 import { installAutoUpdater, checkForUpdates } from './autoUpdate'
 import { detectOfficeBuild, detectPreviewBuild, productDisplayName } from './appMode'
 import { runDueFlows } from './db/flows'
@@ -329,8 +330,12 @@ function applyDisplayMediaHandler(ses: Electron.Session): void {
 // PlexiOffice must not claim the plexii:// scheme — only one app can own it, and
 // it belongs to PlexiDesk's web→desktop auth handoff. PlexiOffice still takes its
 // own single-instance lock (on its own userData) inside this call.
-// The preview must not steal plexii:// deep links from the production install.
-registerDeepLinkProtocol({ claimProtocol: !isOfficeBuild && !isPreviewBuild })
+// The preview must not steal plexii:// deep links from the production install,
+// and neither may a test run or an unpackaged run on macOS (shared/deepLink.ts
+// claimsDeepLinks says why).
+registerDeepLinkProtocol({
+  claimProtocol: claimsDeepLinks({ office: isOfficeBuild, preview: isPreviewBuild, packaged: app.isPackaged, platform: process.platform, env: process.env })
+})
 
 // Send a zoom command to the focused window's renderer, which owns the app-wide
 // UI scale (lib/uiScale.ts). Driving zoom from the menu this way keeps the

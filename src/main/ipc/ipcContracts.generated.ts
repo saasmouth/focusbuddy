@@ -226,6 +226,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'knowledge:get': [{ kind: 'string', optional: false, nullable: false }],
   'knowledge:search': [{ kind: 'string', optional: false, nullable: false }],
   'knowledge:update': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }],
+  'liteRoom:begin': [{ kind: 'string', optional: false, nullable: false }],
   'liveDesk:get': [{ kind: 'string', optional: false, nullable: false }],
   'liveDesk:note': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: true }],
   'liveDesk:publish': [{ kind: 'string', optional: false, nullable: false }, { kind: 'any', optional: false, nullable: false }],

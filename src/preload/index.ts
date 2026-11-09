@@ -4,6 +4,7 @@ import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { AppClipboardRead } from '@shared/appClipboard'
 import type { XlsxSheetRead } from '@shared/xlsxSheet'
+import type { LiteRoomBegin } from '@shared/liteRoom'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -3003,6 +3004,19 @@ const api = {
       const handler = (_: unknown, pending: { id: string; at: number }): void => cb(pending)
       ipcRenderer.on('deskHandoff:incoming', handler)
       return () => ipcRenderer.removeListener('deskHandoff:incoming', handler)
+    }
+  },
+  // "Open This Room in Plexii": a room PlexiiLite handed over by a
+  // plexii://lite-room?id=<id> link (main/liteRoomReceiver.ts). Kept by main until
+  // someone is signed in; begin reads it, asks the person, and brings it in on yes.
+  liteRoom: {
+    pending: (): Promise<{ id: string; at: number } | null> => ipcRenderer.invoke('liteRoom:pending'),
+    clear: (id?: string): Promise<boolean> => ipcRenderer.invoke('liteRoom:clear', id),
+    begin: (id: string): Promise<LiteRoomBegin> => ipcRenderer.invoke('liteRoom:begin', id),
+    onIncoming: (cb: (pending: { id: string; at: number }) => void): (() => void) => {
+      const handler = (_: unknown, pending: { id: string; at: number }): void => cb(pending)
+      ipcRenderer.on('liteRoom:incoming', handler)
+      return () => ipcRenderer.removeListener('liteRoom:incoming', handler)
     }
   },
   // Meeting-join deep link (plexii://meet?room=...) from an invite email —

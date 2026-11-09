@@ -26,6 +26,8 @@ import { app, BrowserWindow } from 'electron'
 import { ALL_DEEP_LINK_SCHEMES, isDeepLinkArg, isKnownDeepLinkProtocol } from '@shared/deepLink'
 import { parseDeskHandoffLink } from '@shared/deskHandoff'
 import { receiveDeskHandoff } from './deskHandoffReceiver'
+import { parseLiteRoomLink } from '@shared/liteRoom'
+import { receiveLiteRoom } from './liteRoomReceiver'
 
 // Named in shared/deepLink.ts, because the renderer generates these links too
 // and the two must not drift. See that file for why both schemes are answered
@@ -222,6 +224,15 @@ function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
   const handoffId = parseDeskHandoffLink(url)
   if (handoffId) {
     receiveDeskHandoff(handoffId)
+    return
+  }
+  // And "Open This Room in Plexii" (plexii://lite-room?id=...) from PlexiiLite:
+  // a room it described in its own data folder, kept until someone is signed in,
+  // then read and ASKED about -- never brought in by the link alone
+  // (liteRoomReceiver.ts).
+  const liteRoomId = parseLiteRoomLink(url)
+  if (liteRoomId) {
+    receiveLiteRoom(liteRoomId)
     return
   }
   // And meeting-join links (plexii://meet?room=...) from an invite email.

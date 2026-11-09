@@ -104,6 +104,7 @@ import { join as pathJoin } from 'node:path'
 import { buildMeetingIcs } from '@shared/ics'
 import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeetRoom, consumePendingMdEditPath } from '../authProtocol'
 import { clearDeskHandoff, importDeskHandoff, pendingDeskHandoff } from '../deskHandoffReceiver'
+import { askWithDialog, beginLiteRoom, clearLiteRoom, pendingLiteRoom } from '../liteRoomReceiver'
 import { offlineSignInEmail, rememberOfflineSignIn, verifyOfflineSignIn } from '../db/offlineSignIn'
 import {
   checkForUpdates,
@@ -3558,6 +3559,18 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('deskHandoff:import', (_e, bundleText: string, accountId: string) =>
     importDeskHandoff(String(bundleText ?? ''), String(accountId ?? ''))
+  )
+  // "Open This Room in Plexii" (liteRoomReceiver.ts): a room PlexiiLite handed
+  // over, kept until someone is signed in. begin reads it, ASKS on the window
+  // that called (a native sheet; the window can't answer for the person), and
+  // brings it in on yes. Desktop only: the browser runtime has no PlexiiLite.
+  ipcMain.handle('liteRoom:pending', () => pendingLiteRoom())
+  ipcMain.handle('liteRoom:clear', (_e, id?: string) => {
+    clearLiteRoom(typeof id === 'string' ? id : undefined)
+    return true
+  })
+  ipcMain.handle('liteRoom:begin', (e, id: string) =>
+    beginLiteRoom(String(id ?? ''), askWithDialog(BrowserWindow.fromWebContents(e.sender)))
   )
   ipcMain.handle('mdext:get-pending', () => consumePendingMdEditPath())
 

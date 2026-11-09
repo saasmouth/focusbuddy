@@ -42,6 +42,7 @@ import CommandCenter from './components/CommandCenter'
 import MetricsOverlay from './components/MetricsOverlay'
 import LaunchSignInModal from './components/LaunchSignInModal'
 import DeskHandoffEffects from './components/DeskHandoffEffects'
+import LiteRoomEffects from './components/LiteRoomEffects'
 import { shareGate } from './lib/shareGate'
 import UpgradePromptModal from './components/UpgradePromptModal'
 import CreditPromptModal from './components/CreditPromptModal'
@@ -966,6 +967,9 @@ export default function App(): JSX.Element {
         {/* "Download this desk on Plexii", received: a visitor's copy of a
             shared desk, imported once someone is signed in. */}
         <DeskHandoffEffects />
+        {/* "Open This Room in Plexii", received: a room handed over by
+            PlexiiLite, asked about once someone is signed in. */}
+        <LiteRoomEffects />
         <CreditPromptModal />
         <LocalAiPrompts />
         <VerifyEmailModal />

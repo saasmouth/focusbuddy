@@ -36,6 +36,29 @@ export function isKnownDeepLinkProtocol(protocol: string): boolean {
   return ALL_DEEP_LINK_SCHEMES.some((s) => protocol === `${s}:`)
 }
 
+/**
+ * Whether this copy of the app asks the OS to send it plexii:// (and haptyx://)
+ * links. Only an installed Plexii: two apps can't both own a scheme, and the one
+ * that registers last takes every link.
+ *
+ *   - PlexiOffice and the preview never do (they did not before this rule).
+ *   - The e2e harness never does (NODE_ENV=test, a throwaway FB_TEST_USER_DATA):
+ *     a spec run on the owner's Mac would otherwise point plexii:// at the test
+ *     Electron, and every link the owner clicks (sign-in, shares, meetings,
+ *     "Open This Room in Plexii") would stop reaching the real app.
+ *   - An unpackaged run on macOS doesn't either: there the registration names the
+ *     bundle that is running, the bare Electron.app, so it steals the installed
+ *     Plexii's links. A developer testing deep links in dev can set
+ *     PLEXII_DEV_CLAIM_LINKS=1, knowing the installed app loses them until it is
+ *     next opened (it registers again at every launch).
+ */
+export function claimsDeepLinks(o: { office: boolean; preview: boolean; packaged: boolean; platform: string; env: Record<string, string | undefined> }): boolean {
+  if (o.office || o.preview) return false
+  if (o.env.NODE_ENV === 'test' || o.env.FB_TEST_USER_DATA) return false
+  if (!o.packaged && o.platform === 'darwin') return o.env.PLEXII_DEV_CLAIM_LINKS === '1'
+  return true
+}
+
 /** True if a raw argv entry is a deep link the app answers. */
 export function isDeepLinkArg(arg: string): boolean {
   return ALL_DEEP_LINK_SCHEMES.some((s) => arg.startsWith(`${s}://`))

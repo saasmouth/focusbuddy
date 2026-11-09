@@ -350,7 +350,22 @@ module.exports = {
       // key — no prompt, no error, just no audio. Added with the Electron 44
       // upgrade, because the old Electron never needed it and so never told us.
       NSAudioCaptureUsageDescription:
-        'PlexiiDesk captures the sound playing on this Mac when you mirror a screen or window onto a desk, so a mirrored meeting or video carries its audio. It is used only for the mirror you asked for.'
+        'PlexiiDesk captures the sound playing on this Mac when you mirror a screen or window onto a desk, so a mirrored meeting or video carries its audio. It is used only for the mirror you asked for.',
+      // "Open This Room in Plexii": PlexiiLite reads this key on the app macOS
+      // opens plexii:// links with before it offers to hand a room over, so a
+      // Plexii that can't take one is never sent one. The value is the highest
+      // handoff version this build reads: shared/liteRoom.ts LITE_ROOM_VERSION
+      // (tests/unit/liteRoom.test.ts keeps the two equal).
+      PlexiiTakesLiteRooms: 1,
+      // macOS asks the person once before Plexii first reads files in these
+      // folders (a room sent from PlexiiLite is usually in one). These are the
+      // reasons it shows; without them the question gives none.
+      NSDesktopFolderUsageDescription:
+        'PlexiiDesk reads the files you choose to bring in or work on from your Desktop, such as a room sent from PlexiiLite.',
+      NSDocumentsFolderUsageDescription:
+        'PlexiiDesk reads the files you choose to bring in or work on from your Documents folder, such as a room sent from PlexiiLite.',
+      NSDownloadsFolderUsageDescription:
+        'PlexiiDesk reads the files you choose to bring in or work on from your Downloads folder, such as a room sent from PlexiiLite.'
     },
     ...macSigning
   },

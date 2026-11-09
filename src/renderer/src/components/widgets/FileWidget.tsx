@@ -17,6 +17,7 @@ import { useSiteIcon } from '../../lib/siteIcon'
 import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
 import { readFilesDrag } from '../../lib/filesDrag'
 import { useNoticeStore } from '../../stores/notice'
+import { fitsPictureOnMount } from '../../lib/fileWidgetFit'
 
 interface Props {
   widget: Widget
@@ -68,7 +69,10 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
   // Track which content string has been auto-sized so we don't override a
   // user's manual resize on every re-render. Keyed by `content` because
   // replacing the file (drop a new one) is a legitimate trigger to re-size.
-  const autoSizedFor = useRef<string | null>(null)
+  // A widget mounting at a size somebody chose counts as already sized for its
+  // file (lib/fileWidgetFit.ts): the ref is new on every mount, so without this
+  // a resize was undone each time the desk opened.
+  const autoSizedFor = useRef<string | null>(fitsPictureOnMount(widget) ? null : content)
   function autoSizeOnce(newW: number, newH: number): void {
     if (autoSizedFor.current === content) return
     autoSizedFor.current = content
