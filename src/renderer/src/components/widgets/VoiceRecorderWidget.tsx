@@ -1,3 +1,4 @@
+import { startSizeFor } from '@shared/widgetStartSizes'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ActionProposal, AppliedProposal, Widget, WidgetKind } from '@shared/types'
 import ProposalCards from '../ProposalCards'
@@ -436,8 +437,7 @@ export default function VoiceRecorderWidget({ widget, inline = false }: Props): 
         content: text,
         x: widget.x + 40,
         y: widget.y + 40,
-        width: defaultsFor(targetKind).w,
-        height: defaultsFor(targetKind).h
+        ...(startSizeFor(targetKind) ?? { width: 420, height: 420 })
       })
       setDestinationOpen(false)
     } catch (err) {
@@ -1125,21 +1125,6 @@ function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function defaultsFor(kind: WidgetKind): { w: number; h: number } {
-  switch (kind) {
-    case 'sticky':
-      return { w: 240, h: 200 }
-    case 'note':
-      return { w: 360, h: 280 }
-    case 'markdown':
-      return { w: 460, h: 360 }
-    case 'page':
-      return { w: 480, h: 400 }
-    default:
-      return { w: 360, h: 280 }
-  }
 }
 
 function iconForKind(kind: WidgetKind): string {

@@ -25,7 +25,7 @@ Implemented in `src/renderer/src/components/widgets/DiagramWidget.tsx` as a
 React Flow (`@xyflow/react`) node and edge canvas wrapped in its own
 `ReactFlowProvider` so each diagram is an isolated flow instance. The kind is
 registered in `src/shared/types.ts`, listed in
-`src/renderer/src/lib/widgetCatalog.ts` (icon `schema`, default 760x520), and
+`src/renderer/src/lib/widgetCatalog.ts` (icon `schema`, default 740x520), and
 gated to Pro and Team in `src/renderer/src/lib/capabilityDefaults.ts` and
 `src/renderer/src/lib/gating.ts` under the `widget_diagram` capability. The whole
 graph serialises to `widget.content` as a single JSON blob of `{ nodes, edges }`,

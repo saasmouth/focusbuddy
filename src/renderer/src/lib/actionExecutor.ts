@@ -33,7 +33,7 @@ import { tableBornWidth } from '@shared/widgetSizing'
 import { applyCreateWidgetFile, applyUpdateWidgetFile } from './widgetFileActions'
 import { applyDeleteWidget, deleteWidgetVerb } from './deleteWidgetAction'
 import { spawnPositionFor } from './spawnPosition'
-import { computeSectionFrame, effectiveLayout } from './sectionGeometry'
+import { computeSectionFrame, sectionFrameOf } from './sectionGeometry'
 import { pickColors } from './sectionColors'
 import { serializeAgent, DEFAULT_AGENT } from './deskAgent'
 import { useCapabilityStore } from '../stores/capabilities'
@@ -739,7 +739,7 @@ async function applyGenerateDocument(
     kind: p.docType as WidgetKind,
     title: p.title,
     content: docId,
-    ...spawnPositionFor(entry?.defaultWidth ?? 640, entry?.defaultHeight ?? 480),
+    ...spawnPositionFor(entry?.defaultWidth ?? 640, entry?.defaultHeight ?? 480, p.docType as WidgetKind),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: null
@@ -782,7 +782,7 @@ async function applyCreateWidget(
     kind: p.widgetKind as WidgetKind,
     title: p.title ?? '',
     content,
-    ...spawnPositionFor(entry?.defaultWidth ?? 280, entry?.defaultHeight ?? 200),
+    ...spawnPositionFor(entry?.defaultWidth ?? 280, entry?.defaultHeight ?? 200, p.widgetKind),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: p.widgetKind === 'sticky' ? '#fef08a' : null
@@ -822,7 +822,7 @@ async function applyCreateAgent(
     kind: 'agent',
     title: p.title ?? 'Desk agent',
     content,
-    ...spawnPositionFor(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 300),
+    ...spawnPositionFor(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 300, 'agent'),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: null
@@ -868,7 +868,7 @@ async function applyOpenUrl(
     kind: 'webview',
     title: p.title ?? '',
     content: p.url,
-    ...spawnPositionFor(entry?.defaultWidth ?? 360, entry?.defaultHeight ?? 280),
+    ...spawnPositionFor(entry?.defaultWidth ?? 360, entry?.defaultHeight ?? 280, 'webview'),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: null
@@ -924,7 +924,7 @@ async function applyCreateTodoList(
     kind: 'markdown',
     title: p.title,
     content: md,
-    ...spawnPositionFor(entry?.defaultWidth ?? 280, entry?.defaultHeight ?? 220),
+    ...spawnPositionFor(entry?.defaultWidth ?? 280, entry?.defaultHeight ?? 220, 'markdown'),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: null
@@ -945,7 +945,7 @@ async function applyCreatePage(
     kind: 'page',
     title: p.title,
     content: p.content, // already serialized Tiptap JSON
-    ...spawnPositionFor(entry?.defaultWidth ?? 360, entry?.defaultHeight ?? 320),
+    ...spawnPositionFor(entry?.defaultWidth ?? 360, entry?.defaultHeight ?? 320, 'page'),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: null
@@ -1351,7 +1351,7 @@ async function applyCreateSection(
       let h = w.height
       if (w.kind === 'section') {
         const ch = all.filter((c) => c.parentSectionId === w.id)
-        h = computeSectionFrame(ch, effectiveLayout(w.layout)).height
+        h = sectionFrameOf(w, ch).height
       }
       return Math.max(maxY, w.y + h)
     }, 0)
@@ -1449,7 +1449,7 @@ async function applyCreateTable(
     kind: 'table',
     title: p.title,
     content: table.id,
-    ...spawnPositionFor(width, height),
+    ...spawnPositionFor(width, height, 'table'),
     width,
     height,
     color: null
@@ -1679,7 +1679,7 @@ async function applyCreateField(
     kind: 'field',
     title: p.label,
     content,
-    ...spawnPositionFor(entry?.defaultWidth ?? 240, entry?.defaultHeight ?? 160),
+    ...spawnPositionFor(entry?.defaultWidth ?? 240, entry?.defaultHeight ?? 160, 'field'),
     width: entry?.defaultWidth,
     height: entry?.defaultHeight,
     color: null

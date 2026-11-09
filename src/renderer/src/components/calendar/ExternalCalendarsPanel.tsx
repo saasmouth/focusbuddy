@@ -318,7 +318,7 @@ export default function ExternalCalendarsPanel(): JSX.Element {
           />
           <button
             type="button"
-            className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+            className="rounded-md bg-[rgb(var(--accent))] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
             disabled={busy || !feedUrl.trim()}
             onClick={() => void addFeed()}
           >
@@ -370,7 +370,7 @@ export default function ExternalCalendarsPanel(): JSX.Element {
                       className={`h-3 w-3 shrink-0 rounded-full border ${
                         c.enabled ? 'border-transparent' : 'border-[var(--ink-30)] bg-transparent'
                       }`}
-                      style={c.enabled ? { background: c.color ?? 'var(--accent)' } : undefined}
+                      style={c.enabled ? { background: c.color ?? 'rgb(var(--accent))' } : undefined}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12px] text-[var(--ink-90)]">

@@ -21,7 +21,7 @@ deciding anything."
 
 Rendered by `src/renderer/src/components/widgets/StickyWidget.tsx`. The widget
 kind is declared in `src/shared/types.ts` (line 13) and catalogued in
-`src/renderer/src/lib/widgetCatalog.ts` with a 240x200 default and an empty
+`src/renderer/src/lib/widgetCatalog.ts` with a 200x200 default and an empty
 default content. The content model is a single plain-text string stored in the
 widget's shared `content` field, the same field notes and markdown widgets use,
 so there is no sticky-specific table or store.

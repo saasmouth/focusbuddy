@@ -45,9 +45,10 @@ describe('a dropped app fits the view', () => {
     expect(height % 20).toBe(0)
   })
 
-  it('leaves the standard browser and Write alone in a default workspace', () => {
-    expect(fitDroppedWidget(1060, 600, 1328, 891, 1)).toEqual({ width: 1060, height: 600 })
-    expect(fitDroppedWidget(960, 660, 1328, 891, 1)).toEqual({ width: 960, height: 660 })
+  it('leaves the standard browser and Write alone on the default window', () => {
+    // The view is the whole canvas surface, which runs under the side menu.
+    expect(fitDroppedWidget(1060, 600, 1600, 891, 1)).toEqual({ width: 1060, height: 600 })
+    expect(fitDroppedWidget(960, 660, 1600, 891, 1)).toEqual({ width: 960, height: 660 })
   })
 
   it('leaves something that already fits completely alone', () => {
@@ -78,7 +79,7 @@ describe('the cap means what the user SEES, so zoom counts', () => {
   })
 
   it('at 50% zoom a 1920 browser fits untouched on this view', () => {
-    // 1400 / 0.5 * 0.8 = 2240 canvas units of room, so 1920 is fine.
+    // 1400 / 0.5 * 0.75 = 2100 canvas units of room, so 1920 is fine.
     expect(fitDroppedWidget(1920, 1080, VIEW_W, VIEW_H, 0.5).width).toBe(1920)
   })
 })
@@ -188,12 +189,12 @@ describe('every way a widget is born is capped', () => {
     // the size to position the grid. Capping only in the store would leave
     // one widget per row with a screen of empty space beside it.
     const build = canvas.slice(
-      canvas.indexOf('async function handleAiBuilderAccept'),
-      canvas.indexOf('cursorX += w + GAP')
+      canvas.indexOf('async function placeSuggestions'),
+      canvas.indexOf('// AI Builder accept path')
     )
     expect(build).toContain('fitDroppedWidget(')
-    expect(build).toContain('const w = fitted.width')
-    expect(build).toContain('const h = fitted.height')
+    expect(build).toContain('width: m.width ?? fitted.width')
+    expect(build).toContain('height: m.height ?? fitted.height')
   })
 })
 

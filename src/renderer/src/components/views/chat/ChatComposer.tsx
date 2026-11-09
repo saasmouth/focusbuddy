@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../../Icon'
 import { useMessagingStore } from '../../../stores/messaging'
 import { uploadAttachment, attachmentKindForMime, composeIntentDraft, type MessageAttachment } from '../../../lib/messagingClient'
@@ -23,7 +23,8 @@ export function ChatComposer({
   token,
   onSend,
   onTyping,
-  compact = false
+  compact = false,
+  compactBelow
 }: {
   conversationId: string
   token: string
@@ -33,7 +34,23 @@ export function ChatComposer({
    *  Meet is that), the voice-note mic INSIDE the message box at its right,
    *  attach · emoji · GIF kept, and a taller box that fills the width. */
   compact?: boolean
+  /** Lay out like compact whenever the composer is narrower than this many px. */
+  compactBelow?: number
 }): JSX.Element {
+  const root = useRef<HTMLDivElement>(null)
+  const [narrow, setNarrow] = useState(false)
+  useLayoutEffect(() => {
+    const el = root.current
+    if (!el || compactBelow === undefined) return
+    const measure = (): void => setNarrow(el.clientWidth < compactBelow)
+    measure()
+    const seen = new ResizeObserver(measure)
+    seen.observe(el)
+    return () => seen.disconnect()
+  }, [compactBelow])
+  // The box you type in gets the width. A narrow widget keeps its meeting door,
+  // because unlike the assistant panel its header has no Meet of its own.
+  const stacked = compact || narrow
   const [draft, setDraft] = useState('')
   // Consume an AI-queued draft for this conversation (post-chat proposal).
   // One-shot: clears the pending entry the moment it lands in the input.
@@ -244,7 +261,7 @@ export function ChatComposer({
   const canSend = (draft.trim().length > 0 || pending !== null) && !busy
 
   return (
-    <div className="px-4 py-3 border-t border-[var(--edge-soft)]">
+    <div ref={root} className="px-4 py-3 border-t border-[var(--edge-soft)]">
       {error && (
         <div className="mb-2 text-[11px] text-rose-500" data-testid="composer-error">
           {error}
@@ -268,7 +285,7 @@ export function ChatComposer({
           </button>
         </div>
       )}
-      <div className={`relative flex items-end gap-1.5 ${compact ? 'flex-wrap' : ''}`}>
+      <div className={`relative flex items-end gap-1.5 ${stacked ? 'flex-wrap' : ''}`}>
         <input
           ref={fileInputRef}
           type="file"
@@ -289,7 +306,7 @@ export function ChatComposer({
         >
           <Icon name="attach_file" size={16} />
         </button>
-        {!compact && (
+        {!stacked && (
           <button
             onClick={() => (recording ? stopRecording() : void startRecording())}
             className={`icon-btn shrink-0 ${recording ? 'text-rose-500' : ''}`}
@@ -378,7 +395,7 @@ export function ChatComposer({
             ))}
           </div>
         )}
-        <div className={`relative flex-1 min-w-0 ${compact ? 'basis-full order-first mb-1.5' : ''}`}>
+        <div className={`relative flex-1 min-w-0 ${stacked ? 'basis-full order-first mb-1.5' : ''}`}>
         <textarea
           value={draft}
           onChange={(e) => {
@@ -413,13 +430,13 @@ export function ChatComposer({
             }
           }}
           placeholder={recording ? 'Recording… tap stop when done' : 'Write a message…'}
-          rows={compact ? 3 : 1}
+          rows={stacked ? 3 : 1}
           data-testid="message-composer"
           className={`block w-full resize-none bg-[var(--surface-raised)] border border-[var(--edge-firm)] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-accent ${
-            compact ? 'pr-10 min-h-[76px]' : ''
+            stacked ? 'pr-10 min-h-[76px]' : ''
           }`}
         />
-        {compact && (
+        {stacked && (
           <button
             onClick={() => (recording ? stopRecording() : void startRecording())}
             className={`absolute right-1.5 bottom-1.5 icon-btn !h-7 !w-7 ${recording ? 'text-rose-500' : ''}`}

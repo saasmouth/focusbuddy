@@ -150,7 +150,7 @@ export default function LiveDocSharing({
             checked={includeComments}
             disabled={busy}
             onChange={(e) => setIncludeComments(e.target.checked)}
-            className="mt-[2px] accent-[var(--accent)]"
+            className="mt-[2px] accent-[rgb(var(--accent))]"
           />
           <span>
             Include my comments ({threadCount})

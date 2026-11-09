@@ -229,7 +229,7 @@ export default function MetricBindingEditor({
                   type="button"
                   onClick={() => chooseTable(t)}
                   className={`widget-nodrag flex items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-[var(--surface-sunken)] ${
-                    t.id === tableId ? 'text-[var(--accent)]' : 'text-[var(--ink-70)]'
+                    t.id === tableId ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-70)]'
                   }`}
                 >
                   <Icon name="table_chart" size={11} className="shrink-0" />

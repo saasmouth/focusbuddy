@@ -31,7 +31,7 @@ Where it shows up. The image kind is registered in `widgetCatalog.ts` with
 `hideFromPicker: true`, so users do not add it from the widget picker directly.
 It is created two ways. A right-click "Save image to canvas" on any image inside
 a webview routes through `saveImageToCanvas` in `Canvas.tsx` (wired from
-`src/main/index.ts`) and drops a 360x280 image widget with the source URL. And
+`src/main/index.ts`) and drops an image widget at its starting size with the source URL. And
 `widgetContentFormat.ts` lets a wire or an agent deliver a URL into an image
 widget, but only if the delivered text actually looks like a URL. It renders a
 small preview in `WidgetPreview.tsx` and has an inline form in

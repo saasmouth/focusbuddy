@@ -25,7 +25,7 @@ web-based kinds and is rendered by the shared browser widget at
 `WEB_KINDS` list in `src/renderer/src/components/Canvas.tsx` (line 123, alongside
 `webview`, `pdf`, `gdoc`, `gslide`, `email`). The catalog entry lives in
 `src/renderer/src/lib/widgetCatalog.ts` (line 182): label "Sheet", icon
-`table_chart`, default size 640x480, URL placeholder
+`table_chart`, default size 620x480, URL placeholder
 `https://docs.google.com/spreadsheets/...`. It is marked `hideFromPicker: true`,
 so the picker no longer offers a "Sheet" entry directly. The comment block at
 line 147 explains why: the separate cloud-doc kinds were folded into the File

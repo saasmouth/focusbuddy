@@ -40,9 +40,9 @@ describe('calendar colours', () => {
   })
 
   it('a calendar with no colour, or one that has gone, falls back rather than throwing', () => {
-    expect(colorOfCalendar(list, 'feed')).toBe('var(--accent)')
-    expect(colorOfCalendar(list, 'deleted')).toBe('var(--accent)')
-    expect(colorOfCalendar(list, null)).toBe('var(--accent)')
+    expect(colorOfCalendar(list, 'feed')).toBe('rgb(var(--accent))')
+    expect(colorOfCalendar(list, 'deleted')).toBe('rgb(var(--accent))')
+    expect(colorOfCalendar(list, null)).toBe('rgb(var(--accent))')
   })
 
   it('a block on a named calendar takes that colour', () => {
@@ -59,13 +59,13 @@ describe('calendar colours', () => {
   })
 
   it('with no calendars at all nothing throws', () => {
-    expect(colorOfBlock([], null)).toBe('var(--accent)')
-    expect(colorOfCalendar([], 'x')).toBe('var(--accent)')
+    expect(colorOfBlock([], null)).toBe('rgb(var(--accent))')
+    expect(colorOfCalendar([], 'x')).toBe('rgb(var(--accent))')
   })
 
   it('tint produces a real CSS colour from any input', () => {
     expect(tint('#dc2626', 0.15)).toContain('#dc2626')
-    expect(tint('var(--accent)')).toContain('var(--accent)')
+    expect(tint('rgb(var(--accent))')).toContain('rgb(var(--accent))')
   })
 })
 

@@ -168,6 +168,7 @@ export default function ChatThreadWidget({ widget }: { widget: Widget }): JSX.El
           token={token}
           onSend={(body, attachment) => sendToConversation(config.conversationId, body, attachment)}
           onTyping={() => {}}
+          compactBelow={380}
         />
       </div>
     </div>

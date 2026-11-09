@@ -121,10 +121,10 @@ test('dropping a text/uri-list URL creates a webview widget with that URL', asyn
   //   - the owner's standard starting sizes (shared/widgetStartSizes.ts): a
   //     Browser opens at 1060 x 600.
   //   - 364e801d "Cap EVERY new widget to the view, in one place": an untouched
-  //     default is scaled (aspect kept, never enlarged) to at most 80% of the
+  //     default is scaled (aspect kept, never enlarged) to at most 3/4 of the
   //     visible canvas, measured in canvas units at the current zoom, then
   //     rounded down to the 20 px grid
-  //     (lib/fitDroppedWidget.ts: DROP_VIEW_FRACTION 0.8, floor 240 x 160).
+  //     (lib/fitDroppedWidget.ts: DROP_VIEW_FRACTION 0.75, floor 240 x 160).
   // So the exact size is derived from the canvas the drop landed on.
   const view = await window.evaluate(() => {
     const surface = document.querySelector('[data-canvas-surface="true"]') as HTMLElement
@@ -135,7 +135,7 @@ test('dropping a text/uri-list URL creates a webview widget with that URL', asyn
   expect(view.zoom, 'zoom read from the zoom pill').toBeGreaterThan(0)
   const DEFAULT_W = 1060
   const DEFAULT_H = 600
-  const scale = Math.min(1, ((view.w / view.zoom) * 0.8) / DEFAULT_W, ((view.h / view.zoom) * 0.8) / DEFAULT_H)
+  const scale = Math.min(1, ((view.w / view.zoom) * 0.75) / DEFAULT_W, ((view.h / view.zoom) * 0.75) / DEFAULT_H)
   const expectedW = scale >= 1 ? DEFAULT_W : Math.max(240, Math.floor((DEFAULT_W * scale) / 20) * 20)
   const expectedH = scale >= 1 ? DEFAULT_H : Math.max(160, Math.floor((DEFAULT_H * scale) / 20) * 20)
   expect(created!.width, `view ${JSON.stringify(view)}`).toBe(expectedW)

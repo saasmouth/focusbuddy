@@ -44,7 +44,7 @@ export default function AttentionBadge(): JSX.Element | null {
         aria-label={`Focus: ${headline} task${headline === 1 ? '' : 's'} need you`}
       >
         <Icon name="notifications" size={16} />
-        <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--accent)] text-white text-[9px] leading-[15px] text-center fb-tabular">
+        <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[rgb(var(--accent))] text-white text-[9px] leading-[15px] text-center fb-tabular">
           {headline > 99 ? '99+' : headline}
         </span>
       </button>

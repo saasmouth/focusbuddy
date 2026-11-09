@@ -25,7 +25,7 @@ miniature drawing in `src/renderer/src/components/DeskMiniature.tsx`, the
 agent-facing aggregation in `src/main/ai/portalAggregate.ts`, and the agent input
 wiring in `src/main/ai/agentInputs.ts`. The widget is registered in
 `src/renderer/src/lib/widgetCatalog.ts` (kind `portal`, category Layout, default
-300x240) and dispatched in `src/renderer/src/components/Canvas.tsx`.
+420x300) and dispatched in `src/renderer/src/components/Canvas.tsx`.
 
 What works today:
 

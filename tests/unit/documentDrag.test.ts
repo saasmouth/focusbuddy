@@ -127,3 +127,17 @@ describe('the widget a drop becomes', () => {
     expect(d.height).toBeGreaterThan(200)
   })
 })
+
+describe('a document placed on a desk without choosing a size', () => {
+  it.each([
+    ['doc', 960, 660],
+    ['sheet', 960, 620],
+    ['slides', 960, 620],
+    ['map', 840, 600],
+    ['design', 740, 560],
+    ['draw', 960, 620]
+  ] as const)('%s starts at the standard', (docType, width, height) => {
+    const draft = widgetDraftFor({ documentId: 'd', title: 'T', docType } as never, 'desk')
+    expect(draft).toMatchObject({ kind: docType, width, height })
+  })
+})

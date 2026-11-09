@@ -50,7 +50,7 @@ export default function TextEditor({ ctx }: { ctx: EditorCtx }): JSX.Element | n
         }
         e.stopPropagation()
       }}
-      className="absolute bg-transparent outline outline-1 outline-[var(--accent)] resize-none overflow-hidden"
+      className="absolute bg-transparent outline outline-1 outline-[rgb(var(--accent))] resize-none overflow-hidden"
       style={{
         left: (o.x - board.x) * zoom,
         top: (o.y - board.y) * zoom,

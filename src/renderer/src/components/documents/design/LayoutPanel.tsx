@@ -105,7 +105,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
                 baselineGrid: e.target.checked ? { spacing: design.baselineGrid?.spacing ?? 12, offset: design.baselineGrid?.offset ?? 0 } : undefined
               })
             }
-            className="accent-[var(--accent)]"
+            className="accent-[rgb(var(--accent))]"
           />
           <span className="text-[var(--ink-70)]">Use a baseline grid</span>
         </label>
@@ -164,7 +164,7 @@ export default function LayoutPanel(p: Props): JSX.Element {
             checked={design.facing === true}
             data-testid="design-facing-toggle"
             onChange={(e) => p.onPatch({ facing: e.target.checked })}
-            className="accent-[var(--accent)]"
+            className="accent-[rgb(var(--accent))]"
           />
           <span className="text-[var(--ink-70)]">Facing pages (spreads)</span>
         </label>

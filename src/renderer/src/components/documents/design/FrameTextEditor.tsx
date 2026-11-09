@@ -234,7 +234,7 @@ export default function FrameTextEditor(p: Props): JSX.Element {
             top: caretPoint.y,
             width: Math.max(1, 1.4 * k),
             height: caretPoint.h,
-            background: 'var(--accent)',
+            background: 'rgb(var(--accent))',
             pointerEvents: 'none',
             zIndex: 9999
           }}

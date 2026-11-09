@@ -37,6 +37,7 @@ import {
   packGrid,
   pointerCell,
   sizedFromColumns,
+  stockSized,
   type GridMetrics,
   type SizedInstance,
   type WidgetSize
@@ -240,11 +241,13 @@ const STOCK_LAYOUT: HomeLayout = {
     { key: 'navigator', widget: 'navigator' },
     { key: 'continue', widget: 'continue' }
   ],
+  // In this order so the first-fit packing leaves no holes: the two tall cards
+  // finish the row beside Continue, the short ones start the next.
   rail: [
     { key: 'agenda', widget: 'agenda' },
-    { key: 'pulse', widget: 'pulse' },
+    { key: 'activity', widget: 'activity' },
     { key: 'quick', widget: 'quick' },
-    { key: 'activity', widget: 'activity' }
+    { key: 'pulse', widget: 'pulse' }
   ]
 }
 const KNOWN_IDS = new Set<string>(HOME_WIDGET_DEFS.map((d) => d.id))
@@ -324,12 +327,12 @@ const SIZE_VALUES: readonly string[] = ['icon', 'sm', 'md', 'lg', 'stack']
 // derive the subunit metrics from the visual feel knobs above.
 const SUBROW_H = (GRID.cellH - GRID.gap) / 2
 
-const STOCK_FLAT: SizedInstance[] = sizedFromColumns(STOCK_LAYOUT.main, STOCK_LAYOUT.rail)
+const STOCK_FLAT: SizedInstance[] = stockSized(STOCK_LAYOUT.main, STOCK_LAYOUT.rail)
 
 function stockFlatFor(surface: DashboardSurface): SizedInstance[] {
   if (surface === 'home') return STOCK_FLAT
   const l = STOCK_BY_SURFACE[surface]
-  return sizedFromColumns(l.main, l.rail)
+  return stockSized(l.main, l.rail)
 }
 
 function loadFlat(surface: DashboardSurface): SizedInstance[] {
@@ -357,6 +360,8 @@ function loadFlat(surface: DashboardSurface): SizedInstance[] {
     // The v1/v2 migration only ever applied to Home; the other dashboards are
     // new and have nothing to migrate from.
     if (surface !== 'home') return stock
+    // Nothing saved at all is a brand-new Home, not a layout to migrate.
+    if (!localStorage.getItem(LAYOUT_KEY) && !localStorage.getItem(LAYOUT_KEY_V1)) return stock
     const legacy = loadLayout()
     // Absorb quick-links before sizing so the columns carry Shortcuts defs.
     const migrated = sizedFromColumns(legacy.main.map(migrateQuickLinks), legacy.rail.map(migrateQuickLinks))

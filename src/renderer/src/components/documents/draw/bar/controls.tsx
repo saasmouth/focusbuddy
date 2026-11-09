@@ -201,7 +201,7 @@ export function PaintEditor({ value, onChange, testid }: { value: DrawPaint; onC
                   const stops = value.stops.map((x, j) => (j === i ? { ...x, offset: Number(e.target.value) / 100 } : x))
                   onChange({ ...value, stops })
                 }}
-                className="flex-1 accent-[var(--accent)]"
+                className="flex-1 accent-[rgb(var(--accent))]"
               />
               {value.stops.length > 2 && (
                 <button type="button" onClick={() => onChange({ ...value, stops: value.stops.filter((_, j) => j !== i) })} title="Remove stop" aria-label="Remove stop" className="icon-btn !h-6 !w-6">

@@ -22,7 +22,7 @@ There is no email-specific component. The Email widget is the generic
 mail URL inside an Electron `<webview>`. It is registered as a kind in
 `shared/types.ts`, catalogued in `src/renderer/src/lib/widgetCatalog.ts` (kind
 `email`, category Comms, default content `https://mail.google.com/`, default size
-600x500, `hideFromPicker: true`), routed to `WebViewWidget` in
+620x500, `hideFromPicker: true`), routed to `WebViewWidget` in
 `src/renderer/src/components/Canvas.tsx` and `WidgetFocusMode.tsx`, and listed in
 `WEB_KINDS` so it behaves as a browser. The AI command pipeline knows it as a kind
 (`src/main/ai/anthropic.ts` describes it as "Gmail/Outlook URL" and

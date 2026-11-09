@@ -15,6 +15,7 @@
 // Only what the matrix asks for: the FIRST tab, slide and page, as the app's
 // insert of a snippet of that block would land.
 
+import { startSizeFor } from '@shared/widgetStartSizes'
 import type { FbDocument } from '@shared/types'
 import type { SnippetBody, WidgetSnippetBody } from '@shared/snippets'
 import type { SlidesBody, SheetBody } from '@shared/types'
@@ -118,8 +119,8 @@ export function documentSnippetBody(doc: Pick<FbDocument, 'docType' | 'body' | '
           widgetKind: w.kind,
           title: doc.title ?? '',
           content: typeof w.content === 'string' ? w.content : JSON.stringify(w.content ?? ''),
-          width: 360,
-          height: 280,
+          width: startSizeFor(w.kind)?.width ?? 360,
+          height: startSizeFor(w.kind)?.height ?? 280,
           color: (w.color as string | null) ?? null
         }
         return { body, lossy: [] }

@@ -1,7 +1,12 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import type { Widget } from '@shared/types'
 import { isWidgetEmptyForSetup } from '../../lib/widgetSetup'
 import { useWidgetSetup } from '../../stores/widgetSetup'
+import { chooseChipSlot, type ChipSlot } from '../../lib/setupChipSlot'
+import { WIDGET_AI } from '../../lib/widgetAiFamilies'
+
+const CONTROLS = 'button,[role="button"],select,input:not([type="hidden"]),a[href]'
 
 // The proactive "Set up with AI" affordance shown on an EMPTY widget the setup
 // assistant supports. It answers the one question every empty widget should:
@@ -15,10 +20,57 @@ import { useWidgetSetup } from '../../stores/widgetSetup'
 // clickable. It disappears the moment the widget has real content.
 export default function WidgetSetupAffordance({ widget }: { widget: Widget }): JSX.Element | null {
   const start = useWidgetSetup((s) => s.start)
-  if (!isWidgetEmptyForSetup(widget)) return null
+  const overlay = useRef<HTMLDivElement>(null)
+  const chip = useRef<HTMLButtonElement>(null)
+  const [slot, setSlot] = useState<ChipSlot>('bottom')
+  // A calculator or colour picker has nothing to set up (lib/widgetAiFamilies),
+  // and its keys are exactly where the chip would sit.
+  const show = isWidgetEmptyForSetup(widget) && WIDGET_AI[widget.kind]?.family !== 'naming'
+
+  // Keep clear of the widget's own controls, whatever size it is now and
+  // whatever it mounts after this does.
+  useLayoutEffect(() => {
+    if (!show) return
+    const body = overlay.current?.parentElement
+    if (!body) return
+    const measure = (): void => {
+      const button = chip.current
+      if (!button) return
+      const box = body.getBoundingClientRect()
+      const own = button.getBoundingClientRect()
+      const controls = Array.from(body.querySelectorAll<HTMLElement>(CONTROLS))
+        .filter((el) => !overlay.current?.contains(el))
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0)
+      const scale = body.offsetWidth > 0 ? box.width / body.offsetWidth : 1
+      setSlot(chooseChipSlot({ body: box, chip: own, controls, inset: 8 * scale }))
+    }
+    measure()
+    let frame = 0
+    const soon = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(measure)
+    }
+    const resized = new ResizeObserver(soon)
+    resized.observe(body)
+    const changed = new MutationObserver(soon)
+    changed.observe(body, { childList: true, subtree: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      resized.disconnect()
+      changed.disconnect()
+    }
+  }, [show])
+
+  if (!show) return null
   return (
-    <div className="widget-nodrag pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center">
+    <div
+      ref={overlay}
+      data-setup-chip-slot={slot ?? 'none'}
+      className={`widget-nodrag pointer-events-none absolute inset-x-0 z-10 flex justify-center ${slot === 'top' ? 'top-2' : 'bottom-2'} ${slot === null ? 'invisible' : ''}`}
+    >
       <button
+        ref={chip}
         onClick={(e) => {
           e.stopPropagation()
           start(widget.id)

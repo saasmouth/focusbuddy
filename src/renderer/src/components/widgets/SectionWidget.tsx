@@ -7,14 +7,7 @@ import ShareDialog from '../ShareDialog'
 import type { SectionLayout, Widget } from '@shared/types'
 import { useWidgetStore } from '../../stores/widgets'
 import { LinkDragContext } from '../../lib/linkDragContext'
-import {
-  computeLayoutCells,
-  computeSectionFrame,
-  effectiveLayout,
-  findNonOverlapPosition,
-  SECTION_PADDING,
-  type LayoutCell
-} from '../../lib/sectionGeometry'
+import { computeLayoutCells, effectiveLayout, findNonOverlapPosition, SECTION_PADDING, type LayoutCell, sectionFrameOf } from '../../lib/sectionGeometry'
 import { catalogFor } from '../../lib/widgetCatalog'
 import { chimeOut } from '../../lib/audioBeep'
 import Icon from '../Icon'
@@ -90,7 +83,7 @@ export default function SectionWidget({
 
   const children = allWidgets.filter((w) => w.parentSectionId === widget.id)
   const layout = effectiveLayout(widget.layout)
-  const frame = computeSectionFrame(children, layout)
+  const frame = sectionFrameOf(widget, children, layout)
   const contentW = frame.width - 2 * SECTION_PADDING
 
   useEffect(() => {
@@ -210,7 +203,7 @@ export default function SectionWidget({
         const effSiblings = siblings.map((s) => {
           if (s.kind !== 'section') return s
           const sChildren = latestWidgets.filter((c) => c.parentSectionId === s.id)
-          const sFrame = computeSectionFrame(sChildren, effectiveLayout(s.layout))
+          const sFrame = sectionFrameOf(s, sChildren)
           return { ...s, width: sFrame.width, height: sFrame.height }
         })
         const placed = findNonOverlapPosition(

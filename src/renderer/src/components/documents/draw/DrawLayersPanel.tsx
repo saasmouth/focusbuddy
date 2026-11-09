@@ -77,7 +77,7 @@ export default function DrawLayersPanel({
               value={Math.round(active.opacity * 100)}
               data-testid="draw-layer-opacity"
               onChange={(e) => onPatch(active.id, { opacity: Number(e.target.value) / 100 })}
-              className="flex-1 accent-[var(--accent)]"
+              className="flex-1 accent-[rgb(var(--accent))]"
             />
             <span className="w-8 text-right fb-tabular text-[var(--ink-50)]">{Math.round(active.opacity * 100)}%</span>
           </label>

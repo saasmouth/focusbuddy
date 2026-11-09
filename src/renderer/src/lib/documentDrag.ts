@@ -1,3 +1,4 @@
+import { startSizeFor } from '@shared/widgetStartSizes'
 import type { DocType } from '@shared/types'
 
 // Dragging a document onto a desk.
@@ -112,8 +113,8 @@ export function widgetDraftFor(
     // the desk and editing it in Office are the same file, which is the whole
     // reason to put it there.
     content: payload.documentId,
-    width: 520,
-    height: 400
+    width: startSizeFor(payload.docType)?.width ?? 520,
+    height: startSizeFor(payload.docType)?.height ?? 400
   }
 }
 

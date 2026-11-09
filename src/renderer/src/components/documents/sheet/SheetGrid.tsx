@@ -255,7 +255,7 @@ export default function SheetGrid(props: Props): JSX.Element {
                   c === fCols - 1 ? 'border-r-2 border-r-[var(--edge-firm)]' : 'border-[var(--edge-soft)]'
                 } ${
                   colFullySelected(c) ? 'bg-accent/20' : 'bg-[color-mix(in_oklab,var(--surface-sunken)_80%,transparent)]'
-                } ${props.reorderOver?.kind === 'col' && props.reorderOver.over === c ? 'shadow-[inset_2px_0_0_0_var(--accent)]' : ''}`}
+                } ${props.reorderOver?.kind === 'col' && props.reorderOver.over === c ? 'shadow-[inset_2px_0_0_0_rgb(var(--accent))]' : ''}`}
               >
                 <div className="flex items-center">
                   {cGroup >= 0 && (
@@ -368,7 +368,7 @@ export default function SheetGrid(props: Props): JSX.Element {
                 className={`relative sticky left-0 z-10 text-center text-[11px] text-[var(--ink-40)] border-r border-[var(--edge-soft)] select-none cursor-pointer hover:text-accent transition-colors ${
                   r === fRows - 1 ? 'border-b-2 border-b-[var(--edge-firm)]' : 'border-b border-[var(--edge-soft)]'
                 } ${rowFullySelected(r) ? 'bg-accent/20' : 'bg-[color-mix(in_oklab,var(--surface-sunken)_80%,transparent)]'} ${
-                  props.reorderOver?.kind === 'row' && props.reorderOver.over === r ? 'shadow-[inset_0_2px_0_0_var(--accent)]' : ''
+                  props.reorderOver?.kind === 'row' && props.reorderOver.over === r ? 'shadow-[inset_0_2px_0_0_rgb(var(--accent))]' : ''
                 }`}
               >
                 {rowGroupAt(r) >= 0 && (
@@ -485,7 +485,7 @@ export default function SheetGrid(props: Props): JSX.Element {
                 const frozenT = r < fRows
                 const tdStyle: React.CSSProperties = {}
                 if (isPoint) {
-                  tdStyle.outline = '2px dashed var(--accent)'
+                  tdStyle.outline = '2px dashed rgb(var(--accent))'
                   tdStyle.outlineOffset = '-1px'
                 }
                 if (frozenL || frozenT) {

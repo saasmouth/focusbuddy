@@ -754,7 +754,7 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
       return
     }
     const entry = catalogFor('chat-thread')
-    const pos = spawnPositionFor(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 300)
+    const pos = spawnPositionFor(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 300, 'chat-thread')
     await useWidgetStore.getState().create({
       taskId,
       kind: 'chat-thread',

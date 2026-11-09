@@ -1,4 +1,5 @@
 import { startSizeFor } from '@shared/widgetStartSizes'
+import { placeOnDesk, REFERENCE_VIEW } from '@shared/widgetPlacement'
 import { randomUUID } from 'crypto'
 import { getDb } from './database'
 import { adoptWidgetAsFile, syncWidgetFileFromInstance } from './widgetFiles'
@@ -176,6 +177,23 @@ function pokeChunkIndex(widgetId: string): void {
     .catch(() => {})
 }
 
+// An add with no position (an agent, MCP, a digest) on a desk that may not be
+// open: the kind's place in the standard, sized for the default window. A kind
+// the standard does not place reads like reference material; a full zone carries
+// on lower down, rather than on top of whatever already sits at the origin.
+function startPosition(
+  taskId: string,
+  kind: string,
+  width: number,
+  height: number
+): { x: number; y: number } {
+  const obstacles = listWidgetsByTask(taskId).filter(
+    (w) => !w.archived && !w.pinned && !w.parentSectionId && w.kind !== 'minimap'
+  )
+  const { x, y } = placeOnDesk({ kind, width, height, view: REFERENCE_VIEW, obstacles })
+  return { x, y }
+}
+
 export function createWidget(draft: WidgetDraft): Widget {
   const db = getDb()
   // WS01 lifecycle: honour a client-provided id so a widget created on one device
@@ -195,6 +213,17 @@ export function createWidget(draft: WidgetDraft): Widget {
   // jump to corner" on the next render.
   const pinned = draft.pinned ? 1 : 0
   const pinnedZone = draft.pinnedZone ?? null
+  // Stored at the size the frame renders: never below the kind's minimum
+  // (an API, agent or MCP create can ask for less than the canvas allows).
+  const size = clampToKindMin(draft.kind, {
+    // No size given (an agent, MCP, a digest): the standard, not a guess.
+    width: draft.width ?? startSizeFor(draft.kind)?.width ?? 260,
+    height: draft.height ?? startSizeFor(draft.kind)?.height ?? 200
+  })
+  const spot =
+    draft.x === undefined && draft.y === undefined
+      ? startPosition(draft.taskId, draft.kind, size.width, size.height)
+      : { x: draft.x ?? 60, y: draft.y ?? 60 }
   db.prepare(
     `INSERT INTO widgets (id, task_id, kind, title, content, x, y, width, height, z_index, color, pinned, pinned_screen_x, pinned_screen_y, pinned_zone, parent_section_id, source_app_id, mode, sync_group_id, created_at, updated_at)
      VALUES (@id, @taskId, @kind, @title, @content, @x, @y, @width, @height, @zIndex, @color, @pinned, NULL, NULL, @pinnedZone, NULL, @sourceAppId, @mode, @syncGroupId, @now, @now)`
@@ -204,15 +233,9 @@ export function createWidget(draft: WidgetDraft): Widget {
     kind: draft.kind,
     title: draft.title ?? '',
     content: draft.content,
-    x: draft.x ?? 60,
-    y: draft.y ?? 60,
-    // Stored at the size the frame renders: never below the kind's minimum
-    // (an API, agent or MCP create can ask for less than the canvas allows).
-    ...clampToKindMin(draft.kind, {
-      // No size given (an agent, MCP, a digest): the standard, not a guess.
-      width: draft.width ?? startSizeFor(draft.kind)?.width ?? 260,
-      height: draft.height ?? startSizeFor(draft.kind)?.height ?? 200
-    }),
+    x: spot.x,
+    y: spot.y,
+    ...size,
     zIndex: nextZ(draft.taskId),
     color: draft.color ?? null,
     pinned,

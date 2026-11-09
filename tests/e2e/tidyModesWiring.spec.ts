@@ -384,7 +384,7 @@ test('(f) Add object > Files > Document/Spreadsheet spawn at the new catalog def
 
   // Since 364e801d ("Cap EVERY new widget to the view, in one place") a new
   // widget opening at its untouched catalogue default is scaled, both axes by
-  // one factor, to fit within 80% of the visible canvas (measured in canvas
+  // one factor, to fit within 3/4 of the visible canvas (measured in canvas
   // units at the current zoom), rounded down to the 20 px grid, never below
   // 240x160 and never enlarged. So the
   // catalogue default is the INPUT and the on-desk size is that default under
@@ -396,8 +396,8 @@ test('(f) Add object > Files > Document/Spreadsheet spawn at the new catalog def
   const capped = (w: number, h: number): { width: number; height: number } => {
     const scale = Math.min(
       1,
-      ((sizes.view.width / sizes.view.zoom) * 0.8) / w,
-      ((sizes.view.height / sizes.view.zoom) * 0.8) / h
+      ((sizes.view.width / sizes.view.zoom) * 0.75) / w,
+      ((sizes.view.height / sizes.view.zoom) * 0.75) / h
     )
     if (scale >= 1) return { width: w, height: h }
     return {

@@ -16,13 +16,22 @@
 // viewport and slide to the nearest clear slot so we never stack on top of
 // whatever is already there.
 //
+// When the caller says what kind it is adding, the standard's best placement
+// (shared/widgetPlacement.ts) goes first: the widget takes its zone in the view,
+// clear of what is there. All of the above is what happens when the zone has no
+// room, so a busy desk behaves as it always has.
+//
 // The geometry is pure and lives in computeSpawnPosition so it can be unit
 // tested. spawnPositionFor is the convenience wrapper that reads the live store
 // snapshot plus the on-screen canvas size and returns a concrete {x, y}.
 
-import type { Widget } from '@shared/types'
+import type { Widget, WidgetKind } from '@shared/types'
+import { placeInZone, zoneFor } from '@shared/widgetPlacement'
 import { findNonOverlapPosition } from './sectionGeometry'
+import { fitNewWidgetToView } from './fitDroppedWidget'
+import { catalogFor } from './widgetCatalog'
 import { useWidgetStore } from '../stores/widgets'
+import { useAssistantChrome } from '../stores/assistantChrome'
 
 // Matches createConnectedTool's ADJACENT_GAP so an AI-spawned neighbour and a
 // right-click-connected neighbour sit at the same comfortable distance.
@@ -34,6 +43,11 @@ const CENTRE_GAP = 24
 export interface SpawnGeometry {
   newWidth: number
   newHeight: number
+  /** What is being added. Without it the widget simply goes beside the active one. */
+  kind?: string
+  /** Screen px of the canvas's edges hidden by what floats over them. */
+  coveredLeft?: number
+  coveredRight?: number
   activeWidgetId: string | null
   widgets: Widget[]
   panX: number
@@ -62,6 +76,23 @@ export function computeSpawnPosition(g: SpawnGeometry): { x: number; y: number }
   const viewTop = -panY / zoom
   const viewW = g.viewportWidth / zoom
   const viewH = g.viewportHeight / zoom
+
+  const zone = g.kind ? zoneFor(g.kind) : null
+  if (zone) {
+    const placed = placeInZone({
+      zone,
+      width: newWidth,
+      height: newHeight,
+      view: {
+        left: viewLeft + (g.coveredLeft ?? 0) / zoom,
+        top: viewTop,
+        width: viewW - ((g.coveredLeft ?? 0) + (g.coveredRight ?? 0)) / zoom,
+        height: viewH
+      },
+      obstacles
+    })
+    if (placed) return placed
+  }
 
   const active =
     activeWidgetId !== null ? obstacles.find((w) => w.id === activeWidgetId) ?? null : null
@@ -140,18 +171,76 @@ function readCanvasViewport(): { width: number; height: number } {
   return { width: 1440, height: 900 }
 }
 
+/**
+ * How much of the canvas's edges are hidden, in screen px. The canvas surface
+ * runs the full width of the window: the side menu, an open Files flyout and a
+ * docked PlexiiAssist all float over it.
+ */
+export function canvasCovered(): { left: number; right: number } {
+  if (typeof document === 'undefined') return { left: 0, right: 0 }
+  const surface = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')
+  if (!surface) return { left: 0, right: 0 }
+  const box = surface.getBoundingClientRect()
+  let left = 0
+  document
+    .querySelectorAll<HTMLElement>(
+      '[data-testid="desk-sidebar"], [data-testid="desk-sidebar-collapsed"], [data-testid="files-flyout"]'
+    )
+    .forEach((el) => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.left < box.left + box.width / 3) left = Math.max(left, r.right - box.left)
+    })
+  const assistant = useAssistantChrome.getState()
+  const right = assistant.open && assistant.mode === 'sidebar' ? assistant.width : 0
+  return { left: Math.min(left, box.width), right }
+}
+
+/**
+ * The part of the canvas a new desk will open into: what shows of the one on
+ * screen, or the window less the side menu and the app's own bars when no desk
+ * is open.
+ */
+export function workspaceSize(): { width: number; height: number } {
+  if (typeof document !== 'undefined') {
+    const el = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')
+    if (el) {
+      const r = el.getBoundingClientRect()
+      const covered = canvasCovered()
+      if (r.width > 0 && r.height > 0) return { width: r.width - covered.left - covered.right, height: r.height }
+    }
+  }
+  if (typeof window !== 'undefined') {
+    return { width: Math.max(640, window.innerWidth - 272), height: Math.max(480, window.innerHeight - 109) }
+  }
+  return { width: 1328, height: 891 }
+}
+
 // Convenience wrapper for call sites that just want "where should this widget
 // of size W x H go right now". Reads the live widget-store snapshot (active
 // widget, widgets, pan, zoom) and the on-screen canvas size.
 export function spawnPositionFor(
   newWidth: number,
-  newHeight: number
+  newHeight: number,
+  kind?: string
 ): { x: number; y: number } {
   const s = useWidgetStore.getState()
   const vp = readCanvasViewport()
-  return computeSpawnPosition({
-    newWidth,
-    newHeight,
+  // Place the widget at the size it will really have: the store caps an untouched
+  // default to the view, and moves x by half of what it took off to keep it
+  // centred. Take that back here, so a right-rail widget still meets the edge.
+  const sized = kind
+    ? fitNewWidgetToView({ kind, width: newWidth, height: newHeight, x: 0 }, (k) => {
+        const entry = catalogFor(k as WidgetKind)
+        return entry ? { width: entry.defaultWidth, height: entry.defaultHeight } : null
+      })
+    : { width: newWidth, height: newHeight, x: 0 }
+  const covered = kind ? canvasCovered() : { left: 0, right: 0 }
+  const at = computeSpawnPosition({
+    newWidth: sized.width,
+    newHeight: sized.height,
+    kind,
+    coveredLeft: covered.left,
+    coveredRight: covered.right,
     activeWidgetId: s.activeWidgetId,
     widgets: s.widgets,
     panX: s.panX,
@@ -160,4 +249,5 @@ export function spawnPositionFor(
     viewportWidth: vp.width,
     viewportHeight: vp.height
   })
+  return { x: at.x - sized.x, y: at.y }
 }

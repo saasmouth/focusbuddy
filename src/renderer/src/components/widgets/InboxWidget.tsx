@@ -269,7 +269,7 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
             </button>
             <button
               type="button"
-              className="widget-nodrag rounded-md bg-[var(--accent)] px-3 py-1 text-[11px] font-medium text-white"
+              className="widget-nodrag rounded-md bg-[rgb(var(--accent))] px-3 py-1 text-[11px] font-medium text-white"
               onClick={() => {
                 setEditing(false)
                 save({ editing: false })
@@ -336,7 +336,7 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
               className={`mt-[2px] grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold ${
                 m.seen
                   ? 'bg-[var(--surface-sunken)] text-[var(--ink-50)]'
-                  : 'bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] text-[var(--accent)]'
+                  : 'bg-[color-mix(in_oklab,rgb(var(--accent))_15%,transparent)] text-[rgb(var(--accent))]'
               }`}
             >
               {initials(m.fromName, m.fromAddress)}
@@ -381,7 +381,7 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
             {shown.length > 0 ? `${shown.length} matching` : 'Inbox'}
           </span>
           {unread > 0 && (
-            <span className="rounded-full bg-[var(--accent)] px-1.5 text-[10px] font-semibold text-white">
+            <span className="rounded-full bg-[rgb(var(--accent))] px-1.5 text-[10px] font-semibold text-white">
               {unread} new
             </span>
           )}
@@ -396,7 +396,7 @@ export default function InboxWidget({ widget }: { widget: Widget }): JSX.Element
           <button
             type="button"
             className={`widget-nodrag grid h-6 w-6 place-items-center rounded hover:bg-[var(--surface-sunken)] ${
-              editing ? 'text-[var(--accent)]' : 'text-[var(--ink-40)] hover:text-[var(--ink-80)]'
+              editing ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-40)] hover:text-[var(--ink-80)]'
             }`}
             title="Edit filter"
             onClick={() => {

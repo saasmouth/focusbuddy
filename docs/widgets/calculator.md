@@ -21,7 +21,7 @@ quick number without leaving what I am doing."
 The widget is a single self-contained component at
 `src/renderer/src/components/widgets/CalculatorWidget.tsx`. It is registered in
 `src/renderer/src/lib/widgetCatalog.ts` under kind `calculator` (label "Calc",
-category Tools, default 240x320), wired into the canvas renderer in
+category Tools, default 200x300), wired into the canvas renderer in
 `src/renderer/src/components/Canvas.tsx`, supported as an inline render in
 `src/renderer/src/components/WidgetFocusMode.tsx`, declared in the widget-kind
 union in `src/shared/types.ts`, and offered as a creatable kind by the voice and

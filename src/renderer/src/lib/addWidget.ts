@@ -71,7 +71,7 @@ export async function addKindToOpenDesk(kind: WidgetKind): Promise<boolean> {
     return true
   }
   const entry = catalogFor(kind)
-  const pos = spawnPositionFor(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 240)
+  const pos = spawnPositionFor(entry?.defaultWidth ?? 320, entry?.defaultHeight ?? 240, kind)
   // The store fits the size to the view (the one central cap for new widgets).
   await useWidgetFilesStore.getState().createAndPlace(kind, desk, {
     x: Math.round(pos.x),

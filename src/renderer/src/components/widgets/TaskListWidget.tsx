@@ -555,7 +555,7 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
                       title={isOpen ? 'Hide details' : 'Show details'}
                       data-testid="task-expand"
                       className={`shrink-0 rounded transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-80)] ${
-                        isOpen ? 'text-[var(--accent)]' : 'text-[var(--ink-40)]'
+                        isOpen ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-40)]'
                       }`}
                     >
                       <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={13} />

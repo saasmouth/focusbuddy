@@ -1,4 +1,5 @@
 import type { SectionLayout, Widget } from '@shared/types'
+import { WIDGET_START_SIZES } from '@shared/widgetStartSizes'
 
 export const SECTION_PADDING = 28
 export const SECTION_MIN_W = 240
@@ -86,6 +87,29 @@ export function computeLayoutCells(
     width: contentWidth,
     height: LIST_ROW_H
   }))
+}
+
+/**
+ * The frame of a section on a desk. A new one stands empty at its starting size,
+ * with room for two small work widgets side by side, until something goes in it.
+ * After that its frame comes from what it holds. A section that was already
+ * empty before the standard is not at that size, and stays as small as it was.
+ */
+export function sectionFrameOf(
+  section: Pick<Widget, 'width' | 'height' | 'layout'>,
+  children: Widget[],
+  layout: SectionLayout = effectiveLayout(section.layout)
+): SectionFrame {
+  const start = WIDGET_START_SIZES.section
+  if (children.length === 0 && section.width === start.width && section.height === start.height) {
+    return {
+      width: start.width,
+      height: start.height,
+      contentOriginX: SECTION_PADDING,
+      contentOriginY: SECTION_PADDING
+    }
+  }
+  return computeSectionFrame(children, layout)
 }
 
 export function computeSectionFrame(

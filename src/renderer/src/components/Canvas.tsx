@@ -95,15 +95,9 @@ import { useCapabilityStore } from '../stores/capabilities'
 import { promptUpgrade } from '../stores/upgradePrompt'
 import { useActionHistory } from '../stores/actionHistory'
 import { computeAlign, computeDistribute, type AlignMode, type DistributeAxis } from '../lib/canvasAlign'
-import {
-  computeSectionFrame,
-  computeLayoutCells,
-  effectiveLayout,
-  SECTION_PADDING,
-  SECTION_MIN_W,
-  SECTION_MIN_H
-} from '../lib/sectionGeometry'
-import { spawnPositionFor } from '../lib/spawnPosition'
+import { computeSectionFrame, computeLayoutCells, effectiveLayout, SECTION_PADDING, SECTION_MIN_W, SECTION_MIN_H, sectionFrameOf } from '../lib/sectionGeometry'
+import { spawnPositionFor, workspaceSize } from '../lib/spawnPosition'
+import { planZoneLayout } from '@shared/widgetPlacement'
 import { firstHttpUrl } from '../lib/dropUrl'
 import {
   getOrigin,
@@ -601,7 +595,7 @@ export default function Canvas(): JSX.Element {
       if (w.parentSectionId !== null) continue
       if (w.kind === 'section') {
         const children = widgets.filter((c) => c.parentSectionId === w.id)
-        const frame = computeSectionFrame(children, effectiveLayout(w.layout))
+        const frame = sectionFrameOf(w, children)
         boxes.push({ id: w.id, x: w.x, y: w.y, width: frame.width, height: frame.height })
       } else {
         boxes.push({ id: w.id, x: w.x, y: w.y, width: w.width, height: w.height })
@@ -916,7 +910,7 @@ export default function Canvas(): JSX.Element {
     } else if (w.kind === 'section') {
       // Sections: stored width/height can lag actual; use computed frame
       const children = widgets.filter((c) => c.parentSectionId === w.id)
-      const frame = computeSectionFrame(children, effectiveLayout(w.layout))
+      const frame = sectionFrameOf(w, children)
       cw = frame.width
       ch = frame.height
     }
@@ -947,7 +941,7 @@ export default function Canvas(): JSX.Element {
       let height = w.height
       if (w.kind === 'section') {
         const sChildren = widgets.filter((c) => c.parentSectionId === w.id)
-        const frame = computeSectionFrame(sChildren, effectiveLayout(w.layout))
+        const frame = sectionFrameOf(w, sChildren)
         width = frame.width
         height = frame.height
       }
@@ -1868,7 +1862,7 @@ export default function Canvas(): JSX.Element {
     if (existingSections.length > 0) {
       const existingBottom = existingSections.reduce((maxY, s) => {
         const sChildren = widgets.filter((c) => c.parentSectionId === s.id)
-        const sFrame = computeSectionFrame(sChildren, effectiveLayout(s.layout))
+        const sFrame = sectionFrameOf(s, sChildren)
         return Math.max(maxY, s.y + sFrame.height)
       }, 0)
       startY = existingBottom + GAP
@@ -2006,7 +2000,7 @@ export default function Canvas(): JSX.Element {
       const entry = catalogFor('table')
       const width = entry?.defaultWidth ?? 560
       const height = entry?.defaultHeight ?? 380
-      const { x, y } = spawnPositionFor(width, height)
+      const { x, y } = spawnPositionFor(width, height, 'table')
       await createWidget({
         taskId: activeTaskId,
         kind: 'table',
@@ -2026,7 +2020,7 @@ export default function Canvas(): JSX.Element {
     const entry = catalogFor(kind)
     const width = entry?.defaultWidth ?? 360
     const height = entry?.defaultHeight ?? 280
-    const { x, y } = spawnPositionFor(width, height)
+    const { x, y } = spawnPositionFor(width, height, kind)
     await createWidget({
       taskId: activeTaskId,
       kind,
@@ -2041,10 +2035,10 @@ export default function Canvas(): JSX.Element {
   }
 
   function handleClickAdd(entry: WidgetCatalogEntry): void {
-    // Snap the new widget beside the last-touched widget (right, else left),
-    // falling back to the centre of the current viewport. Replaces the old
-    // centre-plus-jitter drop that often landed off-screen.
-    const { x, y } = spawnPositionFor(entry.defaultWidth, entry.defaultHeight)
+    // Nobody chose a spot, so the widget takes its place in the view (see
+    // lib/spawnPosition.ts), or beside the last-touched widget if there is no
+    // room there.
+    const { x, y } = spawnPositionFor(entry.defaultWidth, entry.defaultHeight, entry.kind)
     // Office documents go through the chooser (create new / import / place an
     // existing one) rather than dropping a blank widget — same as the right-click
     // add path. Convert the top-left spawn point to the centre point the chooser
@@ -2362,41 +2356,19 @@ export default function Canvas(): JSX.Element {
     })
   }
 
-  // AI Builder accept path. Distinct from handleAISetupAccept because each
-  // suggestion can carry a richer payload (table schema, Tiptap doc, field
-  // def) that needs translating into the corresponding storage layer before
-  // the widget can be spawned.
-  async function handleAiBuilderAccept(suggestions: AiBuildSuggestion[]): Promise<void> {
-    if (!activeTaskId || !dropRef.current) return
-    const rect = dropRef.current.getBoundingClientRect()
-    const visibleW = rect.width / zoom
-    const PADDING = 60
-    const GAP = 24
-    const existing = widgets.filter((w) => !w.pinned && !w.parentSectionId)
-    const startBelow = existing.reduce((maxY, w) => {
-      let h = w.height
-      if (w.kind === 'section') {
-        const ch = widgets.filter((c) => c.parentSectionId === w.id)
-        const fr = computeSectionFrame(ch, effectiveLayout(w.layout))
-        h = fr.height
-      }
-      return Math.max(maxY, w.y + h)
-    }, 0)
-    let cursorX = PADDING
-    let cursorY = existing.length > 0 ? startBelow + 40 : PADDING
-    let rowMaxH = 0
-    // Undo parity: wrap the AI-spawned build in one action-history batch so it
-    // reverses with a single Cmd+Z, like a ProposalCards "Apply all" (createWidget
-    // records into the active batch). Was previously un-undoable.
-    const hist = useActionHistory.getState()
-    hist.beginBatch()
-    try {
+  // Build with AI, both ways in: make everything first, because a table can come
+  // back wider than the catalog says and the layout needs real sizes, then lay
+  // the batch out by the standard's zones across the width on screen.
+  async function placeSuggestions(
+    suggestions: AiBuildSuggestion[],
+    rect: DOMRect,
+    startY: number,
+    useCatalogContent: boolean
+  ): Promise<void> {
+    if (!activeTaskId) return
+    const made: Array<{ s: AiBuildSuggestion; content: string; title: string; width: number; height: number }> = []
     for (const s of suggestions) {
       const entry = catalogFor(s.kind)
-      // Fit here, not only in the store, because these numbers also drive the
-      // LAYOUT below. The store would cap the widget on its way out, but the
-      // grid would still be spaced for a 1920-wide browser — one capped
-      // widget per row with a screen of empty space beside it.
       const fitted = fitDroppedWidget(
         entry?.defaultWidth ?? 300,
         entry?.defaultHeight ?? 200,
@@ -2404,35 +2376,61 @@ export default function Canvas(): JSX.Element {
         rect.height,
         zoom
       )
-      const w = fitted.width
-      const h = fitted.height
-      if (cursorX !== PADDING && cursorX + w > PADDING + visibleW) {
-        cursorX = PADDING
-        cursorY += rowMaxH + GAP
-        rowMaxH = 0
-      }
-      // Per-kind translation (shared with the new-desk path, so both arrive
-      // configured rather than as shells) — see lib/materializeSuggestion.
-      const { content, title, width: fitW, height: fitH } = await materializeSuggestion(s, activeTaskId)
-      // Materialising can know a better size than the catalog did — a table
-      // measured against the columns it was just given. Flow by the size we
-      // actually used, or the next widget overlaps it.
-      const useW = fitW ?? w
-      const useH = fitH ?? h
+      const m = await materializeSuggestion(s, activeTaskId, useCatalogContent ? (entry?.defaultContent ?? '') : '')
+      made.push({
+        s,
+        content: m.content,
+        title: m.title,
+        width: m.width ?? fitted.width,
+        height: m.height ?? fitted.height
+      })
+    }
+    const spots = planZoneLayout(
+      made.map((m) => ({ kind: m.s.kind, width: m.width, height: m.height })),
+      { left: 40, top: startY - 20, width: workspaceSize().width / zoom, height: rect.height / zoom }
+    )
+    for (let i = 0; i < made.length; i++) {
+      const m = made[i]
       await createWidget({
         taskId: activeTaskId,
-        kind: s.kind,
-        title,
-        content,
-        x: Math.round(cursorX),
-        y: Math.round(cursorY),
-        width: useW,
-        height: useH,
-        color: s.kind === 'sticky' ? '#fef08a' : null
+        kind: m.s.kind,
+        title: m.title,
+        content: m.content,
+        x: spots[i].x,
+        y: spots[i].y,
+        width: m.width,
+        height: m.height,
+        color: m.s.kind === 'sticky' ? '#fef08a' : null
       })
-      cursorX += useW + GAP
-      rowMaxH = Math.max(rowMaxH, useH)
     }
+  }
+
+  // AI Builder accept path. Distinct from handleAISetupAccept because each
+  // suggestion can carry a richer payload (table schema, Tiptap doc, field
+  // def) that needs translating into the corresponding storage layer before
+  // the widget can be spawned.
+  async function handleAiBuilderAccept(suggestions: AiBuildSuggestion[]): Promise<void> {
+    if (!activeTaskId || !dropRef.current) return
+    const rect = dropRef.current.getBoundingClientRect()
+    const PADDING = 60
+    const existing = widgets.filter((w) => !w.pinned && !w.parentSectionId)
+    const startBelow = existing.reduce((maxY, w) => {
+      let h = w.height
+      if (w.kind === 'section') {
+        const ch = widgets.filter((c) => c.parentSectionId === w.id)
+        const fr = sectionFrameOf(w, ch)
+        h = fr.height
+      }
+      return Math.max(maxY, w.y + h)
+    }, 0)
+    const startY = existing.length > 0 ? startBelow + 40 : PADDING
+    // Undo parity: wrap the AI-spawned build in one action-history batch so it
+    // reverses with a single Cmd+Z, like a ProposalCards "Apply all" (createWidget
+    // records into the active batch). Was previously un-undoable.
+    const hist = useActionHistory.getState()
+    hist.beginBatch()
+    try {
+      await placeSuggestions(suggestions, rect, startY, false)
     } finally {
       hist.endBatch(`Add ${suggestions.length} object${suggestions.length === 1 ? '' : 's'} from Build with AI`)
     }
@@ -2444,62 +2442,26 @@ export default function Canvas(): JSX.Element {
   async function handleAISetupAccept(suggestions: AiBuildSuggestion[]): Promise<void> {
     if (!activeTaskId || !dropRef.current) return
     const rect = dropRef.current.getBoundingClientRect()
-    const visibleW = rect.width / zoom
     const PADDING = 60
-    const GAP = 24
     // Find a starting Y below existing canvas content so we don't overlap
     const existing = widgets.filter((w) => !w.pinned && !w.parentSectionId)
     const startBelow = existing.reduce((maxY, w) => {
       let h = w.height
       if (w.kind === 'section') {
         const ch = widgets.filter((c) => c.parentSectionId === w.id)
-        const fr = computeSectionFrame(ch, effectiveLayout(w.layout))
+        const fr = sectionFrameOf(w, ch)
         h = fr.height
       }
       return Math.max(maxY, w.y + h)
     }, 0)
-    let cursorX = PADDING
-    let cursorY = existing.length > 0 ? startBelow + 40 : PADDING
-    let rowMaxH = 0
+    const startY = existing.length > 0 ? startBelow + 40 : PADDING
     // Undo parity: wrap the AI-spawned build in one action-history batch so it
     // reverses with a single Cmd+Z, like a ProposalCards "Apply all" (createWidget
     // records into the active batch). Was previously un-undoable.
     const hist = useActionHistory.getState()
     hist.beginBatch()
     try {
-    for (const s of suggestions) {
-      const entry = catalogFor(s.kind)
-      const w = entry?.defaultWidth ?? 300
-      const h = entry?.defaultHeight ?? 200
-      if (cursorX !== PADDING && cursorX + w > PADDING + visibleW) {
-        cursorX = PADDING
-        cursorY += rowMaxH + GAP
-        rowMaxH = 0
-      }
-      // Same translation as the builder: a suggested table provisions its
-      // columns, a page its body, a field its def. Without this the desk you
-      // just created filled up with empty containers.
-      const { content, title, width: fitW, height: fitH } = await materializeSuggestion(
-        s,
-        activeTaskId,
-        entry?.defaultContent ?? ''
-      )
-      const useW = fitW ?? w
-      const useH = fitH ?? h
-      await createWidget({
-        taskId: activeTaskId,
-        kind: s.kind,
-        title,
-        content,
-        x: Math.round(cursorX),
-        y: Math.round(cursorY),
-        width: useW,
-        height: useH,
-        color: s.kind === 'sticky' ? '#fef08a' : null
-      })
-      cursorX += useW + GAP
-      rowMaxH = Math.max(rowMaxH, useH)
-    }
+      await placeSuggestions(suggestions, rect, startY, true)
     } finally {
       hist.endBatch(`Add ${suggestions.length} object${suggestions.length === 1 ? '' : 's'} from AI Setup`)
     }
@@ -2541,7 +2503,7 @@ export default function Canvas(): JSX.Element {
       let height = w.height
       if (w.kind === 'section') {
         const sChildren = widgets.filter((c) => c.parentSectionId === w.id)
-        const frame = computeSectionFrame(sChildren, effectiveLayout(w.layout))
+        const frame = sectionFrameOf(w, sChildren)
         width = frame.width
         height = frame.height
       }
@@ -2711,7 +2673,7 @@ export default function Canvas(): JSX.Element {
       return
     }
     const entry = catalogFor('chat-thread')
-    const pos = spawnPositionFor(entry?.defaultWidth ?? 340, entry?.defaultHeight ?? 460)
+    const pos = spawnPositionFor(entry?.defaultWidth ?? 340, entry?.defaultHeight ?? 460, 'chat-thread')
     await createWidget({
       taskId: activeTask.id,
       kind: 'chat-thread',

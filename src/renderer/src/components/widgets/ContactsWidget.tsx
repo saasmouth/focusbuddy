@@ -396,7 +396,7 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
                 type="button"
                 onClick={() => void add()}
                 disabled={busy || (!draft.name.trim() && !draft.email.trim())}
-                className="widget-nodrag shrink-0 rounded bg-[var(--accent)] px-2 py-1 font-medium text-white disabled:opacity-50"
+                className="widget-nodrag shrink-0 rounded bg-[rgb(var(--accent))] px-2 py-1 font-medium text-white disabled:opacity-50"
               >
                 Add
               </button>
@@ -530,7 +530,7 @@ export default function ContactsWidget({ widget }: { widget: Widget }): JSX.Elem
                         onClick={() => void saveEdit()}
                         disabled={busy}
                         data-testid="contact-edit-save"
-                        className="widget-nodrag rounded bg-[var(--accent)] px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
+                        className="widget-nodrag rounded bg-[rgb(var(--accent))] px-2 py-0.5 text-[10px] font-medium text-white disabled:opacity-50"
                       >
                         Save
                       </button>

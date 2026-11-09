@@ -78,7 +78,7 @@ export async function createAndPlace(kind: AddableKind, taskId: string | null): 
       kind,
       title: doc.title,
       content: doc.id,
-      ...spawnPositionFor(width, height),
+      ...spawnPositionFor(width, height, kind),
       width,
       height,
       color: null
@@ -91,7 +91,7 @@ export async function createAndPlace(kind: AddableKind, taskId: string | null): 
     kind: 'page',
     title: '',
     content: '',
-    ...spawnPositionFor(width, height),
+    ...spawnPositionFor(width, height, 'page'),
     width,
     height,
     color: null
@@ -117,7 +117,7 @@ export async function placeExisting(
     kind: docType,
     title,
     content: documentId,
-    ...spawnPositionFor(width, height),
+    ...spawnPositionFor(width, height, docType),
     width,
     height,
     color: null

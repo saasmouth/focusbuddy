@@ -138,7 +138,7 @@ export default function WebPanel(): React.JSX.Element | null {
       kind: 'webview',
       title: pageTitle || hostnameOf(pageUrl),
       content: pageUrl,
-      ...spawnPositionFor(entry?.defaultWidth ?? 560, entry?.defaultHeight ?? 400),
+      ...spawnPositionFor(entry?.defaultWidth ?? 560, entry?.defaultHeight ?? 400, 'webview'),
       width: entry?.defaultWidth,
       height: entry?.defaultHeight,
       color: null

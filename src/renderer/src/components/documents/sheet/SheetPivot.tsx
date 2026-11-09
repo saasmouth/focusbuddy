@@ -155,7 +155,7 @@ function Slicer({
               type="checkbox"
               checked={!excluded.has(v)}
               onChange={() => onToggle(v)}
-              className="accent-[var(--accent)]"
+              className="accent-[rgb(var(--accent))]"
             />
             <span className="truncate">{v || '(blank)'}</span>
           </label>

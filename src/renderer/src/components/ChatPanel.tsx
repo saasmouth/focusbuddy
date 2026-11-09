@@ -45,6 +45,8 @@ import {
 } from '../lib/conversationDesks'
 import Icon from './Icon'
 import AttentionConfirmCard from './AttentionConfirmCard'
+import { spawnPositionFor } from '../lib/spawnPosition'
+import { WIDGET_START_SIZES } from '@shared/widgetStartSizes'
 import { deskCaptureContext } from '../lib/captureContext'
 import { parseAttentionCommand, hasAttentionCommand } from '../lib/attentionCommand'
 import { presetForSelection } from '../lib/attentionPresets'
@@ -482,18 +484,14 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     }
     const trimmed = text.trim()
     if (!trimmed) return
-    // Place near the canvas origin with a small random jitter so multiple saves don't overlap exactly.
-    const jitterX = Math.floor(Math.random() * 40)
-    const jitterY = Math.floor(Math.random() * 40)
+    const size = WIDGET_START_SIZES[kind]
     await createWidget({
       taskId: activeTaskId,
       kind,
       title: kind === 'sticky' ? '' : 'From assistant',
       content: trimmed,
-      x: 80 + jitterX,
-      y: 80 + jitterY,
-      width: kind === 'sticky' ? 240 : 360,
-      height: kind === 'sticky' ? 200 : 280,
+      ...spawnPositionFor(size.width, size.height, kind),
+      ...size,
       color: kind === 'sticky' ? '#fef08a' : null
     })
     chimeIn()

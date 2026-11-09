@@ -32,7 +32,7 @@ What genuinely works today is solid for the tier. The card round-trips through
 the share and live-sync pipeline, and there is an explicit effect that adopts
 content pushed in from a synced sibling so a linked copy updates without a
 remount. It has a catalog entry in `widgetCatalog.ts` (Notes category, default
-280x200), a display name in `widgetDisplayName.ts`, a canvas case in
+300x200), a display name in `widgetDisplayName.ts`, a canvas case in
 `Canvas.tsx`, a preview in `WidgetPreview.tsx`, and a focus-mode case in
 `WidgetFocusMode.tsx`. The AI layer can read and write it. `widgetSummary.ts`
 flattens the card to "title\nbody" so an agent sees its meaning, and

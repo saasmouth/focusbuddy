@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Widget } from '@shared/types'
-import { computeSectionFrame, effectiveLayout } from '../lib/sectionGeometry'
+import { sectionFrameOf } from '../lib/sectionGeometry'
 import WidgetPreview from './WidgetPreview'
 
 // A spatial, content-aware miniature of a set of widgets — the same idea as the
@@ -38,7 +38,7 @@ export default function DeskMiniature({ widgets, width, height, padding = 6 }: P
       let hh = w.height
       if (w.kind === 'section') {
         const children = widgets.filter((c) => c.parentSectionId === w.id)
-        const frame = computeSectionFrame(children, effectiveLayout(w.layout))
+        const frame = sectionFrameOf(w, children)
         ww = frame.width
         hh = frame.height
       }
@@ -89,7 +89,7 @@ export default function DeskMiniature({ widgets, width, height, padding = 6 }: P
         let hh = w.height
         if (w.kind === 'section') {
           const children = widgets.filter((c) => c.parentSectionId === w.id)
-          const frame = computeSectionFrame(children, effectiveLayout(w.layout))
+          const frame = sectionFrameOf(w, children)
           ww = frame.width
           hh = frame.height
         }

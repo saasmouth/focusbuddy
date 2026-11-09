@@ -38,13 +38,7 @@ import { contentForIndependentCopy } from '../../lib/copyWidgetContent'
 import type { PinZone, Widget } from '@shared/types'
 import { PIN_ZONE_ICONS, PIN_ZONE_LABELS } from '../../lib/pinLayout'
 import { useWidgetStore } from '../../stores/widgets'
-import {
-  computeSectionFrame,
-  effectiveLayout,
-  findNonOverlapPosition,
-  resolvePushFromAnchor,
-  SECTION_PADDING
-} from '../../lib/sectionGeometry'
+import { computeSectionFrame, effectiveLayout, findNonOverlapPosition, resolvePushFromAnchor, SECTION_PADDING, sectionFrameOf } from '../../lib/sectionGeometry'
 
 // Registry of imperative Rnd position setters, keyed by widget id. A drop that
 // pushes neighbours out of the way uses this to slide each neighbour's Rnd in
@@ -601,7 +595,7 @@ export default function WidgetFrame({
     const sections = allWidgets.filter((w) => w.kind === 'section' && !w.pinned)
     for (const s of sections) {
       const sChildren = allWidgets.filter((w) => w.parentSectionId === s.id)
-      const sFrame = computeSectionFrame(sChildren, effectiveLayout(s.layout))
+      const sFrame = sectionFrameOf(s, sChildren)
       if (
         canvasX >= s.x &&
         canvasX <= s.x + sFrame.width &&
@@ -624,7 +618,7 @@ export default function WidgetFrame({
   ): { x: number; y: number; width: number; height: number } {
     if (w.kind === 'section') {
       const children = all.filter((c) => c.parentSectionId === w.id)
-      const frame = computeSectionFrame(children, effectiveLayout(w.layout))
+      const frame = sectionFrameOf(w, children)
       return { x: w.x, y: w.y, width: frame.width, height: frame.height }
     }
     return { x: w.x, y: w.y, width: w.width, height: w.height }

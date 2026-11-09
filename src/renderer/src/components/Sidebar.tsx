@@ -29,6 +29,8 @@ import { useRowMenu } from './nav/useRowMenu'
 import { navRowMenuItems } from '../lib/navRowMenu'
 import { WidgetsRail } from './nav/WidgetsSection'
 import { materializeSuggestion } from '../lib/materializeSuggestion'
+import { workspaceSize } from '../lib/spawnPosition'
+import { planZoneLayout } from '@shared/widgetPlacement'
 import AppLogo from './AppLogo'
 import {
   FLOATING_MENU_ASIDE,
@@ -200,41 +202,39 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   async function handleAISetupAccept(suggestions: AiBuildSuggestion[]): Promise<void> {
     const task = aiSetupTask
     if (!task) return
-    let x = 80
-    let y = 80
-    let rowMaxH = 0
-    const ROW_LIMIT = 720
+    // Make everything first: a table can come back wider than the catalog says,
+    // and the layout needs the sizes things really have.
+    const made: Array<{ s: AiBuildSuggestion; content: string; title: string; width: number; height: number }> = []
     for (const s of suggestions) {
       const entry = catalogFor(s.kind)
-      const w = entry?.defaultWidth ?? 320
-      const h = entry?.defaultHeight ?? 240
-      if (x !== 80 && x + w > ROW_LIMIT) {
-        x = 80
-        y += rowMaxH + 24
-        rowMaxH = 0
-      }
-      // Configured, not a shell: a suggested table provisions its columns here
-      // and a page its body — see lib/materializeSuggestion.
-      const { content, title, width: fitW, height: fitH } = await materializeSuggestion(
+      const m = await materializeSuggestion(s, task.id, entry?.defaultContent ?? '')
+      made.push({
         s,
-        task.id,
-        entry?.defaultContent ?? ''
-      )
-      const useW = fitW ?? w
-      const useH = fitH ?? h
+        content: m.content,
+        title: m.title,
+        width: m.width ?? entry?.defaultWidth ?? 320,
+        height: m.height ?? entry?.defaultHeight ?? 240
+      })
+    }
+    // This desk is not on screen yet, so lay it out for the space it will open in.
+    const room = workspaceSize()
+    const spots = planZoneLayout(
+      made.map((m) => ({ kind: m.s.kind, width: m.width, height: m.height })),
+      { left: 0, top: 0, width: room.width, height: room.height }
+    )
+    for (let i = 0; i < made.length; i++) {
+      const m = made[i]
       await createWidget({
         taskId: task.id,
-        kind: s.kind,
-        title,
-        content,
-        x: Math.round(x),
-        y: Math.round(y),
-        width: useW,
-        height: useH,
-        color: s.kind === 'sticky' ? '#fef08a' : null
+        kind: m.s.kind,
+        title: m.title,
+        content: m.content,
+        x: spots[i].x,
+        y: spots[i].y,
+        width: m.width,
+        height: m.height,
+        color: m.s.kind === 'sticky' ? '#fef08a' : null
       })
-      x += useW + 24
-      rowMaxH = Math.max(rowMaxH, useH)
     }
     chimeIn()
     bumpLayout()

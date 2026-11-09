@@ -30,6 +30,12 @@ export function sizedFromColumns(main: HomeWidgetInstance[], rail: HomeWidgetIns
   ]
 }
 
+// A brand-new board: each card at the size it arrives at. Separate from the
+// migration above, so a layout somebody already has keeps the sizes it had.
+export function stockSized(main: HomeWidgetInstance[], rail: HomeWidgetInstance[]): SizedInstance[] {
+  return [...main, ...rail].map((it): SizedInstance => ({ ...it, size: widgetDef(it.widget).defaultSize }))
+}
+
 // Grid footprint per size, in SUBUNITS: every visual cell is a 2x2 block of
 // subunits sharing the same gap, which reproduces the original cell geometry
 // exactly ((W - 7g)/8 == ((W - 3g)/4 - g)/2) while opening a true app-icon

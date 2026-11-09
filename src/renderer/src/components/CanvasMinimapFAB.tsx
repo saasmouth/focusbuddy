@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useWidgetStore } from '../stores/widgets'
-import { computeSectionFrame, effectiveLayout } from '../lib/sectionGeometry'
+import { sectionFrameOf } from '../lib/sectionGeometry'
 import { mappedBox, mappedScale, viewportIndicator } from '../lib/minimapGeometry'
 import WidgetPreview from './WidgetPreview'
 import DeskJumpList from './DeskJumpList'
 import Icon from './Icon'
 import PlexiiIcon from './PlexiiIcon'
 
-const PANEL_W = 160
-const PANEL_H = 100
+const PANEL_W = 220
+const PANEL_H = 160
 const PADDING = 5
 const PANEL = { width: PANEL_W, height: PANEL_H, padding: PADDING }
 
@@ -160,7 +160,7 @@ export default function CanvasMinimapFAB(): JSX.Element {
   const sizeOf = useCallback(
     (w: (typeof widgets)[number]): { width: number; height: number } => {
       if (w.kind !== 'section') return { width: w.width, height: w.height }
-      const fr = computeSectionFrame(childrenBySection.get(w.id) ?? [], effectiveLayout(w.layout))
+      const fr = sectionFrameOf(w, childrenBySection.get(w.id) ?? [])
       return { width: fr.width, height: fr.height }
     },
     [childrenBySection]

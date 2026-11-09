@@ -84,6 +84,10 @@ export const WIDGET_START_SIZES: Readonly<Record<string, StartSize>> = {
   video: s(520, 300),
   diagram: s(740, 520),
 
+  // Not in the owner's standard: placed by the meeting wrap-up, where it has
+  // always stood at this size beside the transcript.
+  'meeting-record': s(420, 440),
+
   // Pinned chrome.
   minimap: s(220, 160)
 }

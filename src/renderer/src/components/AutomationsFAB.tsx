@@ -191,8 +191,8 @@ export default function AutomationsFAB(): JSX.Element {
          height while it shows (76px, the same place as before), and the
          minimap moves beside the pill, out of this column. With the pill
          hidden the minimap is back in the corner, so the fallback clears the
-         open panel instead: bottom-3 (12) + PANEL_H (100) + an 8px gap. */
-      style={{ bottom: 'var(--fb-corner-stack-bottom, 120px)' }}
+         open panel instead: bottom-3 (12) + PANEL_H (160) + an 8px gap. */
+      style={{ bottom: 'var(--fb-corner-stack-bottom, 180px)' }}
       data-automations-fab
       data-floating-menu
     >

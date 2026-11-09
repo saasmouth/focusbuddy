@@ -162,10 +162,10 @@ export interface HomeWidgetDef {
 export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   // Live
   { id: 'standup', name: 'Standup', blurb: 'Your look-back and look-forward narrative for the day', icon: 'auto_awesome', tint: 'bg-accent/10 text-accent', category: 'Live', defaultCol: 'main', sizes: ['lg'], defaultSize: 'lg' },
-  { id: 'agenda', name: "Today's agenda", blurb: 'The time blocks on your calendar today', icon: 'calendar_today', tint: 'bg-sky-500/10 text-sky-500', category: 'Live', defaultCol: 'rail', sizes: ['sm', 'md', 'stack'], defaultSize: 'sm' },
+  { id: 'agenda', name: "Today's agenda", blurb: 'The time blocks on your calendar today', icon: 'calendar_today', tint: 'bg-sky-500/10 text-sky-500', category: 'Live', defaultCol: 'rail', sizes: ['sm', 'md', 'stack'], defaultSize: 'stack' },
   { id: 'pulse', name: 'Pulse', blurb: 'Open, due, and overdue counts at a glance', icon: 'monitoring', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   { id: 'continue', name: 'Continue', blurb: 'The documents you touched most recently', icon: 'history', tint: 'bg-accent/10 text-accent', category: 'Live', defaultCol: 'main', sizes: ['md', 'lg'], defaultSize: 'lg' },
-  { id: 'activity', name: 'Recent activity', blurb: 'The workspace activity trail from the last week', icon: 'bolt', tint: 'bg-accent/10 text-accent', category: 'Live', defaultCol: 'rail', sizes: ['sm', 'md', 'stack'], defaultSize: 'sm' },
+  { id: 'activity', name: 'Recent activity', blurb: 'The workspace activity trail from the last week', icon: 'bolt', tint: 'bg-accent/10 text-accent', category: 'Live', defaultCol: 'rail', sizes: ['sm', 'md', 'stack'], defaultSize: 'stack' },
   { id: 'overdue', name: 'Overdue radar', blurb: 'Only the tasks past their due date. Empty is the goal', icon: 'priority_high', tint: 'bg-rose-500/10 text-rose-500', category: 'Live', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   // Navigation
   { id: 'navigator', name: 'Rooms and desks', blurb: 'Browse rooms on the left, their desks open to the right', icon: 'meeting_room', tint: 'bg-sky-500/10 text-sky-500', category: 'Navigation', defaultCol: 'main', sizes: ['lg'], defaultSize: 'lg' },
@@ -181,14 +181,14 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   { id: 'work-widget', name: 'Work widget', blurb: 'A sticky, table, chart or any other work widget, live on this dashboard', icon: 'widgets', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['sm', 'md', 'lg', 'stack'], defaultSize: 'md' },
   { id: 'connected-app', name: 'Connected app', blurb: 'One of your connected apps, running here', icon: 'public', tint: 'bg-sky-500/10 text-sky-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-mail', name: 'Mail', blurb: 'Your inbox, here', icon: 'mail', tint: 'bg-rose-500/10 text-rose-500', category: 'Communication', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
-  { id: 'app-chat', name: 'Chat', blurb: 'Your conversations, here', icon: 'forum', tint: 'bg-sky-500/10 text-sky-500', category: 'Communication', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
+  { id: 'app-chat', name: 'Chat', blurb: 'Your conversations, here', icon: 'forum', tint: 'bg-sky-500/10 text-sky-500', category: 'Communication', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-calendar', name: 'Calendar', blurb: 'Your calendar, here', icon: 'calendar_month', tint: 'bg-violet-500/10 text-violet-500', category: 'Live', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-files', name: 'Files', blurb: 'Your file library, here', icon: 'folder', tint: 'bg-sky-500/10 text-sky-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
-  { id: 'app-vault', name: 'PlexiiVault', blurb: 'Your vault, here', icon: 'plexii:vault', tint: 'bg-rose-500/10 text-rose-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'md' },
+  { id: 'app-vault', name: 'PlexiiVault', blurb: 'Your vault, here', icon: 'plexii:vault', tint: 'bg-rose-500/10 text-rose-500', category: 'Navigation', defaultCol: 'main', multi: false, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-browser', name: 'Browser', blurb: 'A page you want in front of you', icon: 'public', tint: 'bg-indigo-500/10 text-indigo-500', category: 'Live', defaultCol: 'main', multi: true, sizes: ['md', 'lg'], defaultSize: 'lg' },
   { id: 'app-launcher', name: 'App launcher', blurb: 'Your favourite connected apps with their real logos', icon: 'apps', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Navigation', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   // Actions
-  { id: 'quick', name: 'Quick actions', blurb: 'Create, plan, collaborate, automate', icon: 'bolt', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Actions', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
+  { id: 'quick', name: 'Quick actions', blurb: 'Create, plan, collaborate, automate', icon: 'bolt', tint: 'bg-emerald-500/10 text-emerald-500', category: 'Actions', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'md' },
   { id: 'create', name: 'Create new', blurb: 'Start a document, spreadsheet, deck, or desk in one tap', icon: 'add_circle', tint: 'bg-accent/10 text-accent', category: 'Actions', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   { id: 'focus-timer', name: 'Focus timer', blurb: 'Start and stop the five minute promise from home', icon: 'timer', tint: 'bg-violet-500/10 text-violet-500', category: 'Actions', defaultCol: 'rail', sizes: ['icon', 'sm'], defaultSize: 'sm' },
   { id: 'new-desk', name: 'New desk', blurb: 'A fresh desk, one tap, straight in', icon: 'desk', tint: 'bg-teal-500/10 text-teal-500', category: 'Actions', defaultCol: 'rail', sizes: ['icon'], defaultSize: 'icon' },
@@ -202,7 +202,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
   { id: 'where-was-i', name: 'Where was I', blurb: 'Your last working context, with one button: Resume', icon: 'undo', tint: 'bg-sky-500/10 text-sky-500', category: 'Smart', defaultCol: 'main', sizes: ['md', 'lg'], defaultSize: 'md' },
   { id: 'stalled', name: 'Stalled desk', blurb: 'The in-progress desk that has waited longest for you', icon: 'hourglass_bottom', tint: 'bg-orange-500/10 text-orange-500', category: 'Smart', defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },
   // The ONE Attention widget (DEC-019c): every queue behind a section slider.
-  { id: 'attention', name: 'Focus', blurb: 'Every task that needs you — to-dos, reviews, dates, stale desks — one widget, sliding sections', icon: 'notifications', tint: 'bg-accent/10 text-accent', category: 'Smart', defaultCol: 'main', sizes: ['sm', 'md', 'lg'], defaultSize: 'md' },
+  { id: 'attention', name: 'Focus', blurb: 'Every task that needs you — to-dos, reviews, dates, stale desks — one widget, sliding sections', icon: 'notifications', tint: 'bg-accent/10 text-accent', category: 'Smart', defaultCol: 'main', sizes: ['sm', 'md', 'lg'], defaultSize: 'lg' },
   // Retired (DEC-019c): consolidated into 'attention'. Stored layouts keep
   // rendering; the gallery never offers these again.
   { id: 'att-tasks', name: 'Focus · Tasks', blurb: 'Your open to-dos, soonest due first', icon: 'check_circle', tint: 'bg-accent/10 text-accent', category: 'Smart', retired: true, defaultCol: 'rail', sizes: ['sm', 'md'], defaultSize: 'sm' },

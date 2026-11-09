@@ -234,7 +234,7 @@ export default function FilesPanel({
         return
       }
       const e = catalogFor('file')
-      const pos = spawnPositionFor(e?.defaultWidth ?? 360, e?.defaultHeight ?? 280)
+      const pos = spawnPositionFor(e?.defaultWidth ?? 360, e?.defaultHeight ?? 280, 'file')
       await placeFilesOnDesk(refs, { taskId, at: { x: pos.x + (e?.defaultWidth ?? 360) / 2, y: pos.y + 20 } })
     },
     []

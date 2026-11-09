@@ -1,6 +1,8 @@
 // The owner's "Plexii starting sizes" standard (2026-11-09). This list is the
 // standard as written, kept apart from the code on purpose: a change to the
 // table has to be made here too, by someone who meant it.
+import { sectionFrameOf } from '../../src/renderer/src/lib/sectionGeometry'
+import { unitsFromPx } from '../../src/renderer/src/lib/workcentreLayout'
 import { describe, it, expect } from 'vitest'
 import { WIDGET_START_SIZES, startSizeFor, sizeWhenMoved } from '../../src/shared/widgetStartSizes'
 import { minSizeFor, tableBornWidth, tableFitWidth } from '../../src/shared/widgetSizing'
@@ -28,7 +30,8 @@ describe('the starting-sizes standard', () => {
 
   it('every entry in the table is in the standard, and the minimap is unchanged', () => {
     const extra = Object.keys(WIDGET_START_SIZES).filter((k) => !(k in STANDARD))
-    expect(extra).toEqual(['minimap'])
+    expect(extra.sort()).toEqual(['meeting-record', 'minimap'])
+    expect(startSizeFor('meeting-record')).toEqual({ width: 420, height: 440 })
     expect(startSizeFor('minimap')).toEqual({ width: 220, height: 160 })
   })
 
@@ -95,5 +98,37 @@ describe('tables open wide enough for their columns', () => {
 
   it('is still capped, so a huge table scrolls rather than opening wider than the desk', () => {
     expect(tableFitWidth(40)).toBe(1280)
+  })
+})
+
+describe('the sizes add up on the Workcentre grid', () => {
+  // The standard's four example layouts, in columns by rows at the default
+  // window's 97 px column. They only work if each size takes exactly these.
+  const LAYOUT_UNITS: Array<[string, number, number]> = [
+    ['doc', 9, 19], ['drive', 3, 10], ['contacts', 3, 9],
+    ['inbox', 4, 12], ['task-list', 4, 11], ['calendar', 4, 11], ['metrics', 4, 7], ['sticky', 2, 6], ['chart', 6, 11], ['field', 3, 4],
+    ['sheet', 9, 18], ['stat-card', 3, 5], ['card', 3, 6],
+    ['webview', 10, 17], ['timer', 2, 9], ['task-link', 3, 4]
+  ]
+
+  it.each(LAYOUT_UNITS)('%s takes %i columns by %i rows', (kind, w, h) => {
+    expect(unitsFromPx({ w: WIDGET_START_SIZES[kind].width, h: WIDGET_START_SIZES[kind].height }, 97)).toEqual({ w, h })
+  })
+})
+
+describe('a section stands empty at its starting size', () => {
+  const start = { width: 740, height: 340, layout: null } as never
+
+  it('a new empty section is the standard size', () => {
+    expect(sectionFrameOf(start, [])).toMatchObject({ width: 740, height: 340 })
+  })
+
+  it('one that was already empty keeps the small frame', () => {
+    expect(sectionFrameOf({ width: 480, height: 360, layout: null } as never, [])).toMatchObject({ width: 240, height: 140 })
+  })
+
+  it('takes its frame from what it holds as soon as something is in it', () => {
+    const child = { id: 'c', x: 0, y: 0, width: 200, height: 200, kind: 'sticky' } as never
+    expect(sectionFrameOf(start, [child]).width).toBeLessThan(740)
   })
 })

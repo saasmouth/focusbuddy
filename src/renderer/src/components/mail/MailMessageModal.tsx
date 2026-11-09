@@ -384,7 +384,7 @@ export default function MailMessageModal(): JSX.Element | null {
                   onClick={() => void send()}
                   disabled={!draft.trim() || sendState === 'sending'}
                   data-testid="mail-send"
-                  className="ml-auto rounded-md bg-[var(--accent)] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
+                  className="ml-auto rounded-md bg-[rgb(var(--accent))] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
                 >
                   {sendState === 'sending' ? 'Sending…' : 'Send'}
                 </button>

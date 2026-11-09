@@ -368,7 +368,7 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
           <button
             type="button"
             className={`widget-nodrag rounded px-1 py-0.5 hover:bg-[var(--surface-sunken)] ${
-              model.editing ? 'text-[var(--accent)]' : 'text-[var(--ink-40)]'
+              model.editing ? 'text-[rgb(var(--accent))]' : 'text-[var(--ink-40)]'
             }`}
             title="Filter criteria"
             data-testid="calendar-filter-toggle"
@@ -427,13 +427,13 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                 title={count > 0 ? `${count} on this day — double-click to open` : undefined}
                 className={`flex flex-col items-center justify-start rounded-[3px] py-0.5 text-[10px] leading-none transition-colors ${
                   isSel
-                    ? 'bg-[color-mix(in_oklab,var(--accent)_15%,transparent)] ring-1 ring-[var(--accent)]'
+                    ? 'bg-[color-mix(in_oklab,rgb(var(--accent))_15%,transparent)] ring-1 ring-[rgb(var(--accent))]'
                     : 'hover:bg-[var(--surface-sunken)]'
                 } ${inMonth ? 'text-[var(--ink-80)]' : 'text-[var(--ink-30)]'}`}
               >
                 <span
                   className={`grid h-[16px] w-[16px] place-items-center rounded-full tabular-nums ${
-                    isToday ? 'bg-[var(--accent)] font-semibold text-white' : ''
+                    isToday ? 'bg-[rgb(var(--accent))] font-semibold text-white' : ''
                   }`}
                 >
                   {new Date(day).getDate()}
@@ -621,7 +621,7 @@ function FilterEditor({
           type="button"
           onClick={onDone}
           data-testid="calendar-filter-done"
-          className="widget-nodrag ml-auto rounded bg-[var(--accent)] px-2 py-0.5 font-medium text-white"
+          className="widget-nodrag ml-auto rounded bg-[rgb(var(--accent))] px-2 py-0.5 font-medium text-white"
         >
           Done
         </button>

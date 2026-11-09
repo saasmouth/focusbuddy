@@ -24,7 +24,7 @@ surface built on `perfect-freehand` (a small MIT library that turns raw
 rendered as SVG paths and the whole sketch serialises to `widget.content` as JSON,
 so it persists like any other widget. The catalog entry lives in
 `src/renderer/src/lib/widgetCatalog.ts` (kind `scratchpad`, category Tools, default
-560x420), the kind is declared in `src/shared/types.ts`, and it is free on every
+620x420), the kind is declared in `src/shared/types.ts`, and it is free on every
 plan per `src/renderer/src/lib/capabilityDefaults.ts` and
 `src/renderer/src/lib/gating.ts`.
 

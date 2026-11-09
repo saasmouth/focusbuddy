@@ -8,6 +8,7 @@ import {
   packedRows,
   pointerCell,
   sizedFromColumns,
+  stockSized,
   type GridMetrics,
   type SizedInstance,
   type WidgetSize
@@ -220,5 +221,54 @@ describe('sizedFromColumns (v2 migration)', () => {
     // in main clamps all the way to its only size, sm.
     const out = sizedFromColumns([{ key: 'f', widget: 'focus-timer' }], [])
     expect(out[0].size).toBe('sm')
+  })
+})
+
+describe('dashboard cards start at the standard', () => {
+  // The owner's standard, name for name. Spelled out so a change shows up here.
+  const STANDARD: Record<string, WidgetSize> = {
+    standup: 'lg', navigator: 'lg', continue: 'lg', 'people-home': 'lg', 'room-portal': 'lg',
+    'office-document': 'lg', 'connected-app': 'lg', 'app-browser': 'lg', 'app-mail': 'lg',
+    'app-calendar': 'lg', 'app-files': 'lg', 'app-chat': 'lg', 'app-vault': 'lg', attention: 'lg',
+    'desk-widget': 'md', 'work-widget': 'md', 'one-thing': 'md', 'where-was-i': 'md', quick: 'md',
+    agenda: 'stack', activity: 'stack',
+    pulse: 'sm', overdue: 'sm', 'pinned-desk': 'sm', 'pinned-conversation': 'sm', shortcuts: 'sm',
+    'app-launcher': 'sm', create: 'sm', stalled: 'sm', 'focus-timer': 'sm',
+    'new-desk': 'icon', discover: 'icon', 'new-meeting': 'icon', transcribe: 'icon'
+  }
+
+  it.each(Object.entries(STANDARD))('%s arrives at %s', (id, size) => {
+    const def = widgetDef(id as Parameters<typeof widgetDef>[0])
+    expect(def.defaultSize).toBe(size)
+    expect(def.sizes, `${id} must be allowed at its own default`).toContain(size)
+  })
+
+  it('a new board uses each card at the size it arrives at', () => {
+    const rail = [
+      { key: 'agenda', widget: 'agenda' },
+      { key: 'quick', widget: 'quick' },
+      { key: 'pulse', widget: 'pulse' }
+    ] as Parameters<typeof stockSized>[1]
+    expect(stockSized([], rail).map((i) => i.size)).toEqual(['stack', 'md', 'sm'])
+  })
+
+  it('a layout somebody already had keeps the sizes it migrated to', () => {
+    const rail = [{ key: 'agenda', widget: 'agenda' }] as Parameters<typeof sizedFromColumns>[1]
+    expect(sizedFromColumns([], rail).map((i) => i.size)).toEqual(['sm'])
+  })
+
+  it('the new Home packs with no holes above its last row', () => {
+    const items: SizedInstance[] = (
+      [['standup', 'lg'], ['navigator', 'lg'], ['continue', 'lg'], ['agenda', 'stack'], ['activity', 'stack'], ['quick', 'md'], ['pulse', 'sm']] as const
+    ).map(([key, size]) => inst(key, size))
+    const positions = packGrid(items, COLS)
+    assertValid(items, positions)
+    const last = Math.max(...items.map((i) => positions.get(i.key)!.row))
+    const filled = new Set<string>()
+    for (const i of items) {
+      const p = positions.get(i.key)!
+      for (let r = p.row; r < p.row + SIZE_SPAN[i.size].h; r++) for (let c = p.col; c < p.col + SIZE_SPAN[i.size].w; c++) filled.add(`${c},${r}`)
+    }
+    for (let r = 0; r < last; r++) for (let c = 0; c < COLS; c++) expect(filled.has(`${c},${r}`), `hole at ${c},${r}`).toBe(true)
   })
 })

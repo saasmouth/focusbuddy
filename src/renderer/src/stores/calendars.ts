@@ -12,7 +12,7 @@ import type { ExternalCalendar } from '@shared/types'
 // whose calendar was just deleted should still be visible while the next
 // refresh catches up.
 
-const FALLBACK = 'var(--accent)'
+const FALLBACK = 'rgb(var(--accent))'
 
 interface CalendarState {
   calendars: ExternalCalendar[]

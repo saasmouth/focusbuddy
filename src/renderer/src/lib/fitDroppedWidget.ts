@@ -1,9 +1,9 @@
 // How big a thing dropped on a desk is allowed to be.
 //
 // "Apps when dragged to the desk should be no larger than 3/4 of the view
-// width and 3/4 of the view height." (The owner's starting-sizes standard of
-// 2026-11-09 moved that to 4/5: its browser is 80% of a default workspace, and
-// a lower cap would shrink it off the size the standard chose.)
+// width and 3/4 of the view height." (The view is the whole canvas surface,
+// which runs under the floating side menu: 1600 x 891 on the default window, so
+// every size in the starting-sizes standard opens uncapped there.)
 //
 // The browser widget opens at 1920×1080 on purpose — sites lay out for that
 // width, so a page renders the way it was designed rather than in a narrowed
@@ -28,7 +28,7 @@
 import { GRID } from './canvasGrid'
 
 /** The fraction of the visible canvas a dropped widget may occupy. */
-export const DROP_VIEW_FRACTION = 0.8
+export const DROP_VIEW_FRACTION = 0.75
 
 /**
  * Never shrink below this, even in a very small window.

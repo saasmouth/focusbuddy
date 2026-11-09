@@ -446,7 +446,7 @@ async function runWrapup(
         // intact, its heard lines doors into the Thread.
         await useWidgetStore
           .getState()
-          .create({ taskId: desk.id, kind: 'meeting-record', content: meeting.id, x: 40, y: 40, width: 420, height: 440 })
+          .create({ taskId: desk.id, kind: 'meeting-record', content: meeting.id, x: 40, y: 40, ...WIDGET_START_SIZES['meeting-record'] })
           .catch(() => null)
         let x = 500
         const doc = WIDGET_START_SIZES.doc
