@@ -90,5 +90,14 @@ Open This Room in Plexii….
   mutations, 3 e2e mutations); the handoff's three link layers (real path, lstat is
   a regular file, O_NOFOLLOW) each hold the link test alone, and only removing all
   three turns it red.
-- The owner's plexii:// handler (LaunchServices) was checked before and after the
-  e2e runs: still app.haptyx.desktop, modification date unchanged.
+- The owner's plexii:// handler (LaunchServices) was unchanged by every e2e run of
+  THIS branch (checked before and after). The v4.3.47 baseline run, which has no
+  guard, DID take it: at 11:35:06 on 2026-11-09 plexii:// and haptyx:// pointed at
+  the test Electron (com.github.Electron, from node_modules). Restored the same
+  minute to app.haptyx.desktop with LSSetDefaultHandlerForURLScheme (nothing opened)
+  and verified through LaunchServices and its stored preferences.
+- **Until this branch lands, any Plexii e2e run from another worktree or the
+  aggregator (all are v4.3.47 or older) does the same.** Check with
+  `plexiilite-helper url-handler plexii` (PlexiiLite's helper) or the
+  LaunchServices plist, and restore `app.haptyx.desktop` after such a run; the
+  owner's Plexii also takes the links back the next time it is opened.
