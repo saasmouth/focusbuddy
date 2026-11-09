@@ -148,7 +148,7 @@ export function askWithDialog(win: BrowserWindow | null): LiteRoomAsk {
  * forgotten whatever the answer: a refusal, a no or a yes all end it (PlexiiLite
  * sends a new id each time the person chooses Open This Room in Plexii).
  */
-export async function beginLiteRoom(id: string, ask: LiteRoomAsk, opts: { liteData?: string; home?: string; now?: number } = {}): Promise<LiteRoomBegin> {
+export async function beginLiteRoom(id: string, ask: LiteRoomAsk, opts: { liteData?: string; home?: string; now?: number; maxBytes?: number } = {}): Promise<LiteRoomBegin> {
   if (!LITE_ROOM_ID.test(id)) return { ok: false, stop: 'missing', message: LITE_ROOM_REFUSED.missing }
   if (asking.has(id)) return { ok: false, stop: 'busy', message: '' }
   if (done.has(id)) {
@@ -171,14 +171,14 @@ export async function beginLiteRoom(id: string, ask: LiteRoomAsk, opts: { liteDa
     clearLiteRoom(id)
     done.add(id)
     if (!yes) return { ok: false, stop: 'declined', message: `Nothing was brought in from “${read.room.name}”.` }
-    return await importLiteRoom(plan, opts.home ?? homedir())
+    return await importLiteRoom(plan, opts.home ?? homedir(), opts.maxBytes)
   } finally {
     asking.delete(id)
   }
 }
 
 /** Copy the room's files in (the drop pipeline), make its desk, and place everything as it was. */
-export async function importLiteRoom(plan: LiteRoomPlan, home: string): Promise<LiteRoomBegin> {
+export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes: number = LITE_ROOM_MAX_TOTAL_BYTES): Promise<LiteRoomBegin> {
   const { room } = plan
   const folder = checkRoomFolder(room.folder)
   if (!folder.ok) {
@@ -200,7 +200,7 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string): Promise<
       continue
     }
     // The limit holds for the files as they are now, not only as PlexiiLite listed them.
-    if (total + c.size > LITE_ROOM_MAX_TOTAL_BYTES) {
+    if (total + c.size > maxBytes) {
       leftOut.push({ name: t.name, why: 'size' })
       continue
     }

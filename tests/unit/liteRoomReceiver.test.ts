@@ -239,6 +239,23 @@ describe('begin: read, ask, and only then bring in', () => {
     ])
   })
 
+  it('the size limit holds for the files as they are when copied, not only as PlexiiLite listed them', async () => {
+    handOver()
+    // Listed at 133 bytes in all; by the time the person says yes, plan.md has grown.
+    const r = await R.beginLiteRoom(
+      ID,
+      async () => {
+        writeFileSync(join(room, 'plan.md'), 'x'.repeat(500))
+        return true
+      },
+      { liteData: lite, home: base, maxBytes: 300 }
+    )
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(db.ingested.map((i) => i.name)).toEqual(['budget.csv', 'notes.txt', 'photo.png'])
+    expect(r.leftOut).toContainEqual({ name: 'plan.md', why: 'size' })
+  })
+
   it('an unknown id, a tampered handoff, a newer one: nothing asked, nothing brought in, a clear message', async () => {
     R.rememberLiteRoom(ID)
     let r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
