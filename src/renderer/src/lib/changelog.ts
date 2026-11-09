@@ -37,6 +37,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '4.3.48',
+    date: '2026-11-09T05:04:00Z',
+    title: 'PlexiiDesk 4.3.48 — bring a room from PlexiiLite into Plexii',
+    tag: 'feature',
+    summary:
+      'A room you have arranged in PlexiiLite can now become a desk in Plexii. Choose File, then Open This Room in Plexii, say yes, and Plexii makes a new desk named after the folder, with its own copy of the files and the browser windows laid out as they were. Your folder is not changed.',
+    highlights: [
+      'Open This Room in Plexii: PlexiiLite hands the room to Plexii, which makes a new desk with its own copy of the files, on the canvas or in the Workcentre, wherever the room was. If you are not signed in yet, Plexii waits until you are.',
+      'Plexii asks first and tells you what will come in and what will be left out and why. A room can bring up to 200 files and 1 GB. Sub-folders and files that are only in iCloud stay behind, and each one is named.',
+      'Also fixed: a picture you have resized no longer springs back to its original size each time its desk opens.'
+    ]
+  },
   // 4.3.46 was built and installed for the owner only, never published; its
   // notes are folded into 4.3.47, the release everyone on 4.3.45 updates to.
   {
