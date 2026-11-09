@@ -3,7 +3,7 @@
  *
  * DSS-1  Added from the side menu: the standard size, as stored.
  * DSS-2  Made with no size, the way an agent or MCP does it: the standard too.
- * DSS-3  Cells, Deck and Design start with their AI panel closed on a desk.
+ * DSS-3 to 5  Cells, Deck and Design start with their AI panel closed on a desk.
  */
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, openNewDesk, addWidgetToDesk, waitForReady, type LaunchedApp } from './_helpers'
@@ -64,24 +64,17 @@ test('DSS-2: a widget made with no size starts at the standard, not a guess', as
   ])
 })
 
-test('DSS-3: Cells, Deck and Design start with their AI panel closed on a desk', async () => {
-  launched = await launchApp()
-  const { window } = launched
-  await waitForReady(window)
-  const deskId = await openNewDesk(window, 'Apps on a desk')
-  await window.evaluate(async (id) => {
-    const api = (window as unknown as { api: typeof window.api }).api
-    let x = 40
-    for (const [kind, width, height] of [
-      ['sheet', 960, 620],
-      ['slides', 960, 620],
-      ['design', 740, 560]
-    ] as const) {
-      const doc = await api.documents.create({ docType: kind, title: `${kind} on a desk` })
-      await api.widgets.create({ taskId: id, kind, title: doc.title, content: doc.id, x, y: 40, width, height })
-      x += width + 40
-    }
-  }, deskId)
+// Each on a desk of its own, in view: a widget off-screen does not mount its body.
+async function openAppOnDesk(window: Page, kind: 'sheet' | 'slides' | 'design', width: number, height: number): Promise<void> {
+  const deskId = await openNewDesk(window, `${kind} on a desk`)
+  await window.evaluate(
+    async ({ id, kind, width, height }) => {
+      const api = (window as unknown as { api: typeof window.api }).api
+      const doc = await api.documents.create({ docType: kind, title: `${kind} doc` })
+      await api.widgets.create({ taskId: id, kind, title: doc.title, content: doc.id, x: 40, y: 40, width, height })
+    },
+    { id: deskId, kind, width, height }
+  )
   await window.reload()
   await waitForReady(window)
   await window.evaluate((i) => {
@@ -89,16 +82,33 @@ test('DSS-3: Cells, Deck and Design start with their AI panel closed on a desk',
     w.__fbView?.getState().goTask(i)
   }, deskId)
   await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 10_000 })
+}
 
-  // Cells: the toggle offers to show it.
+test('DSS-3: Cells starts with its AI panel closed on a desk', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openAppOnDesk(window, 'sheet', 960, 620)
   await expect(window.locator('[data-testid="sheet-ai-toggle"]').first()).toHaveAttribute(
     'aria-label',
     'Show PlexiiAssist',
     { timeout: 15_000 }
   )
-  // Deck: the assistant pane is not on screen.
-  await expect(window.locator('[data-testid="slides-side-panel"]').first()).toBeAttached({ timeout: 15_000 })
+})
+
+test('DSS-4: Deck starts with its AI panel closed on a desk', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openAppOnDesk(window, 'slides', 960, 620)
+  await expect(window.locator('[data-testid="slides-shell"]').first()).toBeAttached({ timeout: 15_000 })
   await expect(window.locator('[data-testid="slides-ai-assistant"]')).toHaveCount(0)
-  // Design: its toggle offers to show the side pane.
+})
+
+test('DSS-5: Design starts with its AI panel closed on a desk', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await openAppOnDesk(window, 'design', 740, 560)
   await expect(window.getByRole('button', { name: 'Show the side pane' }).first()).toBeAttached({ timeout: 15_000 })
 })

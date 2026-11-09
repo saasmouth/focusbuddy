@@ -17,7 +17,7 @@ import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 //
 // N3: doc/sheet widgets spawned through the real "Add object" palette (right
 // click > Add object > Files > Document/Spreadsheet > Create new) must open
-// at the new bumped catalog defaults (860x760 / 880x580), as capped to the
+// at the standard starting sizes (960x660 / 960x620), as capped to the
 // view since 364e801d (see the assertion for the rule).
 //
 // Driving method: hover the top pill's Tidy button and click a mode from its
@@ -384,8 +384,9 @@ test('(f) Add object > Files > Document/Spreadsheet spawn at the new catalog def
 
   // Since 364e801d ("Cap EVERY new widget to the view, in one place") a new
   // widget opening at its untouched catalogue default is scaled, both axes by
-  // one factor, to fit within 3/4 of the visible canvas (measured in canvas
-  // units at the current zoom), never below 240x160 and never enlarged. So the
+  // one factor, to fit within 80% of the visible canvas (measured in canvas
+  // units at the current zoom), rounded down to the 20 px grid, never below
+  // 240x160 and never enlarged. So the
   // catalogue default is the INPUT and the on-desk size is that default under
   // the cap. Spelled out here rather than imported, so a change to either the
   // defaults or the cap shows up as a failure instead of agreeing with itself.
@@ -395,20 +396,23 @@ test('(f) Add object > Files > Document/Spreadsheet spawn at the new catalog def
   const capped = (w: number, h: number): { width: number; height: number } => {
     const scale = Math.min(
       1,
-      ((sizes.view.width / sizes.view.zoom) * 0.75) / w,
-      ((sizes.view.height / sizes.view.zoom) * 0.75) / h
+      ((sizes.view.width / sizes.view.zoom) * 0.8) / w,
+      ((sizes.view.height / sizes.view.zoom) * 0.8) / h
     )
     if (scale >= 1) return { width: w, height: h }
-    return { width: Math.max(240, Math.round(w * scale)), height: Math.max(160, Math.round(h * scale)) }
+    return {
+      width: Math.max(240, Math.floor((w * scale) / 20) * 20),
+      height: Math.max(160, Math.floor((h * scale) / 20) * 20)
+    }
   }
 
   expect(sizes.doc, 'exactly one doc widget was created').toHaveLength(1)
-  expect(sizes.doc[0], 'doc opens at its 860x760 catalogue default, under the view cap').toEqual(
-    capped(860, 760)
+  expect(sizes.doc[0], 'doc opens at its 960x660 standard size, under the view cap').toEqual(
+    capped(960, 660)
   )
 
   expect(sizes.sheet, 'exactly one sheet widget was created').toHaveLength(1)
-  expect(sizes.sheet[0], 'sheet opens at its 880x580 catalogue default, under the view cap').toEqual(
-    capped(880, 580)
+  expect(sizes.sheet[0], 'sheet opens at its 960x620 standard size, under the view cap').toEqual(
+    capped(960, 620)
   )
 })
