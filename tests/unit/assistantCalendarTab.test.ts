@@ -111,8 +111,10 @@ describe('dec_131 — the Message tab', () => {
     expect(composer).toContain('compact?: boolean')
     expect(composer).toContain('{!compact && (\n          <button\n            onClick={() => void launchMeeting(')
     expect(composer).toContain("className={`absolute right-1.5 bottom-1.5 icon-btn !h-7 !w-7 ${recording ? 'text-rose-500' : ''}`}")
-    expect(composer).toContain('rows={compact ? 3 : 1}')
-    expect(composer).toContain("compact ? 'pr-10 min-h-[76px]' : ''")
+    // The panel is always stacked; a narrow chat widget stacks the same way.
+    expect(composer).toContain('const stacked = compact || narrow')
+    expect(composer).toContain('rows={stacked ? 3 : 1}')
+    expect(composer).toContain("stacked ? 'pr-10 min-h-[76px]' : ''")
     // the Office page keeps every button where it was
     expect(composer).toContain('data-testid="composer-meet"')
     expect(composer).toContain('data-testid="composer-attach"')

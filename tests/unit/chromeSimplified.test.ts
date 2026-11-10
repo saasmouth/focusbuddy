@@ -255,7 +255,7 @@ describe('the Plexii pill is the obvious thing in its corner', () => {
     // minimap when the pill is gone. The geometry is held by
     // tests/unit/cornerChrome.test.tsx; this keeps the original promise.
     expect(read('src/renderer/src/components/AutomationsFAB.tsx')).toContain(
-      "bottom: 'var(--fb-corner-stack-bottom, 120px)'"
+      "bottom: 'var(--fb-corner-stack-bottom, 180px)'"
     )
     const geometry = read('src/renderer/src/components/assistant/pillGeometry.ts')
     expect(geometry).toContain('PILL_STACK_BOTTOM_PX = PILL_CANVAS_INSET_PX + PILL_SIZE_PX + CORNER_GAP_PX // 76')

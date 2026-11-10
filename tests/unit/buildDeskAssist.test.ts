@@ -112,7 +112,10 @@ describe('nothing arrives as a shell', () => {
     expect(materialize).toContain('window.api.tables.create')
     expect(materialize).toContain('JSON.stringify(s.pageContent)')
     expect(materialize).toContain("JSON.stringify({ def: s.fieldDef, value: null })")
-    expect((canvas.match(/materializeSuggestion\(/g) ?? []).length).toBeGreaterThanOrEqual(2)
+    // The canvas's two accept paths (this desk, new desk) share placeSuggestions,
+    // which is where the one materialize call on the canvas lives.
+    expect(canvas).toContain('await materializeSuggestion(s, activeTaskId,')
+    expect((canvas.match(/await placeSuggestions\(suggestions, rect, startY, (true|false)\)/g) ?? []).length).toBe(2)
     expect(sidebar).toContain('materializeSuggestion(')
   })
 
