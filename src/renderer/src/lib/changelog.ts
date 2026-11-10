@@ -39,7 +39,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '4.3.48',
-    date: '2026-11-09T05:04:00Z',
+    date: '2026-11-10T00:30:00Z',
     title: 'PlexiiDesk 4.3.48 — bring a room from PlexiiLite into Plexii',
     tag: 'feature',
     summary:
