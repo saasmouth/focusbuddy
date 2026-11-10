@@ -15,7 +15,7 @@ test.afterEach(async () => {
   }
 })
 
-test('palette-add spawns new widget beside the active widget, not off-screen', async () => {
+test('a widget added with no spot chosen takes its zone, in view and clear of the active one', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -93,22 +93,18 @@ test('palette-add spawns new widget beside the active widget, not off-screen', a
   expect(anchor).toBeDefined()
   expect(spawned).toBeDefined()
 
-  // The spawned widget must be within 1500px of the anchor (generous limit —
-  // catches the old behaviour where fixed (60,60) or large jitter values put the
-  // widget thousands of pixels away or off-screen). The real contract is "to the
-  // right or left of the anchor with a 40px gap", which means x should be
-  // approximately anchor.x + anchor.width + 40 (right) or
-  // anchor.x - spawned.width - 40 (left).
-  const rightX = anchor.x + anchor.width + 40
-  const leftX = anchor.x - spawned.width - 40
-
-  const isRight = Math.abs(spawned.x - rightX) < 10
-  const isLeft = Math.abs(spawned.x - leftX) < 10
-
-  expect(
-    isRight || isLeft,
-    `Expected spawned widget at x≈${rightX} (right) or x≈${leftX} (left), got x=${spawned.x}`
-  ).toBe(true)
+  // A sticky's place in the owner's standard is the top-right corner of the part
+  // of the desk you can see (the side menu floats over the left of the canvas).
+  // The rule for a kind with no zone, beside the active widget, is covered in
+  // tests/unit/spawnPosition.test.ts.
+  expect(spawned.x, JSON.stringify(spawned)).toBe(1100)
+  expect(spawned.y, JSON.stringify(spawned)).toBe(20)
+  const apart =
+    spawned.x >= anchor.x + anchor.width ||
+    spawned.x + spawned.width <= anchor.x ||
+    spawned.y >= anchor.y + anchor.height ||
+    spawned.y + spawned.height <= anchor.y
+  expect(apart, 'the new widget must not land on the active one').toBe(true)
 
   // Must also be within the visible viewport (canvas coordinates 0–1440 is a
   // reasonable bound for a default window at zoom=1 and no pan).
@@ -116,7 +112,7 @@ test('palette-add spawns new widget beside the active widget, not off-screen', a
   expect(spawned.x, 'x not deeply negative').toBeGreaterThan(-3000)
 
   // Log for evidence.
-  console.log(`anchor: x=${anchor.x} w=${anchor.width}; spawned: x=${spawned.x}; isRight=${isRight} isLeft=${isLeft}`)
+  console.log(`anchor: x=${anchor.x} w=${anchor.width}; spawned: x=${spawned.x} y=${spawned.y}`)
 })
 
 test('palette-add without an active widget falls back to viewport centre, not off-screen', async () => {

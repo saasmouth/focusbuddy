@@ -103,6 +103,8 @@ test('4. Quick action Automate navigates away from Home', async () => {
   const { window } = launched
   await waitForReady(window)
   await goHome(window)
+  // The one-time local AI card floats over the bottom of a new Home.
+  await window.addStyleTag({ content: '[data-testid="local-ai-intro"]{display:none!important}' })
 
   await window.locator('[data-testid="home-quick-automate"]').click()
   await expect(window.locator('[data-testid="home-dashboard"]')).not.toBeVisible({ timeout: 8000 })

@@ -102,10 +102,13 @@ test('NWT-3 with nothing engaged the desk still quick-adds: click the empty desk
   const wb = (await frame.boundingBox())!
   const cb = (await window.locator('[data-canvas-surface="true"]').boundingBox())!
   // The canvas corner farthest from the new work widget is empty desk.
+  // The left corners start past the side menu, which floats over the canvas.
+  const menu = (await window.locator('[data-testid="desk-sidebar"]').boundingBox())!
+  const left = menu.x + menu.width + 80
   const corners = [
-    { x: cb.x + 80, y: cb.y + 80 },
+    { x: left, y: cb.y + 80 },
     { x: cb.x + cb.width - 80, y: cb.y + 80 },
-    { x: cb.x + 80, y: cb.y + cb.height - 80 },
+    { x: left, y: cb.y + cb.height - 80 },
     { x: cb.x + cb.width - 80, y: cb.y + cb.height - 80 }
   ]
   const cx = wb.x + wb.width / 2
