@@ -39,10 +39,19 @@ Widevine asks for a Verified Media Path: a binary castLabs has signed. There are
 
 ### Sign up (once, on the build Mac)
 
+The EVS client (castlabs-evs 1.3.3) is already installed on the build Mac, in a
+virtualenv at `~/.castlabs-evs`. Homebrew's `python3` is "externally managed",
+so `pip install` into it fails. Sign up with:
+
+```sh
+~/.castlabs-evs/bin/python -m castlabs_evs.account signup
+```
+
+On another Mac, create the virtualenv first:
+
 ```sh
 python3 -m venv ~/.castlabs-evs
-~/.castlabs-evs/bin/python3 -m pip install --upgrade castlabs-evs
-~/.castlabs-evs/bin/python3 -m castlabs_evs.account signup
+~/.castlabs-evs/bin/python -m pip install --upgrade castlabs-evs
 ```
 
 `signup` asks for an email, your name, an organisation, an account name and a
@@ -52,7 +61,7 @@ account token is saved in `~/.config/evs/config.json`.
 The token expires after about a month. Before a build after a long gap, refresh it:
 
 ```sh
-~/.castlabs-evs/bin/python3 -m castlabs_evs.account reauth
+~/.castlabs-evs/bin/python -m castlabs_evs.account reauth
 ```
 
 ### What the build does
@@ -70,7 +79,7 @@ The token expires after about a month. Before a build after a long gap, refresh 
 - **No account:** the build continues and logs
   `[vmp] SKIPPED VMP signing: no castLabs EVS account on this machine …`.
   The app is still Apple-signed, with `vmp.json` = `none`.
-- `PLEXII_VMP=require` fails the build instead of skipping; use it for releases once the account exists. `PLEXII_VMP=off` never signs. The EVS client's Python is found from `PLEXII_EVS_PYTHON`, then `~/.castlabs-evs/bin/python3`, then `python3`.
+- `PLEXII_VMP=require` fails the build instead of skipping; use it for releases once the account exists. `PLEXII_VMP=off` never signs. The EVS client's Python is found from `EVS_PYTHON`, then `~/.castlabs-evs/bin/python`, then `python3`.
 - `verify-pkg` is local and needs no account. It rejects castLabs' development certificate, so a build that says "signed" really has a production signature.
 
 ### Rebuild after signing up

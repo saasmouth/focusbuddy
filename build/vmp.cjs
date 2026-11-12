@@ -65,12 +65,13 @@ function evsCredentials({ env = process.env, home = homedir(), readFile = (p) =>
 }
 
 /**
- * The Python that has the EVS client: PLEXII_EVS_PYTHON, else the virtualenv
- * docs/drm.md sets up (~/.castlabs-evs), else python3 on PATH.
+ * The Python that has the EVS client: EVS_PYTHON, else the virtualenv at
+ * ~/.castlabs-evs (Homebrew's python3 is "externally managed", so pip can't
+ * install into it; docs/drm.md), else python3 on PATH.
  */
 function evsPython({ env = process.env, home = homedir(), exists = existsSync } = {}) {
-  if (env.PLEXII_EVS_PYTHON) return env.PLEXII_EVS_PYTHON
-  const venv = join(home, '.castlabs-evs', 'bin', 'python3')
+  if (env.EVS_PYTHON) return env.EVS_PYTHON
+  const venv = join(home, '.castlabs-evs', 'bin', 'python')
   if (exists(venv)) return venv
   return process.platform === 'win32' ? 'python' : 'python3'
 }
@@ -89,9 +90,8 @@ function evsClientAvailable(python, spawn = spawnSync) {
 }
 
 const SIGN_UP_HINT =
-  'To enable it, sign up once (docs/drm.md): python3 -m venv ~/.castlabs-evs && ' +
-  '~/.castlabs-evs/bin/python3 -m pip install --upgrade castlabs-evs && ' +
-  '~/.castlabs-evs/bin/python3 -m castlabs_evs.account signup — then rebuild.'
+  'To enable it, sign up once (docs/drm.md): ~/.castlabs-evs/bin/python -m castlabs_evs.account signup ' +
+  '(the client is in the ~/.castlabs-evs virtualenv), then rebuild.'
 
 /**
  * Sign, skip or fail — the whole decision, with no side effects.

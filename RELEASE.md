@@ -164,12 +164,12 @@ Widevine video. Full notes are in [docs/drm.md](docs/drm.md). For a release:
   - Once the account exists, build releases with `PLEXII_VMP=require`, so a
     missing or expired token fails the build instead of shipping unsigned:
     `PLEXII_VMP=require node scripts/release-env.mjs npm run dist:mac:universal:signed`.
-    Run `~/.castlabs-evs/bin/python3 -m castlabs_evs.account reauth` first if
+    Run `~/.castlabs-evs/bin/python -m castlabs_evs.account reauth` first if
     the last build was more than a month ago.
 - **Check it:**
   - The build log shows `[vmp] production VMP signature applied and verified`.
   - `PlexiiDesk.app/Contents/Resources/vmp.json` says `"vmp": "production"`.
-  - `~/.castlabs-evs/bin/python3 -m castlabs_evs.vmp verify-pkg --name-hint PlexiiDesk release/mac-universal` passes. It is local and needs no account.
+  - `~/.castlabs-evs/bin/python -m castlabs_evs.vmp verify-pkg --name-hint PlexiiDesk release/mac-universal` passes. It is local and needs no account.
 - **Order matters, and the hooks own it:**
   - macOS: VMP **before** Apple signing, on the merged universal app (`build/harden.cjs`).
   - Windows: VMP **after** Authenticode (`build/vmp-after-sign.cjs`). This hook has not yet run on CI. It needs Python, `castlabs-evs`, and `EVS_ACCOUNT_NAME` / `EVS_PASSWD` secrets; without them it skips the same way.

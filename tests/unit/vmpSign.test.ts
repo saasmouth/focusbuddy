@@ -93,9 +93,9 @@ describe('credentials, as the EVS client finds them', () => {
     expect(vmp.evsCredentials({ env: {}, home, readFile: () => { throw new Error('ENOENT') } })).toBeNull()
     expect(vmp.evsCredentials({ env: { EVS_ACCOUNT_NAME: 'a' }, home, readFile: () => { throw new Error('ENOENT') } })).toBeNull()
   })
-  it('finds the python: PLEXII_EVS_PYTHON, then ~/.castlabs-evs, then python3', () => {
-    expect(vmp.evsPython({ env: { PLEXII_EVS_PYTHON: '/opt/py' }, home, exists: () => true })).toBe('/opt/py')
-    expect(vmp.evsPython({ env: {}, home, exists: (p) => p === `${home}/.castlabs-evs/bin/python3` })).toBe(`${home}/.castlabs-evs/bin/python3`)
+  it('finds the python: EVS_PYTHON, then the ~/.castlabs-evs virtualenv, then python3', () => {
+    expect(vmp.evsPython({ env: { EVS_PYTHON: '/opt/py' }, home, exists: () => true })).toBe('/opt/py')
+    expect(vmp.evsPython({ env: {}, home, exists: (p) => p === `${home}/.castlabs-evs/bin/python` })).toBe(`${home}/.castlabs-evs/bin/python`)
     expect(vmp.evsPython({ env: {}, home, exists: () => false })).toBe('python3')
   })
 })
@@ -133,7 +133,7 @@ exit 0
     PATH: process.env.PATH,
     HOME: dir,
     EVS_CONFIG_FILE: join(dir, 'none.json'),
-    PLEXII_EVS_PYTHON: python,
+    EVS_PYTHON: python,
     ...extra
   })
 
