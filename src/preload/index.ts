@@ -109,6 +109,7 @@ import type { KnowledgeEntry, KnowledgeDraft, KnowledgePatch } from '@shared/kno
 import type { DeskLayout, DeviceClass, WorkcentreLayout } from '@shared/deskLayout'
 import type { Decision } from '@shared/decision'
 import type { DeskPopupInfo, DeskPopupMode, PopupRect } from '@shared/deskPopup'
+import type { DrmNoticePayload } from '@shared/drm'
 
 // Local-document comment row as returned by the docComments IPC.
 interface DocCommentDto {
@@ -973,6 +974,14 @@ const api = {
       ): void => cb(payload)
       ipcRenderer.on('webview:link-clicked', handler)
       return () => ipcRenderer.removeListener('webview:link-clicked', handler)
+    },
+    // A web page wanted protected video (Widevine) and it can't play here:
+    // main says which page (its webContents id), why, and the text to show
+    // (src/main/widevine.ts). The surface showing that page draws the notice.
+    onDrmNotice: (cb: (payload: DrmNoticePayload) => void): (() => void) => {
+      const handler = (_: unknown, payload: DrmNoticePayload): void => cb(payload)
+      ipcRenderer.on('webview:drm-notice', handler)
+      return () => ipcRenderer.removeListener('webview:drm-notice', handler)
     }
   },
   // Sign-in / scripted web pop-ups shown as cards on the desk. Main hosts the

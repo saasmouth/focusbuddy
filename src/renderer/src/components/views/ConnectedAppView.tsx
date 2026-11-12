@@ -11,6 +11,7 @@ import Icon from '../Icon'
 import AppLogo from '../AppLogo'
 import { openHttpUrl } from '../../lib/openUrl'
 import { useSignInWatch } from '../../lib/signInWatch'
+import DrmNotice, { useDrmNotice } from '../browser/DrmNotice'
 
 interface Props {
   appId: string
@@ -45,6 +46,9 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
   // Signed-out detection: the page this app settles on, fed to the detector
   // that drives the side menu's "Signed out — sign in" state.
   useSignInWatch(wvEl, app?.id ?? null)
+  // Protected video this app's page can't play here (Widevine): why, and the
+  // way out (components/browser/DrmNotice).
+  const [drmNotice, dismissDrmNotice] = useDrmNotice(wvEl as unknown as { getWebContentsId(): number } | null)
 
   // Bump usage on mount so Favourites reflects actual use of the app.
   useEffect(() => {
@@ -281,6 +285,8 @@ export default function ConnectedAppView({ appId }: Props): JSX.Element {
           <Icon name="delete" size={14} />
         </button>
       </div>
+
+      {drmNotice && <DrmNotice notice={drmNotice} onDismiss={dismissDrmNotice} />}
 
       {/* Webview fills the rest. Partition name ties cookies/storage to this app, so
           sessions survive app restarts even though the element unmounts on view switch. */}

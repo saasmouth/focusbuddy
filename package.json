@@ -1,6 +1,6 @@
 {
   "name": "plexii",
-  "version": "4.3.48",
+  "version": "4.3.49-drm.1",
   "private": true,
   "description": "Task-scoped digital work environment for people with ADHD and high distractibility.",
   "main": "./out/main/index.js",
@@ -141,7 +141,7 @@
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
     "axe-core": "^4.12.1",
-    "electron": "^45.2.3",
+    "electron": "github:castlabs/electron-releases#v45.2.1+wvcus",
     "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "happy-dom": "^20.9.0",

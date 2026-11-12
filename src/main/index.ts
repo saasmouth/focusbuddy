@@ -30,6 +30,7 @@ import { allowPopupResponse } from './deskPopups'
 import { isAgentDrivenWc } from './ai/browserActions'
 import { cleanWebviewUserAgent } from './userAgent'
 import { noteWebviewPartition, notificationsAllowed } from './webNotifications'
+import { installDrmProbe, registerDrmIpc, startWidevine } from './widevine'
 import { getFile } from './db/files'
 import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
@@ -671,6 +672,11 @@ function createCommandCenter(): BrowserWindow {
   return win
 }
 
+// Protected video (Widevine): every web session gets the page probe the moment
+// it exists, before any page in it loads (src/main/widevine.ts). Registered at
+// module load, ahead of every partition the app opens after `ready`.
+app.on('session-created', (ses) => installDrmProbe(ses))
+
 app.on('web-contents-created', (_, contents) => {
   // ── <webview> attach policy ─────────────────────────────────────────────
   // The moment a <webview> attaches is the only point its privileges can still
@@ -728,6 +734,7 @@ app.on('web-contents-created', (_, contents) => {
   // have seen this partition, and trackSession is idempotent.
   try {
     trackSession(contents.session)
+    installDrmProbe(contents.session)
   } catch {
     // torn-down contents — nothing to track
   }
@@ -845,6 +852,13 @@ app.whenReady().then(() => {
     // re-pins once; nothing persistent is keyed to it.
     app.setAppUserModelId('agency.saasmouth.plexidesk')
   }
+  // Widevine first and without waiting: a first launch starts downloading the
+  // CDM now, while the rest of start-up runs; pages that need it wait for it
+  // themselves (src/main/widevine.ts). Web partitions get their page probe
+  // from the session-created listener above as they open. (Not opened here:
+  // installSessionPersistence below must see every partition's creation.)
+  startWidevine()
+  registerDrmIpc()
   getDb()
   // Local AI policy, before anything can make an AI call: the provider router,
   // the egress guard that keeps AI traffic on the device while the source is

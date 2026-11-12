@@ -193,6 +193,16 @@ module.exports = {
     buildResources: 'build'
   },
 
+  // The Electron runtime is castLabs' Electron for Content Security (ECS):
+  // Electron plus Google's Widevine CDM, so Netflix and other protected video
+  // play in desk web pages (src/main/widevine.ts, docs/drm.md). It is not on
+  // electronjs.org, so the packager downloads each architecture's zip from
+  // castLabs' releases, by the version in node_modules/electron/package.json
+  // (e.g. electron-v45.2.1+wvcus-darwin-x64.zip under …/download/v45.2.1+wvcus/).
+  electronDownload: {
+    mirror: 'https://github.com/castlabs/electron-releases/releases/download/v'
+  },
+
   files: [
     'out/**/*',
     'package.json',
@@ -378,6 +388,11 @@ module.exports = {
   // because flipping one rewrites bytes and invalidates a prior signature. The
   // hook itself decides whether an ad-hoc signature is needed afterwards.
   afterPack: 'build/harden.cjs',
+
+  // Windows only: the VMP (Widevine) signature has to come AFTER Authenticode
+  // signing there, so it runs here rather than in afterPack. On macOS it is
+  // the other way round and harden.cjs does it before Apple signing.
+  afterSign: 'build/vmp-after-sign.cjs',
 
   dmg: {
     title: 'PlexiiDesk ${version}',

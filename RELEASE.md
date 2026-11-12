@@ -150,6 +150,34 @@ never be uploaded as a customer download. `scripts/require-signing-env.mjs`
 blocks the release build when the required credentials are absent; the asset
 gate separately verifies the updater checksum and manifest.
 
+## DRM: Widevine and VMP signing (from 4.3.49)
+
+The runtime is castLabs' Electron for Content Security (`electron:
+github:castlabs/electron-releases#v45.2.1+wvcus`), so desk web pages can play
+Widevine video. Full notes are in [docs/drm.md](docs/drm.md). For a release:
+
+- **VMP is a second signature, separate from Apple's.** Netflix and other
+  commercial services need a production VMP signature from castLabs' EVS.
+  - Without an EVS account on the build Mac, the build **skips** it and logs
+    `[vmp] SKIPPED VMP signing: …`. The app still installs and plays Widevine
+    test streams, but Netflix refuses it.
+  - Once the account exists, build releases with `PLEXII_VMP=require`, so a
+    missing or expired token fails the build instead of shipping unsigned:
+    `PLEXII_VMP=require node scripts/release-env.mjs npm run dist:mac:universal:signed`.
+    Run `~/.castlabs-evs/bin/python3 -m castlabs_evs.account reauth` first if
+    the last build was more than a month ago.
+- **Check it:**
+  - The build log shows `[vmp] production VMP signature applied and verified`.
+  - `PlexiiDesk.app/Contents/Resources/vmp.json` says `"vmp": "production"`.
+  - `~/.castlabs-evs/bin/python3 -m castlabs_evs.vmp verify-pkg --name-hint PlexiiDesk release/mac-universal` passes. It is local and needs no account.
+- **Order matters, and the hooks own it:**
+  - macOS: VMP **before** Apple signing, on the merged universal app (`build/harden.cjs`).
+  - Windows: VMP **after** Authenticode (`build/vmp-after-sign.cjs`). This hook has not yet run on CI. It needs Python, `castlabs-evs`, and `EVS_ACCOUNT_NAME` / `EVS_PASSWD` secrets; without them it skips the same way.
+- **Fuses:** `build/fuses.cjs` is castLabs' fixed EVS set, and EVS refuses any other wire.
+  - `tests/unit/fuses.test.ts` pins it. Don't change a fuse without castLabs supporting the new wire.
+  - Cookie encryption is one of those fuses, and it is **one-way**: a downgrade to 4.3.48 or earlier on the same profile loses cookies written since.
+- **Upgrading ECS:** see docs/drm.md. Re-run `tests/e2e/widevine.spec.ts` after every Electron change.
+
 ## Scripts
 
 - `scripts/release-mac.sh [version]` — upload the full mac set, then gate. Refuses

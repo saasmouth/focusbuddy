@@ -51,7 +51,21 @@ export default defineConfig({
         '@shared': resolve('src/shared')
       }
     },
-    define: APP_VERSION_DEFINE
+    define: APP_VERSION_DEFINE,
+    build: {
+      rollupOptions: {
+        input: {
+          // The app window's preload (window.api).
+          index: resolve('src/preload/index.ts'),
+          // The protected-video probe main registers on every WEB session
+          // (src/main/widevine.ts). Both are sandboxed preloads, which can
+          // require nothing but 'electron': each must be ONE self-contained
+          // file, so the two must never share a module (a shared chunk would
+          // be a require() neither sandbox can satisfy).
+          drmProbe: resolve('src/preload/drmProbe.ts')
+        }
+      }
+    }
   },
   renderer: {
     root: 'src/renderer',

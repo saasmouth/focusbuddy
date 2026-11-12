@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { navTrailGate } from '@shared/navTrail'
 import Icon from '../Icon'
 import EnginePickerChip from './EnginePickerChip'
+import DrmNotice, { useDrmNotice } from './DrmNotice'
 import { useWebPanel } from '../../stores/webPanel'
 import { searchUrl as engineSearchUrl } from '../../lib/omniIntent'
 import { resolveAddressInput } from '../../lib/browserUrl'
@@ -132,6 +133,8 @@ export default function BrowserSurface({
   // never navigates (the widget's proven pattern).
   const [urlDraft, setUrlDraft] = useState('')
   const [urlEditing, setUrlEditing] = useState(false)
+  // Protected video this page can't play here (Widevine): why, and the way out.
+  const [drmNotice, dismissDrmNotice] = useDrmNotice(wv)
   // Keep the latest onWebviewEl without retriggering the callback ref.
   const onWebviewElRef = useRef(onWebviewEl)
   onWebviewElRef.current = onWebviewEl
@@ -391,6 +394,9 @@ export default function BrowserSurface({
         </button>
         {toolbarTrailing}
       </div>
+      {/* Above the page, in the layout: the page's slot shrinks to make room, so
+          the web layer never paints the page over it. */}
+      {drmNotice && <DrmNotice notice={drmNotice} onDismiss={dismissDrmNotice} />}
       <div className="flex-1 relative min-h-0">
         {inline ? (
           <>

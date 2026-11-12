@@ -680,6 +680,7 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'textMenu.onAction': 'textMenu:action',
   'update.onState': 'update:state',
   'webMenu.onCommand': 'webMenu:command',
+  'webview.onDrmNotice': 'webview:drm-notice',
   'webview.onLinkClicked': 'webview:link-clicked',
   'widgets.onExternalChange': 'widgets:externalChange'
 }

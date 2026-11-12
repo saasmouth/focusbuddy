@@ -105,9 +105,14 @@ describe('Privacy settings', () => {
     // page says when it happens and that meetings always trigger it.
     expect(text).toMatch(/Meeting and call recordings are always transcribed on this computer/)
     expect(text).toMatch(/Only the model is downloaded; your audio and transcripts stay here\./)
-    // Icons no longer go through Google's favicon service (4.3.34).
-    expect(text).not.toMatch(/Google/)
+    // Icons no longer go through Google's favicon service (4.3.34). Google is
+    // named once, for the one thing that does go there: the Widevine module
+    // protected video needs (4.3.49, castLabs ECS; network-inventory.md).
+    expect(text).not.toMatch(/favicon/i)
     expect(text).toMatch(/fetched from the linked site itself/)
+    expect(text).toMatch(/downloads it from Google \(update\.googleapis\.com\)/)
+    expect(text).toMatch(/not your account or what you watch/)
+    expect(text.replace(/Web pages that play protected video[^]*?what you watch\./, '')).not.toMatch(/Google/)
     expect(text).toMatch(/not end to end/)
     // Each of these was in the app before 4.3.34 and was not true.
     expect(text).not.toMatch(/Only items you explicitly share, and your email address/)
