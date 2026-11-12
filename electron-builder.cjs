@@ -199,8 +199,12 @@ module.exports = {
   // electronjs.org, so the packager downloads each architecture's zip from
   // castLabs' releases, by the version in node_modules/electron/package.json
   // (e.g. electron-v45.2.1+wvcus-darwin-x64.zip under …/download/v45.2.1+wvcus/).
+  // The mirror ends at /download/: @electron/get adds "v<version>/" itself.
+  // castLabs' wiki gives ".../download/v", which suits an older downloader and
+  // here made ".../vv45.2.1+wvcus/" (a 404); tests/unit/castlabsDownload.test.ts
+  // asks @electron/get for the real URL.
   electronDownload: {
-    mirror: 'https://github.com/castlabs/electron-releases/releases/download/v'
+    mirror: 'https://github.com/castlabs/electron-releases/releases/download/'
   },
 
   files: [
