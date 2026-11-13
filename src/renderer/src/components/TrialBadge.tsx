@@ -122,6 +122,9 @@ export default function TrialBadge(): JSX.Element | null {
 function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
   const stayOnFree = onClose
   const choose = (): void => {
+    // The checkout button records this again if they go on to pay. The ledger
+    // keeps the first time and counts both clicks.
+    noteActivationEvent('pro_upgrade_clicked')
     onClose()
     promptUpgrade('Pick the plan that fits.', 'pro')
   }

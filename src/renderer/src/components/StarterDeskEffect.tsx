@@ -48,7 +48,10 @@ export default function StarterDeskEffect(): null {
 
   useEffect(() => {
     const api = window.api.starterDesk
-    if (!api?.consider) return
+    // While sync is going to run, stay out until it has settled. An early call
+    // would see an empty local database on a second computer, before the
+    // person's real desks arrive.
+    if (!api?.consider || (willRun && !settled)) return
     let cancelled = false
     void (async () => {
       try {
@@ -70,7 +73,7 @@ export default function StarterDeskEffect(): null {
     return () => {
       cancelled = true
     }
-  }, [settled, onboardingStatus])
+  }, [settled, onboardingStatus, willRun])
 
   return null
 }
