@@ -50,6 +50,7 @@ import LocalAiPrompts from './components/LocalAiPrompts'
 import VerifyEmailModal from './components/VerifyEmailModal'
 import InviteTeammateNudge from './components/InviteTeammateNudge'
 import GrowthEffects from './components/GrowthEffects'
+import StarterDeskEffect from './components/StarterDeskEffect'
 import FirstRunOnboarding from './components/FirstRunOnboarding'
 import OnboardingTour from './components/onboarding/OnboardingTour'
 import FeatureSpotlightPopup from './components/onboarding/FeatureSpotlightPopup'
@@ -964,6 +965,8 @@ export default function App(): JSX.Element {
             invite nudge, and the effects with no screen (pending build,
             first_launch). */}
         <GrowthEffects />
+        {/* ADHD Starter Desk: a new install lands on a desk, not an empty canvas. */}
+        <StarterDeskEffect />
         {/* "Download this desk on Plexii", received: a visitor's copy of a
             shared desk, imported once someone is signed in. */}
         <DeskHandoffEffects />

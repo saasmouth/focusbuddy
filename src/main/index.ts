@@ -4,6 +4,9 @@ import { existsSync, readdirSync, renameSync, symlinkSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { config as loadEnv } from 'dotenv'
 import { closeDb, getDb } from './db/database'
+import { noteAppOpen } from './db/activation'
+import { captureProcessAttribution } from './activationCapture'
+import { getLaunchInfo } from './launchVersion'
 import { restoreExtensions } from './browserExtensions'
 import { beginQuitFlush, flushOnWindowBackground, installSessionPersistence, trackSession } from './sessionPersistence'
 import { resolveUserDataDir } from './userDataMigration'
@@ -846,6 +849,15 @@ app.whenReady().then(() => {
     app.setAppUserModelId('agency.saasmouth.plexidesk')
   }
   getDb()
+  // First-install cohort + installer/UTM codes. Local only; a consented
+  // telemetry snapshot is what carries them to the signal server later.
+  try {
+    const launch = getLaunchInfo()
+    noteAppOpen(launch.firstInstall)
+    captureProcessAttribution()
+  } catch (err) {
+    console.warn('[activation] could not stamp this launch:', err instanceof Error ? err.message : err)
+  }
   // Local AI policy, before anything can make an AI call: the provider router,
   // the egress guard that keeps AI traffic on the device while the source is
   // "Local on this device", and the engine host. No model is loaded here; it

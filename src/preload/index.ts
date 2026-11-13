@@ -781,6 +781,17 @@ const api = {
       aiEstCostUsd: number
       onboardingCoreCompleted: boolean
       onboardingModules: number
+      activation: {
+        events: Array<{ name: string; at: number; count: number }>
+        attribution: {
+          utmSource?: string
+          utmMedium?: string
+          utmCampaign?: string
+          utmContent?: string
+          utmTerm?: string
+          installer?: string
+        } | null
+      }
     }> => ipcRenderer.invoke('telemetry:collect'),
     suggestWidgetSetup: (input: {
       widgetId: string
@@ -1046,6 +1057,16 @@ const api = {
     // snapshot up to the admin as a per-user completion record.
     record: (summary: { coreCompleted: boolean; modulesCompleted: number }): Promise<void> =>
       ipcRenderer.invoke('onboarding:record', summary)
+  },
+  // ADHD Starter Desk for a brand-new install, and the activation events that
+  // ride the opt-in telemetry snapshot. `record` accepts an event name only.
+  starterDesk: {
+    current: (): Promise<{ deskId: string | null }> => ipcRenderer.invoke('starterDesk:current'),
+    consider: (input: { syncSettled: boolean }): Promise<{ action: 'wait' | 'provision' | 'open' | 'skip'; deskId: string | null }> =>
+      ipcRenderer.invoke('starterDesk:consider', input)
+  },
+  activation: {
+    record: (name: string): Promise<void> => ipcRenderer.invoke('activation:record', name)
   },
   session: {
     // The active organisation is the tenancy boundary for the local workspace.

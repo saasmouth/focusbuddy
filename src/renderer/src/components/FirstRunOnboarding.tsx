@@ -115,8 +115,8 @@ export default function FirstRunOnboarding(): JSX.Element | null {
       finish(() => goTask(firstTask.id))
     } catch {
       // Never strand the user on the last step: surface the failure and leave
-      // both Start blank and a retry available.
-      setSeedError('Could not create the starter workspace. Try again, or start blank.')
+      // both Continue and a retry available.
+      setSeedError('Could not create that desk. Try again, or continue to the starter desk.')
     } finally {
       setSeeding(false)
     }
@@ -297,10 +297,12 @@ export default function FirstRunOnboarding(): JSX.Element | null {
 
         {step === 3 && (
           <div className="px-6 py-6">
-            <h2 className="text-xl font-semibold mb-2">A place to start</h2>
+            <h2 className="text-xl font-semibold mb-2">Your desk is ready</h2>
             <p className="text-[13px] text-stone-300 leading-relaxed mb-4">
-              Pick what you need to do first. Plexii creates a real, editable desk with the right
-              tools already arranged. You can change or delete everything it adds.
+              Plexii puts an ADHD Starter Desk on the canvas so a new install is not a blank page.
+              Today&apos;s top 3, a quick brain dump, and a 25-minute focus block — brain calm in 30
+              seconds. Change or delete anything. The choices below add a different desk if you
+              want one.
             </p>
             <div className="grid grid-cols-2 gap-2 mb-4" data-testid="onboarding-starter-choices">
               {[
@@ -342,7 +344,7 @@ export default function FirstRunOnboarding(): JSX.Element | null {
                 className="btn-ghost justify-center"
                 data-testid="onboarding-start-blank"
               >
-                <span>Start blank</span>
+                <span>Continue to my desk</span>
               </button>
             </div>
             {seedError && (
