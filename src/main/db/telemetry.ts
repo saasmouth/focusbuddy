@@ -5,6 +5,8 @@
 
 import { getDb } from './database'
 import { cacheCostMicros, estimateCostMicros } from '../ai/aiCost'
+import { activationTelemetry } from './activation'
+import type { ActivationTelemetry } from '@shared/activationEvents'
 
 export interface TelemetrySnapshot {
   appVersion: string
@@ -25,6 +27,10 @@ export interface TelemetrySnapshot {
   // the first-run flow and how many tours they finished. Aggregate flags only.
   onboardingCoreCompleted: boolean
   onboardingModules: number
+  // Activation funnel for a new install: event names, timestamps and counts,
+  // plus installer/UTM codes when the installer or a link supplied them.
+  // Never titles, desk ids, or anything the person typed.
+  activation: ActivationTelemetry
 }
 
 function bumpCounter(key: string, n: number): void {
@@ -163,6 +169,7 @@ export function collectTelemetry(): TelemetrySnapshot {
     aiOutputTokens: counter('ai_output_tokens'),
     aiEstCostUsd: Math.round((counter('ai_cost_micros') / 1e6) * 100) / 100,
     onboardingCoreCompleted: counter('onboarding_core') >= 1,
-    onboardingModules: counter('onboarding_modules')
+    onboardingModules: counter('onboarding_modules'),
+    activation: activationTelemetry()
   }
 }

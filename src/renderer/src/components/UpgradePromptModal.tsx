@@ -7,6 +7,7 @@ import { PRICING_URL } from '../lib/siteUrls'
 import { useState } from 'react'
 import { useAccountStore } from '../stores/account'
 import { startUpgrade } from '../lib/accountClient'
+import { noteActivationEvent } from '../lib/activationEvents'
 
 // Single global modal for capability gates. Driven by useUpgradePromptStore;
 // any gated action calls promptUpgrade('<reason>') and this renders. Mounted
@@ -61,6 +62,7 @@ export default function UpgradePromptModal(): JSX.Element | null {
     dismiss()
   }
   const openPricing = (): void => {
+    noteActivationEvent('pro_upgrade_clicked')
     window.open(PRICING_URL, '_blank', 'noopener,noreferrer')
     close()
   }
@@ -72,6 +74,7 @@ export default function UpgradePromptModal(): JSX.Element | null {
       openPricing()
       return
     }
+    noteActivationEvent('pro_upgrade_clicked')
     const started = await startUpgrade(choice, interval, token).catch(() => null)
     if (started && (started.action === 'redirect' || started.action === 'portal') && started.url) {
       window.open(started.url, '_blank', 'noopener,noreferrer')

@@ -63,7 +63,11 @@ along under the same switch. From 4.3.34 both are opt-in and separate:
   (`src/main/db/telemetry.ts`, `collectTelemetry`): `appVersion`, `platform`,
   `widgetTotal`, `widgetsByKind` (kind → count), `taskCount`, `folderCount`,
   `focusSessions`, `focusMinutes`, `aiCalls`, `aiInputTokens`, `aiOutputTokens`,
-  `aiEstCostUsd`, `onboardingCoreCompleted`, `onboardingModules`. Counts only.
+  `aiEstCostUsd`, `onboardingCoreCompleted`, `onboardingModules`, and `activation`
+  (`events`: `app_first_launch`, `starter_desk_loaded`, `first_user_desk_created`,
+  `day2_return`, `pro_upgrade_clicked`, each a name, a timestamp and a count;
+  `attribution`: installer/UTM codes only, when a link or installer supplied
+  them). Counts and short codes only — never titles, desk ids, or anything typed.
 - **Crash reports** → `POST {api}/crash` (`src/renderer/src/lib/crashReport.ts:67`),
   same cadence: up to 50 locally recorded errors with `ts`, `source`, `kind`,
   `message`, `stack`, `componentStack`, `appVersion`, `context`. An error message

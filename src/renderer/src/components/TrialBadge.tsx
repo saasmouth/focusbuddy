@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Icon from './Icon'
 import Modal from './plexi/Modal'
 import { PRICING_URL } from '../lib/siteUrls'
+import { noteActivationEvent } from '../lib/activationEvents'
 import {
   useStoredTier,
   useTrial,
@@ -125,6 +126,7 @@ function TierPickerModal({ onClose }: { onClose: () => void }): JSX.Element {
     promptUpgrade('Pick the plan that fits.', 'pro')
   }
   const openPricing = (): void => {
+    noteActivationEvent('pro_upgrade_clicked')
     window.open(PRICING_URL, '_blank', 'noopener,noreferrer')
   }
   return (

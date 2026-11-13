@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { reportOnboarding } from '../lib/onboardingTelemetry'
 import { ONBOARDING_MODULES, featureModules, moduleById } from '../lib/onboarding/registry'
+import { isUntouchedStarterWorkspace } from '@shared/adhdStarterDesk'
 
 // Modular onboarding. There is one always-available "core" first-run flow plus
 // any number of short, replayable feature tours. Every module is:
@@ -106,11 +107,16 @@ export const useOnboarding = create<OnboardingStore>((set, get) => ({
     } else {
       let fresh = true
       try {
-        const [nodes, hint] = await Promise.all([
+        const [nodes, hint, starter] = await Promise.all([
           window.api.nodes.list(),
-          window.api.settings.hintAnthropic()
+          window.api.settings.hintAnthropic(),
+          window.api.starterDesk?.current?.().catch(() => ({ deskId: null as string | null })) ??
+            Promise.resolve({ deskId: null as string | null })
         ])
-        if (nodes.length > 0 || hint.hasKey) fresh = false
+        // The starter desk we just placed is not "this person already has a
+        // workspace". Anything else — their own desk, a room, an API key — is.
+        const onlyStarter = isUntouchedStarterWorkspace(nodes, starter?.deskId ?? null)
+        if ((nodes.length > 0 && !onlyStarter) || hint.hasKey) fresh = false
       } catch {
         /* if unsure, treat as fresh — the new-user case is the one that matters */
       }
