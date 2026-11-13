@@ -54,7 +54,11 @@ describe('the real clash: pdf-parse first, then a render', () => {
     for (const k of [...PDF_CANVAS_GLOBALS, 'pdfjsWorker']) delete g[k]
   })
 
-  it('pdf-parse loads first and claims the globals with its own canvas build', async () => {
+  // One scenario, in one test. Shuffling these steps apart is not a different
+  // case: the bug only exists when pdf-parse has already claimed the globals,
+  // and a later step that loads the 6.x worker first makes the 5.x read throw
+  // a version mismatch that is the leak, not the behaviour under test.
+  it('pdf-parse claims the globals, a bare render then fails, and the helper render still works', async () => {
     const { PDFParse } = await import('pdf-parse')
     const parser = new PDFParse({ data: await textPdf() })
     try {
@@ -66,9 +70,7 @@ describe('the real clash: pdf-parse first, then a render', () => {
     expect(renderers, 'the renderer’s own @napi-rs/canvas build must resolve').toBeTruthy()
     expect(typeof g.Path2D).toBe('function')
     expect(g.Path2D, 'pdf-parse’s Path2D is a different class from the renderer’s').not.toBe(renderers!.Path2D)
-  })
 
-  it('a render that bypasses the helper fails with the error users saw (the fixture really exercises the bug)', async () => {
     const req = createRequire(import.meta.url)
     const { pdfToPng } = req('pdf-to-png-converter') as { pdfToPng: (d: Uint8Array, o: Record<string, unknown>) => Promise<unknown> }
     const prevWorker = g.pdfjsWorker
@@ -79,10 +81,9 @@ describe('the real clash: pdf-parse first, then a render', () => {
       )
     } finally {
       if (prevWorker !== undefined) g.pdfjsWorker = prevWorker
+      else delete g.pdfjsWorker
     }
-  })
 
-  it('the same render through withPdfRenderer succeeds, and pdf-parse still reads text after it', async () => {
     const before = PDF_CANVAS_GLOBALS.map((k) => g[k])
     const bytes = await vectorPdf()
     const pages = await withPdfRenderer((pdfToPng) =>
