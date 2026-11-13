@@ -186,6 +186,17 @@ describe('telling a file only in iCloud without reading it', () => {
     const p = join(base, 'sparse.bin')
     writeFileSync(p, '')
     truncateSync(p, 10 * 1024 * 1024)
+    // SF_DATALESS is a macOS file flag, and statFlags asks /usr/bin/stat for it
+    // with the BSD format. GNU stat on Linux rejects that format. Off macOS a
+    // sparse file is simply not cloud-only, and the flag is never consulted.
+    if (process.platform !== 'darwin') {
+      expect(
+        isDataless(p, { size: 10 * 1024 * 1024, blocks: 0 }, () => {
+          throw new Error('stat is macOS-only')
+        })
+      ).toBe(false)
+      return
+    }
     expect(statFlags(p) & SF_DATALESS).toBe(0)
     expect(isDataless(p, { size: 10 * 1024 * 1024, blocks: 0 })).toBe(false)
   })
