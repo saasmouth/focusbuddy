@@ -38,6 +38,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.49',
+    date: '2026-11-17T09:00:00Z',
+    title: 'PlexiiDesk 4.3.49 — Netflix and other streaming play on your desk',
+    tag: 'feature',
+    summary:
+      'Web pages on your desk can now play protected video, so Netflix and other streaming services work inside PlexiiDesk. The first time PlexiiDesk opens, it downloads Google\'s Widevine module, which these services need.',
+    highlights: [
+      'Protected video plays in browser work widgets, the web panel, connected apps and desk pop-ups. The Widevine module (about 19 MB) downloads from Google the first time PlexiiDesk opens, so the first video needs the internet. A page opened while it is still downloading starts playing once it arrives.',
+      'When a page can\'t play protected video, a bar above it says why, and Open in your browser takes you there instead.',
+      'To get the Widevine module and keep it up to date, PlexiiDesk now contacts Google (update.googleapis.com) when it opens. Google sees this computer\'s address and the app\'s version and platform, not your account or what you watch. The privacy notes in Settings list it with everything else PlexiiDesk connects to.',
+      'Website sign-ins (cookies) are now stored encrypted on this computer.'
+    ]
+  },
+  {
     version: '4.3.48',
     date: '2026-11-10T00:30:00Z',
     title: 'PlexiiDesk 4.3.48 — bring a room from PlexiiLite into Plexii',
