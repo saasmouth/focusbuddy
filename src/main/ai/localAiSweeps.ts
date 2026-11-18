@@ -3,6 +3,7 @@ import { extractDocText } from '../workspaceRank'
 import { localModelStatus } from './localModel'
 import { enrichDocument } from './enrichDocuments'
 import { extractMemoryFromText } from './extractMemory'
+import { learnFromDocumentsEnabled } from '../privacyPrefs'
 import { reindexDocuments } from '../documentRetrieval'
 import { reindexKnowledge } from '../semanticRetrieval'
 import { reindexChunkEmbeddings } from '../chunkEmbeddings'
@@ -30,7 +31,7 @@ export interface SweepResult {
   processed: number
   failed: number
   remaining: number
-  reason?: 'no_local_model'
+  reason?: 'no_local_model' | 'switched_off'
 }
 
 // A tick processes a handful of documents. A local chat call takes seconds, so
@@ -91,6 +92,11 @@ export async function sweepDocumentEnrichment(limit = LOCAL_AI_BATCH): Promise<S
 
 /** Extract durable memory from up to `limit` not-yet-scanned documents. */
 export async function sweepDocumentMemory(limit = LOCAL_AI_BATCH): Promise<SweepResult & { added: number }> {
+  // "Learn from my documents automatically" off: the tick leaves memory alone
+  // (the Learn from my documents button still works). 4.3.50.
+  if (!learnFromDocumentsEnabled()) {
+    return { processed: 0, failed: 0, added: 0, remaining: 0, reason: 'switched_off' }
+  }
   if (!(await localModelReady())) {
     return { processed: 0, failed: 0, added: 0, remaining: 0, reason: 'no_local_model' }
   }

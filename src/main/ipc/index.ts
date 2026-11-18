@@ -4622,6 +4622,7 @@ export function registerIpcHandlers(): void {
     if (patch && typeof patch === 'object') {
       if (typeof patch.autoUpdateChecks === 'boolean') clean.autoUpdateChecks = patch.autoUpdateChecks
       if (typeof patch.backgroundAi === 'boolean') clean.backgroundAi = patch.backgroundAi
+      if (typeof patch.learnFromDocuments === 'boolean') clean.learnFromDocuments = patch.learnFromDocuments
     }
     const wasOn = getPrivacyPrefs().backgroundAi
     const next = setPrivacyPrefs(clean)

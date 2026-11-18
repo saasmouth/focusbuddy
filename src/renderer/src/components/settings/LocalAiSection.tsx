@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import LearnFromDocumentsSwitch from './LearnFromDocumentsSwitch'
 import { useLocalAiEngine } from '../../lib/localAiEngine'
 import {
   AI_FEATURES,
@@ -278,6 +279,8 @@ export default function LocalAiSection(): JSX.Element {
           <EngineStatusLine />
         </div>
       )}
+
+      <LearnFromDocumentsSwitch />
 
       {st && (
         <div className="mt-2 fb-t-caption" data-testid="local-ai-policy">

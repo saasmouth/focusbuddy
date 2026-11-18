@@ -13,6 +13,12 @@
 //     is on; a local model on this computer is not gated, since nothing leaves.
 //     The gate sits at the two call sites in index.ts (backgroundAiGate.ts).
 //
+//   learnFromDocuments — "Learn from my documents automatically" (Settings ›
+//     AI › Local, 4.3.50). ON by default. The local-AI tick extracts durable
+//     memory from documents not yet scanned (sweepDocumentMemory), on the
+//     on-device model only, so nothing leaves the computer; off, the tick
+//     leaves memory alone. The Learn from my documents button works either way.
+//
 // Same persistence pattern as voiceProviderPref.ts: one small JSON file in userData,
 // cached after the first read, written through on set. Not a secret. A missing
 // file or a missing field reads as the default.
@@ -24,11 +30,13 @@ import { join } from 'node:path'
 export interface PrivacyPrefs {
   autoUpdateChecks: boolean
   backgroundAi: boolean
+  learnFromDocuments: boolean
 }
 
 export const PRIVACY_DEFAULTS: Readonly<PrivacyPrefs> = Object.freeze({
   autoUpdateChecks: true,
-  backgroundAi: false
+  backgroundAi: false,
+  learnFromDocuments: true
 })
 
 let cache: PrivacyPrefs | null = null
@@ -44,7 +52,9 @@ export function normalisePrivacyPrefs(raw: unknown): PrivacyPrefs {
   return {
     autoUpdateChecks:
       typeof o.autoUpdateChecks === 'boolean' ? o.autoUpdateChecks : PRIVACY_DEFAULTS.autoUpdateChecks,
-    backgroundAi: typeof o.backgroundAi === 'boolean' ? o.backgroundAi : PRIVACY_DEFAULTS.backgroundAi
+    backgroundAi: typeof o.backgroundAi === 'boolean' ? o.backgroundAi : PRIVACY_DEFAULTS.backgroundAi,
+    learnFromDocuments:
+      typeof o.learnFromDocuments === 'boolean' ? o.learnFromDocuments : PRIVACY_DEFAULTS.learnFromDocuments
   }
 }
 
@@ -96,4 +106,9 @@ export function backgroundAiEnabled(): boolean {
 /** Test seam: forget the cached copy so the next read hits the file again. */
 export function __resetPrivacyPrefsCache(): void {
   cache = null
+}
+
+/** Whether the local-AI tick may learn memory from documents by itself. */
+export function learnFromDocumentsEnabled(): boolean {
+  return getPrivacyPrefs().learnFromDocuments
 }

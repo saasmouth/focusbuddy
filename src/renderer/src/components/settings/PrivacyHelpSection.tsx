@@ -18,6 +18,7 @@ import { HELP_BASE, PRICING_URL } from '../../lib/siteUrls'
 //   usage data, crash reports      off  (lib/telemetryPrefs; the server enforces it too)
 //   check for updates              on   (main/privacyPrefs.ts → autoUpdate.ts)
 //   background AI tasks            off  (main/privacyPrefs.ts → backgroundAiGate.ts)
+//   learn from my documents        on   (main/privacyPrefs.ts → localAiSweeps.ts; on-device only, nothing leaves)
 //   keep this device local         off  (lib/localOnlyMode → workspaceSync, cloudDocsSync)
 //
 // Every sentence below is checked against docs/network-inventory.md, which lists
@@ -256,7 +257,8 @@ export default function PrivacyHelpSection(): JSX.Element {
             own API key: names for untitled items (up to 40 at each launch, the first 400 characters of each, to
             Anthropic), and search embeddings (the text of your documents and knowledge entries as they change, and your
             search questions, to OpenAI). Off, untitled items are named only from their own text and search matches
-            words. Work a local model does on this computer is not affected by this switch.
+            words. Work a local model does on this computer is not affected by this switch; learning from your
+            documents into Memory has its own switch, in Settings › AI › Local.
           </Switch>
           <div>
             <Switch

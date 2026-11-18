@@ -2159,12 +2159,13 @@ const api = {
   },
   // Privacy switches enforced in main (privacyPrefs.ts).
   privacy: {
-    getPrefs: (): Promise<{ autoUpdateChecks: boolean; backgroundAi: boolean }> =>
+    getPrefs: (): Promise<{ autoUpdateChecks: boolean; backgroundAi: boolean; learnFromDocuments: boolean }> =>
       ipcRenderer.invoke('privacy:getPrefs'),
     setPrefs: (patch: {
       autoUpdateChecks?: boolean
       backgroundAi?: boolean
-    }): Promise<{ autoUpdateChecks: boolean; backgroundAi: boolean }> => ipcRenderer.invoke('privacy:setPrefs', patch)
+      learnFromDocuments?: boolean
+    }): Promise<{ autoUpdateChecks: boolean; backgroundAi: boolean; learnFromDocuments: boolean }> => ipcRenderer.invoke('privacy:setPrefs', patch)
   },
   // Link and connected-app icons, fetched from the linked site and cached
   // locally (siteIcons.ts). Resolves to a data: URL, or null for the glyph.

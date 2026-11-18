@@ -20,6 +20,9 @@ export default function MemoryPanel(): JSX.Element {
   const [kind, setKind] = useState<MemoryKind>('fact')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  // Whether the local-AI tick learns from documents by itself (Settings › AI ›
+  // Local, main/privacyPrefs.ts learnFromDocuments). Null until read.
+  const [autoLearn, setAutoLearn] = useState<boolean | null>(null)
 
   async function reload(): Promise<void> {
     try {
@@ -30,6 +33,10 @@ export default function MemoryPanel(): JSX.Element {
   }
   useEffect(() => {
     void reload()
+    void window.api.privacy
+      ?.getPrefs()
+      .then((p) => setAutoLearn(p.learnFromDocuments))
+      .catch(() => setAutoLearn(null))
   }, [])
 
   async function remember(): Promise<void> {
@@ -77,6 +84,22 @@ export default function MemoryPanel(): JSX.Element {
           {busy ? 'Learning…' : 'Learn from my documents'}
         </button>
       </div>
+      {autoLearn !== null && (
+        <p className="mb-2 fb-t-caption text-[var(--ink-50)] leading-snug" data-testid="memory-auto-learn">
+          {autoLearn
+            ? 'PlexiiDesk also learns from your documents on this computer while it is open. Turn this off in '
+            : 'Learning from your documents by itself is off. Turn it on in '}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('fb:open-settings', { detail: { tab: 'ai' } }))}
+            className="underline underline-offset-2 hover:text-[var(--ink-70)]"
+            data-testid="memory-auto-learn-settings"
+          >
+            Settings › AI › Local
+          </button>
+          .
+        </p>
+      )}
 
       <div className="flex gap-1.5 mb-2">
         <select

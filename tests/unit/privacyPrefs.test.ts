@@ -19,8 +19,7 @@ import {
   getPrivacyPrefs,
   normalisePrivacyPrefs,
   onPrivacyPrefsChange,
-  setPrivacyPrefs
-} from '../../src/main/privacyPrefs'
+  setPrivacyPrefs, learnFromDocumentsEnabled } from '../../src/main/privacyPrefs'
 
 const file = join(dir, 'privacy-prefs.json')
 
@@ -31,8 +30,10 @@ beforeEach(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
 describe('defaults', () => {
-  it('update checks on, background AI off, with no file', () => {
-    expect(PRIVACY_DEFAULTS).toEqual({ autoUpdateChecks: true, backgroundAi: false })
+  it('update checks on, background AI off, learning from documents on, with no file', () => {
+    // learnFromDocuments (4.3.50): on by default; on-device only, nothing leaves.
+    expect(PRIVACY_DEFAULTS).toEqual({ autoUpdateChecks: true, backgroundAi: false, learnFromDocuments: true })
+    expect(learnFromDocumentsEnabled()).toBe(true)
     expect(autoUpdateChecksEnabled()).toBe(true)
     expect(backgroundAiEnabled()).toBe(false)
   })
@@ -40,7 +41,8 @@ describe('defaults', () => {
   it('a corrupt or partial file falls back to the defaults, never to on', () => {
     writeFileSync(file, '{ not json')
     expect(getPrivacyPrefs()).toEqual(PRIVACY_DEFAULTS)
-    expect(normalisePrivacyPrefs({ backgroundAi: 'yes', autoUpdateChecks: 0 })).toEqual(PRIVACY_DEFAULTS)
+    expect(normalisePrivacyPrefs({ backgroundAi: 'yes', autoUpdateChecks: 0, learnFromDocuments: 'no' })).toEqual(PRIVACY_DEFAULTS)
+    expect(normalisePrivacyPrefs({ learnFromDocuments: false }).learnFromDocuments).toBe(false)
   })
 })
 
@@ -50,13 +52,16 @@ describe('changes', () => {
     const off = onPrivacyPrefsChange((p) => seen.push(p))
     setPrivacyPrefs({ backgroundAi: true })
     setPrivacyPrefs({ autoUpdateChecks: false })
+    setPrivacyPrefs({ learnFromDocuments: false })
     off()
     expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ autoUpdateChecks: false, backgroundAi: true })
     __resetPrivacyPrefsCache()
-    expect(getPrivacyPrefs()).toEqual({ autoUpdateChecks: false, backgroundAi: true })
+    expect(getPrivacyPrefs()).toEqual({ autoUpdateChecks: false, backgroundAi: true, learnFromDocuments: false })
+    expect(learnFromDocumentsEnabled()).toBe(false)
     expect(seen).toEqual([
-      { autoUpdateChecks: true, backgroundAi: true },
-      { autoUpdateChecks: false, backgroundAi: true }
+      { autoUpdateChecks: true, backgroundAi: true, learnFromDocuments: true },
+      { autoUpdateChecks: false, backgroundAi: true, learnFromDocuments: true },
+      { autoUpdateChecks: false, backgroundAi: true, learnFromDocuments: false }
     ])
   })
 })
