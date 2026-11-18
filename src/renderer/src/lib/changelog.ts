@@ -38,6 +38,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.50',
+    date: '2026-11-18T09:00:00Z',
+    title: 'PlexiiDesk 4.3.50 — PDFs from your computer open, and Mail drafts only when you ask',
+    tag: 'fix',
+    summary:
+      'PDF work widgets show files from your computer again, Mail no longer drafts a reply every time you open a message, and learning from your documents has its own switch.',
+    highlights: [
+      'A PDF work widget showing a file from your computer opens it again. Files from your computer now open in a viewer of their own, which never loads websites.',
+      'Mail drafts a reply only when you press Draft a reply. Opening a message no longer sends it to your AI source.',
+      'Settings › AI › Local has Learn from my documents automatically, on as before: while PlexiiDesk is open it learns from your documents on this computer, and nothing is sent anywhere. Off, it learns only when you press Learn from my documents. Memory says which.',
+      'In PlexiiChat, other people\'s messages show who sent them.',
+      'Slide bullets and numbers are the same size as their text.',
+      'Signed out, Home\'s Standup card says it needs an account instead of showing nothing.',
+      'PlexiFlow\'s trigger list says "When a desk is completed", as the flow list does, and the side menu calls PlexiiSign by its name.'
+    ]
+  },
+  {
     version: '4.3.49',
     date: '2026-11-17T09:00:00Z',
     title: 'PlexiiDesk 4.3.49 — Netflix and other streaming play on your desk',
