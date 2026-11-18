@@ -14,6 +14,7 @@ import { useAccountStore } from '../../stores/account'
 import { useCallStore } from '../../stores/call'
 import { useSignInPrompt } from '../../stores/signInPrompt'
 import type { ChatMessage, OrgChannel, SearchHit } from '../../lib/messagingClient'
+import { chatSenderLabels } from '../../lib/chatSenderLabels'
 import {
   attachmentUrl,
   getOrgAiKeyStatus,
@@ -259,10 +260,13 @@ export function MessageRow({
   pinned,
   translateLang,
   onCapture,
-  marked = null
+  marked = null,
+  senderName = null
 }: {
   m: ChatMessage
   mine: boolean
+  /** Who wrote it, shown above someone else's message (chatSenderLabels); null hides it. */
+  senderName?: string | null
   myId: string
   onReact: (emoji: string) => void
   onOpenThread?: () => void
@@ -387,6 +391,11 @@ export function MessageRow({
       className={`group flex ${mine ? 'justify-end' : 'justify-start'} rounded-lg transition-colors`}
     >
       <div className={`flex flex-col max-w-[70%] ${mine ? 'items-end' : 'items-start'}`}>
+        {!mine && senderName && (
+          <div data-testid="message-sender" className="px-1 mb-0.5 text-[11px] font-medium text-[var(--ink-50)]">
+            {senderName}
+          </div>
+        )}
         <div className="relative max-w-full">
           {actions}
           <div
@@ -788,6 +797,8 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
   // in this chat that should just show me both names"), so no members
   // button is needed; a space with no one else falls back to its title.
   const others = (activeConv?.members ?? []).filter((m) => m.accountId !== account?.id)
+  // Other people's messages name their sender, once per run (4.3.50).
+  const senderLabels = chatSenderLabels(messages, account?.id ?? '', activeConv?.members ?? [], activeConv?.kind === 'dm')
   const panelTitle =
     activeConv?.kind === 'dm'
       ? headerTitle
@@ -1308,10 +1319,11 @@ export default function MessagesView({ compact = false }: { compact?: boolean } 
               </div>
             )}
             <div ref={threadRef} className="flex-1 overflow-auto px-4 py-3 space-y-2">
-              {messages.map((m) => (
+              {messages.map((m, i) => (
                 <MessageRow
                   key={m.id}
                   m={m}
+                  senderName={senderLabels[i]}
                   mine={m.fromAccount === account.id}
                   myId={account.id}
                   translateLang={translateLang}
