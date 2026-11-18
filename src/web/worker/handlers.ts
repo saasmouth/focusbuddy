@@ -106,6 +106,8 @@ import { postNotification } from '../../main/notifications/substrate'
 import { setPeopleDirectory } from '../../main/peopleDirectory'
 import { setSelfAccountId } from '../../main/selfAccount'
 import { setOnboardingSummary } from '../../main/db/telemetry'
+import { noteActivation, noteFirstUserDesk } from '../../main/db/activation'
+import { isActivationEventName } from '@shared/activationEvents'
 import { importDeskBundle } from '../../main/db/deskBundle'
 import type { PlexiAppDraft, PlexiAppPatch } from '@shared/apps'
 import type { KnowledgeDraft, KnowledgePatch } from '@shared/knowledge'
@@ -153,7 +155,11 @@ export const HANDLERS: Record<string, Handler> = {
   // ── nodes ────────────────────────────────────────────────────────────────
   'nodes:list': h(() => listNodes()),
   'nodes:get': h((id: string) => getNode(id)),
-  'nodes:create': h((draft: never, _origin?: string) => createNode(draft)),
+  'nodes:create': h((draft: never, origin?: string) => {
+    const node = createNode(draft)
+    if (origin !== 'sync' && node.kind === 'task') noteFirstUserDesk(node.id)
+    return node
+  }),
   'nodes:update': h((id: string, patch: never, _origin?: string) => updateNode(id, patch)),
   'nodes:delete': h((id: string, _origin?: string) => deleteNode(id)),
   'nodes:deletePermanent': h((id: string) => deleteNodePermanent(String(id || ''))),
@@ -542,6 +548,16 @@ export const HANDLERS: Record<string, Handler> = {
   // needs electron. Without this the walkthrough reappeared on every reload.
   'onboarding:record': h((summary: { coreCompleted: boolean; modulesCompleted: number }) =>
     setOnboardingSummary(summary)),
+  // The ADHD starter desk is provisioned by the desktop main process. The
+  // browser runtime does not invent a desk of its own.
+  'starterDesk:current': h(() => ({ deskId: null as string | null })),
+  'starterDesk:consider': h((input: { syncSettled?: boolean }) => {
+    void input
+    return { action: 'skip' as const, deskId: null as string | null }
+  }),
+  'activation:record': h((name: string) => {
+    if (isActivationEventName(name)) noteActivation(name)
+  }),
 
   // ── Notifications, and the people directory the renderer loads for @-mentions ──
   'notifications:post': h((input: PostInput) => postNotification(getDb() as never, input)),

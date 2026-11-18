@@ -326,6 +326,9 @@ import {
   listWidgetsByKind,
   updateWidget, createWidgetIfTaskExists } from '../db/widgets'
 import { collectTelemetry, recordAiCall, setOnboardingSummary } from '../db/telemetry'
+import { noteActivation, noteFirstUserDesk } from '../db/activation'
+import { considerAdhdStarterDesk, starterDeskCurrent } from '../starterDesk'
+import { isActivationEventName } from '@shared/activationEvents'
 import { recordCrash, listCrashes, listUnforwarded, markForwarded } from '../db/crashLog'
 import {
   recordEvent as recordChangeEvent,
@@ -1019,6 +1022,7 @@ export function registerIpcHandlers(): void {
     // Live projection: a real ObjectCreated Event on a real user action.
     // (Binary ternary is safe: work_item was refused above.)
     if (origin !== 'sync' && isRealCreate(preexisting)) {
+      if (node.kind === 'task') noteFirstUserDesk(node.id)
       emitObjectEvent({
       eventType: node.kind === 'folder' ? 'RoomCreated' : 'DeskCreated',
       category: 'user',
@@ -2166,6 +2170,16 @@ export function registerIpcHandlers(): void {
   })
   // Telemetry snapshot for the renderer to report to the signal server.
   ipcMain.handle('telemetry:collect', () => collectTelemetry())
+  // Activation events (names only) join that same snapshot. The renderer
+  // records an upgrade click here; launch and the starter desk are recorded
+  // in main. Unknown names are ignored.
+  ipcMain.handle('activation:record', (_e, name: string) => {
+    if (isActivationEventName(name)) noteActivation(name)
+  })
+  ipcMain.handle('starterDesk:current', () => starterDeskCurrent())
+  ipcMain.handle('starterDesk:consider', (_e, input: { syncSettled?: boolean }) =>
+    considerAdhdStarterDesk({ syncSettled: input?.syncSettled === true })
+  )
   // Crash telemetry (WS03): the renderer forwards render-side errors here, and
   // the whole recent crash log is readable back for inspection.
   ipcMain.handle('crash:report', (_e, input: Parameters<typeof recordCrash>[0]) =>

@@ -28,6 +28,7 @@ import { parseDeskHandoffLink } from '@shared/deskHandoff'
 import { receiveDeskHandoff } from './deskHandoffReceiver'
 import { parseLiteRoomLink } from '@shared/liteRoom'
 import { receiveLiteRoom } from './liteRoomReceiver'
+import { captureAttributionFromUrl } from './db/activation'
 
 // Named in shared/deepLink.ts, because the renderer generates these links too
 // and the two must not drift. See that file for why both schemes are answered
@@ -206,6 +207,9 @@ function broadcast(handoff: AuthHandoff) {
 }
 
 function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
+  // Installer / UTM codes only. The session token and email on an auth link
+  // are not attribution and are dropped by the sanitiser.
+  captureAttributionFromUrl(url)
   const parsed = parseDeepLinkUrl(url)
   if (parsed) {
     broadcast({ ...parsed, origin })

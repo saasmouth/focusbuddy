@@ -4,6 +4,8 @@
 //
 // Transport: the signal server records first_launch from the first usage
 // snapshot an account ever posts to POST /telemetry (recordFunnelOnce). The
+// same snapshot now also carries `activation` (event names, timestamps,
+// counts, and installer/UTM codes). No separate /events call. The
 // regular TelemetryReporter waits 8 s and then 6 hours between reports; this
 // sends that same snapshot straight away on an account's first run here, so a
 // person who opens the app and closes it within seconds still counts. A failed

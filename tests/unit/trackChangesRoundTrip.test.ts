@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { Editor } from '@tiptap/core'
 import * as Y from 'yjs'
 import { buildDocExtensions } from '../../src/renderer/src/components/documents/editor/extensions'
@@ -31,6 +31,14 @@ function textOf(json: PmNode): string {
   return (json.content ?? []).map(textOf).join('')
 }
 
+// A live EditorView schedules a DOM observer. If it is still pending when the
+// test environment drops `document`, that timer throws an unhandled
+// ReferenceError and the run is red even though every assertion passed.
+const openEditors: Editor[] = []
+afterEach(() => {
+  for (const ed of openEditors.splice(0)) ed.destroy()
+})
+
 function suggest(collab: boolean): Editor {
   const ydoc = new Y.Doc()
   const ed = new Editor({
@@ -38,6 +46,7 @@ function suggest(collab: boolean): Editor {
     ...(collab ? {} : { content: '<p>Hello world</p>' })
   })
   if (collab) ed.commands.setContent('<p>Hello world</p>')
+  openEditors.push(ed)
   ed.commands.setSuggesting(true)
   ed.commands.setTextSelection(6)
   typeLikeAPerson(ed, ' big')
@@ -51,7 +60,9 @@ function suggest(collab: boolean): Editor {
 }
 
 function reopen(html: string): Editor {
-  return new Editor({ extensions: buildDocExtensions({ interactive: false }) as never, content: html })
+  const ed = new Editor({ extensions: buildDocExtensions({ interactive: false }) as never, content: html })
+  openEditors.push(ed)
+  return ed
 }
 
 describe('Track Changes survive an HTML round trip', () => {
