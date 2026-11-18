@@ -13,6 +13,8 @@
 //     the answer the desktop gives a fresh install, not a weaker one.
 //   - autoUpdateChecks ON: reported for completeness; a web page is updated by
 //     being served, so nothing in the browser polls for releases.
+//   - learnFromDocuments ON: reported as the desktop's default (4.3.50). The
+//     browser runs no local model, so no memory sweep runs here either way.
 //
 // tests/unit/webBundleGraph.test.ts pins these to the desktop defaults.
 import type * as Desktop from '../../../main/privacyPrefs'
@@ -22,7 +24,8 @@ export type { PrivacyPrefs }
 
 export const PRIVACY_DEFAULTS: Readonly<PrivacyPrefs> = Object.freeze({
   autoUpdateChecks: true,
-  backgroundAi: false
+  backgroundAi: false,
+  learnFromDocuments: true
 })
 
 const UNSUPPORTED = 'Privacy switches are per device and are set in the desktop app.'
@@ -48,6 +51,10 @@ export function backgroundAiEnabled(): boolean {
   return PRIVACY_DEFAULTS.backgroundAi
 }
 
+export function learnFromDocumentsEnabled(): boolean {
+  return PRIVACY_DEFAULTS.learnFromDocuments
+}
+
 // Signature check against the desktop module (type-only; nothing is bundled).
 ;({
   PRIVACY_DEFAULTS,
@@ -55,7 +62,8 @@ export function backgroundAiEnabled(): boolean {
   setPrivacyPrefs,
   onPrivacyPrefsChange,
   autoUpdateChecksEnabled,
-  backgroundAiEnabled
+  backgroundAiEnabled,
+  learnFromDocumentsEnabled
 }) satisfies Pick<
   typeof Desktop,
   | 'PRIVACY_DEFAULTS'
@@ -64,4 +72,5 @@ export function backgroundAiEnabled(): boolean {
   | 'onPrivacyPrefsChange'
   | 'autoUpdateChecksEnabled'
   | 'backgroundAiEnabled'
+  | 'learnFromDocumentsEnabled'
 >
