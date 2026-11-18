@@ -121,7 +121,23 @@ export default function StandupHome(): JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account])
 
-  if (!account) return null // signed-out: the home greeting handles it
+  // Signed out: Home still draws this tile, so say why it is empty instead of
+  // leaving a blank card (4.3.50). Nothing is asked of the server.
+  if (!account) {
+    return (
+      <section data-testid="standup-home" className="mb-6 fb-card p-5 flex flex-col min-h-0">
+        <div className="flex items-center gap-2 mb-2 shrink-0">
+          <span className="h-7 w-7 rounded-full bg-accent/10 inline-flex items-center justify-center">
+            <Icon name="auto_awesome" size={15} className="text-accent" />
+          </span>
+          <span className="fb-t-title text-[var(--ink-90)]">Your standup</span>
+        </div>
+        <p data-testid="standup-signed-out" className="text-[12.5px] text-[var(--ink-50)] leading-relaxed">
+          Sign in to get your daily standup: what you finished, what changed and what is worth a look.
+        </p>
+      </section>
+    )
+  }
 
   const savedCursor = state?.cursor ?? -1
 
