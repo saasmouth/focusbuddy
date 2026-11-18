@@ -38,6 +38,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.51',
+    date: '2026-11-19T09:00:00Z',
+    title: 'PlexiiDesk 4.3.51 — design snippets open in PlexiiDesign for editing',
+    tag: 'feature',
+    summary:
+      'A design snippet now opens in PlexiiDesign for editing, as other snippets open in their own apps.',
+    highlights: [
+      'Open original on a design snippet opens it in PlexiiDesign for editing. Until now it said design snippets could not be opened yet. Save writes your changes to the snippet.'
+    ]
+  },
+  {
     version: '4.3.50',
     date: '2026-11-18T09:00:00Z',
     title: 'PlexiiDesk 4.3.50 — PDFs from your computer open, and Mail drafts only when you ask',
