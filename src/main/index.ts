@@ -32,6 +32,8 @@ import { cleanWebviewUserAgent } from './userAgent'
 import { noteWebviewPartition, notificationsAllowed } from './webNotifications'
 import { installDrmProbe, registerDrmIpc, startWidevine } from './widevine'
 import { getFile } from './db/files'
+import { installFileProtocol } from './fileProtocol'
+import { LOCAL_FILE_PARTITION } from '../shared/webviewPartition'
 import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
 import { registerDeepLinkProtocol } from './authProtocol'
@@ -1114,33 +1116,9 @@ app.whenReady().then(() => {
   // Wire `fb-file://<id>` → file on disk. Uses Electron's modern `protocol.handle`
   // which supports Range requests transparently (critical for streaming
   // video/audio playback and chunked PDF rendering).
-  protocol.handle('fb-file', async (request) => {
-    try {
-      const url = new URL(request.url)
-      // host is the file id (e.g. fb-file://abc-123/) — Chromium normalises
-      // to lowercase, but our UUIDs are lowercase anyway. The path is ignored.
-      const id = url.hostname
-      const file = getFile(id)
-      if (!file || !existsSync(file.storedPath)) {
-        return new Response('Not found', { status: 404 })
-      }
-      // net.fetch on a file:// URL streams the file and sets Content-Type
-      // based on the extension. We override the mime header to our stored
-      // value so the renderer always picks the right viewer.
-      const fileUrl = pathToFileURL(file.storedPath).toString()
-      const response = await net.fetch(fileUrl)
-      const headers = new Headers(response.headers)
-      headers.set('Content-Type', file.mimeType)
-      headers.set('Cache-Control', 'no-cache')
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers
-      })
-    } catch (err) {
-      return new Response(`fb-file error: ${String(err)}`, { status: 500 })
-    }
-  })
+  // fb-file:// on the app's own session and on the local-file webview session
+  // (LOCAL_FILE_PARTITION), never on persist:webview-default (fileProtocol.ts).
+  installFileProtocol(protocol, session.fromPartition(LOCAL_FILE_PARTITION), getFile)
 
   // Wire `fb-widget://<widget-id>/` → that Custom widget's composed document.
   //

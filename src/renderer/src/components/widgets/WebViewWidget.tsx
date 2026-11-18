@@ -1,3 +1,4 @@
+import { webviewPartitionFor } from '@shared/webviewPartition'
 import { useEffect, useRef, useState } from 'react'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
@@ -312,9 +313,9 @@ export default function WebViewWidget({ widget, inline = false }: Props): JSX.El
   // looked up above for the vault/autofill logic that needs the full object.)
   // Freeform widgets share persist:webview-default with the panel/fullscreen
   // browser — the unification's one cookie jar.
-  const partition = widget.sourceAppId
-    ? `persist:connectedapp-${widget.sourceAppId}`
-    : 'persist:webview-default'
+  // A file from this computer (fb-file://) opens on the local-file partition,
+  // the one webview session that can read it (shared/webviewPartition.ts).
+  const partition = webviewPartitionFor(webviewSrc, widget.sourceAppId)
 
   // Whether the site on screen may show notifications (main/webNotifications):
   // blocked until allowed, per site. Null where the runtime cannot say, and for
