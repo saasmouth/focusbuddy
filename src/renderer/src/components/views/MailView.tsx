@@ -601,6 +601,20 @@ function ReadingPane(): JSX.Element {
             <Icon name={taskState === 'done' ? 'check' : 'add_task'} size={13} />
             {taskState === 'done' ? 'Task created' : 'Make a task'}
           </button>
+          {/* Drafting sends this message to your AI source, so it happens
+              only when asked (4.3.50); opening a message no longer does it. */}
+          <button
+            onClick={() => {
+              setDraftDismissed(false)
+              void suggestReply(open)
+            }}
+            disabled={loadingDraft}
+            data-testid="mail-draft-reply"
+            className="fb-t-label px-2.5 py-1 fb-btn-surface fb-press text-[var(--ink-70)] inline-flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Icon name="auto_awesome" size={13} />
+            Draft a reply
+          </button>
           {open.attachments.length > 0 && (
             <span className="fb-t-label text-[var(--ink-50)] inline-flex items-center gap-1">
               <Icon name="attach_file" size={13} />

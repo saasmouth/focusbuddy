@@ -237,8 +237,10 @@ export const useMailStore = create<MailStore>((set, get) => ({
       messages: s.messages.map((m) => (m.uid === uid ? { ...m, seen: true } : m))
     }))
     void window.api.mail.markSeen(uid)
-    // Proactively draft a reply in the user's voice (their opt-in choice).
-    void get().suggestReply(r.message)
+    // No reply is drafted here. Opening a message used to send it to the AI
+    // source for a draft every time, unasked (there was never a switch), and
+    // without an account or key every open ended in an error. A draft is made
+    // when the person presses Draft a reply (MailView, 4.3.50).
   },
 
   closeMessage: () =>
