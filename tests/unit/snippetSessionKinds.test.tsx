@@ -1,5 +1,5 @@
-// The diagram and slide entries in SnippetEditSessionView's registry, mounted
-// through the real host with the real editors. What only a mount can show:
+// The diagram, slide and design entries in SnippetEditSessionView's registry,
+// mounted through the real host with the real editors. What only a mount can show:
 //   - a diagram snippet opens PlexiiDiagrams on ONE page (no page tabs, no
 //     "New page" anywhere), since a snippet is a single graph;
 //   - a slide snippet opens PlexiiDeck on ONE in-memory slide (no navigator,
@@ -7,7 +7,9 @@
 //     box, since a fragment has nowhere to keep notes), and its File menu has
 //     no document items at all (a snippet session passes no DocumentOps: a
 //     snippet is not a document, so it has no copy, rename, history or trash);
-//   - neither creates or writes a document: the only thing a session persists
+//   - a design snippet opens PlexiiDesign on one in-memory page instead of
+//     "A design cannot be opened for editing yet", with no document items;
+//   - none of them creates or writes a document: the only thing a session persists
 //     is the snippet, and only on Save (the host's own tests pin that part).
 // The wrap/unwrap mapping is pinned in snippetSessionMapping.test.ts.
 
@@ -17,6 +19,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 vi.setConfig({ testTimeout: 20_000, hookTimeout: 60_000 })
 import type { Snippet } from '../../src/shared/snippets'
+import { DEFAULT_BRAND_KIT } from '../../src/shared/brandKit'
 
 beforeAll(async () => {
   // Load each kind's (lazy) editor module up front, so React.lazy resolves from
@@ -24,6 +27,7 @@ beforeAll(async () => {
   // under a full parallel run, and a wait loop racing that tests the machine.
   await import('../../src/renderer/src/components/snippets/SnippetDiagramSession')
   await import('../../src/renderer/src/components/snippets/SnippetSlideSession')
+  await import('../../src/renderer/src/components/snippets/SnippetDesignSession')
   class RO {
     observe(): void {}
     unobserve(): void {}
@@ -38,7 +42,7 @@ beforeAll(async () => {
   }
 })
 
-const master = (kind: 'diagram' | 'slide', body: unknown): Snippet =>
+const master = (kind: 'diagram' | 'slide' | 'design', body: unknown): Snippet =>
   ({
     id: 's1', kind, name: 'Fragment', description: null, body, tags: [], scope: 'personal', orgId: 'personal',
     authorId: null, revision: 1, usageCount: 0, createdAt: 0, updatedAt: 0
@@ -57,6 +61,14 @@ const SLIDE = master('slide', {
   elements: [{ id: 't1', type: 'text', x: 0, y: 0, w: 300, h: 60, z: 0, paragraphs: [{ runs: [{ text: 'Title' }] }] }]
 })
 
+const DESIGN = master('design', {
+  kind: 'design',
+  elements: [
+    { id: 'badge', type: 'shape', shape: 'rect', x: 0, y: 0, w: 160, h: 90, z: 0, fill: { type: 'solid', color: '#2563eb', swatchId: 'sw-brand' } }
+  ],
+  swatches: [{ id: 'sw-brand', name: 'Brand blue', color: '#2563eb' }]
+})
+
 let docsCreate: ReturnType<typeof vi.fn>
 let docsUpdate: ReturnType<typeof vi.fn>
 let snippetUpdate: ReturnType<typeof vi.fn>
@@ -71,7 +83,9 @@ function installApi(snippet: Snippet): void {
   ;(window as unknown as { api: unknown }).api = new Proxy(
     {
       snippets: new Proxy({ get: vi.fn().mockResolvedValue(snippet), update: snippetUpdate }, { get: (t, k) => (t as Record<string, unknown>)[k as string] ?? (() => Promise.resolve([])) }),
-      documents: new Proxy({ create: docsCreate, update: docsUpdate }, { get: (t, k) => (t as Record<string, unknown>)[k as string] ?? (() => Promise.resolve(null)) })
+      documents: new Proxy({ create: docsCreate, update: docsUpdate }, { get: (t, k) => (t as Record<string, unknown>)[k as string] ?? (() => Promise.resolve(null)) }),
+      // PlexiiDesign reads the org brand kit on mount; the real IPC answers { kit, isSet }.
+      brand: { get: () => Promise.resolve({ kit: DEFAULT_BRAND_KIT, isSet: false }), set: vi.fn() }
     } as Record<string, unknown>,
     { get: (t, k) => t[k as string] ?? empty }
   )
@@ -95,7 +109,7 @@ async function open(snippet: Snippet): Promise<void> {
     root.render(<SnippetEditSessionView snippetId="s1" onClose={() => {}} />)
   })
   // The kind's editor is lazy: let the import and the Suspense boundary settle.
-  for (let i = 0; i < 200 && !host.querySelector('[data-testid="diagram-editor"], [data-testid="slides-present"]'); i++) {
+  for (let i = 0; i < 200 && !host.querySelector('[data-testid="diagram-editor"], [data-testid="slides-present"], [data-testid="design-editor"], [data-testid="snippet-session-unsupported"]'); i++) {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 25))
     })
@@ -180,6 +194,38 @@ describe('a slide snippet opens PlexiiDeck on one in-memory slide', () => {
 
   it('creates no document row and writes nothing (the deck is in memory only)', async () => {
     await open(SLIDE)
+    expect(docsCreate).not.toHaveBeenCalled()
+    expect(docsUpdate).not.toHaveBeenCalled()
+    expect(snippetUpdate).not.toHaveBeenCalled()
+  })
+})
+
+describe('a design snippet opens PlexiiDesign on one in-memory page', () => {
+  // Through the REAL registry (no `editors` override): deleting the entry, or
+  // misspelling its key, falls back to "A design cannot be opened for editing
+  // yet", which is exactly what 4.3.50 shows for every design snippet.
+  it('opens the real editor instead of refusing the snippet', async () => {
+    await open(DESIGN)
+    // Two assertions, because either alone can pass for the wrong reason: the
+    // refusal must be gone AND PlexiiDesign must be what replaced it.
+    expect(host.querySelector('[data-testid="snippet-session-unsupported"]'), 'no "cannot be opened for editing yet"').toBeNull()
+    expect(host.querySelector('[data-testid="design-editor"]'), 'PlexiiDesign mounted').not.toBeNull()
+  })
+
+  it('the File menu has no document items; Download stays', async () => {
+    await open(DESIGN)
+    const file = host.querySelector('[data-testid="design-menubar-file"]') as HTMLElement | null
+    expect(file, 'the Design menu bar renders').not.toBeNull()
+    act(() => file!.click())
+    const labels = Array.from(host.querySelectorAll('[data-testid="design-menubar-file-list"] button')).map((b) => b.textContent ?? '')
+    for (const label of ['New design', 'Make a copy', 'Rename', 'Version history', 'Move to Trash']) {
+      expect(labels.some((l) => l.includes(label)), `${label} is absent in a session`).toBe(false)
+    }
+    expect(host.textContent!.includes('Download'), 'Download (a file, no document row) stays').toBe(true)
+  })
+
+  it('creates no document row and writes nothing (the page is in memory only)', async () => {
+    await open(DESIGN)
     expect(docsCreate).not.toHaveBeenCalled()
     expect(docsUpdate).not.toHaveBeenCalled()
     expect(snippetUpdate).not.toHaveBeenCalled()

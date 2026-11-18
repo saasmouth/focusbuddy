@@ -16,6 +16,7 @@ const SnippetDocSurface = lazy(() => import('./SnippetDocSurface'))
 const SnippetSheetSession = lazy(() => import('./SnippetSheetSession'))
 const SnippetDiagramSession = lazy(() => import('./SnippetDiagramSession'))
 const SnippetSlideSession = lazy(() => import('./SnippetSlideSession'))
+const SnippetDesignSession = lazy(() => import('./SnippetDesignSession'))
 const SnippetDrawSession = lazy(() => import('./SnippetDrawSession'))
 
 function Loading(): JSX.Element {
@@ -134,6 +135,17 @@ const EDITORS: Partial<Record<SnippetKind, SnippetKindEditor>> = {
     render: ({ body, title, onChange }) => (
       <Suspense fallback={<Loading />}>
         <SnippetSlideSession body={body} title={title} onChange={onChange} />
+      </Suspense>
+    )
+  },
+  // PlexiiDesign: an in-memory one-page document sized to the art, carrying the
+  // snippet's own swatches and stories (documents/design/snippetSession). Until
+  // 4.3.51 a design snippet had no entry and opened on "A design cannot be
+  // opened for editing yet".
+  design: {
+    render: ({ body, title, onChange }) => (
+      <Suspense fallback={<Loading />}>
+        <SnippetDesignSession body={body} title={title} onChange={onChange} />
       </Suspense>
     )
   },
