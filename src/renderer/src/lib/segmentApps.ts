@@ -119,7 +119,7 @@ export const SEGMENT_APPS = {
     { key: 'inbox', label: 'Inbox', icon: 'inbox', tone: 'text-amber-500', widgetKinds: ['inbox'] },
     { key: 'chat', label: 'PlexiiChat', icon: 'forum', gateKind: 'messages', tone: 'text-sky-500', widgetKinds: ['chat-thread'] },
     { key: 'meet', label: 'PlexiiCall', icon: 'video_call', gateKind: 'meetings', tone: 'text-violet-500', widgetKinds: ['meeting-record'] },
-    { key: 'sign', label: 'Sign', icon: 'plexii:sign', gateKind: 'sign', tone: 'text-teal-500' },
+    { key: 'sign', label: 'PlexiiSign', icon: 'plexii:sign', gateKind: 'sign', tone: 'text-teal-500' },
     { key: 'browser', label: 'Browser', icon: 'public', tone: 'text-indigo-500', widgetKinds: ['webview', 'pdf', 'gdoc', 'gsheet', 'gslide'] },
     // Calendar and Files render inside Office and are real `office:<key>` views,
     // but were never listed here — so the tray named them by their raw key. The

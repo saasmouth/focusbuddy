@@ -123,7 +123,7 @@ const COMMS_APPS: CommsApp[] = [
   { key: 'calendar', label: 'Calendar', blurb: 'Your week, and what is due', icon: 'calendar_month', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <CalendarView /> },
   { key: 'chat', label: 'PlexiiChat', blurb: 'Channels and direct messages', icon: 'forum', tint: 'bg-sky-500', tone: 'text-sky-500', render: () => <MessagesView /> },
   { key: 'meet', label: 'PlexiiCall', blurb: 'Video calls and meetings', icon: 'video_call', tint: 'bg-violet-500', tone: 'text-violet-500', render: () => <PlexiMeetView /> },
-  { key: 'sign', label: 'Sign', blurb: 'Send and sign documents', icon: 'plexii:sign', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <PlexiSignView /> },
+  { key: 'sign', label: 'PlexiiSign', blurb: 'Send and sign documents', icon: 'plexii:sign', tint: 'bg-teal-500', tone: 'text-teal-500', render: () => <PlexiSignView /> },
   // The browser that belongs to nobody. The desk browser is a widget and part
   // of that piece of work; this is for the other kind of browsing — looking
   // something up, keeping a reference open across several desks — which

@@ -361,8 +361,8 @@ function FlowEditor({
             <option value="daily">Every day</option>
             <option value="weekly">Every week</option>
             <option value="monthly">Every month</option>
-            <option value="task-completed">When a task is completed</option>
-            <option value="row-added">When a table row is added</option>
+            <option value="task-completed">{FLOW_EVENT_LABELS['task-completed']}</option>
+            <option value="row-added">{FLOW_EVENT_LABELS['row-added']}</option>
             <option value="webhook">When a webhook is called</option>
           </select>
         </div>

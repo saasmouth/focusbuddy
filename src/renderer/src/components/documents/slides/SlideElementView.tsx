@@ -63,6 +63,12 @@ function Marked({ text, marks }: { text: string; marks: Mark[] | undefined }): J
   )
 }
 
+/** A list paragraph's marker size: its largest run's font size, or none (the box default). */
+function listMarkerSize(p: SlideTextElement['paragraphs'][number]): number | undefined {
+  const sizes = p.runs.map((r) => r.fontSize).filter((s): s is number => typeof s === 'number' && s > 0)
+  return sizes.length ? Math.max(...sizes) : undefined
+}
+
 function TextContent({ el, marks }: { el: SlideTextElement; marks?: ElementMarks }): JSX.Element {
   // A PlexiDesign threaded frame shows the lines the flow engine measured and
   // placed for it. Rendering the engine's own output — rather than re-wrapping
@@ -166,8 +172,11 @@ function TextContent({ el, marks }: { el: SlideTextElement; marks?: ElementMarks
             justifyContent: p.align === 'center' ? 'center' : p.align === 'right' ? 'flex-end' : 'flex-start'
           }}
         >
-          {p.listStyle === 'bullet' && <span style={{ opacity: 0.7 }}>•</span>}
-          {p.listStyle === 'number' && <span style={{ opacity: 0.7 }}>{i + 1}.</span>}
+          {/* The marker takes its paragraph's text size (the largest run's, as
+              the line height does); without one it fell back to the box's
+              default and a 28 px list showed 16 px bullets. */}
+          {p.listStyle === 'bullet' && <span style={{ opacity: 0.7, fontSize: listMarkerSize(p) }}>•</span>}
+          {p.listStyle === 'number' && <span style={{ opacity: 0.7, fontSize: listMarkerSize(p) }}>{i + 1}.</span>}
           <span>
             {(() => {
               // Marks are in PARAGRAPH coordinates — the runs joined — so each
