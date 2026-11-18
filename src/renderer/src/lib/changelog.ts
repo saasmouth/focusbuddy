@@ -47,7 +47,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     highlights: [
       'Protected video plays in browser work widgets, the web panel, connected apps and desk pop-ups. The Widevine module (about 19 MB) downloads from Google the first time PlexiiDesk opens, so the first video needs the internet. A page opened while it is still downloading starts playing once it arrives.',
       'When a page can\'t play protected video, a bar above it says why, and Open in your browser takes you there instead.',
-      'To get the Widevine module and keep it up to date, PlexiiDesk now contacts Google (update.googleapis.com) when it opens. Google sees this computer\'s address and the app\'s version and platform, not your account or what you watch. The privacy notes in Settings list it with everything else PlexiiDesk connects to.',
+      'To get the Widevine module and keep it up to date, PlexiiDesk now contacts Google (update.googleapis.com) each time it opens. Each check tells Google this computer\'s address, operating system, processor, memory and language, and the module\'s version, but not your account or anything about what you watch. The privacy notes in Settings list exactly what is sent, with everything else PlexiiDesk connects to.',
       'Website sign-ins (cookies) are now stored encrypted on this computer.'
     ]
   },

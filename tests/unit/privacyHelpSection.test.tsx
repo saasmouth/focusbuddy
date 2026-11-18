@@ -111,7 +111,11 @@ describe('Privacy settings', () => {
     expect(text).not.toMatch(/favicon/i)
     expect(text).toMatch(/fetched from the linked site itself/)
     expect(text).toMatch(/downloads it from Google \(update\.googleapis\.com\)/)
-    expect(text).toMatch(/not your account or what you watch/)
+    // What the update check really carries, from a full net-log of the 4.3.49
+    // build on 2026-11-18 (network-inventory.md): not just "version and
+    // platform" but memory, language and the engine's version too.
+    expect(text).toMatch(/operating system and version, processor type, amount of memory and language, the version of the browser engine inside PlexiiDesk, and the module’s version and install date/)
+    expect(text).toMatch(/doesn’t include your account, an ID that stays with this computer, or anything about what you watch\./)
     expect(text.replace(/Web pages that play protected video[^]*?what you watch\./, '')).not.toMatch(/Google/)
     expect(text).toMatch(/not end to end/)
     // Each of these was in the app before 4.3.34 and was not true.
