@@ -21,7 +21,7 @@ import WidgetFrame from './WidgetFrame'
 import TableImportDialog from './TableImportDialog'
 import type { ParsedGrid } from '../../lib/tableImport'
 import { useTablesStore } from '../../stores/tables'
-import { useActionHistory } from '../../stores/actionHistory'
+import { recordAction, useActionHistory } from '../../stores/actionHistory'
 import { useWidgetStore } from '../../stores/widgets'
 import { tableFitWidth } from '@shared/widgetSizing'
 import FieldEditor from '../fields/FieldEditor'
@@ -33,7 +33,11 @@ import {
   normCellRange,
   inCellRange,
   cellsToTsv,
+  cellsToHtml,
   planTablePaste,
+  planTableFill,
+  fillTarget,
+  htmlTableMatrix,
   type RC,
   type RCRange
 } from '../../lib/tableSelection'
@@ -287,6 +291,15 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
   const [cellSel, setCellSel] = useState<{ a: RC; f: RC } | null>(null)
   const [selNote, setSelNote] = useState<string | null>(null)
   const selDrag = useRef(false)
+  // A range being dragged out: the page's own text selection is held off
+  // meanwhile, so the cells highlight and nothing else does.
+  const [rangeDragging, setRangeDragging] = useState(false)
+  // The fill handle being dragged: the cells it would fill.
+  const [fillPreview, setFillPreview] = useState<RCRange | null>(null)
+  // ⌘C / ⌘X ARM the copy event this table answers (they raise it with
+  // execCommand), so one key press is one clipboard entry carrying the TSV and
+  // the HTML table together.
+  const clipArmed = useRef<'copy' | 'cut' | null>(null)
   // The keyboard-focused cell (arrows / Tab / Enter navigate it). Distinct from
   // text editing: a cell is "active" first, and only enters edit when you type,
   // press Enter, or click into its input. bodyRef lets us pull focus back out of
@@ -298,9 +311,30 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
   useEffect(() => {
     const up = (): void => {
       selDrag.current = false
+      setRangeDragging(false)
     }
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
+  }, [])
+
+  // Copy, cut and paste EVENTS (the app's Edit menu, a right-click Paste, and
+  // this table's own ⌘C / ⌘X): answered when they are this table's. Read through
+  // a ref, so the listeners (added once, above the early return) run this
+  // render's closures. Capture phase on the window, stopped when ours, so the
+  // desk does not also paste a new widget.
+  const clipboardEventRef = useRef<(kind: 'copy' | 'cut' | 'paste', e: ClipboardEvent) => void>(() => {})
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent): void => clipboardEventRef.current('copy', e)
+    const onCut = (e: ClipboardEvent): void => clipboardEventRef.current('cut', e)
+    const onPaste = (e: ClipboardEvent): void => clipboardEventRef.current('paste', e)
+    window.addEventListener('copy', onCopy, true)
+    window.addEventListener('cut', onCut, true)
+    window.addEventListener('paste', onPaste, true)
+    return () => {
+      window.removeEventListener('copy', onCopy, true)
+      window.removeEventListener('cut', onCut, true)
+      window.removeEventListener('paste', onPaste, true)
+    }
   }, [])
 
   // A destination for saved snippets and ⌘V: rows appended to this table,
@@ -755,10 +789,18 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     viewMode === 'table' && !groups && !(viewConfig.filter?.rules?.length)
   const selRange: RCRange | null = cellSel ? normCellRange(cellSel.a, cellSel.f) : null
 
-  function onCellSelDown(r: number, c: number, shift: boolean): void {
-    if (!cellSelectable) return
-    if (shift && cellSel) setCellSel({ a: cellSel.a, f: { r, c } })
-    else setCellSel({ a: { r, c }, f: { r, c } })
+  function onCellSelDown(r: number, c: number, e: React.MouseEvent): void {
+    if (!cellSelectable || e.button !== 0) return
+    if (e.shiftKey && cellSel) {
+      // A range from the anchor to here, as in a spreadsheet: the press does not
+      // go into the cell's input, and the keys go to the table.
+      e.preventDefault()
+      setCellSel({ a: cellSel.a, f: { r, c } })
+      setSelNote(null)
+      focusBody()
+      return
+    }
+    setCellSel({ a: { r, c }, f: { r, c } })
     setActiveCell({ r, c })
     selDrag.current = true
     setSelNote(null)
@@ -768,34 +810,174 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     // Only treat it as a range drag once the pointer leaves the anchor cell, so a
     // plain click still focuses the cell input for editing.
     if (cellSel.a.r === r && cellSel.a.c === c) return
-    ;(document.activeElement as HTMLElement | null)?.blur?.()
+    // The keys go to the TABLE from here: blurring the input left focus on the
+    // page, where ⌘C copied whatever text the drag had swept over and ⌘V made
+    // a new desk widget (tableClipboard TC-1).
+    if (!rangeDragging) {
+      setRangeDragging(true)
+      focusBody()
+    }
+    window.getSelection()?.removeAllRanges()
     setCellSel({ a: cellSel.a, f: { r, c } })
   }
-  async function copySelection(): Promise<void> {
-    if (!selRange) return
-    await navigator.clipboard.writeText(cellsToTsv(filteredRows, cols0, selRange)).catch(() => {})
+
+  /** Every cell, for ⌘A. */
+  function selectAllCells(): void {
+    if (!filteredRows.length || !cols0.length) return
+    setCellSel({ a: { r: 0, c: 0 }, f: { r: filteredRows.length - 1, c: cols0.length - 1 } })
+    setActiveCell({ r: 0, c: 0 })
   }
-  async function pasteSelection(): Promise<void> {
+  /** A whole row from its number; with Shift, every row from the anchor's to this one. */
+  function selectRow(idx: number, extend: boolean): void {
+    if (!cellSelectable || !cols0.length) return
+    const last = cols0.length - 1
+    if (extend && cellSel) setCellSel({ a: { r: cellSel.a.r, c: 0 }, f: { r: idx, c: last } })
+    else setCellSel({ a: { r: idx, c: 0 }, f: { r: idx, c: last } })
+    setActiveCell({ r: extend && cellSel ? cellSel.a.r : idx, c: 0 })
+    setSelNote(null)
+    focusBody()
+  }
+
+  /**
+   * Write cells (and add rows) as ONE step of the app's undo: ⌘Z puts every
+   * cell back and takes the added rows away together, however many there were.
+   */
+  async function writeCells(
+    label: string,
+    updates: { rowId: string; cells: Record<string, unknown> }[],
+    newRows: Record<string, unknown>[] = []
+  ): Promise<void> {
+    if (!table || (!updates.length && !newRows.length)) return
+    const before = updates.map((u) => ({
+      rowId: u.rowId,
+      cells: Object.fromEntries(Object.keys(u.cells).map((k) => [k, latestCell(u.rowId, k) ?? null]))
+    }))
+    const hist = useActionHistory.getState()
+    hist.beginBatch()
+    try {
+      await Promise.all(updates.map((u) => updateCells(u.rowId, u.cells)))
+      if (updates.length) {
+        recordAction({
+          label,
+          undo: async () => {
+            await Promise.all(before.map((b) => updateCells(b.rowId, b.cells)))
+          },
+          redo: async () => {
+            await Promise.all(updates.map((u) => updateCells(u.rowId, u.cells)))
+          }
+        })
+      }
+      for (const cells of newRows) await addRow(table.id, cells)
+    } finally {
+      hist.endBatch(label)
+    }
+  }
+  const cellCount = (r: RCRange): number => (r.r1 - r.r0 + 1) * (r.c1 - r.c0 + 1)
+  const cellsWord = (n: number): string => `${n} cell${n === 1 ? '' : 's'}`
+
+  /** The selection into a copy or cut event: TSV for spreadsheets, an HTML table for documents. */
+  function writeRangeTo(data: DataTransfer, kind: 'copy' | 'cut'): void {
     if (!selRange) return
-    const text = await navigator.clipboard.readText().catch(() => '')
-    if (!text) return
-    const { updates, clippedRows } = planTablePaste({
-      rows: filteredRows,
-      columns: cols0,
-      range: selRange,
-      matrix: parseTsv(text)
-    })
-    for (const u of updates) void updateCells(u.rowId, u.cells)
-    setSelNote(
-      clippedRows > 0
-        ? `Pasted into ${updates.length} row${updates.length === 1 ? '' : 's'}; ${clippedRows} more didn't fit. Add rows first to paste the rest.`
+    data.setData('text/plain', cellsToTsv(filteredRows, cols0, selRange))
+    data.setData('text/html', cellsToHtml(filteredRows, cols0, selRange))
+    if (kind === 'cut') void clearRange(selRange, 'Cut')
+  }
+  /** ⌘C / ⌘X: raise the copy event this table answers; where it cannot be raised, write both forms directly. */
+  function copyOrCut(kind: 'copy' | 'cut'): void {
+    if (!selRange) return
+    clipArmed.current = kind
+    try {
+      document.execCommand(kind)
+    } catch {
+      /* answered below */
+    }
+    const handled = clipArmed.current === null
+    clipArmed.current = null
+    if (handled) return
+    const range = selRange
+    const tsv = cellsToTsv(filteredRows, cols0, range)
+    const html = cellsToHtml(filteredRows, cols0, range)
+    const item =
+      typeof ClipboardItem !== 'undefined'
+        ? new ClipboardItem({ 'text/plain': new Blob([tsv], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })
         : null
-    )
+    void (item ? navigator.clipboard.write([item]) : Promise.reject(new Error('no ClipboardItem')))
+      .catch(() => navigator.clipboard.writeText(tsv))
+      .catch(() => {})
+    if (kind === 'cut') void clearRange(range, 'Cut')
   }
+  /** Empty every cell in a range (Delete, ⌫, cut): one undo step. */
+  async function clearRange(range: RCRange, verb: 'Clear' | 'Cut'): Promise<void> {
+    const updates: { rowId: string; cells: Record<string, unknown> }[] = []
+    for (let r = range.r0; r <= range.r1; r++) {
+      const row = filteredRows[r]
+      if (!row) continue
+      const cells: Record<string, unknown> = {}
+      for (let c = range.c0; c <= range.c1; c++) {
+        const col = cols0[c]
+        if (col && col.type !== 'button') cells[col.id] = defaultValue(col.type)
+      }
+      updates.push({ rowId: row.id, cells })
+    }
+    await writeCells(`${verb} ${cellsWord(cellCount(range))}`, updates)
+  }
+  /** Paste text (TSV) or, failing that, an HTML table at the selection. */
+  async function pasteData(text: string, html: string): Promise<void> {
+    if (!selRange) return
+    const matrix = text ? parseTsv(text) : htmlTableMatrix(html)
+    if (!matrix || !matrix.length) return
+    const { updates, newRows } = planTablePaste({ rows: filteredRows, columns: cols0, range: selRange, matrix, grow: true })
+    const cells = updates.reduce((n, u) => n + Object.keys(u.cells).length, 0)
+    await writeCells(`Paste ${cellsWord(cells + newRows.reduce((n, r) => n + Object.keys(r).length, 0))}`, updates, newRows)
+    // The block, selected where it landed, so it can be copied on or undone.
+    const isSingle = matrix.length === 1 && matrix[0].length === 1
+    if (!isSingle) {
+      const width = Math.max(...matrix.map((r) => r.length))
+      setCellSel({ a: { r: selRange.r0, c: selRange.c0 }, f: { r: selRange.r0 + matrix.length - 1, c: Math.min(cols0.length - 1, selRange.c0 + width - 1) } })
+    }
+    setSelNote(newRows.length ? `Added ${newRows.length} row${newRows.length === 1 ? '' : 's'} for the rest of the paste.` : null)
+  }
+  async function pasteFromClipboard(): Promise<void> {
+    let text = ''
+    let html = ''
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        if (!text && item.types.includes('text/plain')) text = await (await item.getType('text/plain')).text()
+        if (!html && item.types.includes('text/html')) html = await (await item.getType('text/html')).text()
+      }
+    } catch {
+      text = await navigator.clipboard.readText().catch(() => '')
+    }
+    await pasteData(text, html)
+  }
+  /** Is a clipboard event this table's? Armed by its own keys, or focus is in the table on a range. */
+  function ownsClipboardEvent(kind: 'copy' | 'cut' | 'paste'): boolean {
+    if (kind !== 'paste' && clipArmed.current === kind) return true
+    const body = bodyRef.current
+    const active = document.activeElement
+    if (!body || !active || !body.contains(active) || !selRange) return false
+    const editing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || (active as HTMLElement).isContentEditable
+    const multi = selRange.r0 !== selRange.r1 || selRange.c0 !== selRange.c1
+    return !editing || multi
+  }
+
+  clipboardEventRef.current = (kind, e) => {
+    if (!cellSelectable || !ownsClipboardEvent(kind)) return
+    e.preventDefault()
+    e.stopPropagation()
+    if (kind === 'paste') {
+      const d = e.clipboardData
+      void pasteData(d?.getData('text/plain') ?? '', d?.getData('text/html') ?? '')
+      return
+    }
+    clipArmed.current = null
+    if (e.clipboardData) writeRangeTo(e.clipboardData, kind)
+  }
+
   // Pull keyboard focus out of any cell input back to the table body, so the
   // arrow keys navigate cells instead of moving a text cursor.
   function focusBody(): void {
-    bodyRef.current?.focus()
+    bodyRef.current?.focus({ preventScroll: true })
   }
   // Enter edit mode on a cell: focus its input/textarea and select its text.
   function editCell(r: number, c: number): void {
@@ -886,25 +1068,79 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
       return
     }
 
-    // Cmd/Ctrl + C / V over the selection.
+    // Cmd/Ctrl + A / C / X / V, Delete and Backspace over the selection.
     const mod = e.metaKey || e.ctrlKey
+    const key = e.key.toLowerCase()
+    // ⌘A in the table (not typing in a cell): every cell. Stopped here so the
+    // desk does not also select every widget.
+    if (mod && key === 'a' && !e.shiftKey && !e.altKey && !inEditor) {
+      e.preventDefault()
+      e.stopPropagation()
+      selectAllCells()
+      return
+    }
     // ⌘V with no cells selected appends what is on the clipboard as new rows,
     // through the same conversion as inserting a saved snippet.
-    if (mod && !selRange && !inEditor && e.key.toLowerCase() === 'v') {
+    if (mod && !selRange && !inEditor && key === 'v') {
       e.preventDefault()
       void snippets.pasteRows()
       return
     }
-    if (!mod || !selRange) return
+    if (!selRange) return
     const multi = selRange.r0 !== selRange.r1 || selRange.c0 !== selRange.c1
-    if (inEditor && !multi) return // editing one cell — let the input copy/paste
-    if (e.key.toLowerCase() === 'c') {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !mod && !inEditor) {
       e.preventDefault()
-      void copySelection()
-    } else if (e.key.toLowerCase() === 'v') {
-      e.preventDefault()
-      void pasteSelection()
+      void clearRange(selRange, 'Clear')
+      return
     }
+    if (!mod || e.altKey) return
+    if (inEditor && !multi) return // editing one cell — let the input copy/paste
+    if (key === 'c' || key === 'x') {
+      e.preventDefault()
+      e.stopPropagation()
+      copyOrCut(key === 'c' ? 'copy' : 'cut')
+    } else if (key === 'v' && !e.shiftKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      void pasteFromClipboard()
+    }
+  }
+
+  // The fill handle: drag from the selection's corner down, up or across.
+  // Each column (or row) continues its own series, as in Cells (lib/sheetFill),
+  // coerced to the column it lands in, and the whole fill is one undo step.
+  function startFill(e: React.MouseEvent): void {
+    if (!selRange || e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    const source = selRange
+    let target: ReturnType<typeof fillTarget> = null
+    const cellAt = (x: number, y: number): RC | null => {
+      const el = document.elementFromPoint(x, y)?.closest('[data-testid^="table-cell-"]')
+      if (!el || !bodyRef.current?.contains(el)) return null
+      const m = /^table-cell-(\d+)-(\d+)$/.exec(el.getAttribute('data-testid') ?? '')
+      return m ? { r: Number(m[1]), c: Number(m[2]) } : null
+    }
+    const onMove = (ev: MouseEvent): void => {
+      const at = cellAt(ev.clientX, ev.clientY)
+      if (!at) return
+      target = fillTarget(source, at)
+      setFillPreview(target ? target.range : null)
+    }
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      setFillPreview(null)
+      if (!target) return
+      const done = target
+      const updates = planTableFill({ rows: filteredRows, columns: cols0, source, target: done })
+      const filled = cellCount(done.range) - cellCount(source)
+      void writeCells(`Fill ${cellsWord(filled)}`, updates)
+      setCellSel({ a: { r: done.range.r0, c: done.range.c0 }, f: { r: done.range.r1, c: done.range.c1 } })
+      focusBody()
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
   }
 
   // One data <tr>. Extracted so the flat list and the grouped list render rows
@@ -938,6 +1174,23 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
           }}
         >
           <div className="flex flex-col items-center gap-0.5">
+            {cellSelectable && (
+              <button
+                type="button"
+                data-testid={`table-row-select-${idx}`}
+                className="widget-nodrag text-[10px] leading-none tabular-nums text-[var(--ink-30)] hover:text-accent"
+                title="Select row (Shift-click to select rows)"
+                aria-label={`Select row ${idx + 1}`}
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  selectRow(idx, e.shiftKey)
+                }}
+              >
+                {idx + 1}
+              </button>
+            )}
             {rowsReorderable && (
               <span
                 onMouseDown={(e) => rowReorder.start(e, row.id)}
@@ -965,8 +1218,12 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
               key={col.id}
               data-testid={`table-cell-${idx}-${ci}`}
               data-attachment-drop={drop ? (drop.over ? 'over' : 'idle') : undefined}
-              className={`border-r border-[var(--edge-soft)] align-top ${
+              className={`relative border-r border-[var(--edge-soft)] align-top ${
                 cellSelectable && inCellRange(selRange, idx, ci) ? 'bg-accent/[0.12]' : ''
+              } ${
+                cellSelectable && fillPreview && inCellRange(fillPreview, idx, ci) && !inCellRange(selRange, idx, ci)
+                  ? 'bg-accent/[0.06] outline outline-1 outline-dashed outline-accent/60 -outline-offset-1'
+                  : ''
               } ${
                 cellSelectable && activeCell?.r === idx && activeCell?.c === ci
                   ? 'ring-2 ring-inset ring-accent'
@@ -982,7 +1239,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                 cellEditingAtRightDown.current = cellIsBeingEdited(e.currentTarget)
                 if (!cellEditingAtRightDown.current) e.preventDefault()
               }}
-              onMouseDown={(e) => onCellSelDown(idx, ci, e.shiftKey)}
+              onMouseDown={(e) => onCellSelDown(idx, ci, e)}
               onMouseEnter={() => onCellSelEnter(idx, ci)}
               onDragEnter={drop?.handlers.onDragEnter}
               onDragLeave={drop?.handlers.onDragLeave}
@@ -1020,6 +1277,15 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                 variant="cell"
                 onCommit={(next) => commitCell(row.id, col.id, next)}
               />
+              {cellSelectable && selRange && !rangeDragging && selRange.r1 === idx && selRange.c1 === ci && (
+                <span
+                  data-testid="table-fill-handle"
+                  role="presentation"
+                  title="Drag to fill down or across"
+                  onMouseDown={startFill}
+                  className="widget-nodrag absolute -right-[4px] -bottom-[4px] z-10 w-[8px] h-[8px] rounded-[2px] bg-accent ring-2 ring-[var(--surface-raised)] cursor-crosshair"
+                />
+              )}
             </td>
           )
           if (col.type !== 'attachment') return cell()
@@ -1041,7 +1307,7 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
   const body = (
     <div
       ref={bodyRef}
-      className="h-full w-full bg-[var(--surface-raised)] overflow-auto relative"
+      className={`h-full w-full bg-[var(--surface-raised)] overflow-auto relative outline-none ${rangeDragging || fillPreview ? 'select-none' : ''}`}
       data-testid="table-body"
       tabIndex={0}
       onKeyDown={onTableKeyDown}

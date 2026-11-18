@@ -143,6 +143,16 @@ describe('resolveModifierClick — what a modifier means on a work widget', () =
     }
   })
 
+  it('shift inside the content of the widget being worked in is the content\'s (a range of cells), not the desk\'s', () => {
+    expect(resolveModifierClick({ ...none, shiftKey: true }, { ...free, inActiveContent: true })).toMatchObject({
+      kind: 'plain',
+      toggleSelection: false,
+      runAction: true
+    })
+    // The header, or a widget not yet active, keeps shift for the desk.
+    expect(resolveModifierClick({ ...none, shiftKey: true }, { ...free, inActiveContent: false }).kind).toBe('select')
+  })
+
   it('⌘ or Ctrl dives when zoomed out below 80%, and does not run the action', () => {
     for (const m of [{ metaKey: true }, { ctrlKey: true }]) {
       expect(resolveModifierClick({ ...none, ...m }, { ...free, zoom: 0.5 })).toEqual({

@@ -284,6 +284,11 @@ export default function WidgetFrame({
   const [snippetLibraryOpen, setSnippetLibraryOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const isActive = useWidgetStore((s) => s.activeWidgetId === widget.id)
+  // A press inside the content of the widget being worked in, not on its
+  // header: Shift there is the content's (a range of cells, more shapes), not
+  // the desk's selection (lib/widgetHeaderActions resolveModifierClick).
+  const inActiveContent = (target: EventTarget | null): boolean =>
+    isActive && target instanceof Element && !target.closest('.fb-widget-header')
   const zoom = useWidgetStore((s) => s.zoom)
   // DEC-076 — the header bell. Outlined = not in Attention; filled = a LIVE
   // work item points at this widget (derived from the queue's own rows via
@@ -1256,7 +1261,7 @@ export default function WidgetFrame({
           // The meaning of the modifier is decided in one place
           // (lib/widgetHeaderActions → resolveModifierClick), shared with the
           // click capture below.
-          const mod = resolveModifierClick(e, { zoom, isChildOfSection, isPinned })
+          const mod = resolveModifierClick(e, { zoom, isChildOfSection, isPinned, inActiveContent: inActiveContent(e.target) })
           if (mod.toggleSelection) {
             e.stopPropagation()
             shiftToggle()
@@ -1285,7 +1290,7 @@ export default function WidgetFrame({
         // the header buttons, the "…" overflow menu and the pin / expand
         // pickers (portalled, but React routes their events through this tree).
         onClickCapture={(e) => {
-          swallowModifierClick(e, { zoom, isChildOfSection, isPinned }, () => zoomToWidget(widget.id))
+          swallowModifierClick(e, { zoom, isChildOfSection, isPinned, inActiveContent: inActiveContent(e.target) }, () => zoomToWidget(widget.id))
         }}
         onClick={(e) => {
           e.stopPropagation()
