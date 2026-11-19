@@ -9,6 +9,7 @@
 // installed on the credit client transparently handles the out-of-credits
 // hand-off, so no call site needs to know which path it took.
 
+import { requestImageTokens } from './chatImages'
 import type Anthropic from '@anthropic-ai/sdk'
 import { createAnthropic, rewriteJsonBody } from './modelClient'
 import { modelForPlan, modelForFamilies, managedPlanOf, withModelDefaults } from './modelRouting'
@@ -169,11 +170,13 @@ export function minimumCostCredits(body: Record<string, unknown>): number {
   // A picture's base64 is not text: a 1 MB screenshot is ~1.4 million
   // characters but a couple of thousand tokens. Counted as text it made an
   // affordable request look tens of thousands of tokens dear, and refused it.
-  // Its bytes are left out; counting the picture as nothing keeps this a lower
-  // bound, which is the one thing it must be.
+  // Its bytes are left out of the text, and the picture counts what Anthropic
+  // charges for it on this model: its 28 px patches, up to the model's ceiling
+  // (chatImages.requestImageTokens, the signal server's rule). That is what it
+  // will cost, so this stays a lower bound, which is the one thing it must be.
   const chars =
     JSON.stringify(body.system ?? '').length + JSON.stringify(body.messages ?? [], withoutImageData).length
-  const tokensLowerBound = chars / 6
+  const tokensLowerBound = chars / 6 + requestImageTokens(body)
   const usd = (tokensLowerBound / 1e6) * rateFor(model).inPerM
   return usd * 100
 }
