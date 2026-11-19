@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FbNode } from '@shared/types'
 import Icon from '../Icon'
+import { OPEN_SHARE_EVENT } from '../../lib/openShare'
 import DeskPresenceBar from '../DeskPresenceBar'
 import { useViewStore } from '../../stores/view'
 import { usePresenceStore } from '../../stores/presence'
@@ -97,6 +98,18 @@ export default function DeskContextMenu({
     () => nodes.filter((n) => !n.archived && n.kind === 'folder' && n.parentId === null),
     [nodes]
   )
+
+  // "Share another desk" (the credit-earned card) opens this desk's share
+  // sheet: this is the desk in view. Taking the event tells the sender so.
+  useEffect(() => {
+    const onOpen = (e: Event): void => {
+      e.preventDefault()
+      setOpen(false)
+      setShareOpen(true)
+    }
+    window.addEventListener(OPEN_SHARE_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_SHARE_EVENT, onOpen)
+  }, [])
 
   useEffect(() => {
     if (!open) return

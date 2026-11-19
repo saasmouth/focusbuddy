@@ -474,8 +474,12 @@ export interface ReferralSummary {
   link: string
   invited: number
   qualified: number
-  /** US$ of credit in the bank, spendable on a plan. Not AI credits. */
+  /** US$ of Plexii credit in the bank, the whole balance. Not AI credits. */
   creditBankUsd: number
+  /** Of it, the credit spent card-free (grants, and the old referral credit). */
+  creditCardFreeUsd: number
+  /** Of it, share & invite credit (US$5 a join, 4.3.52): spent at checkout, with a card. */
+  creditCheckoutUsd: number
   /** US$ earned in the last 12 months, against creditCapUsd. */
   creditEarnedUsd12m: number
   creditCapUsd: number
@@ -504,6 +508,9 @@ export function parseReferrals(body: unknown): ReferralSummary | null {
     invited: n(b.invited),
     qualified: n(b.qualified),
     creditBankUsd: n(b.creditBankUsd),
+    // A server from before share credit sends only the whole balance: all of it card-free.
+    creditCardFreeUsd: typeof b.creditCardFreeUsd === 'number' && Number.isFinite(b.creditCardFreeUsd) ? b.creditCardFreeUsd : n(b.creditBankUsd),
+    creditCheckoutUsd: n(b.creditCheckoutUsd),
     creditEarnedUsd12m: n(b.creditEarnedUsd12m),
     creditCapUsd: typeof b.creditCapUsd === 'number' ? b.creditCapUsd : 144,
     creditPaidUntil: paidUntil

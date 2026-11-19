@@ -1,6 +1,7 @@
 import { signalConfig } from './signalConfig'
 import { useAccountStore } from '../stores/account'
 import { crdtSeedDeskLinks } from './crdtBridge'
+import { useNodeStore } from '../stores/nodes'
 
 // Renderer client for per-desk live sharing (share a desk with named individuals so
 // they get bidirectional near-live updates). It talks to the signal /workspace/desk
@@ -34,6 +35,17 @@ export interface DeskInvite {
   permission?: string
 }
 
+/**
+ * The shared desk's or room's name, sent with a share so the sharer's credit
+ * notice can say what they shared ("… joined Plexii from your invite to
+ * “Launch plan”"). Display only: trimmed, at most 200 characters, and left
+ * out when the name is blank or the desk is not in this workspace.
+ */
+export function rootTitleFor(rootId: string): string | undefined {
+  const title = useNodeStore.getState().nodes.find((n) => n.id === rootId)?.title?.trim()
+  return title ? title.slice(0, 200) : undefined
+}
+
 // Share a desk live with the given people. Stamps the subtree locally first so it
 // syncs down the shared path, registers the grants on the server, then kicks a
 // sync so the desk pushes immediately. Returns the refreshed access list.
@@ -57,7 +69,7 @@ export async function shareDeskLive(
     const res = await fetch(urlFor('/workspace/desk/share'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rootId, invites, permission })
+      body: JSON.stringify({ rootId, invites, permission, rootTitle: rootTitleFor(rootId) })
     })
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; access?: DeskAccess; error?: string }
     if (!res.ok || !json.ok) return { ok: false, error: json.error || 'Could not share the desk.' }

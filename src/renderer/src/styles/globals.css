@@ -3216,3 +3216,30 @@ span.tc-delete {
 :where(.fb-web-overlay) > * {
   pointer-events: auto;
 }
+
+/* Share credit (4.3.52): one sweep of light across the credit-earned card as
+   it arrives (components/CreditEarnedCard.tsx). Once, then still; none at all
+   under reduced motion. */
+.fb-credit-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgb(var(--accent) / 0.22) 50%, transparent 70%);
+  transform: translateX(-110%);
+  animation: fb-credit-shimmer 1100ms ease-out 250ms 1 forwards;
+}
+@keyframes fb-credit-shimmer {
+  to {
+    transform: translateX(110%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-credit-shimmer::after {
+    animation: none;
+    display: none;
+  }
+  [data-testid='credit-earned-card'].fb-pop-in {
+    animation: none;
+  }
+}
