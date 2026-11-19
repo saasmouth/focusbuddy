@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import { imageBlocks, withImagesOnLastUser } from './chatImages'
 import { validateChartConfig, type ChartConfig, type ChartTableShape } from '@shared/charts'
 import { buildAdvicePrompt, clampBrief, type DesignBrief } from '@shared/designAdvicePrompt'
 import { listTables } from '../db/tables'
@@ -1717,7 +1718,9 @@ interface PreparedChatCall {
   // retrieval + attachments). Caching the instruction prefix saves on every turn
   // in a session; the varying suffix stays out of the cached hash.
   system: CacheTextBlock[]
-  msgs: Array<{ role: 'user' | 'assistant'; content: string }>
+  // Text turns; the last user turn carries image blocks too when pictures were
+  // attached in the composer (chatImages.ts).
+  msgs: Anthropic.MessageParam[]
   sources: ChatSource[]
   /** What the answer was given to stand on, for the grounding check (answerGrounding.ts). */
   groundingSupplied: string
@@ -2328,7 +2331,9 @@ async function prepareChatCall(req: ChatRequest): Promise<PreparedChatCall> {
       // What the user named by hand leads what the system went looking for.
       mentionsBlock + retrieval + attachmentsBlock
     ),
-    msgs,
+    // Pictures attached to this message ride on the last user turn, before its
+    // text (chatImages.ts); a picture that cannot go is refused by name.
+    msgs: withImagesOnLastUser(msgs, imageBlocks(req.images)),
     mentions: finalMentionReport,
     sources: citedSources,
     // Everything the answer may rest on: desk and workspace context, what the
@@ -2641,7 +2646,7 @@ export function needsActionRepair(res: ChatResponse): boolean {
 export async function repairMissingActions(
   c: Anthropic,
   system: CacheTextBlock[],
-  msgs: Array<{ role: 'user' | 'assistant'; content: string }>,
+  msgs: Anthropic.MessageParam[],
   priorText: string,
   sources: ChatSource[],
   mentions: ChatMentionResolved[],

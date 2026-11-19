@@ -42,6 +42,10 @@ interface Props {
   onSubmit: () => void
   // Handed the editor so the host can read the document and clear it on send.
   onReady: (editor: Editor) => void
+  // Files or pictures pasted or dropped into the composer: the host attaches
+  // them to the message (ChatPanel's tray). Without this they were lost: a
+  // picture vanished, and a Finder file pasted as its name.
+  onFiles?: (files: File[]) => void
 }
 
 export default function MentionComposer({
@@ -50,8 +54,12 @@ export default function MentionComposer({
   hooks,
   onTextChange,
   onSubmit,
-  onReady
+  onReady,
+  onFiles
 }: Props): JSX.Element {
+  // editorProps are read once, at creation: the latest handler through a ref.
+  const onFilesRef = useRef(onFiles)
+  onFilesRef.current = onFiles
   // The Placeholder extension is configured once, at editor creation — a plain
   // closure over the prop would freeze the mount-time text forever. Reading
   // through a ref lets the placeholder follow the conversation's mode
@@ -90,11 +98,25 @@ export default function MentionComposer({
       handlePaste: (view, event): boolean => {
         const data = event.clipboardData
         if (!data) return false
+        // A picture (a screenshot) or a file copied in Finder is an attachment.
+        const files = Array.from(data.files ?? [])
+        if (files.length && onFilesRef.current) {
+          event.preventDefault()
+          onFilesRef.current(files)
+          return true
+        }
         const html = data.getData('text/html')
         const text = pastedPlainText(data.getData('text/plain'), html)
         if (!text || !wantsPlainLines(text, html)) return false
         event.preventDefault()
         view.dispatch(view.state.tr.replaceSelection(linesSlice(view.state.schema, text)).scrollIntoView())
+        return true
+      },
+      handleDrop: (_view, event): boolean => {
+        const files = Array.from((event as DragEvent).dataTransfer?.files ?? [])
+        if (!files.length || !onFilesRef.current) return false
+        event.preventDefault()
+        onFilesRef.current(files)
         return true
       },
       handleKeyDown: (_view, event): boolean => {

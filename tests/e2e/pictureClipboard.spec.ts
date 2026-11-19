@@ -20,8 +20,8 @@ test.afterEach(async () => {
   launched = null
 })
 
-// A 2x2 red PNG.
-const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANBAEB/1vLnwAAAABJRU5ErkJggg=='
+// A 4x4 red PNG (a valid one: the composer decodes it).
+const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP4z8AARwzEcQCukw/x0F8jngAAAABJRU5ErkJggg=='
 
 async function deskWith(l: LaunchedApp, widgets: Array<{ kind: string; content: string }>): Promise<{ deskId: string; ids: string[] }> {
   const { window } = l

@@ -871,6 +871,19 @@ export interface ChatRequest {
   // for this turn. Optional and additive — absent means on, so every caller
   // that predates the toggle behaves exactly as before.
   webSearch?: boolean
+  // Pictures the person attached to THIS message in the composer (pasted
+  // screenshots, dropped images): sent to the model as image blocks on the last
+  // user message (main/ai/chatImages.ts). Optional and additive. A source that
+  // cannot read pictures (Local) refuses them through the existing ask-before-
+  // cloud prompt; they are never dropped in silence.
+  images?: ChatImage[]
+}
+
+/** A picture attached in the composer, ready for the model: base64 bytes, no data: prefix. */
+export interface ChatImage {
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  data: string
+  name?: string
 }
 
 // A retrieved workspace document the assistant was grounded on. Slimmed from

@@ -166,11 +166,22 @@ export function shouldUseCredits(): boolean {
  */
 export function minimumCostCredits(body: Record<string, unknown>): number {
   const model = typeof body.model === 'string' ? body.model : ''
+  // A picture's base64 is not text: a 1 MB screenshot is ~1.4 million
+  // characters but a couple of thousand tokens. Counted as text it made an
+  // affordable request look tens of thousands of tokens dear, and refused it.
+  // Its bytes are left out; counting the picture as nothing keeps this a lower
+  // bound, which is the one thing it must be.
   const chars =
-    JSON.stringify(body.system ?? '').length + JSON.stringify(body.messages ?? []).length
+    JSON.stringify(body.system ?? '').length + JSON.stringify(body.messages ?? [], withoutImageData).length
   const tokensLowerBound = chars / 6
   const usd = (tokensLowerBound / 1e6) * rateFor(model).inPerM
   return usd * 100
+}
+
+/** JSON.stringify replacer: an image block's base64 bytes as nothing (minimumCostCredits). */
+function withoutImageData(this: unknown, key: string, value: unknown): unknown {
+  if (key === 'data' && typeof value === 'string' && (this as { type?: unknown } | null)?.type === 'base64') return ''
+  return value
 }
 
 /** The next action to name when credits are gone and the server did not say. */

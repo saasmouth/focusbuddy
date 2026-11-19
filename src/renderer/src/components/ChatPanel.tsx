@@ -44,6 +44,7 @@ import {
   TURN_INTO_DESK_MESSAGE
 } from '../lib/conversationDesks'
 import Icon from './Icon'
+import { attachedNote, classifyFile, picturesFit, readDocument, readPicture, refusalFor, type ComposerAttachment } from '../lib/composerAttachments'
 import AttentionConfirmCard from './AttentionConfirmCard'
 import { spawnPositionFor } from '../lib/spawnPosition'
 import { WIDGET_START_SIZES } from '@shared/widgetStartSizes'
@@ -350,6 +351,50 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
   // document. `draft` mirrors the plain-text rendering purely so Send can be
   // disabled on an empty box — the document remains the source of truth.
   const [draft, setDraft] = useState('')
+  // Pictures and documents attached to the next message (lib/composerAttachments):
+  // pasted into the composer or dropped on it.
+  const [attached, setAttached] = useState<ComposerAttachment[]>([])
+  const attachedRef = useRef<ComposerAttachment[]>([])
+  attachedRef.current = attached
+  const [attachPreview, setAttachPreview] = useState<string | null>(null)
+  const [attachDropping, setAttachDropping] = useState(false)
+  const addAttachments = useCallback((files: File[]): void => {
+    for (const file of files) {
+      const id = `att-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+      const refused = refusalFor(file, attachedRef.current)
+      const kind = classifyFile(file)
+      if (refused) {
+        const chip: ComposerAttachment = { id, kind: kind === 'unsupported' ? 'file' : kind, name: file.name, status: 'error', error: refused }
+        attachedRef.current = [...attachedRef.current, chip]
+        setAttached(attachedRef.current)
+        continue
+      }
+      const reading: ComposerAttachment = { id, kind: kind as 'image' | 'file', name: file.name, status: 'reading' }
+      attachedRef.current = [...attachedRef.current, reading]
+      setAttached(attachedRef.current)
+      const done = (next: ComposerAttachment): void => {
+        attachedRef.current = attachedRef.current.map((a) => (a.id === id ? next : a))
+        setAttached(attachedRef.current)
+      }
+      const fail = (err: unknown): void =>
+        done({ id, kind: kind as 'image' | 'file', name: file.name, status: 'error', error: err instanceof Error ? err.message : 'It could not be read.' })
+      if (kind === 'image') {
+        void readPicture(file).then((r) => {
+          if (!picturesFit(attachedRef.current, r.image)) {
+            fail(new Error(`“${file.name}” is too much with the other pictures for one message. Send it with the next one.`))
+            return
+          }
+          done({ id, kind: 'image', name: file.name, status: 'ready', image: r.image, thumb: r.thumb })
+        }, fail)
+      } else {
+        void readDocument(file, window.api.files).then((r) => done({ id, kind: 'file', name: file.name, status: 'ready', attachment: r.attachment, fileId: r.fileId }), fail)
+      }
+    }
+  }, [])
+  const removeAttachment = (id: string): void => {
+    attachedRef.current = attachedRef.current.filter((a) => a.id !== id)
+    setAttached(attachedRef.current)
+  }
   // The composer as the mascot's omnibar door (A2, AI-01, R11): what Enter
   // will do is previewed, Tab flips the pick, and it never guesses silently.
   const [omniPick, setOmniPick] = useState(0)
@@ -749,8 +794,13 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     // The document is the source of truth: its chips serialise to "@Title" in
     // the text, and the references themselves ride from the store (they are
     // sticky to the conversation, not to this message).
-    const content = ed ? docToInput(ed.getJSON()).text.trim() : draft.trim()
-    if (!content || useChatStore.getState().isSending(useChatStore.getState().conversationKey())) return
+    const typed = ed ? docToInput(ed.getJSON()).text.trim() : draft.trim()
+    // What was attached and is ready goes with the message; a picture or file
+    // still being read holds the send (the button says so).
+    const ready = attachedRef.current.filter((a) => a.status === 'ready')
+    if (attachedRef.current.some((a) => a.status === 'reading')) return
+    if ((!typed && !ready.length) || useChatStore.getState().isSending(useChatStore.getState().conversationKey())) return
+    const content = typed
     // A locked mode is literal: Search always searches, Ask always chats.
     if (composerMode === 'search') {
       performOmniIntent({ kind: 'search', label: 'Search the web', url: content })
@@ -790,6 +840,18 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
     }
     ed?.commands.clearContent()
     setDraft('')
+    if (ready.length) {
+      // The message says what went with it, so the conversation reads true
+      // after a reload too; the pictures go as image blocks, the documents'
+      // text as attachments (stores/chat.ts send).
+      const note = attachedNote(ready.map((a) => a.name))
+      const images = ready.flatMap((a) => (a.kind === 'image' && a.status === 'ready' ? [a.image] : []))
+      const files = ready.flatMap((a) => (a.kind === 'file' && a.status === 'ready' ? [a.attachment] : []))
+      attachedRef.current = []
+      setAttached([])
+      await send(thread.serverTaskId, content ? `${content}\n\n${note}` : note, thread.key, { images, files })
+      return
+    }
     await send(thread.serverTaskId, content, thread.key)
   }, [draft, send, thread.serverTaskId, thread.key, pickedIntent, performOmniIntent, composerMode])
 
@@ -1473,8 +1535,83 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
               <Icon name="check_circle" size={13} /> Added to Focus · {inlineFiled}
             </div>
           )}
+          {attached.length > 0 && (
+            <div className="mb-1.5 flex flex-wrap gap-1.5" data-testid="composer-attachments">
+              {attached.map((a) => (
+                <div
+                  key={a.id}
+                  data-testid="composer-attachment"
+                  data-status={a.status}
+                  title={a.status === 'error' ? a.error : a.name}
+                  className={`group relative flex items-center gap-1.5 max-w-[220px] rounded-[var(--radius-row)] border px-1.5 py-1 text-[11.5px] ${
+                    a.status === 'error'
+                      ? 'border-rose-300/60 bg-rose-50/60 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
+                      : 'border-[var(--edge-soft)] bg-[var(--surface-raised)] text-[var(--ink-80)]'
+                  }`}
+                >
+                  {a.kind === 'image' && a.status === 'ready' ? (
+                    <button
+                      type="button"
+                      onClick={() => setAttachPreview(a.id)}
+                      className="shrink-0 rounded overflow-hidden"
+                      aria-label={`Preview ${a.name}`}
+                      data-testid="composer-attachment-preview"
+                    >
+                      <img src={a.thumb} alt="" className="w-7 h-7 object-cover" />
+                    </button>
+                  ) : (
+                    <Icon
+                      name={a.status === 'error' ? 'error' : a.status === 'reading' ? 'hourglass_empty' : 'description'}
+                      size={14}
+                      className="shrink-0"
+                    />
+                  )}
+                  <span className="truncate">{a.status === 'error' ? a.error : a.status === 'reading' ? `Reading ${a.name}…` : a.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.id)}
+                    className="shrink-0 text-[var(--ink-40)] hover:text-[var(--ink-80)]"
+                    aria-label={`Remove ${a.name}`}
+                    data-testid="composer-attachment-remove"
+                  >
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {(() => {
+            const shown = attached.find((a) => a.id === attachPreview)
+            if (!shown || shown.kind !== 'image' || shown.status !== 'ready') return null
+            return (
+              <div
+                className="fixed inset-0 z-[300] grid place-items-center bg-black/60 pointer-events-auto"
+                role="dialog"
+                aria-label={shown.name}
+                data-testid="composer-attachment-lightbox"
+                onClick={() => setAttachPreview(null)}
+              >
+                <img src={`data:${shown.image.mediaType};base64,${shown.image.data}`} alt={shown.name} className="max-w-[90vw] max-h-[85vh] rounded-lg shadow-2xl" />
+              </div>
+            )
+          })()}
           <div
             ref={composerWrapRef}
+            onDragOver={(e) => {
+              if (!e.dataTransfer.types.includes('Files')) return
+              e.preventDefault()
+              setAttachDropping(true)
+            }}
+            onDragLeave={() => setAttachDropping(false)}
+            onDrop={(e) => {
+              setAttachDropping(false)
+              const files = Array.from(e.dataTransfer.files ?? [])
+              if (!files.length) return
+              e.preventDefault()
+              e.stopPropagation()
+              addAttachments(files)
+            }}
+            data-dropping={attachDropping ? 'true' : undefined}
             onKeyDownCapture={(e) => {
               // The "@" picker OWNS Tab whenever it is open (DEC-028's keyboard
               // contract: Tab picks the highlighted row). This handler is
@@ -1504,6 +1641,7 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
               hooks={mentionHooks}
               onTextChange={handleComposerChange}
               onSubmit={() => void submitComposer()}
+              onFiles={addAttachments}
               onReady={(ed) => {
                 editorRef.current = ed
                 restoreDraft(ed, conversationKey)
@@ -1743,8 +1881,8 @@ export default function ChatPanel({ page }: Props = {}): JSX.Element {
             ) : (
               <button
                 type="submit"
-                disabled={!draft.trim()}
-                title="Send"
+                disabled={(!draft.trim() && !attached.some((a) => a.status === 'ready')) || attached.some((a) => a.status === 'reading')}
+                title={attached.some((a) => a.status === 'reading') ? 'Reading what you attached…' : 'Send'}
                 aria-label="Send"
                 className="fb-press w-[26px] h-[26px] rounded-full grid place-items-center shrink-0 transition-colors bg-[rgb(var(--accent))] text-white hover:bg-[rgb(var(--accent-hover))] disabled:bg-[var(--surface-sunken)] disabled:text-[var(--ink-40)] disabled:border disabled:border-[var(--edge-soft)]"
               >
