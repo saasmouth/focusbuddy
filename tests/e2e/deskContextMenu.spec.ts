@@ -98,3 +98,37 @@ test('the desk actions live in the same menu', async () => {
     { timeout: 6_000 }
   )
 })
+
+// "Share another desk" on the credit-earned card (share credit, 4.3.52) asks
+// for the share sheet of the desk in view with a cancelable fb:open-share
+// (lib/openShare.ts). The desk's menu takes it and opens the sheet; with no
+// desk in view nothing takes it, and the card goes to All desks instead.
+test('fb:open-share opens the share sheet of the desk in view, and only of one', async () => {
+  launched = await launchApp()
+  const { window } = launched
+  await waitForReady(window)
+  await window.evaluate(async () => {
+    const api = (window as unknown as { api: typeof window.api }).api
+    await api.nodes.create({ parentId: null, kind: 'task', title: 'Credit share desk' })
+  })
+  await window.reload()
+  await waitForReady(window)
+  await window.getByRole('button', { name: /Credit share desk/ }).first().click()
+  await window.waitForSelector('[data-canvas-surface="true"]', { timeout: 5_000 })
+  const ask = (): Promise<boolean> =>
+    window.evaluate(() => {
+      const ev = new Event('fb:open-share', { cancelable: true })
+      window.dispatchEvent(ev)
+      return ev.defaultPrevented
+    })
+  expect(await ask()).toBe(true)
+  await expect(window.locator('[data-testid="desk-share-sheet"]')).toBeVisible({ timeout: 5_000 })
+  await expect(window.getByText('Share this desk')).toBeVisible()
+  await window.keyboard.press('Escape')
+  await expect(window.locator('[data-testid="desk-share-sheet"]')).toHaveCount(0)
+  // All desks: no desk in view, so nobody takes it.
+  await window.evaluate(() => (window as unknown as { __fbView: { getState: () => { goAllTasks: () => void } } }).__fbView.getState().goAllTasks())
+  await expect(window.locator('[data-canvas-surface="true"]')).toHaveCount(0, { timeout: 5_000 })
+  expect(await ask()).toBe(false)
+  await expect(window.locator('[data-testid="desk-share-sheet"]')).toHaveCount(0)
+})
