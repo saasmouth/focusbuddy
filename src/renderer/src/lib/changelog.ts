@@ -40,11 +40,16 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '4.3.51',
     date: '2026-11-19T09:00:00Z',
-    title: 'PlexiiDesk 4.3.51 — design snippets open in PlexiiDesign for editing',
-    tag: 'feature',
+    title: 'PlexiiDesk 4.3.51 — signing in can no longer change your desks, and tables copy and paste like a spreadsheet',
+    tag: 'fix',
     summary:
-      'A design snippet now opens in PlexiiDesign for editing, as other snippets open in their own apps.',
+      'Signing in no longer changes anything on your other computers, a new computer gets your whole workspace, tables copy, paste and fill like a spreadsheet, and design snippets open for editing.',
     highlights: [
+      'Signing in could change your desks for every computer you use: it could bring back desks and work widgets you had deleted, delete ones you had brought back with Undo, and put back an older version of a change. It no longer can. Signing in now only brings your desks down.',
+      'A new computer gets every work widget, however large your workspace. Before, a workspace too big for one download could leave some behind. The first time 4.3.51 syncs, it fetches everything once more to bring back anything that was missed.',
+      'Undo and the Trash bring a desk or work widget back on your other computers too.',
+      'A shared desk that kept failing to save a few items now saves them.',
+      'In a table work widget you can copy and paste ranges of cells like a spreadsheet, drag the corner of a selection to fill a series, select whole rows by their numbers, and select every cell with ⌘A.',
       'Open original on a design snippet opens it in PlexiiDesign for editing. Until now it said design snippets could not be opened yet. Save writes your changes to the snippet.'
     ]
   },
