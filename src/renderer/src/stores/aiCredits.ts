@@ -5,7 +5,8 @@
 // "That model is on Pro+", or "Verify your email".
 
 import { create } from 'zustand'
-import { isTrialCreditsExhausted, type AiCreditStatus, type AiCreditEvent } from '@shared/aiCredits'
+import { creditErrorMessage, isTrialCreditsExhausted, type AiCreditStatus, type AiCreditEvent } from '@shared/aiCredits'
+import { useNoticeStore } from './notice'
 import { useCapabilityStore } from './capabilities'
 import { useVerifyEmailStore } from './verifyEmail'
 
@@ -60,6 +61,13 @@ export const useAiCreditsStore = create<AiCreditsStore>((set, get) => ({
   },
   dismissPrompt: () => set({ prompt: null }),
   handleEvent: (e) => {
+    // Busy is not a refusal: nothing to buy and no prompt. Main waits and
+    // tries again by itself; the person is told so, and told plainly if it
+    // gave up.
+    if (e.error === 'busy') {
+      useNoticeStore.getState().show({ text: creditErrorMessage(e), icon: 'hourglass_top' }, typeof e.retryInSeconds === 'number' ? Math.max(4000, e.retryInSeconds * 1000 + 1500) : 8000)
+      return
+    }
     const caps = useCapabilityStore.getState()
     const kind = promptFor(e, { trialActive: caps.trial.active, plan: caps.plan, balance: e.status.balance })
     if (kind === 'verify_email') {

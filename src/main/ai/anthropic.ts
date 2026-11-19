@@ -92,7 +92,8 @@ import {
   getCreditClient,
   invalidateCreditClient,
   isCreditClient,
-  isStreamingUnsupported
+  isStreamingUnsupported,
+  aiErrorWords
 } from './creditMode'
 import {
   groundingBlock,
@@ -3118,7 +3119,7 @@ export async function sendChatStream(
     if (err?.name === 'APIUserAbortError' || /aborted/i.test(err?.message ?? '')) {
       stopReason = 'aborted'
     } else {
-      cb.onError({ ok: false, error: err.message })
+      cb.onError({ ok: false, error: aiErrorWords(err) })
       return
     }
   }
@@ -3194,7 +3195,7 @@ export async function sendChatStream(
     if (fallback.ok) cb.onComplete(fallback)
     else cb.onError({ ok: false, error: fallback.error ?? 'Something went wrong.' })
   } catch (e) {
-    cb.onError({ ok: false, error: (e as Error).message })
+    cb.onError({ ok: false, error: aiErrorWords(e) })
   }
 }
 
