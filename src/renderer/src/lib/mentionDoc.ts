@@ -55,6 +55,10 @@ export function docToInput(doc: ComposerNode | null | undefined): {
   const walk = (node: ComposerNode | undefined): string => {
     if (!node) return ''
     if (node.type === 'text') return node.text ?? ''
+    // ⇧↵, and every <br> or <pre> line in pasted text, is a hard break: a line
+    // of its own in what the assistant reads. Returning nothing here joined
+    // pasted code, logs and emails into one line ("line1line2").
+    if (node.type === 'hardBreak') return '\n'
     if (node.type === 'mention') {
       const a = node.attrs ?? {}
       const title = typeof a.title === 'string' ? a.title : ''

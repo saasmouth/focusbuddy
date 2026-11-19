@@ -28,6 +28,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { MentionNode } from './MentionNode'
 import { MentionSuggestion, type MentionSuggestionHooks } from './MentionSuggestion'
 import { docToInput } from '../../lib/mentionDoc'
+import { linesSlice, pastedPlainText, wantsPlainLines } from '../../lib/composerPaste'
 
 interface Props {
   placeholder: string
@@ -67,8 +68,8 @@ export default function MentionComposer({
         blockquote: false,
         codeBlock: false,
         horizontalRule: false,
-        // A chat message is one block of prose. Hard breaks come from ⇧↵ into a
-        // new paragraph, which docToInput already joins with a newline.
+        // A chat message is one block of prose. ⇧↵ makes a hard break, and so do
+        // <br> and <pre> lines in a paste; docToInput reads each as a newline.
         link: false
       }),
       MentionNode,
@@ -81,6 +82,20 @@ export default function MentionComposer({
         class:
           'assistant-composer-input w-full text-[var(--ink-100)] text-[13px] leading-[1.45] max-h-[160px] overflow-y-auto focus:outline-none',
         'data-testid': 'chat-composer'
+      },
+      // Text with line breaks or tabs (a log, an email, a range from a
+      // spreadsheet) goes in exactly as written: one paragraph per line, blank
+      // lines and tabs kept (lib/composerPaste). Reading the paste's HTML
+      // instead flattened a spreadsheet range into one line.
+      handlePaste: (view, event): boolean => {
+        const data = event.clipboardData
+        if (!data) return false
+        const html = data.getData('text/html')
+        const text = pastedPlainText(data.getData('text/plain'), html)
+        if (!text || !wantsPlainLines(text, html)) return false
+        event.preventDefault()
+        view.dispatch(view.state.tr.replaceSelection(linesSlice(view.state.schema, text)).scrollIntoView())
+        return true
       },
       handleKeyDown: (_view, event): boolean => {
         if (event.key !== 'Enter') return false
@@ -105,6 +120,20 @@ export default function MentionComposer({
 
   useEffect(() => {
     if (editor) editor.setEditable(!disabled)
+  }, [editor, disabled])
+
+  // Typing (and ⌘V) go here when the assistant opens, and again when a reply
+  // has finished, unless something else has taken focus meanwhile. Without it,
+  // "copy something, open the assistant, ⌘V" pasted onto the desk as a new
+  // widget, and after every send the next keystroke went nowhere.
+  useEffect(() => {
+    if (!editor || disabled) return
+    const dom = editor.view.dom as HTMLElement
+    const active = document.activeElement
+    const free = !active || active === document.body || active === document.documentElement || dom.contains(active)
+    // Hidden (another assistant tab is showing): nothing to focus.
+    if (!free || dom.offsetParent === null) return
+    editor.commands.focus('end')
   }, [editor, disabled])
 
   // Placeholder text changed (mode switch): dispatch an empty transaction so
