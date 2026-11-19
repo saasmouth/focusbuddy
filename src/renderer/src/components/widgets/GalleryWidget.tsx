@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { recordAction } from '../../stores/actionHistory'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
@@ -52,7 +53,16 @@ export default function GalleryWidget({ widget }: { widget: Widget }): JSX.Eleme
         // One unreadable file must not lose the rest of the drop.
       }
     }
-    if (added.length) await update(widget.id, { content: JSON.stringify({ fileIds: [...ids, ...added] }) })
+    if (!added.length) return
+    // One undo step for the pictures added together (a drop or a paste).
+    const before = JSON.stringify({ fileIds: ids })
+    const after = JSON.stringify({ fileIds: [...ids, ...added] })
+    await update(widget.id, { content: after })
+    recordAction({
+      label: `Add ${added.length} picture${added.length === 1 ? '' : 's'}`,
+      undo: () => update(widget.id, { content: before }),
+      redo: () => update(widget.id, { content: after })
+    })
   }
 
   const body = (
@@ -72,7 +82,18 @@ export default function GalleryWidget({ widget }: { widget: Widget }): JSX.Eleme
         e.preventDefault()
         void add(Array.from(e.dataTransfer.files ?? []))
       }}
-      className={`h-full w-full overflow-auto ${dropping ? 'ring-2 ring-accent ring-inset bg-accent/5' : 'bg-[var(--surface-sunken)]'}`}
+      // Focusable, so a click then ⌘V (a screenshot, a copied picture) adds to
+      // the gallery; the desk used to take it as a separate image widget.
+      tabIndex={0}
+      onPaste={(e) => {
+        const pictures = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'))
+        if (!pictures.length) return
+        e.preventDefault()
+        e.stopPropagation()
+        void add(pictures)
+      }}
+      data-testid="gallery-body"
+      className={`h-full w-full overflow-auto outline-none ${dropping ? 'ring-2 ring-accent ring-inset bg-accent/5' : 'bg-[var(--surface-sunken)]'}`}
     >
       {ids.length === 0 ? (
         <div className="h-full w-full flex flex-col items-center justify-center gap-1.5 p-4 text-center">

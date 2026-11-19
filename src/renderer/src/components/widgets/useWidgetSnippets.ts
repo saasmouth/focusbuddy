@@ -90,11 +90,23 @@ export function useTextWidgetSnippets(
     const ta = textarea()
     return ta && ta.isConnected ? { start: ta.selectionStart, end: ta.selectionEnd } : null
   }
+  // Into the focused box as an edit of it (the browser's insertText), so ⌘Z in
+  // the box takes a converted paste (a grid as a table) back like any typing.
+  // Setting the value directly bypassed the box's undo: the paste could not be
+  // undone at all.
+  const typeIn = (text: string, at: { start: number; end: number } | null): boolean => {
+    const ta = textarea()
+    if (!ta || !ta.isConnected || document.activeElement !== ta || !at) return false
+    ta.setSelectionRange(at.start, at.end)
+    return document.execCommand('insertText', false, text)
+  }
   const land = (forms: Form[], ctx: AcceptContext, at: { start: number; end: number } | null): SnippetInsertResult => {
     const r = acceptForTextWidget(kind, forms, ctx)
     if (!r.ok) return r
-    const next = spliceText(getText(), r.text, at)
-    setText(next.text, next.caret)
+    if (!typeIn(r.text, at)) {
+      const next = spliceText(getText(), r.text, at)
+      setText(next.text, next.caret)
+    }
     return tookIt(r.lossy)
   }
   const pasteSnap = async (snap: PasteSnapshot, at: { start: number; end: number } | null): Promise<void> => {
