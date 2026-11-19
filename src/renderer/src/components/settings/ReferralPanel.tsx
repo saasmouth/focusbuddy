@@ -1,41 +1,38 @@
 import { useCallback, useEffect, useState } from 'react'
 import Icon from '../Icon'
 import { useAccountStore } from '../../stores/account'
-import { useCapabilityStore, usePlan } from '../../stores/capabilities'
-import { getReferrals, redeemCreditBank, type ReferralSummary } from '../../lib/accountClient'
-import { PAID_PLANS, priceLabel, type PaidPlanId } from '../../lib/plans'
+import { usePlan } from '../../stores/capabilities'
+import { getReferrals, type ReferralSummary } from '../../lib/accountClient'
 import { REFERRAL_BONUS_CREDITS } from '@shared/aiCredits'
+import { SITE_BASE } from '../../lib/siteUrls'
 
-// Referrals and the credit bank (growth spec sections 4 and 4b).
+// Earning Plexii credit, and the credit bank (growth spec sections 4 and 4b;
+// share credit, 4.3.52).
 //
-// Each friend who joins free through your link and verifies their email earns
-// you US$12 of plan credit (a month of Pro), up to US$144 a year, and you both
-// get 500 AI credits. The bank pays for a plan: a Free account can switch one
-// on with it here, no card; a paying account has it applied to invoices by the
-// server. Every number on this panel is the server's (GET /referrals); when it
-// cannot be read the panel says so instead of showing zeros.
+// Someone new who joins from a desk you share, an invite you send or your link
+// earns you US$5 of Plexii credit, up to US$144 a year; your link also gives
+// you both 500 AI credits. Share credit is spent at checkout with a card, so
+// "Use my credit" opens the site's credit page (/account/referrals, titled
+// "Plexii credit"), which handles both kinds. Every number on this panel is the
+// server's (GET /referrals); when it cannot be read the panel says so instead
+// of showing zeros.
 
 export const REFERRAL_COPY =
-  "Invite friends to Plexii. Each friend who joins free earns you US$12 of credit toward any plan (that's a month of Pro). Earn up to US$144 a year."
+  'You earn US$5 of Plexii credit each time someone new joins from a desk you share, an invite you send or your link. Up to US$144 a year.'
+
+/** The site's credit page, where credit is spent (card-free, or at checkout). */
+export const CREDIT_PAGE_URL = `${SITE_BASE}/account/referrals`
 
 export function usd(n: number): string {
   return Number.isInteger(n) ? `US$${n}` : `US$${n.toFixed(2)}`
 }
 
-/** How many months of a plan the bank covers at its monthly price. */
-export function monthsCovered(bankUsd: number, monthlyUsd: number): number {
-  return monthlyUsd > 0 ? Math.floor(bankUsd / monthlyUsd) : 0
-}
-
 export default function ReferralPanel(): JSX.Element | null {
   const token = useAccountStore((s) => s.sessionToken)
   const plan = usePlan()
-  const refreshCaps = useCapabilityStore((s) => s.refresh)
   const [data, setData] = useState<ReferralSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [redeemPlan, setRedeemPlan] = useState<PaidPlanId>('pro')
-  const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -67,32 +64,17 @@ export default function ReferralPanel(): JSX.Element | null {
     }
   }
 
-  async function redeem(): Promise<void> {
-    if (!token || busy) return
-    setBusy(true)
+  async function openCreditPage(): Promise<void> {
     setNote(null)
-    try {
-      const r = await redeemCreditBank(token, redeemPlan)
-      if (!r.ok) {
-        setNote(r.error)
-        return
-      }
-      await refreshCaps()
-      await load()
-      setNote('Done. Your plan is switched on and paid from your credit.')
-    } finally {
-      setBusy(false)
-    }
+    const r = await window.api.files.openExternal(CREDIT_PAGE_URL)
+    if (!r.ok) setNote(`Could not open your browser. Your credit is at ${CREDIT_PAGE_URL}`)
   }
-
-  const redeemInfo = PAID_PLANS.find((p) => p.id === redeemPlan) ?? PAID_PLANS[0]
-  const canRedeem = plan === 'free' && data !== null && data.creditBankUsd >= redeemInfo.monthly
 
   return (
     <div className="space-y-1.5" data-testid="referral-panel">
-      <div className="fb-t-caption uppercase tracking-wider text-[var(--ink-50)] font-medium">Invite friends</div>
+      <div className="fb-t-caption uppercase tracking-wider text-[var(--ink-50)] font-medium">Earn credit</div>
       <p className="fb-t-caption text-[var(--ink-70)] leading-snug" data-testid="referral-copy">
-        {REFERRAL_COPY} You both get {REFERRAL_BONUS_CREDITS} AI credits too.
+        {REFERRAL_COPY} Your link also gives you both {REFERRAL_BONUS_CREDITS} AI credits.
       </p>
       {error && (
         <p className="fb-t-caption text-[var(--ink-50)]" data-testid="referral-error">
@@ -126,7 +108,7 @@ export default function ReferralPanel(): JSX.Element | null {
           </div>
           <div className="rounded-[var(--radius-field)] bg-[var(--surface-sunken)] px-2.5 py-2 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="fb-t-caption text-[var(--ink-70)]">Credit bank</span>
+              <span className="fb-t-caption text-[var(--ink-70)]">Plexii credit</span>
               <span className="text-xs font-mono text-[var(--ink-90)]" data-testid="referral-bank">
                 {usd(data.creditBankUsd)}
               </span>
@@ -142,31 +124,22 @@ export default function ReferralPanel(): JSX.Element | null {
                 .
               </div>
             )}
+            {data.creditCheckoutUsd > 0 && (
+              <div className="fb-t-caption text-[var(--ink-50)]" data-testid="referral-checkout-credit">
+                {usd(data.creditCheckoutUsd)} of it is share and invite credit, spent at checkout with a card.
+              </div>
+            )}
             {plan === 'free' ? (
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={redeemPlan}
-                  onChange={(e) => setRedeemPlan(e.target.value as PaidPlanId)}
-                  aria-label="Plan to pay for with credit"
-                  data-testid="referral-redeem-plan"
-                  className="fb-field flex-1 min-w-0 rounded-[var(--radius-field)] bg-[var(--surface-raised)] px-2 py-1 text-[12px]"
-                >
-                  {PAID_PLANS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}, {priceLabel(p, 'month')} ({monthsCovered(data.creditBankUsd, p.monthly)} month
-                      {monthsCovered(data.creditBankUsd, p.monthly) === 1 ? '' : 's'} covered)
-                    </option>
-                  ))}
-                </select>
+              <div className="flex items-center justify-end">
                 <button
                   type="button"
-                  onClick={() => void redeem()}
-                  disabled={!canRedeem || busy}
-                  data-testid="referral-redeem"
-                  title={canRedeem ? undefined : `Your bank needs at least ${usd(redeemInfo.monthly)} for a month of ${redeemInfo.name}.`}
+                  onClick={() => void openCreditPage()}
+                  disabled={data.creditBankUsd <= 0}
+                  data-testid="referral-use-credit"
+                  title={data.creditBankUsd > 0 ? 'Opens your Plexii credit page in the browser' : 'No credit yet'}
                   className="shrink-0 px-2.5 py-1 rounded-[var(--radius-field)] fb-t-caption bg-accent text-white hover:opacity-90 disabled:opacity-40"
                 >
-                  {busy ? 'Working…' : 'Use my credit'}
+                  Use my credit
                 </button>
               </div>
             ) : (

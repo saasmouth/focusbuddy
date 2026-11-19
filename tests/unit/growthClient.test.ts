@@ -4,7 +4,7 @@ import { reportFirstLaunch, FIRST_LAUNCH_KEY_PREFIX } from '../../src/renderer/s
 import { promptFor } from '../../src/renderer/src/stores/aiCredits'
 import { shouldNudge, INVITE_NUDGE_COPY } from '../../src/renderer/src/components/InviteTeammateNudge'
 import { normaliseCode } from '../../src/renderer/src/components/VerifyEmailModal'
-import { monthsCovered, usd, REFERRAL_COPY } from '../../src/renderer/src/components/settings/ReferralPanel'
+import { usd, REFERRAL_COPY, CREDIT_PAGE_URL } from '../../src/renderer/src/components/settings/ReferralPanel'
 
 describe('GET /referrals (growth spec 4b)', () => {
   it('reads the credit-bank shape', () => {
@@ -15,6 +15,8 @@ describe('GET /referrals (growth spec 4b)', () => {
         invited: 5,
         qualified: 3,
         creditBankUsd: 36,
+        creditCardFreeUsd: 24,
+        creditCheckoutUsd: 12,
         creditEarnedUsd12m: 36,
         creditCapUsd: 144,
         creditPaidUntil: '2027-01-15T00:00:00Z'
@@ -25,20 +27,28 @@ describe('GET /referrals (growth spec 4b)', () => {
       invited: 5,
       qualified: 3,
       creditBankUsd: 36,
+      creditCardFreeUsd: 24,
+      creditCheckoutUsd: 12,
       creditEarnedUsd12m: 36,
       creditCapUsd: 144,
       creditPaidUntil: Date.parse('2027-01-15T00:00:00Z')
     })
   })
+  it('a server from before share credit: the whole balance is card-free', () => {
+    expect(parseReferrals({ code: 'ab12', link: 'https://plexiidesk.com/r/ab12', creditBankUsd: 17 })).toMatchObject({
+      creditBankUsd: 17,
+      creditCardFreeUsd: 17,
+      creditCheckoutUsd: 0
+    })
+  })
   it('refuses a body without a code and link rather than showing an empty panel', () => {
     expect(parseReferrals({ invited: 2 })).toBeNull()
   })
-  it('uses the owner\'s copy', () => {
+  it('uses the share-credit copy (US$5 a join, up to US$144 a year), and spends credit on the site', () => {
     expect(REFERRAL_COPY).toBe(
-      "Invite friends to Plexii. Each friend who joins free earns you US$12 of credit toward any plan (that's a month of Pro). Earn up to US$144 a year."
+      'You earn US$5 of Plexii credit each time someone new joins from a desk you share, an invite you send or your link. Up to US$144 a year.'
     )
-    expect(monthsCovered(36, 12)).toBe(3)
-    expect(monthsCovered(36, 25)).toBe(1)
+    expect(CREDIT_PAGE_URL).toMatch(/^https:\/\/[^/]+\/account\/referrals$/)
     expect(usd(12)).toBe('US$12')
     expect(usd(12.5)).toBe('US$12.50')
   })

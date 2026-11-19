@@ -19,8 +19,11 @@ vi.mock('../../src/renderer/src/lib/signalConfig', () => ({
   signalConfig: { useRemote: true, httpUrl: 'http://signal.test', wsUrl: 'ws://signal.test/ws' },
   cloudAppUrl: () => 'https://plexiidesk.com/share'
 }))
+const account = vi.hoisted(() => ({ state: { sessionToken: 'tok' as string | null } }))
 vi.mock('../../src/renderer/src/stores/account', () => ({
-  useAccountStore: { getState: () => ({ sessionToken: 'tok' }) }
+  useAccountStore: Object.assign((sel: (s: typeof account.state) => unknown) => sel(account.state), {
+    getState: () => account.state
+  })
 }))
 const sharesState = { createFor: vi.fn(), outgoing: [], revoke: vi.fn(), refresh: vi.fn(async () => {}), invite: vi.fn() }
 vi.mock('../../src/renderer/src/stores/shares', () => ({
@@ -45,7 +48,7 @@ vi.mock('../../src/renderer/src/lib/ephemeralShareClient', async (orig) => ({
   ...client
 }))
 
-import DeskShareSheet from '../../src/renderer/src/components/share/DeskShareSheet'
+import DeskShareSheet, { SHARE_CREDIT_COPY } from '../../src/renderer/src/components/share/DeskShareSheet'
 import type { EphemeralShare } from '../../src/renderer/src/lib/ephemeralShareClient'
 
 const now = Date.now()
@@ -89,6 +92,30 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount())
   document.body.innerHTML = ''
+})
+
+describe('share credit (4.3.52)', () => {
+  it('signed in: the sheet says what a share can earn, for either audience', async () => {
+    account.state.sessionToken = 'tok'
+    act(() => {
+      root.render(<DeskShareSheet kind="task" entityId="desk-1" label="Demo" />)
+    })
+    await flush()
+    expect(q('share-credit-line')!.textContent).toBe(SHARE_CREDIT_COPY)
+    expect(SHARE_CREDIT_COPY).toBe('Share with someone new: you get US$5 credit when they join.')
+    act(() => q('share-audience-link')!.click())
+    await flush()
+    expect(q('share-credit-line')).not.toBeNull()
+  })
+  it('signed out: no promise of credit nobody can earn', async () => {
+    account.state.sessionToken = null
+    act(() => {
+      root.render(<DeskShareSheet kind="task" entityId="desk-1" label="Demo" />)
+    })
+    await flush()
+    expect(q('share-credit-line')).toBeNull()
+    account.state.sessionToken = 'tok'
+  })
 })
 
 describe('the list of usable-desk links', () => {

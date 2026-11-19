@@ -4,6 +4,7 @@ import LiveDeskSharing from '../LiveDeskSharing'
 import LiveWebViewPanel from '../LiveWebViewPanel'
 import { useSharesStore } from '../../stores/shares'
 import { useNodeStore } from '../../stores/nodes'
+import { useAccountStore } from '../../stores/account'
 import { viewerUrlFor } from '../../lib/shareTokens'
 import { buildFolderSnapshot, buildTaskSnapshot, generateAnonymousHandle, type SnapshotPrivateKept } from '../../lib/shareSnapshot'
 import {
@@ -60,6 +61,9 @@ function whenUpdated(ms: number): string {
   })
 }
 
+/** Share credit (4.3.52): what a share can earn the person sharing. */
+export const SHARE_CREDIT_COPY = 'Share with someone new: you get US$5 credit when they join.'
+
 export default function DeskShareSheet({
   kind,
   entityId,
@@ -67,6 +71,8 @@ export default function DeskShareSheet({
   roomRootId,
   roomTitle
 }: Props): JSX.Element {
+  // Share credit is earned by an account: the line is for the signed in.
+  const signedIn = useAccountStore((st) => !!st.sessionToken)
   // Naming a person is the commoner act, so it leads. The link path is one
   // click away with the demo option already selected.
   const [audience, setAudience] = useState<ShareAudience>('people')
@@ -304,6 +310,13 @@ export default function DeskShareSheet({
           ))}
         </div>
       </div>
+
+      {signedIn && (
+        <p className="text-[11px] text-[var(--ink-70)] leading-snug flex items-center gap-1.5" data-testid="share-credit-line">
+          <Icon name="redeem" size={14} className="text-accent shrink-0" />
+          {SHARE_CREDIT_COPY}
+        </p>
+      )}
 
       {audience === 'people' ? (
         <LiveDeskSharing rootId={entityId} roomRootId={roomRootId} roomTitle={roomTitle} />
