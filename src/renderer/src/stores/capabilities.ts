@@ -323,6 +323,8 @@ export type ServerFeature =
   | 'account_archive'
   | 'account_archive_email'
   | 'account_restore'
+  /** Share credit (4.3.52): the server pushes creditEarned and lists GET /account/notices. */
+  | 'creditEarned'
 
 export function serverSupports(feature: ServerFeature): boolean {
   return useCapabilityStore.getState().serverFeatures.includes(feature)

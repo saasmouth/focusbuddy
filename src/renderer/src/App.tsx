@@ -47,6 +47,8 @@ import { shareGate } from './lib/shareGate'
 import UpgradePromptModal from './components/UpgradePromptModal'
 import CreditPromptModal from './components/CreditPromptModal'
 import LocalAiPrompts from './components/LocalAiPrompts'
+import CreditEarnedCard from './components/CreditEarnedCard'
+import { installCreditNotices } from './stores/creditNotices'
 import VerifyEmailModal from './components/VerifyEmailModal'
 import InviteTeammateNudge from './components/InviteTeammateNudge'
 import GrowthEffects from './components/GrowthEffects'
@@ -297,6 +299,8 @@ export default function App(): JSX.Element {
     useMeetingRoomStore.getState().init()
     useKnockStore.getState().init()
   }, [])
+  // Share credit (4.3.52): the credit-earned card's notices, live and listed.
+  useEffect(() => installCreditNotices(), [])
   useEffect(() => {
     if (account && sessionToken) {
       void connectMessaging(sessionToken)
@@ -972,6 +976,7 @@ export default function App(): JSX.Element {
         <LiteRoomEffects />
         <CreditPromptModal />
         <LocalAiPrompts />
+        <CreditEarnedCard />
         <VerifyEmailModal />
         <InviteTeammateNudge />
         <MetricsOverlay />

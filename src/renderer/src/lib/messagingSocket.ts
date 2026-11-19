@@ -125,6 +125,14 @@ export function setKnockHandler(cb: ((e: KnockEvent) => void) | null): void {
   onKnockCb = cb
 }
 
+// Share credit (4.3.52): someone joined from a desk, invite or link this
+// account shared, and it earned credit. The payload is checked by
+// lib/creditNotices.parseCreditNotice; stores/creditNotices.ts shows it.
+let onCreditEarnedCb: ((payload: unknown) => void) | null = null
+export function setCreditEarnedHandler(cb: ((payload: unknown) => void) | null): void {
+  onCreditEarnedCb = cb
+}
+
 export interface MessageEditEvent {
   conversationId: string
   messageId: string
@@ -319,6 +327,8 @@ function open(): void {
       onTypingCb?.(msg.payload as TypingEvent)
     } else if (msg.type === 'knocked') {
       onKnockCb?.(msg.payload as KnockEvent)
+    } else if (msg.type === 'creditEarned') {
+      onCreditEarnedCb?.(msg.payload)
     } else if (
       msg.type === 'callIncoming' ||
       msg.type === 'callSignal' ||
