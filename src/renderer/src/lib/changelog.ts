@@ -38,6 +38,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.53',
+    date: '2026-11-20T01:00:00Z',
+    title: 'PlexiiDesk 4.3.53 — sign-in links are safer',
+    tag: 'fix',
+    summary:
+      'A sign-in link can no longer sign Plexii in to someone else\'s account without asking you first.',
+    highlights: [
+      'When a sign-in link opens Plexii and you did not start that sign-in from Plexii, Plexii now asks first, naming the account the link would sign you in to. If you press Enter, the answer is Cancel.',
+      'Signing in through the website or with SSO may ask you once to confirm the account before it finishes.',
+      'A sign-in link that has expired says so, and changes nothing.',
+      'In every Plexii dialog, pressing Enter on a button presses that button: on Cancel, it cancels.'
+    ]
+  },
+  {
     version: '4.3.52',
     date: '2026-11-19T06:00:00Z',
     title: 'PlexiiDesk 4.3.52 — share a desk and earn credit, ⌘Z inside every work widget, and Finder files paste as files',
