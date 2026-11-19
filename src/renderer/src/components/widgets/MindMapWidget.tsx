@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { recordAction } from '../../stores/actionHistory'
+import { outlineHtml, outlineText, parseOutline, type OutlineNode } from '../../lib/outlineClipboard'
 import MentionTextarea from '../MentionTextarea'
 import type { ActionProposal, GoToTarget, Widget, WidgetKind } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
@@ -268,22 +270,90 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
   // The "Add tool" picker for node-attached widgets.
   const [toolPickerOpen, setToolPickerOpen] = useState(false)
 
+  // ── Clipboard ────────────────────────────────────────────────────────────
+  // The map takes focus when a node is chosen (mapRef), so ⌘C, ⌘X and ⌘V are
+  // the map's: the selected branch goes out as an indented outline (text and a
+  // nested list), and a pasted outline comes in as branches under the selected
+  // node. Without focus, ⌘V made a new widget on the desk instead (owner,
+  // 2026-11-19: "check for similar issues with all other widgets").
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const focusMap = (): void => mapRef.current?.focus({ preventScroll: true })
+  const toOutline = (n: MindMapNode): OutlineNode => ({ label: n.label, children: n.children.map(toOutline) })
+  const fromOutline = (o: OutlineNode): MindMapNode => ({
+    id: `n-${Math.floor(Math.random() * 1e9).toString(36)}-${Date.now().toString(36)}`,
+    label: o.label,
+    kind: 'idea',
+    children: o.children.map(fromOutline),
+    attachedWidgetIds: [],
+    assignedAgentSlugs: [],
+    pendingChildren: []
+  })
+  /** One change to the map, and one undo step for it (the map's content had none). */
+  function persistUndoable(next: PersistedState, label: string): void {
+    const before = persisted.current
+    persist(next)
+    recordAction({ label, undo: () => persist(before), redo: () => persist(next) })
+  }
+  const ownsClipboard = (e: React.ClipboardEvent): boolean => {
+    const t = e.target as HTMLElement
+    return !(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)
+  }
+  function onMapCopy(e: React.ClipboardEvent, cut = false): void {
+    if (!ownsClipboard(e) || !selected) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.clipboardData.setData('text/plain', outlineText(toOutline(selected)))
+    e.clipboardData.setData('text/html', outlineHtml(toOutline(selected)))
+    if (!cut || selected.id === state.root.id) return
+    const parent = findParent(state.root, selected.id)
+    persistUndoable(
+      {
+        ...state,
+        root: pruneTree(state.root, selected.id),
+        selectedId: parent?.id ?? state.root.id,
+        viewRootId: state.viewRootId === selected.id ? state.root.id : state.viewRootId
+      },
+      `Cut “${selected.label}”`
+    )
+  }
+  function onMapPaste(e: React.ClipboardEvent): void {
+    if (!ownsClipboard(e)) return
+    const forest = parseOutline(e.clipboardData.getData('text/plain'))
+    e.preventDefault()
+    e.stopPropagation()
+    if (!forest.length) return
+    const parentId = state.selectedId && findNode(state.root, state.selectedId) ? state.selectedId : state.root.id
+    const added = forest.map(fromOutline)
+    persistUndoable(
+      {
+        ...state,
+        root: mapTree(state.root, parentId, (n) => ({ ...n, children: [...n.children, ...added] })),
+        selectedId: added[0].id
+      },
+      `Paste ${added.length === 1 ? `“${added[0].label}”` : `${added.length} ideas`}`
+    )
+  }
+
   // ── Tree mutation helpers ────────────────────────────────────────────────
   function updateNode(id: string, mutator: (n: MindMapNode) => MindMapNode): void {
     persist({ ...state, root: mapTree(state.root, id, mutator) })
   }
   function deleteNode(id: string): void {
     if (id === state.root.id) return
-    persist({
-      ...state,
-      root: pruneTree(state.root, id),
-      selectedId: state.selectedId === id ? state.root.id : state.selectedId,
-      // If we drilled into the deleted node, pop back to its parent
-      // by resetting the view root. Falling all the way back to the
-      // tree root is the simple choice; a smarter version would walk
-      // to the nearest live ancestor.
-      viewRootId: state.viewRootId === id ? state.root.id : state.viewRootId
-    })
+    const gone = findNode(state.root, id)
+    persistUndoable(
+      {
+        ...state,
+        root: pruneTree(state.root, id),
+        selectedId: state.selectedId === id ? state.root.id : state.selectedId,
+        // If we drilled into the deleted node, pop back to its parent
+        // by resetting the view root. Falling all the way back to the
+        // tree root is the simple choice; a smarter version would walk
+        // to the nearest live ancestor.
+        viewRootId: state.viewRootId === id ? state.root.id : state.viewRootId
+      },
+      `Delete “${gone?.label ?? 'idea'}”`
+    )
   }
 
   // Triage staging — accept or reject AI-proposed children one at a
@@ -346,14 +416,17 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
       assignedAgentSlugs: [],
       pendingChildren: []
     }
-    persist({
-      ...state,
-      root: mapTree(state.root, parentId, (n) => ({
-        ...n,
-        children: [...n.children, newNode]
-      })),
-      selectedId: id
-    })
+    persistUndoable(
+      {
+        ...state,
+        root: mapTree(state.root, parentId, (n) => ({
+          ...n,
+          children: [...n.children, newNode]
+        })),
+        selectedId: id
+      },
+      'Add idea'
+    )
     return id
   }
   function addSibling(targetId: string): string | null {
@@ -1103,7 +1176,15 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
           onClose={() => setMindCtxMenu(null)}
         />
       )}
-      <div className="flex-1 min-w-0 overflow-auto relative">
+      <div
+        ref={mapRef}
+        tabIndex={-1}
+        data-testid="mindmap-surface"
+        className="flex-1 min-w-0 overflow-auto relative outline-none"
+        onCopy={(e) => onMapCopy(e)}
+        onCut={(e) => onMapCopy(e, true)}
+        onPaste={onMapPaste}
+      >
         {/* Breadcrumb — only when drilled in. The user clicks any
             segment to step back up. Double-clicking a node in the
             tree drills further in; the breadcrumb is the only way
@@ -1166,6 +1247,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
                     return
                   }
                   persist({ ...state, selectedId: n.id })
+                  focusMap()
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation()
