@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { PASTE_FILES_EVENT, isTextField, pastedFilesOf } from '../../lib/pastedFiles'
+import { useNoticeStore } from '../../stores/notice'
+import { recordAction } from '../../stores/actionHistory'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
@@ -52,11 +55,50 @@ export default function GalleryWidget({ widget }: { widget: Widget }): JSX.Eleme
         // One unreadable file must not lose the rest of the drop.
       }
     }
-    if (added.length) await update(widget.id, { content: JSON.stringify({ fileIds: [...ids, ...added] }) })
+    if (!added.length) return
+    // One undo step for the pictures added together (a drop or a paste).
+    const before = JSON.stringify({ fileIds: ids })
+    const after = JSON.stringify({ fileIds: [...ids, ...added] })
+    await update(widget.id, { content: after })
+    recordAction({
+      label: `Add ${added.length} picture${added.length === 1 ? '' : 's'}`,
+      undo: () => update(widget.id, { content: before }),
+      redo: () => update(widget.id, { content: after })
+    })
   }
+
+  // Pictures copied in Finder and pasted here join the gallery (lib/pastedFiles.ts).
+  // Listened for on the whole work widget, so a paste after a click anywhere on
+  // it lands here (the router sends it to the last click when nothing has
+  // focus). In its title field the ordinary paste runs.
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const addRef = useRef(add)
+  addRef.current = add
+  useEffect(() => {
+    const el = bodyRef.current?.closest('[data-widget-id]') ?? bodyRef.current
+    if (!el) return
+    const on = (e: Event): void => {
+      if (isTextField(e.target as Element)) return
+      const files = pastedFilesOf(e)
+      const pictures = files.filter((f) => f.type.startsWith('image/'))
+      if (!pictures.length) return
+      e.preventDefault()
+      e.stopPropagation()
+      void addRef.current(pictures)
+      // The rest are named, never dropped in silence.
+      const others = files.filter((f) => !f.type.startsWith('image/')).map((f) => `“${f.name}”`)
+      if (others.length) {
+        const list = others.length > 3 ? `${others.slice(0, 3).join(', ')} and ${others.length - 3} more` : others.join(', ')
+        useNoticeStore.getState().show({ text: `Not added to the gallery, which holds pictures: ${list}.`, icon: 'info' }, 8000)
+      }
+    }
+    el.addEventListener(PASTE_FILES_EVENT, on)
+    return () => el.removeEventListener(PASTE_FILES_EVENT, on)
+  }, [])
 
   const body = (
     <div
+      ref={bodyRef}
       // Finder pictures only. Anything else (a Files drag, a palette kind)
       // falls through to the desk; the desk no longer handles a drop twice, so
       // a gallery that claimed every drop would swallow them.
@@ -72,7 +114,18 @@ export default function GalleryWidget({ widget }: { widget: Widget }): JSX.Eleme
         e.preventDefault()
         void add(Array.from(e.dataTransfer.files ?? []))
       }}
-      className={`h-full w-full overflow-auto ${dropping ? 'ring-2 ring-accent ring-inset bg-accent/5' : 'bg-[var(--surface-sunken)]'}`}
+      // Focusable, so a click then ⌘V (a screenshot, a copied picture) adds to
+      // the gallery; the desk used to take it as a separate image widget.
+      tabIndex={0}
+      onPaste={(e) => {
+        const pictures = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'))
+        if (!pictures.length) return
+        e.preventDefault()
+        e.stopPropagation()
+        void add(pictures)
+      }}
+      data-testid="gallery-body"
+      className={`h-full w-full overflow-auto outline-none ${dropping ? 'ring-2 ring-accent ring-inset bg-accent/5' : 'bg-[var(--surface-sunken)]'}`}
     >
       {ids.length === 0 ? (
         <div className="h-full w-full flex flex-col items-center justify-center gap-1.5 p-4 text-center">

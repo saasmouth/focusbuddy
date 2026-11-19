@@ -401,9 +401,9 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
   } else if (docType === 'design') {
     body = <DesignEditor onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else if (docType === 'draw') {
-    body = <DrawStudio key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <DrawStudio onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   } else {
-    body = <MapEditor key={`${doc.id}:${bodyEpoch}`} body={doc.body as MapBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <MapEditor onDesk key={`${doc.id}:${bodyEpoch}`} body={doc.body as MapBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
   }
 
   // Stop right-clicks (and the editors' own context menus, e.g. the sheet column

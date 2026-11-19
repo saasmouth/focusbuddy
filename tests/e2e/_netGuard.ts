@@ -51,6 +51,7 @@ import { basename, dirname, join } from 'path'
 import { ACTIVE } from '../../src/shared/productDomains'
 import { PRODUCTION_ALLOWED_SPECS } from './_netGuardAllowlist'
 import { bundledModelsEnv } from './_bundledModels'
+import { installClipboardGuard } from './_clipboardGuard'
 import { productionHostRules, refusedUrlRegExp, urlIsRefused } from './_netGuardHosts'
 
 export interface NetViolation {
@@ -153,6 +154,12 @@ export async function launchGuarded(
      * without the model, whatever the worktree staged.
      */
     bundledModels?: boolean
+    /**
+     * Let the app reach the machine's real clipboard (opt-in native specs only).
+     * Otherwise the clipboard guard (_clipboardGuard.ts) is installed before the
+     * first window loads, and refuses any reach past the test's own clipboard.
+     */
+    realClipboard?: boolean
   } = {}
 ): Promise<{ app: ElectronApplication; guard: NetGuard }> {
   const spec = currentSpec()
@@ -288,6 +295,10 @@ export async function launchGuarded(
     const g = globalThis as unknown as { __plexiiNetGuardRoutesReady?: () => boolean }
     return g.__plexiiNetGuardRoutesReady?.() ?? false
   })
+
+  // No page reaches the owner's clipboard unless the spec says so: the guard is
+  // in place before the first window loads (_clipboardGuard.ts).
+  if (!guardOptions.realClipboard) await installClipboardGuard(app)
 
   // Only now may the app create its first window.
   const was = await app.evaluate(() => {

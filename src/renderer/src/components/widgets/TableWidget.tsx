@@ -375,7 +375,8 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     if (!cols || cols.length === 0) return
     const want = tableFitWidth(cols)
     if (widget.width >= want) return
-    void updateWidget(widget.id, { width: want })
+    // The app's own widening, not a step: ⌘Z belongs to the column added.
+    void updateWidget(widget.id, { width: want }, { record: false })
     // widget.width is read, not depended on: the update itself changes it, and
     // depending on it would re-run this the moment it lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps

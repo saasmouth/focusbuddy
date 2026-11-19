@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
+import { copyPicture } from '../../lib/copyPicture'
+import { useNoticeStore } from '../../stores/notice'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
+import { recordAction } from '../../stores/actionHistory'
 import Icon from '../Icon'
 import { resolveMediaSrc } from '../../lib/fileUrl'
 import { useImageWidgetSnippets } from './useWidgetSnippets'
@@ -66,8 +69,22 @@ export default function ImageWidget({ widget, inline = false }: Props): JSX.Elem
   function commit(): void {
     const url = draft.trim()
     if (!url) return
-    void update(widget.id, { content: url, title: hostnameOf(url) })
     setEditing(false)
+    if (url === widget.content) return
+    const before = { content: widget.content, title: widget.title }
+    let after = { content: url, title: hostnameOf(url) }
+    void update(widget.id, after)
+    // One step on the desk's ⌘Z. Redo puts back what the widget held when it
+    // was undone: a linked picture is copied into Files after it loads.
+    recordAction({
+      label: 'Change the picture',
+      undo: () => {
+        const now = useWidgetStore.getState().widgets.find((w) => w.id === widget.id)
+        if (now) after = { content: now.content, title: now.title }
+        return update(widget.id, before)
+      },
+      redo: () => update(widget.id, after)
+    })
   }
 
   const body = (
@@ -77,6 +94,16 @@ export default function ImageWidget({ widget, inline = false }: Props): JSX.Elem
       // rather than the desk, which would place a new widget instead.
       tabIndex={0}
       onPaste={snippets.onBodyPaste}
+      // ⌘C copies the picture itself (as PNG), not nothing.
+      onKeyDown={(e) => {
+        if (editing || !widget.content || !(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== 'c') return
+        if (e.target !== e.currentTarget) return
+        e.preventDefault()
+        e.stopPropagation()
+        void copyPicture(widget.content).catch((err: unknown) =>
+          useNoticeStore.getState().show({ text: err instanceof Error ? err.message : 'The picture could not be copied.', icon: 'error' })
+        )
+      }}
       data-testid="image-widget-body"
     >
       {editing ? (

@@ -871,6 +871,35 @@ export interface ChatRequest {
   // for this turn. Optional and additive — absent means on, so every caller
   // that predates the toggle behaves exactly as before.
   webSearch?: boolean
+  // Pictures the person attached to THIS message in the composer (pasted
+  // screenshots, dropped images): sent to the model as image blocks on the last
+  // user message (main/ai/chatImages.ts). Optional and additive. A source that
+  // cannot read pictures (Local) refuses them through the existing ask-before-
+  // cloud prompt; they are never dropped in silence.
+  images?: ChatImage[]
+}
+
+/** A picture attached in the composer, ready for the model: base64 bytes, no data: prefix. */
+export interface ChatImage {
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+  data: string
+  name?: string
+}
+
+/**
+ * Files copied in Finder (or Explorer) and pasted into Plexii (main/pasteFiles.ts):
+ * main reads them off the pasteboard and hands their bytes to the page, which
+ * puts them where the paste was aimed (the assistant's tray, Files, the desk).
+ */
+export interface PastedFile {
+  name: string
+  mimeType: string
+  bytes: Uint8Array
+}
+export interface PastedFilesPayload {
+  files: PastedFile[]
+  /** Files that were copied but not read, with why (too large, a folder, unreadable). */
+  skipped: Array<{ name: string; reason: string }>
 }
 
 // A retrieved workspace document the assistant was grounded on. Slimmed from

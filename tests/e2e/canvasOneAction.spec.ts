@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, suppressFeatureSpotlights, chooseCloudAiSource, placeDesign, selectBarTab, type LaunchedApp } from './_helpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 // Design and Diagrams actions that one surface implemented differently, or that
 // a menu showed with a key that never fired (registry-41 inventory). Seen red on
@@ -15,6 +16,8 @@ test.afterEach(async () => {
 async function open(docType: string, body?: unknown): Promise<{ w: Page; id: string }> {
   launched = await launchApp()
   const w = launched.window
+  // The clipboard is the test's own (_clipboardStub.ts), never the owner's.
+  await installMainClipboardStub(launched.app)
   await waitForReady(w)
   await chooseCloudAiSource(w)
   await suppressFeatureSpotlights(w)
@@ -25,6 +28,7 @@ async function open(docType: string, body?: unknown): Promise<{ w: Page; id: str
   )
   await w.reload()
   await waitForReady(w)
+  await installClipboardStub(w)
   await w.evaluate((i) => (window as unknown as { __fbView: { getState: () => { goDocument: (x: string) => void } } }).__fbView.getState().goDocument(i), id)
   return { w, id }
 }

@@ -10,6 +10,7 @@ import WidgetFrame from './WidgetFrame'
 import { useFilesStore } from '../../stores/files'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { guardFrameFocus } from '../../lib/frameFocusGuard'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { isTextContextTarget } from './bodyMenus'
 import { fileSrc } from '../../lib/fileUrl'
@@ -78,7 +79,10 @@ export default function FileWidget({ widget, inline = false }: Props): JSX.Eleme
     autoSizedFor.current = content
     // Only persist if it actually changes things — avoids a no-op IPC round-trip.
     if (newW === widget.width && newH === widget.height) return
-    void update(widget.id, { width: newW, height: newH })
+    // The app's own fit, not a step anyone took: no undo entry. Recorded, it
+    // sat on top of the history, so ⌘Z after placing a picture undid the fit
+    // ("Undid Resize work widget") and left the picture on the desk.
+    void update(widget.id, { width: newW, height: newH }, { record: false })
   }
 
   async function handleDrop(e: React.DragEvent): Promise<void> {
@@ -430,6 +434,10 @@ const isWebRuntime = (): boolean => (globalThis as { __PLEXII_WEB__?: boolean })
 export function PdfFrame({ url, title }: { url: string; title: string }): JSX.Element {
   const web = isWebRuntime()
   const [state, setState] = useState<{ src: string | null; failed: boolean }>({ src: web ? null : url, failed: false })
+  // The PDF viewer focuses itself when it loads; it gets focus only when the
+  // person clicks into it (lib/frameFocusGuard.ts).
+  const frameRef = useRef<HTMLIFrameElement | null>(null)
+  useEffect(() => (frameRef.current ? guardFrameFocus(frameRef.current) : undefined), [state.src])
 
   useEffect(() => {
     if (!web) {
@@ -468,6 +476,7 @@ export function PdfFrame({ url, title }: { url: string; title: string }): JSX.El
   }
   return (
     <iframe
+      ref={frameRef}
       src={`${state.src}#toolbar=1&navpanes=1&view=FitH`}
       title={title}
       className="w-full h-full border-0"

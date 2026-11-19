@@ -49,6 +49,7 @@ import { fieldKeepsKey, subscribeKeyOverrides } from './draw/commands/keys'
 import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SIDE_PANE_DOM_ID, ToolRail, type BarTab, type ContextBarHandle } from '../office/shell'
 import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
 import { deleteObjects, mapObjects } from '@shared/draw/ops/objects'
+import { useDeskEditorScope } from '../../lib/deskEditorScope'
 
 // PlexiiDraw -- the vector + painting studio. This file is only the HOST: it
 // mounts the editor (documents/draw/editor), wires real services into it
@@ -64,6 +65,12 @@ interface Props {
   content: unknown
   title: string
   onChange: (body: unknown) => void
+  /**
+   * In a work widget on a desk: Draw's keys and clipboard are its own only
+   * while focus is inside it (lib/deskEditorScope). Full screen it owns the
+   * window, as it always has.
+   */
+  onDesk?: boolean
   /** Live co-editing only: fold a peer's merged body back in. */
   foldExternal?: boolean
   /**
@@ -155,7 +162,7 @@ function keyInput(e: KeyboardEvent): KeyInput {
   }
 }
 
-export default function DrawStudio({ content, title, onChange, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session, documentOps, readOnly = false }: Props): JSX.Element {
+export default function DrawStudio({ content, title, onChange, onDesk = false, foldExternal = false, liveUndo, v2Blocked = null, onSaveRequest, session, documentOps, readOnly = false }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const canvases = useRef<Map<string, HTMLCanvasElement>>(new Map())
@@ -174,6 +181,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
   const documentOpsRef = useRef(documentOps)
   documentOpsRef.current = documentOps
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const scope = useDeskEditorScope(onDesk, rootRef)
   const barHandle = useRef<ContextBarHandle | null>(null)
   /** Screen px of the viewport's left edge that pinned overlay panels cover (domServices: Fit, Paste). */
   const insetRef = useRef(0)
@@ -323,6 +331,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     function onKeyDown(e: KeyboardEvent): void {
       altHeld.current = e.altKey
       setModHeld(e.metaKey || e.ctrlKey)
+      // On a desk, a key pressed in the desk or another widget is not Draw's.
+      if (!scope.owns()) return
       // Already handled in the capture phase (a chord typed in a top-bar field; see onKeyDownCapture).
       if ((e as KeyboardEvent & { drawHandled?: boolean }).drawHandled) return
       // A popover of the chrome (a rail flyout, a bar menu) already handled
@@ -349,6 +359,7 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
     // The app menu's Edit › Cut / Copy / Paste (Electron roles) arrive as DOM
     // clipboard events; see editor/menuClipboard.ts for why keys never double up.
     function onClipboard(e: ClipboardEvent): void {
+      if (!scope.owns()) return
       handleClipboardEvent(editor.ctx, e.type as ClipboardEventKind, clipboardEventInfo(e))
     }
     window.addEventListener('keydown', onKeyDown)
@@ -714,7 +725,8 @@ export default function DrawStudio({ content, title, onChange, foldExternal = fa
       // Host rule (office-shell SPEC §6): `w-full min-w-0 min-h-0` let the
       // studio shrink to whatever hosts it -- a flex row of an editor view or
       // a 480px desk widget -- instead of growing to its widest toolbar.
-      className="h-full w-full min-w-0 min-h-0 flex flex-col text-[13px]"
+      {...scope.rootProps}
+      className="h-full w-full min-w-0 min-h-0 flex flex-col text-[13px] outline-none"
       data-testid="draw-studio"
       onKeyDownCapture={(e) => {
         // The shell's own fields (bar numbers and menus) keep their keys from

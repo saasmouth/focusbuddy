@@ -6,6 +6,7 @@
 // inline rename, drag-to-move into folders, and drag-in of OS files to import.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PASTE_FILES_EVENT, isTextField, pastedFilesOf } from '../../lib/pastedFiles'
 import type { FileEntry } from '@shared/fields'
 import type { WidgetFileDesk } from '@shared/types'
 import { useFileManagerStore, sortEntries, type FileSortKey, type FileViewMode } from '../../stores/fileManager'
@@ -210,7 +211,7 @@ export default function FilesView(): JSX.Element {
     else void window.api.files.open(entry.id)
   }
 
-  async function ingestOsFiles(fileList: FileList, parentId: string | null): Promise<void> {
+  async function ingestOsFiles(fileList: ArrayLike<File>, parentId: string | null): Promise<void> {
     const payloads: Array<{ buffer: ArrayBuffer; originalName: string; mimeType: string }> = []
     for (const f of Array.from(fileList)) {
       // An exported widget file (.plexii-table …) comes back as the widget it
@@ -298,6 +299,24 @@ export default function FilesView(): JSX.Element {
     e.preventDefault()
     setCtx({ x: e.clientX, y: e.clientY, items: entryContextItems(entry) })
   }
+
+  // Files copied in Finder and pasted here are imported into the folder shown
+  // (lib/pastedFiles.ts). In a text field (a rename) the ordinary paste runs.
+  const pasteFilesRef = useRef<(files: File[]) => void>(() => undefined)
+  pasteFilesRef.current = (files) => void ingestOsFiles(files, store.cwd)
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const on = (e: Event): void => {
+      const files = pastedFilesOf(e)
+      if (!files.length || isTextField(e.target as Element)) return
+      e.preventDefault()
+      e.stopPropagation()
+      pasteFilesRef.current(files)
+    }
+    el.addEventListener(PASTE_FILES_EVENT, on)
+    return () => el.removeEventListener(PASTE_FILES_EVENT, on)
+  }, [])
 
   async function openDocPicker(): Promise<void> {
     const docs = await window.api.fileManager.unfiledDocuments()

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, suppressFeatureSpotlights, chooseCloudAiSource, selectBarTab, type LaunchedApp } from './_helpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 // Write actions that two surfaces implemented twice (registry-41 inventory).
 //
@@ -17,6 +18,8 @@ test.afterEach(async () => {
 
 async function openDoc(): Promise<Page> {
   launched = await launchApp()
+  // Edit › Paste reads the test's own clipboard (_clipboardStub.ts, both halves), never the owner's.
+  await installMainClipboardStub(launched.app)
   const w = launched.window
   await waitForReady(w)
   await chooseCloudAiSource(w)
@@ -31,6 +34,7 @@ async function openDoc(): Promise<Page> {
   )
   await w.reload()
   await waitForReady(w)
+  await installClipboardStub(w)
   await w.evaluate((i) => (window as unknown as { __fbView: { getState: () => { goDocument: (x: string) => void } } }).__fbView.getState().goDocument(i), id)
   await expect(w.locator('.ProseMirror')).toBeVisible({ timeout: 15_000 })
   return w

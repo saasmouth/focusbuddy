@@ -3,6 +3,7 @@ import { getStroke } from 'perfect-freehand'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
+import { recordAction, recordActionWithToast } from '../../stores/actionHistory'
 import Icon from '../Icon'
 
 // ── Scratchpad widget ───────────────────────────────────────────────────────
@@ -88,6 +89,24 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
     lastSavedRef.current = json
     void update(widget.id, { content: json })
   }
+
+  // An undo, a redo (or another window's edit) changes the stored board: show it.
+  useEffect(() => {
+    if (widget.content === lastSavedRef.current) return
+    lastSavedRef.current = widget.content
+    setStrokes(parseState(widget.content).strokes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widget.content])
+
+  /** One step on the desk's ⌘Z: the board as it was before, and after. */
+  function recordBoard(before: Stroke[], after: Stroke[], label: string, toast?: string): void {
+    const board = (s: Stroke[]): string => JSON.stringify({ strokes: s })
+    const entry = { label, undo: () => update(widget.id, { content: board(before) }), redo: () => update(widget.id, { content: board(after) }) }
+    if (toast) recordActionWithToast({ ...entry, toast })
+    else recordAction(entry)
+  }
+  // The board when an eraser drag began: the whole drag is one step.
+  const eraseStartRef = useRef<Stroke[] | null>(null)
   // Flush on unmount so an in-progress board isn't lost on a layout remount.
   useEffect(() => {
     return () => {
@@ -119,6 +138,7 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const p = toLocal(e)
     if (tool === 'eraser') {
+      eraseStartRef.current = strokesRef.current
       eraseAt(p[0], p[1])
       return
     }
@@ -128,18 +148,26 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
     if (!interactive) return
     const p = toLocal(e)
     if (tool === 'eraser') {
-      if (e.buttons === 1) eraseAt(p[0], p[1])
+      if (e.buttons === 1) {
+        if (!eraseStartRef.current) eraseStartRef.current = strokesRef.current
+        eraseAt(p[0], p[1])
+      }
       return
     }
     setDrawing((d) => (d ? { ...d, points: [...d.points, p] } : d))
   }
   function onPointerUp(): void {
     if (drawing && drawing.points.length > 0) {
-      const next = [...strokesRef.current, drawing]
+      const before = strokesRef.current
+      const next = [...before, drawing]
       setStrokes(next)
       persist(next)
+      recordBoard(before, next, 'Draw on the scratchpad')
     }
     setDrawing(null)
+    const erasedFrom = eraseStartRef.current
+    eraseStartRef.current = null
+    if (erasedFrom && erasedFrom !== strokesRef.current) recordBoard(erasedFrom, strokesRef.current, 'Erase on the scratchpad')
   }
 
   // Erase: drop any stroke with a point within ~14px of the cursor.
@@ -149,14 +177,20 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
       (s) => !s.points.some(([px, py]) => Math.hypot(px - x, py - y) < R + s.size)
     )
     if (next.length !== strokesRef.current.length) {
+      // Ahead of the render, so the next move of a fast drag, and the drag's
+      // undo step, start from what is left.
+      strokesRef.current = next
       setStrokes(next)
       persist(next)
     }
   }
 
   function clearAll(): void {
+    const before = strokesRef.current
+    if (before.length === 0) return
     setStrokes([])
     persist([])
+    recordBoard(before, [], 'Clear the scratchpad', 'Cleared the scratchpad')
   }
 
   const body = (
@@ -214,6 +248,7 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
       {/* Drawing surface */}
       <div
         ref={surfaceRef}
+        data-testid="scratchpad-surface"
         className="flex-1 min-h-0 relative touch-none"
         style={{ cursor: tool === 'eraser' ? 'cell' : 'crosshair' }}
         onPointerDown={onPointerDown}

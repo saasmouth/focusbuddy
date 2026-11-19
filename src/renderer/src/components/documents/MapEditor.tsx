@@ -22,6 +22,9 @@ interface Props {
   readOnly?: boolean
   // One graph, no pages (editing a diagram snippet).
   singlePage?: boolean
+  // In a work widget on a desk: keys and clipboard are the diagram's only while
+  // focus is inside it (lib/deskEditorScope), not whenever nothing is focused.
+  onDesk?: boolean
   // The document this diagram IS, bound by the host (File menu document items).
   documentOps?: DocumentOps
   // Live co-editing: own-change undo over the shared document.

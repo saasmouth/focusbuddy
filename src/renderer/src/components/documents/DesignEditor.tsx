@@ -60,6 +60,7 @@ import type { FlowMeasurer } from '@shared/designFlow'
 import LayoutOverlay from './design/LayoutOverlay'
 import LayoutPanel from './design/LayoutPanel'
 import PreflightPanel from './design/PreflightPanel'
+import { useDeskEditorScope } from '../../lib/deskEditorScope'
 import { useElementClipboard } from './slides/useElementClipboard'
 import StylesPanel from './design/StylesPanel'
 import StartFromMenu from './design/StartFromMenu'
@@ -677,7 +678,11 @@ export default function DesignEditor({
   // Cut / Copy / Paste. The hook owns the DOM clipboard events — which is what
   // makes ⌘C/⌘V and the native Edit menu run the same code — and the three
   // functions it returns are what this editor's own Edit menu calls.
+  // On a desk, Design's keys and clipboard are its own only while focus is
+  // inside it (lib/deskEditorScope); full screen it owns the window as before.
+  const scope = useDeskEditorScope(onDesk)
   const clipboard = useElementClipboard({
+    owns: scope.owns,
     app: 'design',
     insertConverted: (b) => insertSnippetHere(pastedSnippet(b)),
     canvas: () => ({ w: designRef.current.width, h: designRef.current.height }),
@@ -779,6 +784,7 @@ export default function DesignEditor({
   // editing text on the canvas, so it never eats a keystroke meant for content.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (!scope.owns()) return
       const mod = e.metaKey || e.ctrlKey
       const t = e.target as HTMLElement | null
       const editing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
@@ -2038,7 +2044,9 @@ export default function DesignEditor({
     <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
     <EmbedRemoveContext.Provider value={embedRemover}>
     <div
-      className="flex flex-col h-full"
+      ref={scope.rootRef}
+      {...scope.rootProps}
+      className="flex flex-col h-full outline-none"
       data-testid="design-editor"
       onContextMenu={openDesignMenu}
       onDragOver={(e) => {

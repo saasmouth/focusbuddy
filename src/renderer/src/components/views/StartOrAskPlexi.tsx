@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useKeptLines } from '../../lib/pastedLines'
 import { createPortal } from 'react-dom'
 import Icon from '../Icon'
 import { parseAttentionCommand, isCapturePrefix } from '../../lib/attentionCommand'
@@ -72,6 +73,8 @@ function mentionQuery(text: string): string | null {
 
 export default function StartOrAskPlexi(): JSX.Element {
   const [goal, setGoal] = useState('')
+  // Lines of a multi-line paste, kept for what is sent (lib/pastedLines).
+  const kept = useKeptLines()
   const [mode, setModeState] = useState<OmniMode>(() => loadOmniMode(MODE_KEY))
   const sending = useChatStore((s) => s.sendingByThread[s.conversationKey()] === true)
   const nodes = useNodeStore((s) => s.nodes)
@@ -109,7 +112,10 @@ export default function StartOrAskPlexi(): JSX.Element {
   }
 
   function start(): void {
-    const prompt = goal.trim()
+    // A multi-line paste is sent in its lines (lib/pastedLines), and is never
+    // taken for a URL or a search.
+    const prompt = kept.restore(goal.trim())
+    kept.reset()
     if (!prompt) return
     if (mode === 'search') {
       searchWeb(prompt)
@@ -132,7 +138,8 @@ export default function StartOrAskPlexi(): JSX.Element {
   function pickMode(next: OmniMode): void {
     setModeState(next)
     saveOmniMode(MODE_KEY, next)
-    const prompt = goal.trim()
+    const prompt = kept.restore(goal.trim())
+    kept.reset()
     if (!prompt || sending) return
     if (next === 'search') searchWeb(prompt)
     else ask(prompt)
@@ -317,6 +324,7 @@ export default function StartOrAskPlexi(): JSX.Element {
           <input
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
+            onPaste={kept.onPaste}
             onKeyDown={(e) => {
               if (pickerOpen && pickItems.length > 0) {
                 if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

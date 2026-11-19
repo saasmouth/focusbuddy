@@ -1,13 +1,15 @@
 /**
  * PlexiiCells' own clipboard flavour, end to end in the real app, through the
- * machine's real clipboard (shared/cellsClipboardFormat.ts).
+ * test's own clipboard: the page's events and Electron's clipboard module in
+ * main, never the machine's (_clipboardStub.ts; shared/cellsClipboardFormat.ts).
  *
  * CF-1 ⌘C on a Cells range writes ONE clipboard entry holding the TSV as plain
- *      text (exactly as before) and the PlexiiCells flavour beside it: the
+ *      text (exactly as before), an HTML table of what the cells show (for
+ *      Write, Mail and Word), and the PlexiiCells flavour beside it: the
  *      range as a saved snippet of it, its column widths, and what its cells
  *      displayed (C2 =B2*$E$1 reads E1, outside the range, and shows 6).
  * CF-2 pasted with ⌘V into PlexiiDraw after the renderer has RELOADED (so the
- *      copy exists only on the system clipboard, as after a restart or from
+ *      copy exists only on the clipboard, as after a restart or from
  *      another window), it lands as ONE picture of the table: the value 6,
  *      the cell's fill and the sheet's 180px column, not a text object of tabs.
  * CF-3 pasted with ⌘V into PlexiiWrite, it lands as a TABLE of what the cells
@@ -16,15 +18,15 @@
  *      (webContents.cut, what main/index.ts editAction runs), write the same
  *      flavour; the cut clears the range.
  *
- * Every result is read back from the stored document. Every item and type on
- * the pasteboard is saved before and put back after (tests/e2e/_macPasteboard.ts).
+ * Every result is read back from the stored document. The machine's pasteboard
+ * is never touched, so nothing needs saving and putting back.
  * Screenshots of the two pastes go to $CELLS_CLIP_SHOTS when it is set.
  */
 import { test, expect, type Page } from '@playwright/test'
 import { join } from 'path'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
-import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub, MOD } from './_clipboardStub'
 
 const MIME = 'application/x-plexii-cells'
 const TSV = 'Item\tQty\tTotal\nPens\t2\t=B2*$E$1'
@@ -32,16 +34,19 @@ const SHOTS = process.env.CELLS_CLIP_SHOTS
 
 let app: LaunchedApp
 let window: Page
-let savedPasteboard: SavedPasteboard | null = null
 
 test.describe.configure({ mode: 'serial' })
-test.skip(process.platform !== 'darwin', 'uses the macOS pasteboard save/restore')
 
+// The clipboard is the test's own, in the page and in the main process
+// (_clipboardStub.ts): never the machine's, which is the owner's and is shared
+// between workers. Main's half stores our types as Chromium does (one pickled
+// "web custom data" blob), so main's own reader is what reads them back.
 test.beforeAll(async () => {
-  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
   app = await launchApp()
   window = app.window
+  await installMainClipboardStub(app.app)
   await waitForReady(window)
+  await installClipboardStub(window)
   await chooseCloudAiSource(window)
   await suppressFeatureSpotlights(window)
   await keepNoticesOutOfTheWay(window)
@@ -49,7 +54,6 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.dispose()
-  if (savedPasteboard) restorePasteboard(savedPasteboard)
 })
 
 // ── Shared ───────────────────────────────────────────────────────────────────
@@ -130,12 +134,15 @@ test('CF-1 ⌘C writes the TSV and the PlexiiCells flavour in one clipboard entr
   await clearClipboard()
   await openSheet(await seedSheet('CF-1 workbook'))
   await selectA1C2()
-  await window.keyboard.press('Meta+c')
+  await window.keyboard.press(`${MOD}+c`)
 
   const read = await waitForFlavour()
   // The plain text every other app gets: exactly the TSV Cells always wrote.
   expect(read.text).toBe(TSV)
   expect(await app.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(TSV)
+  // And as a table of what the cells SHOW, for Write, Mail and Word: C2 is 6.
+  const html = await app.app.evaluate(({ clipboard }) => clipboard.readHTML())
+  expect(html).toContain('<tr><td>Item</td><td>Qty</td><td>Total</td></tr><tr><td>Pens</td><td>2</td><td>6</td></tr>')
   const env = JSON.parse(read.custom![MIME])
   expect(env.kind).toBe('plexiicells/clipboard')
   expect(env.version).toBe(1)
@@ -162,9 +169,10 @@ type DrawBody = { layers?: Array<{ kind: string; objects?: DrawNode[] }>; assets
 
 test('CF-2 ⌘V into PlexiiDraw after a reload: one picture of the table, its values, fill and widths', async () => {
   test.setTimeout(120_000)
-  // The renderer that copied is gone: only the system clipboard holds the copy.
+  // The renderer that copied is gone: only the clipboard holds the copy.
   await window.reload()
   await waitForReady(window)
+  await installClipboardStub(window)
   await keepNoticesOutOfTheWay(window)
   expect((await appClipboard()).custom?.[MIME]).toBeTruthy()
 
@@ -172,7 +180,7 @@ test('CF-2 ⌘V into PlexiiDraw after a reload: one picture of the table, its va
   await openDocument(window, id)
   const p = await stagePoint(window, 800, { x: 600, y: 450 })
   await window.mouse.click(p.x, p.y)
-  await window.keyboard.press('Meta+v')
+  await window.keyboard.press(`${MOD}+v`)
 
   let added: DrawNode[] = []
   let raw: DrawBody = {}
@@ -226,7 +234,7 @@ test('CF-3 ⌘V into PlexiiWrite: a table of what the cells displayed', async ()
   await surface.click()
   await surface.type('CF-3 above.')
   await window.keyboard.press('Enter')
-  await window.keyboard.press('Meta+v')
+  await window.keyboard.press(`${MOD}+v`)
 
   const table = surface.locator('table').first()
   await expect(table).toBeVisible({ timeout: 8_000 })

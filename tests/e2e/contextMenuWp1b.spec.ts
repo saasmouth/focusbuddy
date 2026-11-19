@@ -12,6 +12,7 @@
 import { mkdirSync } from 'node:fs'
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, suppressFeatureSpotlights, type LaunchedApp } from './_helpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 const OUT =
   process.env.CTX_MENU_SHOTS ??
@@ -308,8 +309,11 @@ test('WP1b-4 — at zoom ≠ 1 the header menu is portalled: not scaled, not cli
 
 test('WP1b-5 — speed-deck tile keys are bound (⌘C, ⌘V, ⌘D) and focus returns to the tile', async () => {
   launched = await launchApp()
+  // The test's own clipboard (_clipboardStub.ts, both halves), never the owner's.
+  await installMainClipboardStub(launched.app)
   const { window } = launched
   const s = await openDesk(launched, 'light')
+  await installClipboardStub(window)
   const deck = window.locator(`[data-widget-id="${s.deckWidgetId}"]`)
   const launchTiles = deck.locator('[data-speeddeck-slot][title^="Launch"]')
   await expect(launchTiles).toHaveCount(1)

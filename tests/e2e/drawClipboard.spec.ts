@@ -1,34 +1,34 @@
 /**
  * WP-CLIPBOARD end to end: Copy, Cut, Paste, Paste in Place, Paste in Front,
- * Alt-drag duplicate, pasting between two drawings, and the REAL system
- * clipboard -- what a copy puts there is read back in the main process, and a
- * picture put there by "another app" (the main process, writing a PNG) pastes
- * as an image object. Every result is read back from the stored document.
+ * Alt-drag duplicate, pasting between two drawings, and the clipboard as the
+ * main process sees it -- what a copy puts there is read back through
+ * Electron's clipboard module, and a picture put there by "another app" (the
+ * main process, writing a PNG) pastes as an image object. Every result is read
+ * back from the stored document.
  *
- * This spec uses the machine's real clipboard. Everything on it (every item
- * and type: text, pictures, file URLs) is saved before and put back after.
+ * The clipboard is the test's own (tests/e2e/_clipboardStub.ts, both halves):
+ * Electron's clipboard module answers from a store in main, never the
+ * machine's clipboard, which is shared between workers and is the owner's.
  */
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, stagePoint, v1Body, waitForSave } from './_drawHelpers'
-import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 let app: LaunchedApp
 let window: Page
-let savedPasteboard: SavedPasteboard | null = null
 
 test.beforeAll(async () => {
   app = await launchApp({ env: { PLEXI_APP: 'preview3' } })
+  await installMainClipboardStub(app.app)
   window = app.window
   await waitForReady(window)
+  await installClipboardStub(window)
   await keepNoticesOutOfTheWay(window)
-  // Every item and type on the real pasteboard, put back in afterAll.
-  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
 })
 
 test.afterAll(async () => {
-  if (savedPasteboard) restorePasteboard(savedPasteboard)
   await app.dispose()
 })
 
@@ -59,13 +59,13 @@ async function storedObjects(id: string, n: number): Promise<Node[]> {
   return objectsOf((await readStored(window, id)).raw)
 }
 
-test('CB-1 copy then paste duplicates with the same geometry and a new id; the system clipboard holds SVG and a PNG', async () => {
+test('CB-1 copy then paste duplicates with the same geometry and a new id; the clipboard holds SVG and a PNG', async () => {
   const id = await seedDrawDoc(window, v1Body([rectObject('a', 100, 120, 160, 90)]), 'Clipboard one')
   await openDocument(window, id)
   await clickAt({ x: 180, y: 165 })
   await window.keyboard.press('Meta+c')
 
-  // Read the real clipboard in the main process.
+  // Read the clipboard in the main process, as another app would.
   const types = await app.app.evaluate(async ({ clipboard }) => {
     for (let i = 0; i < 40; i++) {
       const items = await clipboard.read()

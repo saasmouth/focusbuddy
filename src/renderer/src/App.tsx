@@ -100,6 +100,7 @@ import './lib/timeOfDay' // side-effect: pushes --tod-* CSS vars to :root + tick
 // S4): durable rows + the 30s sweep replace the renderer setInterval engine,
 // so a reminder scheduled before a restart still fires after it.
 import './lib/modelPrefs' // side-effect: pushes user's saved model mode to main process
+import { installPastedFilesRouter } from './lib/pastedFiles'
 import './lib/bodyDouble' // side-effect: auto-resumes Body Double mode if user had it enabled
 import './lib/driftDetector' // side-effect: listens for window/document visibility + idle to detect drift
 import './lib/hyperfocusGuardian' // side-effect: tracks continuous focus runs to offer breaks at 90 min
@@ -124,6 +125,8 @@ export default function App(): JSX.Element {
   } = useMinimizable('fb.sidebar.minimized')
   // ⌘←/⌘→ and mouse back/forward drive the view history from anywhere.
   useHistoryKeys()
+  // Files copied in Finder and pasted go where the paste was aimed (lib/pastedFiles.ts).
+  useEffect(() => installPastedFilesRouter(), [])
   // PlexiOffice is a full-bleed segment with its own chrome: when active it takes
   // over the main area, replacing the global sidebar / desk panels.
   const currentView = useViewStore((s) => s.view)

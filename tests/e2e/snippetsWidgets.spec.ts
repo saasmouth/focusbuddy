@@ -13,13 +13,13 @@
  *      and shows as a picture; into a STICKY it is refused with the owner's
  *      words, and the sticky is unchanged.
  *
- * SW-3 (below) pastes through the real system clipboard, and saves and
- * restores every pasteboard item around it (_macPasteboard.ts).
+ * SW-3 (below) pastes through the test's own clipboard (_clipboardStub.ts):
+ * the machine's pasteboard is never touched.
  */
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, switchArea, chooseCloudAiSource, suppressFeatureSpotlights, clickWidgetMenuRow } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, rectObject, runMenu, seedDrawDoc, v1Body } from './_drawHelpers'
-import { readPasteboard, restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub, MOD } from './_clipboardStub'
 
 type W = { id: string; kind: string; content: string; title: string | null }
 
@@ -245,33 +245,25 @@ test('SW-2: a drawing goes on the desk as an image widget and into markdown as a
   }
 })
 
-// ── SW-3: paste, through the real system clipboard ───────────────────────────
+// ── SW-3: paste, through the clipboard ──────────────────────────────────────
 
 /**
- * SW-3 Copy two shapes in PlexiiDraw (⌘C, Draw's own copy onto the system
- *      clipboard), then Edit › Paste (the menu item ⌘V runs) with nothing
+ * SW-3 Copy two shapes in PlexiiDraw (⌘C, Draw's own copy onto the
+ *      clipboard, written by the main process), then Edit › Paste (the menu item ⌘V runs) with nothing
  *      focused on a desk: an image work widget appears holding the drawing's
  *      picture from the file store, and the notice says where to edit it.
  *      Then with the cursor in a page work widget, Edit › Paste lands the
  *      same picture in the page as an image node.
  *
- * The person's clipboard is saved before and restored after, every item and
- * type (tests/e2e/_macPasteboard.ts).
+ * The clipboard is the test's own, in the main process and in the page
+ * (_clipboardStub.ts): the machine's, which is the owner's, is never touched.
  */
-test.describe('SW-3 paste from the system clipboard', () => {
-  let saved: SavedPasteboard | null = null
-  test.beforeAll(() => {
-    if (process.platform === 'darwin') saved = savePasteboard()
-  })
-  test.afterAll(() => {
-    if (saved) restorePasteboard(saved)
-  })
-
+test.describe('SW-3 paste from the clipboard', () => {
   test('SW-3: a Draw copy pasted on the desk is an image widget, and into a page an image', async () => {
-    test.skip(process.platform !== 'darwin', 'reads and restores the macOS pasteboard')
     test.setTimeout(150_000)
     const launched = await launchApp()
     const { window, app, dispose } = launched
+    await installMainClipboardStub(app)
     /** Edit › Paste, exactly the menu item ⌘V runs (main/index.ts editAction). */
     const menuPaste = async (): Promise<void> => {
       await app.evaluate(({ Menu, BrowserWindow }) => {
@@ -284,6 +276,7 @@ test.describe('SW-3 paste from the system clipboard', () => {
     }
     try {
       await waitForReady(window)
+      await installClipboardStub(window)
       await chooseCloudAiSource(window)
       await suppressFeatureSpotlights(window)
       await keepNoticesOutOfTheWay(window)
@@ -292,8 +285,8 @@ test.describe('SW-3 paste from the system clipboard', () => {
       await openDocument(window, drawId)
       await runMenu(window, 'edit', 'Select all')
       await window.locator('[data-testid="draw-stage"]').hover()
-      await window.keyboard.press('Meta+c')
-      await expect.poll(() => readPasteboard().types.join(' '), { timeout: 8_000 }).toMatch(/png|svg/)
+      await window.keyboard.press(`${MOD}+c`)
+      await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.availableFormats().join(' ')), { timeout: 8_000 }).toMatch(/png|svg/)
 
       const { taskId, ids } = await deskWith(window, 'Paste lands here', [{ kind: 'page', content: '', x: 80, y: 80, width: 460, height: 360 }])
       const [pageId] = ids

@@ -1,3 +1,4 @@
+import { mimeFromExt } from '../../shared/mimeFromExt'
 import { randomUUID } from 'crypto'
 import { extname } from 'path'
 import { getDb } from './database'
@@ -890,36 +891,7 @@ export function unfiledDocuments(): Array<{ id: string; title: string; docType: 
   return rows.map((r) => ({ id: r.id, title: r.title, docType: r.doc_type }))
 }
 
-// Lightweight MIME guesser for the dozen extensions we actually care about.
-// We don't want a full mime-types dependency for the handful of cases that
-// matter for previews.
-export function mimeFromExt(ext: string): string {
-  const e = ext.replace(/^\./, '').toLowerCase()
-  const map: Record<string, string> = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    bmp: 'image/bmp',
-    pdf: 'application/pdf',
-    mp4: 'video/mp4',
-    mov: 'video/quicktime',
-    webm: 'video/webm',
-    m4v: 'video/x-m4v',
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    m4a: 'audio/mp4',
-    ogg: 'audio/ogg',
-    flac: 'audio/flac',
-    txt: 'text/plain',
-    md: 'text/markdown',
-    json: 'application/json',
-    csv: 'text/csv',
-    zip: 'application/zip',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  }
-  return map[e] ?? 'application/octet-stream'
-}
+// The MIME guesser lives in shared/mimeFromExt.ts (main/pasteFiles.ts and
+// main/webContextMenu.ts use it without the database); re-exported here for
+// the callers that import it from this module.
+export { mimeFromExt }

@@ -5,7 +5,8 @@
  * artboard, go from artboard to artboard, Paste on All Artboards, and rename
  * one in the Artboards panel -- read back from the stored drawing and from
  * the files written. Throwaway profile (launchApp), PLEXI_APP=preview3; the
- * Save dialog is replaced in the main process.
+ * Save dialog is replaced in the main process, and the clipboard is the test's
+ * own (tests/e2e/_clipboardStub.ts, both halves), never the owner's.
  */
 
 import { test, expect, type Page } from '@playwright/test'
@@ -14,24 +15,23 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { barTab, keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, seedDrawDoc, v1Body } from './_drawHelpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 let app: LaunchedApp
 let window: Page
 let dir: string
-let savedText = ''
 
 test.beforeAll(async () => {
   app = await launchApp({ env: { PLEXI_APP: 'preview3' } })
+  await installMainClipboardStub(app.app)
   window = app.window
   await waitForReady(window)
+  await installClipboardStub(window)
   await keepNoticesOutOfTheWay(window)
-  // This spec copies (the real clipboard): its text is saved now and put back after.
-  savedText = await app.app.evaluate(({ clipboard }) => clipboard.readText())
   dir = mkdtempSync(join(tmpdir(), 'plexii-draw-artboards-'))
 })
 
 test.afterAll(async () => {
-  await app.app.evaluate(({ clipboard }, t) => clipboard.writeText(t), savedText).catch(() => undefined)
   await app.dispose()
   rmSync(dir, { recursive: true, force: true })
 })

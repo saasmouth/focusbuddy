@@ -9,6 +9,7 @@
 // installed on the credit client transparently handles the out-of-credits
 // hand-off, so no call site needs to know which path it took.
 
+import { requestImageTokens } from './chatImages'
 import type Anthropic from '@anthropic-ai/sdk'
 import { createAnthropic, rewriteJsonBody } from './modelClient'
 import { modelForPlan, modelForFamilies, managedPlanOf, withModelDefaults } from './modelRouting'
@@ -17,6 +18,7 @@ import {
   parseCreditsResponse,
   parseCreditError,
   creditErrorMessage,
+  AI_BUSY_GAVE_UP,
   TOP_UP_PACKS,
   type CreditBucket,
   type CreditError,
@@ -166,11 +168,24 @@ export function shouldUseCredits(): boolean {
  */
 export function minimumCostCredits(body: Record<string, unknown>): number {
   const model = typeof body.model === 'string' ? body.model : ''
+  // A picture's base64 is not text: a 1 MB screenshot is ~1.4 million
+  // characters but a couple of thousand tokens. Counted as text it made an
+  // affordable request look tens of thousands of tokens dear, and refused it.
+  // Its bytes are left out of the text, and the picture counts what Anthropic
+  // charges for it on this model: its 28 px patches, up to the model's ceiling
+  // (chatImages.requestImageTokens, the signal server's rule). That is what it
+  // will cost, so this stays a lower bound, which is the one thing it must be.
   const chars =
-    JSON.stringify(body.system ?? '').length + JSON.stringify(body.messages ?? []).length
-  const tokensLowerBound = chars / 6
+    JSON.stringify(body.system ?? '').length + JSON.stringify(body.messages ?? [], withoutImageData).length
+  const tokensLowerBound = chars / 6 + requestImageTokens(body)
   const usd = (tokensLowerBound / 1e6) * rateFor(model).inPerM
   return usd * 100
+}
+
+/** JSON.stringify replacer: an image block's base64 bytes as nothing (minimumCostCredits). */
+function withoutImageData(this: unknown, key: string, value: unknown): unknown {
+  if (key === 'data' && typeof value === 'string' && (this as { type?: unknown } | null)?.type === 'base64') return ''
+  return value
 }
 
 /** The next action to name when credits are gone and the server did not say. */
@@ -206,6 +221,58 @@ export interface MeteredFetchDeps {
   fetch: typeof fetch
   mode: () => ReturnType<typeof getAiMode>
   ownKey: () => string | null
+  /** Waiting out a busy proxy's retry-after (tests pass a fast one). Rejects when the request is stopped. */
+  sleep?: (ms: number, signal: AbortSignal | null) => Promise<void>
+}
+
+/** How many times a busy proxy is tried again before the request ends in words. */
+export const BUSY_RETRIES = 3
+
+/** The wait a 429 asks for, in seconds: its retry-after (seconds or a date), else 3; never under 1 or over 15. */
+export function retryAfterSeconds(header: string | null, now = Date.now()): number {
+  let s = Number.NaN
+  if (header && /^\s*\d+(\.\d+)?\s*$/.test(header)) s = Number(header)
+  else if (header) {
+    const at = Date.parse(header)
+    if (!Number.isNaN(at)) s = (at - now) / 1000
+  }
+  if (!Number.isFinite(s)) s = 3
+  return Math.min(15, Math.max(1, Math.ceil(s)))
+}
+
+function abortableSleep(ms: number, signal: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException('The request was stopped.', 'AbortError'))
+    const t = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(t)
+      reject(new DOMException('The request was stopped.', 'AbortError'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+/** Tell the renderer the proxy is busy: waiting `seconds` and trying again, or (null) given up. Not a refusal. */
+function emitBusy(seconds: number | null): void {
+  const status = getAiStatus()
+  for (const fn of creditListeners) {
+    try {
+      fn({ error: 'busy', next: null, allowedModel: null, retryInSeconds: seconds, status })
+    } catch {
+      /* a listener failing must not break the AI call that triggered it */
+    }
+  }
+}
+
+/** The answer when the proxy stayed busy through every retry: plain words, never the raw 429. */
+function busyResponse(): Response {
+  return new Response(JSON.stringify({ type: 'error', message: AI_BUSY_GAVE_UP, error: { type: 'busy', message: AI_BUSY_GAVE_UP } }), {
+    status: 429,
+    headers: { 'content-type': 'application/json' }
+  })
 }
 
 /**
@@ -278,6 +345,29 @@ export function createMeteredFetch(deps: MeteredFetchDeps): typeof fetch {
       const fb = ownKeyRetry()
       if (fb) return fb
       throw err
+    }
+
+    // 3. Busy: the proxy's rate limit, or its budget for large requests in
+    // flight, answers 429 with a retry-after. Nothing was spent. A personal key
+    // (auto mode) is used at once; otherwise the request waits as asked and is
+    // sent again, up to BUSY_RETRIES times, and the person is told so; if the
+    // proxy is still busy, it ends in plain words.
+    if (res.status === 429) {
+      const fb = ownKeyRetry()
+      if (fb) return fb
+      const sleep = deps.sleep ?? abortableSleep
+      for (let attempt = 0; res.status === 429 && attempt < BUSY_RETRIES; attempt++) {
+        const seconds = retryAfterSeconds(res.headers.get('retry-after'))
+        emitBusy(seconds)
+        await res.body?.cancel().catch(() => undefined)
+        await sleep(seconds * 1000, (sendInit?.signal as AbortSignal | undefined) ?? null)
+        res = await deps.fetch(input, sendInit)
+      }
+      if (res.status === 429) {
+        await res.body?.cancel().catch(() => undefined)
+        emitBusy(null)
+        return busyResponse()
+      }
     }
 
     if (res.status === 402 || res.status === 403) {
@@ -536,6 +626,22 @@ export async function startTopUp(amountUsd: number): Promise<TopUpResult> {
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
+}
+
+/** The answers the credits proxy (and this module) give in their own words. */
+const PLEXII_ANSWERS = new Set(['busy', 'out_of_credits', 'model_not_in_plan', 'email_not_verified', 'proxy_unavailable'])
+
+/**
+ * The words to show for an AI call that failed: when the credits proxy answered
+ * in its own words (busy, out of credits, ...), those words, not the SDK's
+ * "429 {json}"; anything else, the error's message as before.
+ */
+export function aiErrorWords(err: unknown): string {
+  const e = err as { message?: unknown; error?: unknown } | null
+  const body = e && e.error && typeof e.error === 'object' ? (e.error as { error?: { type?: unknown; message?: unknown } }) : null
+  const inner = body?.error
+  if (inner && typeof inner.type === 'string' && PLEXII_ANSWERS.has(inner.type) && typeof inner.message === 'string') return inner.message
+  return typeof e?.message === 'string' ? e.message : String(err)
 }
 
 /**

@@ -20,6 +20,8 @@ export interface CellsCopy {
   json: string | null
   /** The block's top-left on the sheet (what Cells' own paste shifts formulas by). */
   origin: { r: number; c: number }
+  /** What each cell of the selection SHOWS (formulas computed), row by row: the HTML table's text. */
+  values: string[][]
 }
 
 /**
@@ -30,8 +32,14 @@ export interface CellsCopy {
 export function cellsCopyPayload(tab: SheetTab, selection: CellRange, display: (r: number, c: number) => string): CellsCopy {
   const tsv = rangeToTsv(tab, selection)
   const origin = { r: selection.r0, c: selection.c0 }
+  const shown: string[][] = []
+  for (let r = selection.r0; r <= selection.r1; r++) {
+    const row: string[] = []
+    for (let c = selection.c0; c <= selection.c1; c++) row.push(display(r, c))
+    shown.push(row)
+  }
   const body = sheetBodyFromSelection(tab, selection)
-  if (!body) return { tsv, json: null, origin }
+  if (!body) return { tsv, json: null, origin, values: shown }
   const o = body.origin ?? origin
   const width = Math.max(0, ...body.rows.map((r) => r.length))
 
@@ -46,5 +54,5 @@ export function cellsCopyPayload(tab: SheetTab, selection: CellRange, display: (
   // What the cells displayed, only when that is not simply their input.
   const values = body.rows.map((row, i) => row.map((_, j) => display(o.r + i, o.c + j)))
   const differs = values.some((row, i) => row.some((v, j) => v !== body.rows[i][j]))
-  return { tsv, json: serializeCellsClipboard(buildCellsClipboard(body, differs ? values : null)), origin }
+  return { tsv, json: serializeCellsClipboard(buildCellsClipboard(body, differs ? values : null)), origin, values: shown }
 }

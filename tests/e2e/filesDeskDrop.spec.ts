@@ -207,6 +207,22 @@ test('FD-4 one ⌘Z removes a whole multi-item drop', async () => {
   await expect.poll(async () => (await deskWidgets(window, seed.taskId)).length, { timeout: 5_000 }).toBe(before)
 })
 
+test('FD-4b a moment after a PDF lands on the desk, ⌘Z still belongs to the desk', async () => {
+  // Chromium's PDF viewer focused itself ~150 ms after loading, and from then
+  // on every key went into the PDF (lib/frameFocusGuard.ts).
+  test.setTimeout(90_000)
+  const { window, seed } = await boot()
+  const before = (await deskWidgets(window, seed.taskId)).length
+  await dragRows(window, [seed.ids.pdf], CANVAS_AT)
+  await expect.poll(async () => (await deskWidgets(window, seed.taskId)).length, { timeout: 5_000 }).toBe(before + 1)
+  await expect(window.locator('[data-testid="file-pdf-frame"]')).toBeVisible({ timeout: 10_000 })
+  // A person's pace: the viewer has loaded and tried to take focus by now.
+  await window.waitForTimeout(1500)
+  expect(await window.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null)).not.toBe('file-pdf-frame')
+  await window.keyboard.press('Meta+z')
+  await expect.poll(async () => (await deskWidgets(window, seed.taskId)).length, { timeout: 5_000 }).toBe(before)
+})
+
 async function toWorkcentre(window: Page): Promise<void> {
   // Pinned, so the Workcentre starts right of the panel and no tile is under it.
   const pin = window.locator('[data-testid="files-panel-pin"]')

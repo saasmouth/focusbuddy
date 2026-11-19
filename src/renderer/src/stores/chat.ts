@@ -19,6 +19,8 @@ import type {
   AnswerGrounding,
   ChatUiBlock,
   AiChatMode,
+  ChatAttachment,
+  ChatImage,
   StoredTrace
 } from '@shared/types'
 import { recordTrail } from '../lib/trail'
@@ -65,6 +67,12 @@ export function appliedKey(messageTs: number, proposalId: string): string {
 
 // Window for the "What was I doing?" lookback — last 30 minutes covers most context switches.
 const TRAIL_LOOKBACK_MS = 30 * 60 * 1000
+
+/** What the composer attached to one message (see ChatStore.send). */
+export interface ChatSendExtra {
+  images?: ChatImage[]
+  files?: ChatAttachment[]
+}
 
 interface ChatStore {
   messagesByTask: Record<string, ChatMessage[]>
@@ -244,7 +252,12 @@ interface ChatStore {
   // threadKey scopes the conversation thread (the context the assistant is in).
   // When omitted it falls back to taskId, preserving existing desk behaviour. The
   // real taskId is still what's sent to the server for task context.
-  send: (taskId: string | null, content: string, threadKey?: string) => Promise<void>
+  /**
+   * `extra`: what the person attached in the composer to THIS message: pictures
+   * (sent as image blocks, ChatRequest.images) and documents (their text, as
+   * attachments beside what is open on the desk).
+   */
+  send: (taskId: string | null, content: string, threadKey?: string, extra?: ChatSendExtra) => Promise<void>
   sendProactiveWelcome: (taskId: string) => Promise<void>
   // Push a synthetic assistant message into the conversation. Used by "What was I doing?"
   // and other AI features that produce output without a user prompt.
@@ -727,7 +740,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       liveTraceByThread: nextLive
     })
   },
-  send: async (taskId, content, threadKey) => {
+  send: async (taskId, content, threadKey, extra) => {
     // DEC-031: @attention is deterministic on EVERY path. The composer strips
     // the token before it calls send(), so this fires only for the direct
     // callers above — a double capture is impossible by construction.
@@ -879,6 +892,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     } catch {
       attachments = []
     }
+    // Documents attached in the composer lead: the person handed them over for
+    // this message, the desk's open content is only nearby.
+    if (extra?.files?.length) attachments = [...extra.files, ...attachments]
+    const images = extra?.images?.length ? extra.images : undefined
 
     // Merge a patch into the in-flight trace. A no-op once the trace has been
     // moved to traceByMessage or cleared, so a late event from a request the
@@ -1064,6 +1081,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         taskId,
         messages: next,
         attachments,
+        images,
         supportsQuestions: true,
         // Conversational surface: inject the "what I know about you" memory block.
         includeMemory: true,
@@ -1094,6 +1112,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           taskId,
           messages: next,
           attachments,
+          images,
           requestId,
           supportsQuestions: true,
           includeMemory: true,

@@ -35,7 +35,8 @@ test.beforeAll(async () => {
   // Real input is one spec at a time across workers (_realInputLock.ts).
   test.setTimeout(240_000)
   await acquireRealInput('drawShortcutsNative')
-  app = await launchApp({ env: { PLEXI_APP: 'preview3' } })
+  // The real pasteboard on purpose (opt-in, under the real-input lock): past the clipboard guard.
+  app = await launchApp({ env: { PLEXI_APP: 'preview3' }, realClipboard: true })
   window = app.window
   await waitForReady(window)
   await keepNoticesOutOfTheWay(window)

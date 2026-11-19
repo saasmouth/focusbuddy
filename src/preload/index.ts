@@ -3,6 +3,7 @@ import type { SharePresentationRequest, SiteShow } from '@shared/sitePresentatio
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { AppClipboardRead } from '@shared/appClipboard'
+import type { PastedFilesPayload } from '@shared/types'
 import type { XlsxSheetRead } from '@shared/xlsxSheet'
 import type { LiteRoomBegin } from '@shared/liteRoom'
 import type { WriteOrigin } from '../shared/writeOrigin'
@@ -278,6 +279,18 @@ const api = {
     restore: (id: string, origin?: WriteOrigin): Promise<boolean> => ipcRenderer.invoke('widgets:restore', id, origin),
     bringToFront: (id: string): Promise<Widget | null> =>
       ipcRenderer.invoke('widgets:bringToFront', id)
+  },
+  /**
+   * Files copied in Finder (or Explorer) and pasted: main reads them and sends
+   * their bytes, since a page is only given their names (main/pasteFiles.ts;
+   * renderer lib/pastedFiles.ts routes them).
+   */
+  pastedFiles: {
+    onPaste: (cb: (payload: PastedFilesPayload) => void): (() => void) => {
+      const listener = (_e: unknown, payload: PastedFilesPayload): void => cb(payload)
+      ipcRenderer.on('clipboard:pasteFiles', listener)
+      return () => ipcRenderer.removeListener('clipboard:pasteFiles', listener)
+    }
   },
   widgetLinks: {
     listByTask: (taskId: string): Promise<WidgetLink[]> =>

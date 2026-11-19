@@ -14,30 +14,29 @@
  *
  * Masters are seeded through window.api.snippets.create (the store the save
  * dialog writes) with bodies in each app's capture shape. Results are read
- * back from the stored documents. AW-2 uses the machine's real clipboard:
- * every item and type on it is saved before and put back after.
+ * back from the stored documents. AW-2's copy and paste use the test's own
+ * clipboard (tests/e2e/_clipboardStub.ts, both halves), never the owner's.
  */
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, switchArea, type LaunchedApp } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, rectObject, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
-import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 let app: LaunchedApp
 let window: Page
-let savedPasteboard: SavedPasteboard | null = null
 
 test.beforeAll(async () => {
-  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
   app = await launchApp()
+  await installMainClipboardStub(app.app)
   window = app.window
   await waitForReady(window)
+  await installClipboardStub(window)
   await chooseCloudAiSource(window)
   await suppressFeatureSpotlights(window)
 })
 
 test.afterAll(async () => {
   await app?.dispose()
-  if (savedPasteboard) restorePasteboard(savedPasteboard)
 })
 
 async function seedSnippet(kind: string, name: string, body: unknown): Promise<string> {
@@ -108,7 +107,7 @@ test('AW-1 a sheet snippet into Write: a table of the displayed values, the conv
 })
 
 test('AW-2 a PlexiiDraw copy pasted into Write: a picture of the drawing, said so', async () => {
-  test.skip(process.platform !== 'darwin', 'uses the macOS pasteboard save/restore')
+  test.skip(process.platform !== 'darwin', "Draw's copy writes the macOS flavours")
   test.setTimeout(90_000)
   await keepNoticesOutOfTheWay(window)
   const id = await seedDrawDoc(window, v1Body([rectObject('a', 100, 120, 160, 90)]), 'Paste source')

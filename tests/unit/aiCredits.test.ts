@@ -360,3 +360,89 @@ describe('createMeteredFetch', () => {
     expect(await m.startTopUp(5)).toEqual({ ok: false, error: 'Credits come in $10, $25 and $50 packs.' })
   })
 })
+
+// d0, 2026-11-19: the credits proxy now answers 429 with retry-after when it is
+// busy (its rate limit, or its budget for large requests in flight). The app
+// waits and tries again by itself, saying so, and never shows the raw error.
+describe('a busy credits proxy (429 with retry-after)', () => {
+  beforeEach(() => {
+    state.token = 'tok'
+    state.mode = 'credits'
+    state.ownKey = null
+  })
+  const busy = (seconds: string): Response => json(429, { type: 'error', error: { type: 'rate_limited', message: 'Too many requests' } }, { 'retry-after': seconds })
+
+  it('waits as asked, tries again, and tells the person it is doing so', async () => {
+    const m = await load()
+    const { calls, fetchFn } = recorder([busy('2'), json(200, { content: [] })])
+    const sleeps: number[] = []
+    const events: string[] = []
+    const off = m.onCreditEvent((e) => events.push(`${e.error}:${e.retryInSeconds}`))
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey, sleep: async (ms) => void sleeps.push(ms) })
+    const res = await f(PROXY, req('claude-sonnet-5-5'))
+    off()
+    expect(res.status).toBe(200)
+    expect(calls).toHaveLength(2)
+    expect(calls[1].body).toEqual(calls[0].body)
+    expect(sleeps).toEqual([2000])
+    expect(events).toEqual(['busy:2'])
+    expect(m.getAiStatus().lastError).toBeNull()
+  })
+
+  it('still busy after every retry: ends in plain words, never "429 {json}"', async () => {
+    const m = await load()
+    const { calls, fetchFn } = recorder([busy('1'), busy('1'), busy('1'), busy('1')])
+    const sleeps: number[] = []
+    const events: string[] = []
+    const off = m.onCreditEvent((e) => events.push(`${e.error}:${e.retryInSeconds}`))
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey, sleep: async (ms) => void sleeps.push(ms) })
+    // Through the SDK, as every feature calls it (the credits client never lets the SDK retry).
+    const { default: Anthropic } = await import('@anthropic-ai/sdk')
+    // (This suite runs under jsdom; main, where the client lives, is Node.)
+    const client = new Anthropic({ apiKey: 'x', baseURL: 'https://signal.test/ai/anthropic', fetch: f, maxRetries: 0, dangerouslyAllowBrowser: true })
+    const err = await client.messages.create({ model: 'claude-sonnet-5-5', max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] }).then(
+      () => null,
+      (e: unknown) => e
+    )
+    off()
+    expect(calls).toHaveLength(1 + m.BUSY_RETRIES)
+    expect(sleeps).toEqual([1000, 1000, 1000])
+    expect(events).toEqual(['busy:1', 'busy:1', 'busy:1', 'busy:null'])
+    expect(m.aiErrorWords(err)).toBe('Plexii AI is busy right now. Try again in a minute.')
+    expect(creditErrorMessage({ error: 'busy', next: null, allowedModel: null, retryInSeconds: 3 })).toBe('Plexii AI is busy, trying again in a few seconds.')
+  })
+
+  it('with the person\'s own key in auto mode, uses it at once instead of waiting', async () => {
+    state.mode = 'auto'
+    state.ownKey = 'sk-own'
+    const m = await load()
+    const { calls, fetchFn } = recorder([busy('5'), json(200, { content: [] })])
+    const sleeps: number[] = []
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey, sleep: async (ms) => void sleeps.push(ms) })
+    const res = await f(PROXY, req('claude-sonnet-5-5'))
+    expect(res.status).toBe(200)
+    expect(calls[1].url).toBe('https://api.anthropic.com/v1/messages')
+    expect(sleeps).toEqual([])
+  })
+
+  it('a Stop during the wait stops the request', async () => {
+    const m = await load()
+    const { calls, fetchFn } = recorder([busy('10'), json(200, { content: [] })])
+    const f = m.createMeteredFetch({ fetch: fetchFn, mode: () => state.mode, ownKey: () => state.ownKey })
+    const ctl = new AbortController()
+    const pending = f(PROXY, { ...req('claude-sonnet-5-5'), signal: ctl.signal })
+    setTimeout(() => ctl.abort(), 20)
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(calls).toHaveLength(1)
+  })
+
+  it('reads retry-after as seconds or a date, never under 1 s or over 15 s', async () => {
+    const m = await load()
+    expect(m.retryAfterSeconds('2')).toBe(2)
+    expect(m.retryAfterSeconds('0')).toBe(1)
+    expect(m.retryAfterSeconds('120')).toBe(15)
+    expect(m.retryAfterSeconds(new Date(1_000_000 + 5_000).toUTCString(), 1_000_000)).toBe(5)
+    expect(m.retryAfterSeconds(null)).toBe(3)
+    expect(m.retryAfterSeconds('soon')).toBe(3)
+  })
+})

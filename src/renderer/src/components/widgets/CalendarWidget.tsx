@@ -423,7 +423,11 @@ export default function CalendarWidget({ widget }: { widget: Widget }): JSX.Elem
                 key={day}
                 type="button"
                 onClick={() => setSelected(day)}
-                onDoubleClick={() => setOpenDay(day)}
+                onDoubleClick={(e) => {
+                  // Opens the day; the widget's own double-click (Focus Mode) is not also run.
+                  e.stopPropagation()
+                  setOpenDay(day)
+                }}
                 title={count > 0 ? `${count} on this day — double-click to open` : undefined}
                 className={`flex flex-col items-center justify-start rounded-[3px] py-0.5 text-[10px] leading-none transition-colors ${
                   isSel

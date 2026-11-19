@@ -141,7 +141,7 @@ export function parseCreditsResponse(body: unknown): CreditsSnapshot | null {
   return null
 }
 
-export type CreditErrorCode = 'out_of_credits' | 'model_not_in_plan' | 'email_not_verified'
+export type CreditErrorCode = 'out_of_credits' | 'model_not_in_plan' | 'email_not_verified' | 'busy'
 
 export interface CreditError {
   error: CreditErrorCode
@@ -154,6 +154,12 @@ export interface CreditError {
   /** For out_of_credits, when the server says: what is left. A request can be
    *  refused for costing more than a non-zero balance. */
   balance?: number | null
+  /**
+   * For busy: the credits proxy is busy (its rate limit, or its budget for large
+   * requests in flight) and asked for this many seconds; the app waits and
+   * tries again by itself. Not a refusal: nothing is spent and nothing to buy.
+   */
+  retryInSeconds?: number | null
 }
 
 /**
@@ -192,9 +198,16 @@ export function parseCreditError(status: number, bodyText: string): CreditError 
   return null
 }
 
+/** The words when Plexii AI stayed busy through every automatic retry. */
+export const AI_BUSY_GAVE_UP = 'Plexii AI is busy right now. Try again in a minute.'
+
 /** The words shown for a credit refusal, wherever it surfaces. */
 export function creditErrorMessage(e: CreditError): string {
   switch (e.error) {
+    case 'busy':
+      return typeof e.retryInSeconds === 'number'
+        ? 'Plexii AI is busy, trying again in a few seconds.'
+        : AI_BUSY_GAVE_UP
     case 'email_not_verified':
       return 'Verify your email to use Plexii AI credits. Check your inbox for the 6-digit code, or add your own Anthropic key in Settings.'
     case 'model_not_in_plan':

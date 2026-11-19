@@ -1138,7 +1138,11 @@ export default function WidgetFrame({
         setActive(widget.id)
         return undefined
       }}
-      onResizeStop={(_, __, ref, ___, pos) => {
+      onResizeStop={(_, __, ref, delta, pos) => {
+        // A press on an edge that resized nothing changes nothing. Written
+        // back, it re-placed the work widget from Rnd's idea of its position
+        // and gave ⌘Z a "Move" step nobody took.
+        if (delta.width === 0 && delta.height === 0) return
         const newW = ref.offsetWidth
         const newH = ref.offsetHeight
         if (isChildOfSection && isInControlledLayout) {

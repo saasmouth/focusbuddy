@@ -24,3 +24,16 @@ export function toTsv(matrix: string[][]): string {
 export function isSingleCell(matrix: string[][]): boolean {
   return matrix.length === 1 && matrix[0].length === 1
 }
+
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/**
+ * A matrix of cell text as an HTML table: what Write, Mail, Word and Google
+ * Docs keep as rows and columns when a range is pasted (Sheets and Excel read
+ * the TSV beside it). The text is what the cells SHOW, escaped.
+ */
+export function toHtmlTable(matrix: string[][]): string {
+  const body = matrix.map((row) => `<tr>${row.map((t) => `<td>${escapeHtml(t)}</td>`).join('')}</tr>`).join('')
+  return `<meta charset="utf-8"><table><tbody>${body}</tbody></table>`
+}

@@ -32,6 +32,9 @@ import { cleanWebviewUserAgent } from './userAgent'
 import { noteWebviewPartition, notificationsAllowed } from './webNotifications'
 import { installDrmProbe, registerDrmIpc, startWidevine } from './widevine'
 import { getFile } from './db/files'
+import { mimeFromExt } from '../shared/mimeFromExt'
+import { readPicked } from './drawImport'
+import { pasteInto } from './pasteFiles'
 import { installFileProtocol } from './fileProtocol'
 import { LOCAL_FILE_PARTITION } from '../shared/webviewPartition'
 import { installFocusTracker } from './streamdeckActions'
@@ -368,6 +371,11 @@ function editAction(action: 'cut' | 'copy' | 'paste', win?: Electron.BaseWindow)
   // of the window the menu was used in.
   const wc = webContents.getFocusedWebContents() ?? BrowserWindow.getFocusedWindow()?.webContents ?? (win instanceof BrowserWindow ? win.webContents : undefined)
   if (!wc || wc.isDestroyed()) return
+  // Files copied in Finder paste as the files, not their names (pasteFiles.ts).
+  if (action === 'paste') {
+    void pasteInto(wc, { read: readPicked, mimeOf: mimeFromExt })
+    return
+  }
   wc[action]()
 }
 

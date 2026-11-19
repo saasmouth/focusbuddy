@@ -101,7 +101,11 @@ interface WidgetStore {
   create: (draft: WidgetDraft) => Promise<Widget>
   /** Best-effort create for auto-spawned chrome; resolves null if the task is gone. */
   createOptional: (draft: WidgetDraft) => Promise<Widget | null>
-  update: (id: string, patch: WidgetPatch) => Promise<void>
+  /**
+   * `record: false` for a change the app makes itself (a note growing to fit
+   * its text): it is not a step anyone took, so it is not an undo step either.
+   */
+  update: (id: string, patch: WidgetPatch, opts?: { record?: boolean }) => Promise<void>
   /** Take a widget off the desk (soft delete, undoable). `scope` says what
    *  that was, for the Undo toast's words: 'desk' (removed from this desk; its
    *  file stays) or 'delete' (a desk-only one, deleted). Without it, an
@@ -461,7 +465,7 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     crdtEmitWidgetCreate(widget)
     return widget
   },
-  update: async (id, patch) => {
+  update: async (id, patch, opts) => {
     // A resize never goes below the kind's minimum, here as in main
     // (updateWidget), so the optimistic copy and a per-device overlay write hold
     // the size the frame renders instead of one it cannot show.
@@ -496,7 +500,7 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
     // the optimistic set, so we can record an undo for move/resize/recolour/
     // section-membership. Suppressed during group-drag commit (one combined entry).
     const undoCapture = (() => {
-      if (suppressWidgetUndo) return null
+      if (suppressWidgetUndo || opts?.record === false) return null
       const touched = UNDOABLE_WIDGET_KEYS.filter((k) => k in patch)
       if (!touched.length) return null
       const w = get().widgets.find((x) => x.id === id)
