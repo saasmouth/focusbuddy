@@ -97,7 +97,10 @@ export function useAutoGrowHeight(
       if (cur == null) return
       // scrollHeight: content height incl. any overflow; clientHeight: the box as rendered.
       const target = autoGrowTarget(cur, el.scrollHeight, el.clientHeight, min, max)
-      if (target != null) void update(widgetId, { height: target })
+      // The app's own resize, not a step anyone took: no undo entry. Recorded,
+      // it sat on top of the history, so ⌘Z after pasting or typing a note
+      // undid an invisible resize ("Undid Resize work widget") instead.
+      if (target != null) void update(widgetId, { height: target }, { record: false })
     }
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf)

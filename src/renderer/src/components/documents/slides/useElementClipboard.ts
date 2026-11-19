@@ -89,6 +89,11 @@ export interface ElementClipboardWiring {
    * caret is in text on the canvas, where ⌘C means "copy these words".
    */
   enabled?: () => boolean
+  /**
+   * Is a copy, cut or paste event this editor's? On a desk, only while focus is
+   * inside it (lib/deskEditorScope); full screen, always. Left out: always.
+   */
+  owns?: () => boolean
 }
 
 export interface ElementClipboardApi {
@@ -177,6 +182,7 @@ export function useElementClipboard(wiring: ElementClipboardWiring): ElementClip
     /** Is this event ours, or does it belong to a field or a text selection? */
     function mine(e: ClipboardEvent): boolean {
       if (ref.current.enabled && !ref.current.enabled()) return false
+      if (ref.current.owns && !ref.current.owns()) return false
       const node = e.target instanceof Node ? (e.target.nodeType === 1 ? (e.target as HTMLElement) : e.target.parentElement) : null
       if (node && (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.isContentEditable)) return false
       const sel = window.getSelection()

@@ -62,6 +62,8 @@ import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter,
 
 export interface DiagramEditorProps {
   body: MapBody
+  /** In a work widget on a desk: keys are the diagram's only while focus is inside it. */
+  onDesk?: boolean
   title?: string
   onChange: (body: MapBody) => void
   // Live co-editing: a change in the body prop's identity is a peer's merge.
@@ -98,7 +100,7 @@ export function diagramPagePrintBody(body: MapBody, pageIdx: number): MapBody {
   return { ...body, nodes: g.nodes, edges: g.edges, layers: g.layers, pages: undefined }
 }
 
-export default function DiagramEditor({ body: bodyProp, title, onChange, foldExternal = false, readOnly = false, singlePage = false, documentOps, liveUndo }: DiagramEditorProps): JSX.Element {
+export default function DiagramEditor({ body: bodyProp, title, onChange, onDesk = false, foldExternal = false, readOnly = false, singlePage = false, documentOps, liveUndo }: DiagramEditorProps): JSX.Element {
   const rf = useReactFlow()
   const { zoom } = useViewport()
   const [body, setBodyState] = useState<MapBody>(() => normalizeMapBody(bodyProp))
@@ -657,7 +659,10 @@ export default function DiagramEditor({ body: bodyProp, title, onChange, foldExt
   useEffect(() => {
     const wrap = wrapRef.current
     if (!wrap) return
-    const inEditor = (): boolean => wrap.contains(document.activeElement) || document.activeElement === document.body
+    // Full screen the diagram is the window, so nothing focused counts as in it.
+    // On a desk, nothing focused is the DESK's: a ⌘V there pasted into every
+    // diagram on the desk as well as onto it (lib/deskEditorScope).
+    const inEditor = (): boolean => wrap.contains(document.activeElement) || (!onDesk && document.activeElement === document.body)
     const onKey = (e: KeyboardEvent): void => {
       if (!inEditor() || isTyping(e.target) || editingId) return
       // Every key a menu or the ribbon shows runs from its definition

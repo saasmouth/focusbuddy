@@ -53,6 +53,7 @@ import {
   withGroupMembers,
   type AlignEdge
 } from './slides/slideOps'
+import { useDeskEditorScope } from '../../lib/deskEditorScope'
 import { useElementClipboard } from './slides/useElementClipboard'
 import { useRegisterEditorCommands } from '../../stores/editorCommands'
 import Icon from '../Icon'
@@ -171,6 +172,9 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
     return v === 'ai' || v === 'generate' ? v : null
   })
   const rootRef = useRef<HTMLDivElement | null>(null)
+  // On a desk, Deck's keys and clipboard are its own only while focus is inside
+  // it (lib/deskEditorScope); full screen it owns the window as before.
+  const scope = useDeskEditorScope(onDesk, rootRef)
   // ...but never as a sheet over the slide: in a narrow desk widget the first-run
   // default stays collapsed to its edge tab (an explicit choice is honoured).
   useEffect(() => {
@@ -803,6 +807,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // Cut / Copy / Paste, shared with PlexiiDesign: the hook owns the DOM
   // clipboard events, so ⌘C/⌘V and the native Edit menu run the same code.
   const clipboard = useElementClipboard({
+    owns: scope.owns,
     app: 'slide',
     insertConverted: (b) => insertSlideSnippet(pastedSnippet(b)),
     canvas: () => ({ w: body.size?.w ?? 1280, h: body.size?.h ?? 720 }),
@@ -840,6 +845,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   // field is focused, so typing and the notes box are unaffected.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (!scope.owns()) return
       const tag = (document.activeElement?.tagName ?? '').toLowerCase()
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || (document.activeElement as HTMLElement | null)?.isContentEditable) return
       const mod = e.metaKey || e.ctrlKey
@@ -1069,7 +1075,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
   return (
     <EmbedDisplayWriterContext.Provider value={embedDisplayWriter}>
     <EmbedRemoveContext.Provider value={embedRemover}>
-    <div ref={rootRef} className="h-full min-w-0 flex flex-col">
+    <div ref={rootRef} className="h-full min-w-0 flex flex-col outline-none" {...scope.rootProps}>
       <OfficeShellLayout
         testid="slides-shell"
         asideLabel="Slides"

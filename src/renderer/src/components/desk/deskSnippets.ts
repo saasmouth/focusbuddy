@@ -4,6 +4,7 @@ import type { Snippet, SnippetInsertResult, SnippetKind, SnippetTarget, WidgetSn
 import { acceptsFor } from '@shared/snippetConvert/accepts'
 import { registerSnippetTarget } from '../../stores/snippets'
 import { useWidgetStore } from '../../stores/widgets'
+import { recordAction } from '../../stores/actionHistory'
 import { snippetConvertDeps } from '../../lib/snippetConvertDeps'
 import { spawnPositionFor } from '../../lib/spawnPosition'
 import {
@@ -153,6 +154,22 @@ export async function pasteOntoDesk(taskId: string, snap: ReturnType<typeof snap
     return false
   }
   announcePaste({ ok: true, lossy: placed.lossy })
+  // ⌘Z takes the paste back. The widget is made through createOptional (it
+  // may find its desk already closed), which records no step, so a paste onto
+  // the desk could not be undone at all.
+  const widget = placed.widget
+  recordAction({
+    label: 'Paste onto the desk',
+    undo: async () => {
+      await window.api.widgets.delete(widget.id)
+      useWidgetStore.setState({ widgets: useWidgetStore.getState().widgets.filter((w) => w.id !== widget.id) })
+    },
+    redo: async () => {
+      await window.api.widgets.restore(widget.id)
+      const ws = useWidgetStore.getState().widgets
+      if (!ws.some((w) => w.id === widget.id)) useWidgetStore.setState({ widgets: [...ws, widget] })
+    }
+  })
   return true
 }
 
