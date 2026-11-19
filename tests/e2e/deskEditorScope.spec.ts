@@ -15,7 +15,7 @@
 // The clipboard is the test's own (_clipboardStub.ts), never the system one.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, setStubClipboard, stubClipboard, MOD } from './_clipboardStub'
+import { installClipboardStub, setStubClipboard, stubClipboard, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -74,6 +74,7 @@ async function pressDesk(l: LaunchedApp): Promise<void> {
 
 test('DS-1/2 ⌘V on the desk is the desk\'s alone, and ⌘Z undoes it', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { deskId, docId } = await open(launched)
   // The Deck was worked in first, so it has been the focused editor.
   await launched.window.locator('[data-testid="slides-shell"]').first().click({ position: { x: 300, y: 200 } })
@@ -97,6 +98,7 @@ test('DS-1/2 ⌘V on the desk is the desk\'s alone, and ⌘Z undoes it', async (
 
 test('DS-3 working in the Deck still works: ⌘A then ⌘C copies its elements', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { deckWidgetId } = await open(launched)
   const canvas = launched.window.locator(`[data-widget-id="${deckWidgetId}"] [data-testid="slides-shell"]`)
   await canvas.click({ position: { x: 300, y: 200 } })

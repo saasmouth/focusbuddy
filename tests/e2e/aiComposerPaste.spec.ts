@@ -7,10 +7,14 @@
 //         focused on opening, so ⌘V went to the desk as a new widget; and
 //         ProseMirror read the paste's HTML, flattening a range into one line.)
 //
+//   CP-2  A multi-line paste into the home bar's one-line Ask box is sent to
+//         the assistant in its lines (the box can only show one line, and the
+//         paste used to be sent as one run of words).
+//
 // The clipboard is the test's own (_clipboardStub.ts), never the system one.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, MOD } from './_clipboardStub'
+import { installClipboardStub, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -20,6 +24,7 @@ test.afterEach(async () => {
 
 test('CP-1 open the assistant and ⌘V: the range lands in the composer line by line, not on the desk', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { window } = launched
   await waitForReady(window)
   await window.evaluate(async () => {
@@ -51,4 +56,28 @@ test('CP-1 open the assistant and ⌘V: the range lands in the composer line by 
   // Nothing was pasted onto the desk.
   await window.waitForTimeout(500)
   await expect(widgets).toHaveCount(1)
+})
+
+test('CP-2 a multi-line paste into the home bar is sent to the assistant in its lines', async () => {
+  launched = await launchApp()
+  await installMainClipboardStub(launched.app)
+  const { window } = launched
+  await waitForReady(window)
+  await window.evaluate(() => (window as unknown as { __fbView: { getState: () => { goHome: () => void } } }).__fbView.getState().goHome())
+  const box = window.locator('[data-testid="start-or-ask-input"]')
+  await expect(box).toBeVisible({ timeout: 10_000 })
+  // What is sent, caught at the chat store (no AI is reached).
+  await window.evaluate(() => {
+    const chat = (window as unknown as { __fbChat: { setState: (p: unknown) => void } }).__fbChat
+    ;(window as unknown as { __sent: string[] }).__sent = []
+    chat.setState({ send: async (_t: unknown, content: string) => { (window as unknown as { __sent: string[] }).__sent.push(content) } })
+  })
+  const EMAIL = 'Hi Ann,\n\nCan we move the review to Friday?\nThanks, Bo'
+  await installClipboardStub(window, { 'text/plain': EMAIL })
+  await box.click()
+  await window.keyboard.type('Draft a reply to: ')
+  await window.keyboard.press(`${MOD}+v`)
+  await expect(box).toHaveValue('Draft a reply to: Hi Ann, Can we move the review to Friday? Thanks, Bo')
+  await window.keyboard.press('Enter')
+  await expect.poll(() => window.evaluate(() => (window as unknown as { __sent: string[] }).__sent)).toEqual([`Draft a reply to: ${EMAIL}`])
 })

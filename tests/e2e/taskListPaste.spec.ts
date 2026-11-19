@@ -12,7 +12,7 @@
 // The clipboard is the test's own (_clipboardStub.ts), never the system one.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, setStubClipboard, MOD } from './_clipboardStub'
+import { installClipboardStub, setStubClipboard, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -47,6 +47,7 @@ async function blurAndUndo(l: LaunchedApp): Promise<void> {
 
 test('TL-1 a desk task list: pasted lines are tasks, and one ⌘Z removes them', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { deskId, widgetId } = await openDesk(launched, '')
   await setStubClipboard(launched.window, { 'text/plain': '- Buy milk\n[x] Renew passport' })
   const tasks = (): Promise<Array<{ title: string; status: string }>> =>
@@ -67,6 +68,7 @@ test('TL-1 a desk task list: pasted lines are tasks, and one ⌘Z removes them',
 
 test('TL-3 on Free, a long paste adds what fits under the desk limit and offers the upgrade', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { deskId, widgetId } = await openDesk(launched, '')
   const count = (): Promise<number> =>
     launched!.window.evaluate(async (id) => {
@@ -84,6 +86,7 @@ test('TL-3 on Free, a long paste adds what fits under the desk limit and offers 
 
 test('TL-2 a list of its own: one item per pasted line, and one ⌘Z', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { widgetId } = await openDesk(launched, JSON.stringify({ scope: 'own', filter: 'all', items: [] }))
   const items = (): Promise<Array<{ title: string; done: boolean }>> =>
     launched!.window.evaluate(async (id) => {

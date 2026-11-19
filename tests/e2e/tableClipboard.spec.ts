@@ -23,7 +23,7 @@
 // clipboard, which is shared between workers and belongs to the owner.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, setStubClipboard, stubClipboard, MOD } from './_clipboardStub'
+import { installClipboardStub, setStubClipboard, stubClipboard, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -109,6 +109,7 @@ const col = async (l: LaunchedApp, s: Seed, key: string): Promise<unknown[]> => 
 
 test('TC-1 drag across cells and press ⌘C: the range is copied as TSV and as a table', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await dragSelect(launched, s, [0, 0], [1, 1])
   await launched.window.keyboard.press(`${MOD}+c`)
@@ -121,6 +122,7 @@ test('TC-1 drag across cells and press ⌘C: the range is copied as TSV and as a
 
 test('TC-2 click, then shift-click: the range between is copied', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await cell(launched, s, 0, 0).click()
   await cell(launched, s, 2, 1).click({ modifiers: ['Shift'] })
@@ -130,6 +132,7 @@ test('TC-2 click, then shift-click: the range between is copied', async () => {
 
 test('TC-3 dates and choices copy as the table shows them', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await dragSelect(launched, s, [0, 2], [1, 4])
   await launched.window.keyboard.press(`${MOD}+c`)
@@ -138,6 +141,7 @@ test('TC-3 dates and choices copy as the table shows them', async () => {
 
 test('TC-4 ⌘V of a block over a range writes it, and one ⌘Z takes the whole paste back', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await setStubClipboard(launched.window, { 'text/plain': 'Paris\tFR\nRome\tIT' })
   await dragSelect(launched, s, [0, 0], [1, 1])
@@ -155,6 +159,7 @@ test('TC-4 ⌘V of a block over a range writes it, and one ⌘Z takes the whole 
 
 test('TC-5 a paste longer than the table adds the rows it needs; ⌘Z removes them again', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await setStubClipboard(launched.window, { 'text/plain': 'A\nB\nC\nD\nE\nF' })
   await dragSelect(launched, s, [2, 1], [3, 1])
@@ -177,6 +182,7 @@ async function dragFillHandle(l: LaunchedApp, s: Seed, to: [number, number]): Pr
 
 test('TC-6 the fill handle down continues series (1,2 → 3,4; Item 1 → Item 2, 3), and one ⌘Z undoes it', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await dragSelect(launched, s, [0, 2], [1, 2])
   await dragFillHandle(launched, s, [3, 2])
@@ -193,6 +199,7 @@ test('TC-6 the fill handle down continues series (1,2 → 3,4; Item 1 → Item 2
 
 test('TC-7 the fill handle across copies the value to the right', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await cell(launched, s, 1, 0).click()
   await launched.window.keyboard.press('Escape')
@@ -202,6 +209,7 @@ test('TC-7 the fill handle across copies the value to the right', async () => {
 
 test('TC-8 a row handle selects the row; shift-click another: the rows between are copied', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   const handle = (i: number) => launched!.window.locator(`[data-widget-id="${s.widgetId}"] [data-testid="table-row-select-${i}"]`)
   await handle(1).click()
@@ -212,6 +220,7 @@ test('TC-8 a row handle selects the row; shift-click another: the rows between a
 
 test('TC-9 ⌘A in the table selects every cell', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const s = await open(launched)
   await cell(launched, s, 0, 0).click()
   await launched.window.keyboard.press('Escape')

@@ -10,7 +10,7 @@
 // The clipboard is the test's own (_clipboardStub.ts), never the system one.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, setStubClipboard, stubClipboard, MOD } from './_clipboardStub'
+import { installClipboardStub, setStubClipboard, stubClipboard, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -52,6 +52,7 @@ async function tree(l: LaunchedApp, widgetId: string): Promise<Label> {
 
 test('MM-1 a chosen branch copies as an indented outline', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { widgetId } = await open(launched)
   await launched.window.locator(`[data-widget-id="${widgetId}"] [data-testid="mindmap-node-a"]`).click()
   await launched.window.keyboard.press(`${MOD}+c`)
@@ -61,6 +62,7 @@ test('MM-1 a chosen branch copies as an indented outline', async () => {
 
 test('MM-2 an outline pasted onto a node comes in as its branches, not as a desk widget; one ⌘Z undoes it', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { widgetId } = await open(launched)
   const widgets = launched.window.locator('[data-canvas-surface] [data-widget-id]')
   await expect(widgets).toHaveCount(1)

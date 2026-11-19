@@ -9,7 +9,7 @@
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, setStubClipboard, stubClipboard, MOD } from './_clipboardStub'
+import { installClipboardStub, setStubClipboard, stubClipboard, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 
@@ -108,6 +108,7 @@ async function readClipboard(window: LaunchedApp['window']): Promise<string> {
 
 test('TP-1 — drag-select a range then Ctrl+C copies the cells as TSV', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { window } = launched
   await waitForReady(window)
   const seed = await seedTable(window)
@@ -123,6 +124,7 @@ test('TP-1 — drag-select a range then Ctrl+C copies the cells as TSV', async (
 
 test('TP-2 — bulk paste a single value fills the whole selection (coerced)', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { window } = launched
   await waitForReady(window)
   const seed = await seedTable(window)
@@ -141,6 +143,7 @@ test('TP-2 — bulk paste a single value fills the whole selection (coerced)', a
 
 test('TP-3 — bulk paste a block writes from the top-left across rows', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { window } = launched
   await waitForReady(window)
   const seed = await seedTable(window)
