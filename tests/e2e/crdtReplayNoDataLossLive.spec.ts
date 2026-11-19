@@ -263,11 +263,19 @@ test('signing in on a new device, then again on an existing one, leaves the serv
     await signUp(A.window, email, password)
     await dismissOnboarding(A.window)
     // Seed past the Free plan's desk limit (the limit is not what is under test).
+    // The capability store refreshes itself from the server (on focus, on session
+    // change), which can take a one-off grant back mid-seed, so the grant is
+    // re-applied before every desk the seed creates.
     await A.window.evaluate(() => {
-      const caps = (window as unknown as {
+      const w = window as unknown as {
         __fbCapabilities?: { getState: () => { capabilities: Record<string, unknown> }; setState: (p: unknown) => void }
-      }).__fbCapabilities
-      caps?.setState({ capabilities: { ...caps.getState().capabilities, multiple_desks: true } })
+        __replayGrantDesks?: () => void
+      }
+      w.__replayGrantDesks = () => {
+        const caps = w.__fbCapabilities
+        caps?.setState({ capabilities: { ...caps.getState().capabilities, multiple_desks: true } })
+      }
+      w.__replayGrantDesks()
     })
     const seed = await A.window.evaluate(async () => {
       type Store<T> = { getState: () => T }
@@ -276,10 +284,12 @@ test('signing in on a new device, then again on an existing one, leaves the serv
         __fbWidgets: Store<{ create: (d: unknown) => Promise<{ id: string }> }>
         __fbLinks: Store<{ create: (s: string, t: string, task: string, type?: string) => Promise<{ id: string } | null> }>
       }
+      const grant = (window as unknown as { __replayGrantDesks: () => void }).__replayGrantDesks
       const nodes = w.__fbNodes.getState()
       const folder = await nodes.create({ parentId: null, kind: 'folder', title: 'Replay folder' })
       const desks: string[] = []
       for (let i = 1; i <= 4; i++) {
+        grant()
         const d = await nodes.create({ parentId: i <= 2 ? folder.id : null, kind: 'task', title: `Replay desk ${i}` })
         desks.push(d.id)
       }
@@ -296,9 +306,11 @@ test('signing in on a new device, then again on an existing one, leaves the serv
       // A wire: the kind that reaches other devices ONLY through the CRDT replay.
       const link = await w.__fbLinks.getState().create(widgets[desks[0]][0], widgets[desks[0]][1], desks[0], 'note')
       // (c) desk R, to be deleted and brought back with Undo.
+      grant()
       const r = await nodes.create({ parentId: null, kind: 'task', title: 'Restored desk R' })
       const rWidget = await w.__fbWidgets.getState().create({ taskId: r.id, kind: 'sticky', content: 'on R', x: 60, y: 60, width: 200, height: 140 })
       // (b) desk Z, deleted below once the server has it.
+      grant()
       const z = await nodes.create({ parentId: null, kind: 'task', title: 'Deleted desk Z' })
       return { folder: folder.id, desks, widgets, link: link?.id ?? null, r: r.id, rWidget: rWidget.id, z: z.id }
     })
@@ -317,6 +329,7 @@ test('signing in on a new device, then again on an existing one, leaves the serv
       await api.nodes.delete(zId)
       await api.nodes.update(d4, { title: 'Renamed outside CRDT' })
       const nodes = (window as unknown as { __fbNodes: { getState: () => { create: (d: unknown) => Promise<{ id: string }> } } }).__fbNodes
+      ;(window as unknown as { __replayGrantDesks: () => void }).__replayGrantDesks()
       const n = await nodes.getState().create({ parentId: null, kind: 'task', title: 'Never-synced desk Z2' })
       await api.nodes.delete(n.id)
       return n.id
