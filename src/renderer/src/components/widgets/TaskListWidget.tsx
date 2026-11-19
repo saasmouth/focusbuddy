@@ -25,6 +25,8 @@ import Icon from '../Icon'
 import TaskDetail, { STATUSES } from './TaskDetail'
 import { useNodeStore } from '../../stores/nodes'
 import { useWidgetStore } from '../../stores/widgets'
+import { recordAction, useActionHistory } from '../../stores/actionHistory'
+import { pastedListItems, type PastedItem } from '../../lib/pasteLines'
 
 // The desk's own tasks, on the desk.
 //
@@ -287,6 +289,29 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
     if (!title || !deskId) return
     setDraft('')
     await createNode({ parentId: deskId, kind: 'task', title })
+  }
+
+  // Several pasted lines: one task each (lib/pasteLines), and ONE undo step
+  // for the lot. A line ticked in the paste ([x], ☑) comes in done.
+  const addMany = async (items: PastedItem[]): Promise<void> => {
+    if (!deskId) return
+    const hist = useActionHistory.getState()
+    hist.beginBatch()
+    try {
+      for (const it of items) {
+        let n: FbNode
+        try {
+          n = await createNode({ parentId: deskId, kind: 'task', title: it.title })
+        } catch {
+          // A plan limit (every task is a desk; Free has three): the store has
+          // already offered the upgrade. The tasks that fit are kept.
+          break
+        }
+        if (it.done) await useNodeStore.getState().update(n.id, { status: DONE })
+      }
+    } finally {
+      hist.endBatch(`Add ${items.length} tasks`)
+    }
   }
 
   // DEC-144 — the tick closes the task through the ONE close path every
@@ -642,6 +667,13 @@ function DeskTaskList({ widget }: { widget: Widget }): JSX.Element {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void add() }}
+              onPaste={(e) => {
+                const items = pastedListItems(e.clipboardData.getData('text/plain'))
+                if (!items) return
+                e.preventDefault()
+                void addMany(items)
+              }}
+              data-testid="desk-task-add"
               placeholder="Add a task to this desk"
               data-primary-input
               className="flex-1 min-w-0 bg-transparent outline-none text-[12px] text-[var(--ink-90)] placeholder:text-[var(--ink-40)]"
@@ -736,6 +768,18 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
     if (!title) return
     setDraft('')
     save({ items: [...model.items, { id: crypto.randomUUID(), title, done: false, dueAt: null }] })
+  }
+
+  // Several pasted lines: one item each, saved in one write and undone in one step.
+  const addMany = (items: PastedItem[]): void => {
+    const before = model.items
+    const after = [...before, ...items.map((i) => ({ id: crypto.randomUUID(), title: i.title, done: i.done, dueAt: null }))]
+    save({ items: after })
+    recordAction({
+      label: `Add ${items.length} tasks`,
+      undo: () => save({ items: before }),
+      redo: () => save({ items: after })
+    })
   }
 
   return (
@@ -833,6 +877,12 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') add()
+            }}
+            onPaste={(e) => {
+              const items = pastedListItems(e.clipboardData.getData('text/plain'))
+              if (!items) return
+              e.preventDefault()
+              addMany(items)
             }}
             placeholder="Add a task…"
             data-testid="own-task-add"
