@@ -117,10 +117,15 @@ test('TP-1 — drag-select a range then Ctrl+C copies the cells as TSV', async (
   await installClipboardStub(window)
   await dragSelect(window, seed.widgetId, [0, 0], [1, 1])
   await window.keyboard.press(`${MOD}+c`)
-  await window.waitForTimeout(150)
 
-  expect(await readClipboard(window)).toBe('Ann\tNYC\nBob\tLA')
+  // Polled, not read once after a fixed wait: the copy and the pastes below go
+  // through IPC, and under two workers a fixed 300 ms was not always enough
+  // (TP-2 read 'Ann' on the 4.3.52 RC).
+  await expect.poll(() => readClipboard(window)).toBe('Ann\tNYC\nBob\tLA')
 })
+
+const cells = (window: LaunchedApp['window'], widgetId: string, at: Array<[number, number]>): Promise<string[]> =>
+  Promise.all(at.map(([r, c]) => cellValue(window, widgetId, r, c)))
 
 test('TP-2 — bulk paste a single value fills the whole selection (coerced)', async () => {
   launched = await launchApp()
@@ -133,12 +138,11 @@ test('TP-2 — bulk paste a single value fills the whole selection (coerced)', a
   await setClipboard(window, 'ZZ')
   await dragSelect(window, seed.widgetId, [0, 0], [1, 0]) // Name column, rows 0-1
   await window.keyboard.press(`${MOD}+v`)
-  await window.waitForTimeout(300)
 
-  expect(await cellValue(window, seed.widgetId, 0, 0), 'row0 Name').toBe('ZZ')
-  expect(await cellValue(window, seed.widgetId, 1, 0), 'row1 Name').toBe('ZZ')
-  // Row 2 untouched.
-  expect(await cellValue(window, seed.widgetId, 2, 0), 'row2 Name').toBe('Cy')
+  // Rows 0-1 of Name take the value; row 2 is untouched.
+  await expect
+    .poll(() => cells(window, seed.widgetId, [[0, 0], [1, 0], [2, 0]]), { message: 'Name, rows 0-2' })
+    .toEqual(['ZZ', 'ZZ', 'Cy'])
 })
 
 test('TP-3 — bulk paste a block writes from the top-left across rows', async () => {
@@ -154,10 +158,8 @@ test('TP-3 — bulk paste a block writes from the top-left across rows', async (
   // won't register; select a 2x2 region so the block lands inside it).
   await dragSelect(window, seed.widgetId, [0, 0], [1, 1])
   await window.keyboard.press(`${MOD}+v`)
-  await window.waitForTimeout(300)
 
-  expect(await cellValue(window, seed.widgetId, 0, 0)).toBe('Paris')
-  expect(await cellValue(window, seed.widgetId, 0, 1)).toBe('Paris City')
-  expect(await cellValue(window, seed.widgetId, 1, 0)).toBe('Rome')
-  expect(await cellValue(window, seed.widgetId, 1, 1)).toBe('Rome City')
+  await expect
+    .poll(() => cells(window, seed.widgetId, [[0, 0], [0, 1], [1, 0], [1, 1]]))
+    .toEqual(['Paris', 'Paris City', 'Rome', 'Rome City'])
 })

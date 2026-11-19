@@ -224,6 +224,38 @@ export async function suppressSignInModal(window: Page): Promise<void> {
   })
 }
 
+/**
+ * Is the workspace locked behind the signed-out screen, once the account store
+ * has booted? The same test as App.tsx `workspaceLocked` (a shared desk's
+ * visitor aside, which the desktop harness never is): no anonymous launch, and
+ * nobody signed in, online or offline. null when the store cannot be read or
+ * never boots within the timeout; the caller then falls back to the screen.
+ */
+export async function workspaceLockedAfterBoot(window: Page, timeout = 10_000): Promise<boolean | null> {
+  type AccountState = {
+    bootStatus: string
+    anonymousAllowed: boolean
+    account: unknown
+    sessionToken: string | null
+    offlineSession: boolean
+  }
+  const booted = await window
+    .waitForFunction(
+      () => (window as unknown as { __fbAccount?: { getState: () => AccountState } }).__fbAccount?.getState().bootStatus === 'ready',
+      null,
+      { timeout, polling: 50 }
+    )
+    .then(() => true)
+    .catch(() => false)
+  if (!booted) return null
+  return window
+    .evaluate(() => {
+      const s = (window as unknown as { __fbAccount: { getState: () => AccountState } }).__fbAccount.getState()
+      return !s.anonymousAllowed && !s.account && !s.sessionToken && !s.offlineSession
+    })
+    .catch(() => null)
+}
+
 export async function waitForReady(
   window: Page,
   opts: { dismissModals?: boolean; keepSignIn?: boolean } = {}
@@ -248,9 +280,28 @@ export async function waitForReady(
   // packaged build) and nobody is signed in yet: the signed-out screen, which
   // is all the app draws then (owner, 2026-11-07: nobody opens Plexii without
   // signing in) -- there is no shell to wait for and nothing to dismiss.
-  const shell = window.locator('[data-testid="footer-sync-chip"], [data-testid="signed-out-screen"]').first()
+  //
+  // But the signed-out screen is ALSO what every launch draws first, the
+  // harness's included: the account store boots with an IPC round trip
+  // (stores/account.ts init), and until it is 'ready' App's lock holds. Taking
+  // that first frame for "signed out" returned here before anything was
+  // dismissed, and the first-run welcome then took the spec's clicks
+  // (designCopyPaste CP-1, pasteFinderFiles PF-3, cellsClipboardFlavour CF-1,
+  // anyToAnyDeckDesign AD-2 on the 4.3.52 RC; CP-1 1 run in 20 even alone,
+  // each red one the run that returned here). So wait for the
+  // boot, then ask the store the question App asks (App.tsx workspaceLocked).
+  const locked = await workspaceLockedAfterBoot(window)
+  const shell = window
+    .locator(
+      locked === null
+        ? '[data-testid="footer-sync-chip"], [data-testid="signed-out-screen"]'
+        : locked
+          ? '[data-testid="signed-out-screen"]'
+          : '[data-testid="footer-sync-chip"]'
+    )
+    .first()
   await expect(shell).toBeVisible({ timeout: 10_000 })
-  if (await window.locator('[data-testid="signed-out-screen"]').isVisible().catch(() => false)) return
+  if (locked ?? (await window.locator('[data-testid="signed-out-screen"]').isVisible().catch(() => false))) return
 
   if (!dismissModals) return
 

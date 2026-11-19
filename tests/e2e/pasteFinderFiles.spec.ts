@@ -137,7 +137,10 @@ test('PF-3 pasted in Files: imported into the folder shown', async () => {
   const { window } = launched
   await openFiles(launched)
   const before = await rootNames(window)
-  await window.locator('[data-testid="files-view"], [data-testid="files-panel"]').first().click({ position: { x: 20, y: 300 } })
+  // Bounded: unbounded, a click something covers retries until the test's own
+  // timeout and fails as a bare "30000ms exceeded" naming nothing (PF-3, twice
+  // in 14 two-worker runs on the 4.3.52 RC). Bounded, it names what was on top.
+  await window.locator('[data-testid="files-view"], [data-testid="files-panel"]').first().click({ position: { x: 20, y: 300 }, timeout: 10_000 })
   await window.evaluate(() => {
     const el = document.querySelector('[data-testid="files-view"], [data-testid="files-panel"]') as HTMLElement
     if (!el.contains(document.activeElement)) {
