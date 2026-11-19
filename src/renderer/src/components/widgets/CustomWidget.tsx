@@ -249,14 +249,16 @@ export default function CustomWidget({ widget }: { widget: Widget }): JSX.Elemen
         case 'title':
           if (msg.payload !== widget.title) void update(widget.id, { title: msg.payload })
           return
+        // The widget's code sizing itself is not a step anyone took: no undo
+        // entry (⌘Z belongs to what the person did).
         case 'height':
-          void update(widget.id, { height: Math.max(120, msg.payload + 44) })
+          void update(widget.id, { height: Math.max(120, msg.payload + 44) }, { record: false })
           return
         case 'natural-height':
           if (autoSized.current) return
           autoSized.current = true
           if (msg.payload > 40) {
-            void update(widget.id, { height: Math.max(140, Math.min(msg.payload + 52, 900)) })
+            void update(widget.id, { height: Math.max(140, Math.min(msg.payload + 52, 900)) }, { record: false })
           }
           return
         case 'error':

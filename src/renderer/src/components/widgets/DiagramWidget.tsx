@@ -21,6 +21,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import { alertDialog } from '../plexi/PromptDialog'
+import { recordAction } from '../../stores/actionHistory'
 
 // ── Diagram widget ──────────────────────────────────────────────────────────
 // A React Flow node/edge canvas for structured diagrams: flowcharts, entity
@@ -94,7 +95,11 @@ function ShapeNode({ id, data, selected }: NodeProps): JSX.Element {
     <div
       className={`${shapeCls} ${ring}`}
       style={style}
-      onDoubleClick={() => d.shape !== 'image' && setEditing(true)}
+      onDoubleClick={(e) => {
+        // Edits the label; the widget's own double-click (Focus Mode) is not also run.
+        e.stopPropagation()
+        if (d.shape !== 'image') setEditing(true)
+      }}
     >
       <Handle type="target" position={Position.Top} style={handleStyle} />
       <Handle type="target" position={Position.Left} style={handleStyle} />
@@ -175,6 +180,18 @@ interface Props {
   inline?: boolean
 }
 
+/**
+ * The graph as a person edits it, for deciding what is an undo step: React
+ * Flow's passing state (which node is selected or being dragged, its measured
+ * size) is left out, so a click that only selects is not an edit.
+ */
+function editedGraph(nodes: Node<ShapeData>[], edges: Edge[]): string {
+  return JSON.stringify({
+    nodes: nodes.map(({ selected: _s, dragging: _d, measured: _m, resizing: _r, ...n }) => n),
+    edges: edges.map(({ selected: _s, ...e }) => e)
+  })
+}
+
 function DiagramInner({ widget, inline = false }: Props): JSX.Element {
   const update = useWidgetStore((s) => s.update)
   const isActive = useWidgetStore((s) => s.activeWidgetId === widget.id)
@@ -184,29 +201,48 @@ function DiagramInner({ widget, inline = false }: Props): JSX.Element {
   const [color, setColor] = useState(NODE_COLORS[0])
   const seq = useRef(initial.nodes.length)
   const lastSavedRef = useRef(widget.content)
+  // The undo history (the desk's ⌘Z): what the graph was at the last step, as
+  // stored, and as edited (editedGraph). A save records a step only when the
+  // edited graph changed.
+  const undoBaseRef = useRef(widget.content)
+  const editedRef = useRef(editedGraph(initial.nodes, initial.edges))
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const stateRef = useRef<GraphState>(initial)
   stateRef.current = { nodes, edges }
 
   const interactive = inline || isActive
 
+  // Save, and record an undo step when the graph itself changed: one step for
+  // each burst of editing the debounce gathers.
+  const saveGraph = (graph: GraphState): void => {
+    const json = JSON.stringify(graph)
+    if (json === lastSavedRef.current) return
+    lastSavedRef.current = json
+    void update(widget.id, { content: json })
+    const edited = editedGraph(graph.nodes, graph.edges)
+    const before = undoBaseRef.current
+    undoBaseRef.current = json
+    if (edited === editedRef.current) return
+    editedRef.current = edited
+    recordAction({
+      label: 'Edit the diagram',
+      undo: () => update(widget.id, { content: before }),
+      redo: () => update(widget.id, { content: json })
+    })
+  }
+  const saveGraphRef = useRef(saveGraph)
+  saveGraphRef.current = saveGraph
+
   // Persist (debounced) whenever the graph changes.
   useEffect(() => {
     const json = JSON.stringify({ nodes, edges })
     if (json === lastSavedRef.current) return
-    const t = window.setTimeout(() => {
-      lastSavedRef.current = json
-      void update(widget.id, { content: json })
-    }, 500)
+    const t = window.setTimeout(() => saveGraphRef.current({ nodes, edges }), 500)
     return () => window.clearTimeout(t)
-  }, [nodes, edges, update, widget.id])
+  }, [nodes, edges, widget.id])
   // Flush on unmount (layout remounts).
   useEffect(() => {
-    return () => {
-      const json = JSON.stringify(stateRef.current)
-      if (json !== lastSavedRef.current) void update(widget.id, { content: json })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => saveGraphRef.current(stateRef.current)
   }, [widget.id])
 
   // Reflect external content updates that arrive after mount, such as Build
@@ -218,6 +254,9 @@ function DiagramInner({ widget, inline = false }: Props): JSX.Element {
     if (widget.content && widget.content !== lastSavedRef.current) {
       const next = parseState(widget.content)
       lastSavedRef.current = widget.content
+      // An undo, a redo or an AI edit: the history goes on from here.
+      undoBaseRef.current = widget.content
+      editedRef.current = editedGraph(next.nodes, next.edges)
       setNodes(next.nodes)
       setEdges(next.edges)
       seq.current = next.nodes.length

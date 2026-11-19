@@ -1,5 +1,5 @@
 import { dueStanding } from '../../lib/dueDates'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useViewStore } from '../../stores/view'
 import TaskOpenChoice from './TaskOpenChoice'
 import {
@@ -25,7 +25,7 @@ import Icon from '../Icon'
 import TaskDetail, { STATUSES } from './TaskDetail'
 import { useNodeStore } from '../../stores/nodes'
 import { useWidgetStore } from '../../stores/widgets'
-import { recordAction, useActionHistory } from '../../stores/actionHistory'
+import { recordAction, recordActionWithToast, useActionHistory } from '../../stores/actionHistory'
 import { pastedListItems, type PastedItem } from '../../lib/pasteLines'
 
 // The desk's own tasks, on the desk.
@@ -745,12 +745,25 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
 
+  // The latest model, for saves made later (an undo) by closures of an older render.
+  const modelRef = useRef(model)
+  modelRef.current = model
+
   const save = (next: { filter?: Filter; items?: OwnItem[] }): void => {
-    const merged = { scope: 'own', filter: next.filter ?? model.filter, items: next.items ?? model.items }
+    const cur = modelRef.current
+    const merged = { scope: 'own', filter: next.filter ?? cur.filter, items: next.items ?? cur.items }
     void updateWidget(widget.id, { content: JSON.stringify(merged) })
   }
-  const patchItem = (id: string, p: Partial<OwnItem>): void =>
-    save({ items: model.items.map((i) => (i.id === id ? { ...i, ...p } : i)) })
+  /** Change the items as one undoable step (the desk's ⌘Z), the filter left as it is then. */
+  const saveItems = (after: OwnItem[], label: string, opts: { toast?: string } = {}): void => {
+    const before = modelRef.current.items
+    save({ items: after })
+    const entry = { label, undo: () => save({ items: before }), redo: () => save({ items: after }) }
+    if (opts.toast) recordActionWithToast({ ...entry, toast: opts.toast })
+    else recordAction(entry)
+  }
+  const patchItem = (id: string, p: Partial<OwnItem>, label: string): void =>
+    saveItems(modelRef.current.items.map((i) => (i.id === id ? { ...i, ...p } : i)), label)
 
   const shown = model.items
     .filter((i) => (model.filter === 'all' ? true : model.filter === 'done' ? i.done : !i.done))
@@ -767,19 +780,13 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
     const title = draft.trim()
     if (!title) return
     setDraft('')
-    save({ items: [...model.items, { id: crypto.randomUUID(), title, done: false, dueAt: null }] })
+    saveItems([...modelRef.current.items, { id: crypto.randomUUID(), title, done: false, dueAt: null }], `Add “${title}”`)
   }
 
   // Several pasted lines: one item each, saved in one write and undone in one step.
   const addMany = (items: PastedItem[]): void => {
-    const before = model.items
-    const after = [...before, ...items.map((i) => ({ id: crypto.randomUUID(), title: i.title, done: i.done, dueAt: null }))]
-    save({ items: after })
-    recordAction({
-      label: `Add ${items.length} tasks`,
-      undo: () => save({ items: before }),
-      redo: () => save({ items: after })
-    })
+    const added = items.map((i) => ({ id: crypto.randomUUID(), title: i.title, done: i.done, dueAt: null }))
+    saveItems([...modelRef.current.items, ...added], `Add ${items.length} tasks`)
   }
 
   return (
@@ -817,7 +824,7 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                 data-testid="own-task-row"
               >
                 <button
-                  onClick={() => patchItem(i.id, { done: !i.done })}
+                  onClick={() => patchItem(i.id, { done: !i.done }, i.done ? `Reopen “${i.title}”` : `Complete “${i.title}”`)}
                   className={`shrink-0 w-4 h-4 rounded-full border inline-flex items-center justify-center ${
                     i.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-[var(--edge-firm)]'
                   }`}
@@ -832,7 +839,7 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                     defaultValue={i.title}
                     onBlur={(e) => {
                       const t = e.target.value.trim()
-                      if (t && t !== i.title) patchItem(i.id, { title: t })
+                      if (t && t !== i.title) patchItem(i.id, { title: t }, `Rename “${i.title}”`)
                       setEditing(null)
                     }}
                     onKeyDown={(e) => {
@@ -843,7 +850,11 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                   />
                 ) : (
                   <span
-                    onDoubleClick={() => setEditing(i.id)}
+                    onDoubleClick={(e) => {
+                      // Edits the task; the widget's own double-click (Focus Mode) is not also run.
+                      e.stopPropagation()
+                      setEditing(i.id)
+                    }}
                     className={`flex-1 min-w-0 truncate text-[12.5px] ${i.done ? 'line-through text-[var(--ink-40)]' : 'text-[var(--ink-90)]'}`}
                     title="Double-click to edit"
                   >
@@ -855,13 +866,13 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                   value={toDateInput(i.dueAt)}
                   onChange={(e) => {
                     const v = e.target.value
-                    patchItem(i.id, { dueAt: v ? new Date(`${v}T12:00:00`).getTime() : null })
+                    patchItem(i.id, { dueAt: v ? new Date(`${v}T12:00:00`).getTime() : null }, v ? `Set a due date on “${i.title}”` : `Clear the due date of “${i.title}”`)
                   }}
                   title="Due date"
                   className={`shrink-0 text-[10px] bg-transparent text-[var(--ink-50)] ${i.dueAt ? '' : 'opacity-0 group-hover:opacity-100'}`}
                 />
                 <button
-                  onClick={() => save({ items: model.items.filter((x) => x.id !== i.id) })}
+                  onClick={() => saveItems(modelRef.current.items.filter((x) => x.id !== i.id), `Delete “${i.title}”`, { toast: `Deleted “${i.title}”` })}
                   className="shrink-0 opacity-0 group-hover:opacity-100 text-[var(--ink-40)] hover:text-rose-600"
                   aria-label="Delete task"
                 >

@@ -1368,24 +1368,32 @@ export default function Canvas(): JSX.Element {
     const all = useWidgetStore.getState().widgets
     const sel = all.filter((w) => selectedIds.includes(w.id))
     if (sel.length === 0) return
-    const created = await Promise.all(
-      sel.map(async (w) =>
-        createWidget({
-          taskId: w.taskId,
-          kind: w.kind,
-          title: w.title,
-          // Each copy is a new work widget file; a table gets rows of its own.
-          content: await contentForIndependentCopy(w.kind, w.content),
-          x: w.x + 28,
-          y: w.y + 28,
-          width: w.width,
-          height: w.height,
-          color: w.color,
-          sourceAppId: w.sourceAppId,
-          mode: w.mode
-        })
+    // One step on ⌘Z for the whole duplicate, not one per copy.
+    const hist = useActionHistory.getState()
+    hist.beginBatch()
+    let created: Awaited<ReturnType<typeof createWidget>>[] = []
+    try {
+      created = await Promise.all(
+        sel.map(async (w) =>
+          createWidget({
+            taskId: w.taskId,
+            kind: w.kind,
+            title: w.title,
+            // Each copy is a new work widget file; a table gets rows of its own.
+            content: await contentForIndependentCopy(w.kind, w.content),
+            x: w.x + 28,
+            y: w.y + 28,
+            width: w.width,
+            height: w.height,
+            color: w.color,
+            sourceAppId: w.sourceAppId,
+            mode: w.mode
+          })
+        )
       )
-    )
+    } finally {
+      hist.endBatch(sel.length === 1 ? 'Duplicate a work widget' : `Duplicate ${sel.length} work widgets`)
+    }
     setSelection(created.map((w) => w.id))
   }, [selectedIds, createWidget, setSelection])
 
