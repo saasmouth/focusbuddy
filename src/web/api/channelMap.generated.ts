@@ -674,6 +674,7 @@ export const LISTEN_CHANNELS: Readonly<Record<string, string>> = {
   'mail.onNewMail': 'mail:newMail',
   'mdext.onIncomingPath': 'mdext:incoming-path',
   'meet.onIncomingRoom': 'meet:incoming-room',
+  'pastedFiles.onPaste': 'clipboard:pasteFiles',
   'share.onIncomingToken': 'share:incoming-token',
   'snippets.onChanged': 'snippets:changed',
   'tables.onRowsChanged': 'tables:rowsChanged',

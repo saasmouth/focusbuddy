@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { PASTE_FILES_EVENT, isTextField, pastedFilesOf } from '../../lib/pastedFiles'
+import { useNoticeStore } from '../../stores/notice'
 import { recordAction } from '../../stores/actionHistory'
 import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
@@ -65,8 +67,38 @@ export default function GalleryWidget({ widget }: { widget: Widget }): JSX.Eleme
     })
   }
 
+  // Pictures copied in Finder and pasted here join the gallery (lib/pastedFiles.ts).
+  // Listened for on the whole work widget, so a paste after a click anywhere on
+  // it lands here (the router sends it to the last click when nothing has
+  // focus). In its title field the ordinary paste runs.
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const addRef = useRef(add)
+  addRef.current = add
+  useEffect(() => {
+    const el = bodyRef.current?.closest('[data-widget-id]') ?? bodyRef.current
+    if (!el) return
+    const on = (e: Event): void => {
+      if (isTextField(e.target as Element)) return
+      const files = pastedFilesOf(e)
+      const pictures = files.filter((f) => f.type.startsWith('image/'))
+      if (!pictures.length) return
+      e.preventDefault()
+      e.stopPropagation()
+      void addRef.current(pictures)
+      // The rest are named, never dropped in silence.
+      const others = files.filter((f) => !f.type.startsWith('image/')).map((f) => `“${f.name}”`)
+      if (others.length) {
+        const list = others.length > 3 ? `${others.slice(0, 3).join(', ')} and ${others.length - 3} more` : others.join(', ')
+        useNoticeStore.getState().show({ text: `Not added to the gallery, which holds pictures: ${list}.`, icon: 'info' }, 8000)
+      }
+    }
+    el.addEventListener(PASTE_FILES_EVENT, on)
+    return () => el.removeEventListener(PASTE_FILES_EVENT, on)
+  }, [])
+
   const body = (
     <div
+      ref={bodyRef}
       // Finder pictures only. Anything else (a Files drag, a palette kind)
       // falls through to the desk; the desk no longer handles a drop twice, so
       // a gallery that claimed every drop would swallow them.

@@ -886,6 +886,22 @@ export interface ChatImage {
   name?: string
 }
 
+/**
+ * Files copied in Finder (or Explorer) and pasted into Plexii (main/pasteFiles.ts):
+ * main reads them off the pasteboard and hands their bytes to the page, which
+ * puts them where the paste was aimed (the assistant's tray, Files, the desk).
+ */
+export interface PastedFile {
+  name: string
+  mimeType: string
+  bytes: Uint8Array
+}
+export interface PastedFilesPayload {
+  files: PastedFile[]
+  /** Files that were copied but not read, with why (too large, a folder, unreadable). */
+  skipped: Array<{ name: string; reason: string }>
+}
+
 // A retrieved workspace document the assistant was grounded on. Slimmed from
 // the main process's WorkspaceSource: the renderer needs enough to label, order
 // and open a citation — not the full extracted body that went to the model.

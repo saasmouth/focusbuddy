@@ -29,6 +29,7 @@ import { MentionNode } from './MentionNode'
 import { MentionSuggestion, type MentionSuggestionHooks } from './MentionSuggestion'
 import { docToInput } from '../../lib/mentionDoc'
 import { linesSlice, pastedPlainText, wantsPlainLines } from '../../lib/composerPaste'
+import { PASTE_FILES_EVENT, pastedFilesOf } from '../../lib/pastedFiles'
 
 interface Props {
   placeholder: string
@@ -111,6 +112,17 @@ export default function MentionComposer({
         event.preventDefault()
         view.dispatch(view.state.tr.replaceSelection(linesSlice(view.state.schema, text)).scrollIntoView())
         return true
+      },
+      // Files copied in Finder and pasted (main reads them: lib/pastedFiles.ts).
+      handleDOMEvents: {
+        [PASTE_FILES_EVENT]: (_view, event): boolean => {
+          const files = pastedFilesOf(event)
+          if (!files.length || !onFilesRef.current) return false
+          event.preventDefault()
+          event.stopPropagation()
+          onFilesRef.current(files)
+          return true
+        }
       },
       handleDrop: (_view, event): boolean => {
         const files = Array.from((event as DragEvent).dataTransfer?.files ?? [])

@@ -14,6 +14,7 @@
 // drag alternative, WCAG 2.5.7), Esc clears the search or closes the flyout.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PASTE_FILES_EVENT, isTextField, pastedFilesOf } from '../../lib/pastedFiles'
 import type { FileEntry } from '@shared/fields'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
@@ -381,11 +382,29 @@ export default function FilesPanel({
     }
   }
 
-  async function ingestInto(list: FileList, parent: string | null): Promise<void> {
+  async function ingestInto(list: ArrayLike<File>, parent: string | null): Promise<void> {
     const payloads: Array<{ buffer: ArrayBuffer; originalName: string; mimeType: string }> = []
     for (const f of Array.from(list)) payloads.push({ buffer: await f.arrayBuffer(), originalName: f.name, mimeType: f.type || 'application/octet-stream' })
     if (payloads.length) await ops().ingestBuffers(payloads, parent)
   }
+
+  // Files copied in Finder and pasted here are imported into the folder shown
+  // (lib/pastedFiles.ts). In a text field (a rename) the ordinary paste runs.
+  const pasteFilesRef = useRef<(files: File[]) => void>(() => undefined)
+  pasteFilesRef.current = (files) => void ingestInto(files, b.cwd)
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const on = (e: Event): void => {
+      const files = pastedFilesOf(e)
+      if (!files.length || isTextField(e.target as Element)) return
+      e.preventDefault()
+      e.stopPropagation()
+      pasteFilesRef.current(files)
+    }
+    el.addEventListener(PASTE_FILES_EVENT, on)
+    return () => el.removeEventListener(PASTE_FILES_EVENT, on)
+  }, [])
 
   const isGrid = view === 'grid'
 

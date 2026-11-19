@@ -154,7 +154,7 @@ export function filePathsFromFilenamesPlist(xml: string): string[] {
 }
 
 /** The copied files' paths, from every item's file URL or the filenames list. */
-async function copiedFilePaths(items: Electron.ClipboardItem[]): Promise<string[]> {
+export async function copiedFilePaths(items: Electron.ClipboardItem[]): Promise<string[]> {
   const paths: string[] = []
   const add = (ps: string[]): void => {
     for (const p of ps) if (!paths.includes(p)) paths.push(p)

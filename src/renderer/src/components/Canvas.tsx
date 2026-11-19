@@ -94,6 +94,7 @@ import { canCreateWidget } from '../lib/gating'
 import { useCapabilityStore } from '../stores/capabilities'
 import { promptUpgrade } from '../stores/upgradePrompt'
 import { useActionHistory } from '../stores/actionHistory'
+import { PASTE_FILES_EVENT, isTextField, pastedFilesOf } from '../lib/pastedFiles'
 import { computeAlign, computeDistribute, type AlignMode, type DistributeAxis } from '../lib/canvasAlign'
 import { computeSectionFrame, computeLayoutCells, effectiveLayout, SECTION_PADDING, SECTION_MIN_W, SECTION_MIN_H, sectionFrameOf } from '../lib/sectionGeometry'
 import { spawnPositionFor, workspaceSize } from '../lib/spawnPosition'
@@ -2122,6 +2123,68 @@ export default function Canvas(): JSX.Element {
     }
   }
 
+  // Files from the OS (dropped from Finder, or copied there and pasted): one
+  // file work widget per file, cascading from `at`, all of them one undo step.
+  // ingestBuffer, because Electron 32+ stripped File.path; reading via
+  // arrayBuffer is the supported path and works for any file size up to the
+  // renderer's memory budget.
+  async function placeOsFiles(files: File[], taskId: string, at: { x: number; y: number }): Promise<void> {
+    const entry = catalogFor('file')
+    const width = entry?.defaultWidth ?? 360
+    const height = entry?.defaultHeight ?? 280
+    let offset = 0
+    const hist = useActionHistory.getState()
+    hist.beginBatch()
+    try {
+      for (const f of files) {
+        const buffer = await f.arrayBuffer()
+        const ingested = await window.api.files.ingestBuffer({
+          buffer,
+          originalName: f.name,
+          mimeType: f.type || 'application/octet-stream'
+        })
+        await createWidget({
+          taskId,
+          kind: 'file',
+          title: f.name,
+          content: ingested.id,
+          x: Math.round(at.x - width / 2 + offset),
+          y: Math.round(at.y - 20 + offset),
+          width,
+          height,
+          color: null
+        })
+        offset += 24 // cascade subsequent files slightly so they don't stack exactly
+      }
+    } finally {
+      hist.endBatch(files.length === 1 ? `Add “${files[0].name}”` : `Add ${files.length} files`)
+    }
+  }
+  // Files copied in Finder and pasted with focus on the desk (not in a field,
+  // and not taken by the assistant, Files or a gallery): placed at the middle
+  // of the view, as a drop there would (lib/pastedFiles.ts).
+  const placeOsFilesRef = useRef(placeOsFiles)
+  placeOsFilesRef.current = placeOsFiles
+  const pasteAtRef = useRef<() => { taskId: string; at: { x: number; y: number } } | null>(() => null)
+  pasteAtRef.current = () => {
+    const el = dropRef.current
+    if (!el || !el.isConnected || !activeTaskId) return null
+    const rect = el.getBoundingClientRect()
+    return { taskId: activeTaskId, at: screenToCanvas(rect.width / 2, rect.height / 2) }
+  }
+  useEffect(() => {
+    const on = (e: Event): void => {
+      if (e.defaultPrevented || isTextField(e.target as Element)) return
+      const files = pastedFilesOf(e)
+      const where = pasteAtRef.current()
+      if (!files.length || !where) return
+      e.preventDefault()
+      void placeOsFilesRef.current(files, where.taskId, where.at)
+    }
+    document.addEventListener(PASTE_FILES_EVENT, on)
+    return () => document.removeEventListener(PASTE_FILES_EVENT, on)
+  }, [])
+
   async function handleDrop(e: React.DragEvent<HTMLDivElement>): Promise<void> {
     // Something inside the desk already took this drop: an embedded editor
     // (PlexiiWrite's native drop listener inserts the embed and calls
@@ -2159,32 +2222,7 @@ export default function Canvas(): JSX.Element {
     if (e.dataTransfer.files.length > 0 && activeTaskId) {
       e.preventDefault()
       const rect = e.currentTarget.getBoundingClientRect()
-      const cursor = screenToCanvas(e.clientX - rect.left, e.clientY - rect.top)
-      const entry = catalogFor('file')
-      const width = entry?.defaultWidth ?? 360
-      const height = entry?.defaultHeight ?? 280
-      let offset = 0
-      const filesArray = Array.from(e.dataTransfer.files)
-      for (const f of filesArray) {
-        const buffer = await f.arrayBuffer()
-        const ingested = await window.api.files.ingestBuffer({
-          buffer,
-          originalName: f.name,
-          mimeType: f.type || 'application/octet-stream'
-        })
-        await createWidget({
-          taskId: activeTaskId,
-          kind: 'file',
-          title: f.name,
-          content: ingested.id,
-          x: Math.round(cursor.x - width / 2 + offset),
-          y: Math.round(cursor.y - 20 + offset),
-          width,
-          height,
-          color: null
-        })
-        offset += 24 // cascade subsequent drops slightly so they don't stack exactly
-      }
+      await placeOsFiles(Array.from(e.dataTransfer.files), activeTaskId, screenToCanvas(e.clientX - rect.left, e.clientY - rect.top))
       return
     }
     // Dragged Connected App from sidebar → spawn a webview widget bound to it.

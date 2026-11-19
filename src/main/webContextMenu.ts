@@ -18,6 +18,9 @@ import { MENU } from '@shared/menus/lexicon'
 import type { ShortcutKeys } from '@shared/menus/shortcuts'
 import { editableFieldItems, type EditableFieldItemId } from '@shared/menus/editableField'
 import type { DeskTarget, WebMenuCommand } from '@shared/webMenu'
+import { mimeFromExt } from '@shared/mimeFromExt'
+import { readPicked } from './drawImport'
+import { pasteInto } from './pasteFiles'
 import { DEFAULT_TEXT_MENU_CAPS, TEXT_MENU_CHANNEL, TEXT_MENU_QUERY, type TextMenuCaps, type TextMenuCommand, type TextMenuQueryResult } from '@shared/textMenu'
 
 export type { DeskTarget, WebMenuCommand }
@@ -549,7 +552,8 @@ function run(contents: WebContents, id: WebMenuAction, p: ContextMenuParams): vo
       contents.copy()
       return
     case 'paste':
-      contents.paste()
+      // Files copied in Finder paste as the files into the app's own pages (pasteFiles.ts).
+      void pasteInto(contents, { read: readPicked, mimeOf: mimeFromExt })
       return
     case 'paste-plain':
       contents.pasteAndMatchStyle()
