@@ -53,6 +53,7 @@ import VerifyEmailModal from './components/VerifyEmailModal'
 import InviteTeammateNudge from './components/InviteTeammateNudge'
 import GrowthEffects from './components/GrowthEffects'
 import FirstRunOnboarding from './components/FirstRunOnboarding'
+import { receiveAuthHandoff } from './lib/authHandoff'
 import OnboardingTour from './components/onboarding/OnboardingTour'
 import FeatureSpotlightPopup from './components/onboarding/FeatureSpotlightPopup'
 import OnboardingHub from './components/onboarding/OnboardingHub'
@@ -86,7 +87,7 @@ import CompletionToast from './components/CompletionToast'
 import NoticeToast from './components/NoticeToast'
 import GuestCaptureBar from './components/GuestCaptureBar'
 import MissedTriagePrompt from './components/MissedTriagePrompt'
-import { PromptDialogHost, confirmDialog } from './components/plexi/PromptDialog'
+import { PromptDialogHost } from './components/plexi/PromptDialog'
 import { DocHistoryPanelHost } from './components/documents/DocHistoryPanel'
 import { SnippetSessionHost } from './components/snippets/SnippetSessionHost'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
@@ -336,30 +337,18 @@ export default function App(): JSX.Element {
     void loadMailAccount()
   }, [loadMailAccount])
 
-  // Web→desktop auth handoff. The brochure sign-in flow at www.plexiidesk.com/account/*
-  // produces a session token, then deep-links to plexii://auth?token=...
-  // which main forwards over IPC. We adopt the token here.
+  // Web→desktop auth handoff (haptyx://auth?token=..., forwarded by main). Any
+  // page can open such a link, so only a sign-in THIS app started is adopted
+  // without a question; every other one, a cold launch included, is asked
+  // about, naming the account the server says the token is (lib/authHandoff.ts).
+  // The cold-launch path used to adopt silently, as "the user's own login
+  // returning": a link that launches the app is no such proof (2026-11-20).
   useEffect(() => {
     let detach: (() => void) | null = null
     async function consumeAndSubscribe(): Promise<void> {
       const pending = await window.api.auth.getPending()
-      if (pending) await adoptHandoff({ sessionToken: pending.sessionToken, email: pending.email })
-      // A plexii://auth deep link can be triggered by ANY website while the app
-      // is open, so a live incoming token is a forced-login (session-fixation)
-      // vector. Require an explicit confirmation naming the account before
-      // adopting it. The startup getPending path above is the user's own
-      // just-completed login returning focus, so it stays friction-free.
-      detach = window.api.auth.onIncomingToken((handoff) => {
-        void confirmDialog({
-          title: 'Sign in to PlexiiDesk?',
-          body: handoff.email
-            ? `A sign-in link wants to log this app in as ${handoff.email}. Only continue if you just started this sign-in.`
-            : 'A sign-in link wants to log this app in. Only continue if you just started this sign-in.',
-          confirmLabel: 'Sign in'
-        }).then((ok) => {
-          if (ok) void adoptHandoff({ sessionToken: handoff.sessionToken, email: handoff.email })
-        })
-      })
+      if (pending) void receiveAuthHandoff(pending, adoptHandoff)
+      detach = window.api.auth.onIncomingToken((handoff) => void receiveAuthHandoff(handoff, adoptHandoff))
     }
     void consumeAndSubscribe()
     return () => { detach?.() }

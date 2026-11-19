@@ -2977,13 +2977,17 @@ const api = {
       email: string | null
       handle: string | null
       origin: 'open-url' | 'argv' | 'second-instance'
+      startedHere: boolean
     } | null> => ipcRenderer.invoke('auth:get-pending'),
+    /** The one-time state for a sign-in this app is starting; add it to the URL it opens. */
+    beginSignIn: (): Promise<string> => ipcRenderer.invoke('auth:begin-sign-in'),
     onIncomingToken: (
       cb: (handoff: {
         sessionToken: string
         email: string | null
         handle: string | null
         origin: 'open-url' | 'argv' | 'second-instance'
+        startedHere: boolean
       }) => void
     ): (() => void) => {
       const handler = (_: unknown, handoff: {
@@ -2991,6 +2995,7 @@ const api = {
         email: string | null
         handle: string | null
         origin: 'open-url' | 'argv' | 'second-instance'
+        startedHere: boolean
       }): void => cb(handoff)
       ipcRenderer.on('auth:incoming-token', handler)
       return () => ipcRenderer.removeListener('auth:incoming-token', handler)

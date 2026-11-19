@@ -30,6 +30,12 @@ export interface PromptRequest {
   alertOnly?: boolean
   /** Styles the confirm button red for destructive confirms. */
   danger?: boolean
+  /**
+   * Cancel is the default answer: it takes the first focus, and Enter anywhere
+   * but on the confirm button cancels. For a question someone else can trigger,
+   * such as a sign-in link ("Sign in to Plexii as <account>?").
+   */
+  cancelIsDefault?: boolean
   /** List-picker mode: render these as option buttons; clicking one resolves its
    * value (no text field, no confirm button). Cancel/Escape still resolve null. */
   choices?: Array<PromptChoice>
@@ -84,13 +90,16 @@ export function confirmDialog(req: {
   body?: string
   confirmLabel?: string
   danger?: boolean
+  /** See PromptRequest.cancelIsDefault. */
+  cancelIsDefault?: boolean
 }): Promise<boolean> {
   return promptText({
     title: req.title,
     label: req.body,
     confirmLabel: req.confirmLabel ?? 'Confirm',
     confirmOnly: true,
-    danger: req.danger
+    danger: req.danger,
+    cancelIsDefault: req.cancelIsDefault
   }).then((v) => v !== null)
 }
 
@@ -130,6 +139,7 @@ export function PromptDialogHost(): JSX.Element | null {
   const settle = usePromptStore((s) => s.settle)
   const [value, setValue] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const fieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
 
   // Reset the draft each time a new request arrives.
@@ -141,6 +151,10 @@ export function PromptDialogHost(): JSX.Element | null {
   // mode has no field, so the panel itself takes focus for Enter/Escape.
   useEffect(() => {
     if (!req) return
+    if (req.cancelIsDefault && cancelRef.current) {
+      cancelRef.current.focus()
+      return
+    }
     if (req.confirmOnly || req.alertOnly || req.choices) {
       panelRef.current?.focus()
       return
@@ -164,9 +178,17 @@ export function PromptDialogHost(): JSX.Element | null {
       cancel()
       return
     }
+    // Enter on a focused button presses THAT button (its own behaviour). Caught
+    // here instead, Enter on a focused Cancel used to confirm.
+    if (e.key === 'Enter' && e.target instanceof HTMLButtonElement && panelRef.current?.contains(e.target)) return
     // A list of choices has no default: Enter on a focused choice clicks it
     // (the button's own behaviour), and Enter elsewhere picks nothing.
     if (e.key === 'Enter' && req.choices) return
+    if (e.key === 'Enter' && req.cancelIsDefault) {
+      e.preventDefault()
+      cancel()
+      return
+    }
     if (e.key === 'Enter' && !(req.multiline && !e.metaKey && !e.ctrlKey)) {
       // Single-line: Enter confirms. Multiline: Cmd/Ctrl+Enter confirms.
       e.preventDefault()
@@ -253,6 +275,7 @@ export function PromptDialogHost(): JSX.Element | null {
         <div className="mt-3 flex items-center justify-end gap-2">
           {!req.alertOnly && (
             <button
+              ref={cancelRef}
               onClick={cancel}
               className="px-3 py-1.5 rounded-lg text-[13px] text-[var(--ink-70)] hover:bg-[var(--surface-sunken)]"
               data-testid="prompt-dialog-cancel"

@@ -6,6 +6,7 @@ import { useSignInPrompt } from '../stores/signInPrompt'
 import { useOnboarding } from '../stores/onboarding'
 import { signalConfig } from '../lib/signalConfig'
 import { forgotPasswordUrl, webAccountUrl } from '../lib/siteUrls'
+import { withSignInState } from '../lib/authHandoff'
 import { requestRestoreEmailCode } from '../lib/accountClient'
 import { useCapabilityStore, usePublicServerFeature, useServerFeature } from '../stores/capabilities'
 import Icon from './Icon'
@@ -853,7 +854,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
                   return
                 }
                 const url = `${signalConfig.httpUrl.replace(/\/+$/, '')}/auth/sso/start?domain=${encodeURIComponent(domain)}`
-                void window.api.files.openExternal(url)
+                // The one-time state lets the link back sign in without a
+                // question (lib/authHandoff.ts).
+                void withSignInState(url).then((u) => window.api.files.openExternal(u))
               }}
               data-testid="signin-sso"
               className="w-full text-[12px] text-accent hover:underline py-1"
@@ -868,7 +871,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
               <button
                 type="button"
                 onClick={() =>
-                  void window.api.files.openExternal(webAccountUrl(mode, email))
+                  void withSignInState(webAccountUrl(mode, email)).then((u) => window.api.files.openExternal(u))
                 }
                 className="text-[11px] text-stone-400 hover:text-stone-100 transition-colors"
                 data-testid="account-required-note"

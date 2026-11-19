@@ -49,6 +49,12 @@ export async function launchApp(opts?: {
   /** See the worktree's staged on-device models (default: only specs named in _bundledModels.ts). */
   bundledModels?: boolean
   /**
+   * Runs after the net guard's routes are in place and BEFORE the first window
+   * loads, so a spec's own context routes answer requests the first document
+   * makes (a cold launch from a deep link asks the server at once).
+   */
+  beforeFirstWindow?: (app: ElectronApplication) => Promise<void>
+  /**
    * Let this app reach the machine's real clipboard. Only for the opt-in native
    * specs (real input or the real pasteboard, under the real-input lock);
    * everything else uses the test's own clipboard (_clipboardStub.ts), and the
@@ -94,7 +100,7 @@ export async function launchApp(opts?: {
       ...(opts?.env ?? {})
     },
     timeout: 20_000
-  }, { selfTest: opts?.netGuardSelfTest, bundledModels: opts?.bundledModels, realClipboard: opts?.realClipboard })
+  }, { selfTest: opts?.netGuardSelfTest, bundledModels: opts?.bundledModels, realClipboard: opts?.realClipboard, beforeFirstWindow: opts?.beforeFirstWindow })
   // Forward main-process stdout/stderr to test stdout so debugging "page
   // closed" failures actually shows the real Electron error.
   app.process().stdout?.on('data', (b) => process.stdout.write(`[main] ${b}`))

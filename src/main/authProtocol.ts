@@ -9,7 +9,10 @@
 //   4. macOS routes that URL to this app (or launches it first), and the
 //      handlers below capture the token and forward it to the renderer
 //      over IPC as the `auth:incoming-token` event.
-//   5. The renderer stores the session and treats the user as signed in.
+//   5. The renderer stores the session, but only without a question when the
+//      link brought back the state of a sign-in THIS app started
+//      (signInNonce.ts). Any other link is asked about first, naming the
+//      account the server says the token belongs to (App.tsx).
 //
 // Two entry points to handle:
 //   - "open-url" event (the user clicks the link while the app is running)
@@ -28,6 +31,7 @@ import { parseDeskHandoffLink } from '@shared/deskHandoff'
 import { receiveDeskHandoff } from './deskHandoffReceiver'
 import { parseLiteRoomLink } from '@shared/liteRoom'
 import { receiveLiteRoom } from './liteRoomReceiver'
+import { consumeSignInNonce } from './signInNonce'
 
 // Named in shared/deepLink.ts, because the renderer generates these links too
 // and the two must not drift. See that file for why both schemes are answered
@@ -37,10 +41,17 @@ const hasKnownScheme = isKnownDeepLinkProtocol
 
 export interface AuthHandoff {
   sessionToken: string
+  /** What the LINK claims. Anyone can write a link: never shown, never trusted. */
   email: string | null
   handle: string | null
   // Where the auth came from — useful for analytics + debug.
   origin: 'open-url' | 'argv' | 'second-instance'
+  /**
+   * Decided here, never read from the URL: the link brought back a state this
+   * app made for a sign-in it started (signInNonce.ts), unused and unexpired.
+   * Only then may the renderer adopt it without asking.
+   */
+  startedHere: boolean
 }
 
 let pending: AuthHandoff | null = null
@@ -51,7 +62,7 @@ let pendingShareToken: string | null = null
 // same drain-on-ready pattern.
 let pendingMeetRoom: string | null = null
 
-function parseDeepLinkUrl(url: string): Omit<AuthHandoff, 'origin'> | null {
+function parseDeepLinkUrl(url: string): (Omit<AuthHandoff, 'origin' | 'startedHere'> & { state: string | null }) | null {
   try {
     const parsed = new URL(url)
     if (!hasKnownScheme(parsed.protocol)) return null
@@ -62,7 +73,8 @@ function parseDeepLinkUrl(url: string): Omit<AuthHandoff, 'origin'> | null {
     return {
       sessionToken: token,
       email: parsed.searchParams.get('email'),
-      handle: parsed.searchParams.get('handle')
+      handle: parsed.searchParams.get('handle'),
+      state: parsed.searchParams.get('state')
     }
   } catch {
     return null
@@ -208,7 +220,11 @@ function broadcast(handoff: AuthHandoff) {
 function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
   const parsed = parseDeepLinkUrl(url)
   if (parsed) {
-    broadcast({ ...parsed, origin })
+    const { state, ...handoff } = parsed
+    // Any page can open this link. Only a sign-in this app started (its state
+    // comes back) is adopted without a question; the renderer asks about the
+    // rest, naming the account the server says the token is.
+    broadcast({ ...handoff, origin, startedHere: consumeSignInNonce(state) })
     return
   }
   // Also route share deep links (plexii://share?token=...) from the share

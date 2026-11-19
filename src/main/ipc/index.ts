@@ -103,6 +103,7 @@ import {
 import { join as pathJoin } from 'node:path'
 import { buildMeetingIcs } from '@shared/ics'
 import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeetRoom, consumePendingMdEditPath } from '../authProtocol'
+import { createSignInNonce } from '../signInNonce'
 import { clearDeskHandoff, importDeskHandoff, pendingDeskHandoff } from '../deskHandoffReceiver'
 import { askWithDialog, beginLiteRoom, clearLiteRoom, pendingLiteRoom } from '../liteRoomReceiver'
 import { offlineSignInEmail, rememberOfflineSignIn, verifyOfflineSignIn } from '../db/offlineSignIn'
@@ -3560,6 +3561,10 @@ export function registerIpcHandlers(): void {
   // running). Subsequent tokens arrive via the `auth:incoming-token`
   // event broadcast from authProtocol.ts.
   ipcMain.handle('auth:get-pending', () => consumePendingAuthHandoff())
+  // A sign-in this app is starting (the website's account page, SSO): its
+  // one-time state, which the link back must carry to be adopted without a
+  // question (signInNonce.ts).
+  ipcMain.handle('auth:begin-sign-in', () => createSignInNonce())
   // Same drain-pending pattern for a share deep link (plexii://share?token=...).
   ipcMain.handle('share:get-pending', () => consumePendingShareToken())
   ipcMain.handle('meet:get-pending', () => consumePendingMeetRoom())

@@ -160,6 +160,8 @@ export async function launchGuarded(
      * first window loads, and refuses any reach past the test's own clipboard.
      */
     realClipboard?: boolean
+    /** A spec's own setup between the guard's routes and the first window (launchApp's option). */
+    beforeFirstWindow?: (app: ElectronApplication) => Promise<void>
   } = {}
 ): Promise<{ app: ElectronApplication; guard: NetGuard }> {
   const spec = currentSpec()
@@ -299,6 +301,8 @@ export async function launchGuarded(
   // No page reaches the owner's clipboard unless the spec says so: the guard is
   // in place before the first window loads (_clipboardGuard.ts).
   if (!guardOptions.realClipboard) await installClipboardGuard(app)
+
+  if (guardOptions.beforeFirstWindow) await guardOptions.beforeFirstWindow(app)
 
   // Only now may the app create its first window.
   const was = await app.evaluate(() => {
