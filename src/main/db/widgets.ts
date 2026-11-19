@@ -406,7 +406,9 @@ export function deleteWidget(id: string): boolean {
 
 export function restoreWidget(id: string): boolean {
   const db = getDb()
-  const result = db.prepare('UPDATE widgets SET trashed_at = NULL WHERE id = ?').run(id)
+  // A restore is a change: it stamps updated_at, so a delete another device made
+  // before it is recognised as older and never applied over it.
+  const result = db.prepare('UPDATE widgets SET trashed_at = NULL, updated_at = ? WHERE id = ?').run(Date.now(), id)
   if (result.changes > 0) {
     pokeChunkIndex(id) // restored content is retrievable again
     // A widget trashed before it could become a file (the backfill skips the

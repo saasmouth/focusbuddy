@@ -66,10 +66,20 @@ function normalizeIfWorkItem(
 }
 
 /** F010 — the 409-loop fix: after a conflict where server-wins apply may have
- *  no-opped (echo-suppression on a desynced local rev), floor the local
- *  sync_rev to the server's so the next push carries an acceptable baseRev.
- *  A genuinely newer local edit then re-pushes ONCE and wins; without this, a
- *  conflicted row is permanently unroutable with no signal.
+ *  no-opped (echo-suppression on a desynced local rev), set the local sync_rev
+ *  to the server's so the next push carries an acceptable baseRev. A genuinely
+ *  newer local edit then re-pushes ONCE and wins; without this, a conflicted row
+ *  is permanently unroutable with no signal.
+ *
+ *  It SETS, not floors (2026-11-19). A row can hold a rev from another scope
+ *  above this one's: production had four shared-desk rows at 49, 68, 9 and 10
+ *  (the owner's personal revs, a team's revs after a move) against shared revs
+ *  1, 2, 5 and 7, refused with 409 every 20 s for weeks. A floor never lowered
+ *  them, the apply was skipped as "not newer", and the same stale baseRev went
+ *  out every cycle. After a 409 the server's rev IS this row's rev in the scope
+ *  that answered (each row pushes through exactly one scope: see the
+ *  shared_root_id guards in the collectors), so settling to it is always right.
+ *  Writing sync_rev never trips the *_mark_dirty triggers.
  *  [PLEXI-UPSTREAM] flagged with the wake-coalescing fix. */
 export function advanceBaseRevCore(
   d: { prepare(sql: string): { run(...a: unknown[]): unknown } },
@@ -78,10 +88,7 @@ export function advanceBaseRevCore(
   rev: number
 ): void {
   if (!Number.isFinite(rev)) return
-  // A floor, never a rewind: a local rev already at/above the server's stays.
-  d.prepare(
-    `UPDATE ${table} SET sync_rev = ? WHERE id = ? AND (sync_rev IS NULL OR sync_rev < ?)`
-  ).run(rev, id, rev)
+  d.prepare(`UPDATE ${table} SET sync_rev = ? WHERE id = ? AND (sync_rev IS NULL OR sync_rev <> ?)`).run(rev, id, rev)
 }
 
 export function advanceBaseRev(itemType: string, id: string, rev: number): void {
@@ -112,6 +119,59 @@ const TABLE: Record<ItemType, SyncTable> = {
   table: 'fb_tables',
   row: 'fb_rows',
   file: 'fb_files'
+}
+
+// ── Writes that arrived over the CRDT channel never re-push ──────────────────
+// The renderer's CRDT engine (renderer/src/lib/crdtSync.ts) applies other
+// devices' events through the same IPC writes a person's own edit uses, and those
+// writes mark the row dirty (new rows default needs_sync = 1; the *_mark_dirty
+// triggers flag a clean row on any content update). The poll then pushed the
+// replayed row back, and up to 4.3.50 that was destructive (found 2026-11-19):
+//
+//   - a row the replay created had sync_rev 0, so it went up with no baseRev —
+//     a force-write over the live server copy, or a tombstone brought back;
+//   - a replayed delete trashed a row restored since (restores emitted no CRDT
+//     event), and the push sent a DELETE that tombstoned it for every device.
+//
+// Every kind that rides the CRDT channel AND the poll (node, widget, timeblock,
+// table, row, file, document) is also pushed by the device that made the change:
+// its own write is dirty in its own database until its own poll pushes it. A
+// receiver re-pushing it adds nothing but risk, so a write made with origin
+// 'sync' leaves every row it touched exactly as clean as it found it. A row that
+// was already dirty (a local edit not yet pushed) stays dirty, so that edit still
+// goes up. The poll's pull then brings the server copy at its real rev.
+//
+// The write must be synchronous (every IPC write here is: better-sqlite3), which is
+// what makes "rows that became dirty during the write" exactly the rows this write
+// touched: no other handler can run in the middle of it.
+const SYNC_TABLES: readonly SyncTable[] = Object.values(TABLE)
+
+function dirtyIds(table: SyncTable): Set<string> {
+  const rows = getDb().prepare(`SELECT id FROM ${table} WHERE needs_sync = 1`).all() as Array<{ id: string }>
+  return new Set(rows.map((r) => r.id))
+}
+
+export function asSyncApply<T>(write: () => T): T {
+  const before = SYNC_TABLES.map(dirtyIds)
+  const out = write()
+  if (out && typeof (out as { then?: unknown }).then === 'function') {
+    // Not reachable today; if a write ever turns async, say so loudly rather than
+    // cleaning rows another handler may have touched in the meantime.
+    // eslint-disable-next-line no-console
+    console.error('[sync] asSyncApply was given an async write; its rows keep their dirty flag')
+    return out
+  }
+  const db = getDb()
+  SYNC_TABLES.forEach((table, i) => {
+    const clean = db.prepare(`UPDATE ${table} SET needs_sync = 0 WHERE id = ?`)
+    for (const id of dirtyIds(table)) if (!before[i].has(id)) clean.run(id)
+  })
+  return out
+}
+
+/** Run `write` as a sync apply when it came over the CRDT channel. */
+export function byOrigin<T>(origin: unknown, write: () => T): T {
+  return origin === 'sync' ? asSyncApply(write) : write()
 }
 
 // fb_files rows that are pointers to internal documents (kind 'doc') are NOT

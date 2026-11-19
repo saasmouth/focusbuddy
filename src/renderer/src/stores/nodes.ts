@@ -8,6 +8,7 @@ import {
   crdtEmitNodeParent,
   crdtEmitNodeCreate,
   crdtEmitNodeDelete,
+  crdtEmitNodeRestore,
   crdtEmitNodeAttrs
 } from '../lib/crdtBridge'
 import { taskComplete } from '../lib/audioBeep'
@@ -152,12 +153,17 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     let trashed: string[] = [node.id]
     recordAction({
       label: `Create ${node.kind}`,
+      // Both directions tell the other devices (the CRDT channel), not only the
+      // poll: an undo that only reached the poll left the log saying "created",
+      // and up to 4.3.50 a sign-in replay brought the desk back.
       undo: async () => {
         trashed = await window.api.nodes.delete(node.id)
+        crdtEmitNodeDelete(trashed)
         await get().refresh()
       },
       redo: async () => {
         await window.api.nodes.restore(trashed)
+        crdtEmitNodeRestore(trashed)
         await get().refresh()
       }
     })
@@ -250,12 +256,15 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     if (ids.length) {
       recordActionWithToast({
         label: `Delete ${target?.kind ?? 'item'}${target?.title ? ` “${target.title}”` : ''}`,
+        // A restore emits too: without it the log ended "delete" and every
+        // sign-in replay deleted the desk again for everyone (4.3.50 and before).
         undo: async () => {
           await window.api.nodes.restore(ids)
+          crdtEmitNodeRestore(ids)
           await get().refresh()
         },
         redo: async () => {
-          await window.api.nodes.delete(id)
+          crdtEmitNodeDelete(await window.api.nodes.delete(id))
           await get().refresh()
         }
       })
@@ -287,10 +296,11 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
       label: `Delete ${targets.length} item${targets.length === 1 ? '' : 's'}`,
       undo: async () => {
         await window.api.nodes.restore(allIds)
+        crdtEmitNodeRestore(allIds)
         await get().refresh()
       },
       redo: async () => {
-        for (const root of rootIds) await window.api.nodes.delete(root)
+        for (const root of rootIds) crdtEmitNodeDelete(await window.api.nodes.delete(root))
         await get().refresh()
       }
     })

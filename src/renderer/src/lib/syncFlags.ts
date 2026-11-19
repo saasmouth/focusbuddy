@@ -140,6 +140,30 @@ export function liveFolderPartition(folderId: string): string {
   return `lfe:folder:${folderId}`
 }
 
+// Whether a partition's JOIN BACKLOG (the crdtSync frame a join answers with) is
+// applied. Only for the two kinds that reach a device through nothing else: widget
+// links (`l:`; widget_links has no poll at all) and live-folder entries (`lfe:`;
+// the CRDT log IS their durable store). Every other kind (widgets `w:`, nodes `n:`,
+// rows and tables `r:`, time blocks `t:`, files `f:`, documents `d:`, in every
+// scope) is also pushed by the device that made the change and pulled by the
+// poll, so its backlog adds nothing a device does not get anyway, and up to 4.3.50
+// applying it destroyed data on every sign-in (old creates force-written over live
+// rows, tombstones brought back, desks restored with Undo deleted again). Live
+// events (crdtEvent) still apply for every kind. The signal server sends these
+// backlogs empty since v169; this keeps the client safe against any server.
+export function joinBacklogApplies(partitionKey: string): boolean {
+  return partitionKey.startsWith('l:') || partitionKey.startsWith('lfe:')
+}
+
+// Whether a delete that arrived over the CRDT channel is OLDER than the local row
+// (restored or edited after the delete was made) and so must not be applied.
+// Restores and edits stamp updated_at; the event carries the deleting device's
+// clock. Skipping is safe whichever way the clocks lean: a skipped delete that was
+// really newer still arrives through the poll's tombstone.
+export function remoteDeleteIsStale(localUpdatedAt: number | null | undefined, eventTs: number): boolean {
+  return typeof localUpdatedAt === 'number' && Number.isFinite(eventTs) && localUpdatedAt > eventTs
+}
+
 // The partition SCOPE suffix for the currently-active workspace. The renderer is
 // single-org-at-a-time, so this alone routes every object correctly: a real active
 // org → `org:<orgId>` (all members converge), otherwise the account's own devices →

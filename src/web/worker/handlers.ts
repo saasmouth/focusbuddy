@@ -90,7 +90,7 @@ import {
   applyRemote, applyRemoteOrg, applyRemoteShared, advanceBaseRev,
   getSyncCursor, setSyncCursor, getSyncCursorOrg, setSyncCursorOrg,
   getSyncCursorShared, setSyncCursorShared, stampSharedDesk, adoptSharedDesk,
-  pruneSharedDesk, listLocalSharedRoots
+  pruneSharedDesk, listLocalSharedRoots, byOrigin
 } from '../../main/db/workspaceSync'
 import { createConversation as createAiChatConversation, setConversationMode as setAiChatConversationMode, appendMessage as appendAiChatMessage, deleteConversation as deleteAiChatConversation, getConversation as getAiChatConversation, linkDesk as linkAiChatDesk, listConversations as listAiChatConversations, setConversationWebSearch as setAiChatConversationWebSearch, setMessageApplied as setAiChatMessageApplied } from '../../main/db/aiChat'
 import { createApp, deleteApp, getApp, listApps, updateApp } from '../../main/db/apps'
@@ -153,11 +153,11 @@ export const HANDLERS: Record<string, Handler> = {
   // ── nodes ────────────────────────────────────────────────────────────────
   'nodes:list': h(() => listNodes()),
   'nodes:get': h((id: string) => getNode(id)),
-  'nodes:create': h((draft: never, _origin?: string) => createNode(draft)),
-  'nodes:update': h((id: string, patch: never, _origin?: string) => updateNode(id, patch)),
-  'nodes:delete': h((id: string, _origin?: string) => deleteNode(id)),
+  'nodes:create': h((draft: never, origin?: string) => byOrigin(origin, () => createNode(draft))),
+  'nodes:update': h((id: string, patch: never, origin?: string) => byOrigin(origin, () => updateNode(id, patch))),
+  'nodes:delete': h((id: string, origin?: string) => byOrigin(origin, () => deleteNode(id))),
   'nodes:deletePermanent': h((id: string) => deleteNodePermanent(String(id || ''))),
-  'nodes:restore': h((ids: string[]) => restoreNodes(ids)),
+  'nodes:restore': h((ids: string[], origin?: string) => byOrigin(origin, () => restoreNodes(ids))),
   'nodes:listTrash': h(() => listTrash()),
   'nodes:restoreTree': h((rootId: string) => restoreTree(rootId)),
   'nodes:moveToOrg': h((id: string, orgId: string, teamId?: string | null) =>
@@ -167,24 +167,24 @@ export const HANDLERS: Record<string, Handler> = {
   'widgets:get': h((id: string) => getWidget(id)),
   'widgets:listByTask': h((taskId: string) => listWidgetsByTask(taskId)),
   'widgets:listByKind': h((kind: never) => listWidgetsByKind(kind)),
-  'widgets:create': h((draft: never, _origin?: string) => createWidget(draft)),
+  'widgets:create': h((draft: never, origin?: string) => byOrigin(origin, () => createWidget(draft))),
   'widgets:createOptional': h((draft: never) => createWidgetIfTaskExists(draft)),
-  'widgets:update': h((id: string, patch: never, _origin?: string) => updateWidget(id, patch)),
-  'widgets:delete': h((id: string, _origin?: string) => deleteWidget(id)),
-  'widgets:restore': h((id: string) => restoreWidget(id)),
+  'widgets:update': h((id: string, patch: never, origin?: string) => byOrigin(origin, () => updateWidget(id, patch))),
+  'widgets:delete': h((id: string, origin?: string) => byOrigin(origin, () => deleteWidget(id))),
+  'widgets:restore': h((id: string, origin?: string) => byOrigin(origin, () => restoreWidget(id))),
   'widgets:bringToFront': h((id: string) => bringToFront(id)),
   'widgets:countsByTask': h((taskIds: string[]) => widgetCountsByTask(taskIds)),
 
   // ── tables ───────────────────────────────────────────────────────────────
   'tables:list': h(() => listTables()),
   'tables:get': h((id: string) => getTable(id)),
-  'tables:create': h((draft: never) => createTable(draft)),
-  'tables:update': h((id: string, patch: never) => updateTable(id, patch)),
-  'tables:delete': h((id: string) => deleteTable(id)),
+  'tables:create': h((draft: never, origin?: string) => byOrigin(origin, () => createTable(draft))),
+  'tables:update': h((id: string, patch: never, origin?: string) => byOrigin(origin, () => updateTable(id, patch))),
+  'tables:delete': h((id: string, origin?: string) => byOrigin(origin, () => deleteTable(id))),
   'tables:listRows': h((tableId: string) => listRows(tableId)),
-  'tables:createRow': h((draft: never) => createRow(draft)),
-  'tables:updateRow': h((id: string, patch: never) => updateRow(id, patch)),
-  'tables:deleteRow': h((id: string) => deleteRow(id)),
+  'tables:createRow': h((draft: never, origin?: string) => byOrigin(origin, () => createRow(draft))),
+  'tables:updateRow': h((id: string, patch: never, origin?: string) => byOrigin(origin, () => updateRow(id, patch))),
+  'tables:deleteRow': h((id: string, origin?: string) => byOrigin(origin, () => deleteRow(id))),
   'tables:restoreRow': h((id: string) => restoreRow(id)),
   'tables:reorderRows': h((tableId: string, ids: string[]) => reorderRows(tableId, ids)),
 
@@ -227,9 +227,9 @@ export const HANDLERS: Record<string, Handler> = {
   // ── documents ────────────────────────────────────────────────────────────
   'documents:list': h(() => listDocuments()),
   'documents:get': h((id: string) => getDocument(id)),
-  'documents:create': h((draft: never) => createDocument(draft)),
-  'documents:update': h((id: string, patch: { body?: unknown }, snapshotLabel?: string) => {
-    const doc = updateDocument(id, patch as never)
+  'documents:create': h((draft: never, origin?: string) => byOrigin(origin, () => createDocument(draft))),
+  'documents:update': h((id: string, patch: { body?: unknown }, snapshotLabel?: string, origin?: string) => {
+    const doc = byOrigin(origin, () => updateDocument(id, patch as never))
     // Version history, as on the desktop: a body save accrues a snapshot, and a
     // label bypasses the interval gate so the entry is distinguishable later.
     // Dropping the label would have lost "AI edit" from the history panel while
@@ -248,7 +248,7 @@ export const HANDLERS: Record<string, Handler> = {
       return res
     }
   ),
-  'documents:delete': h((id: string) => trashDocument(id)),
+  'documents:delete': h((id: string, origin?: string) => byOrigin(origin, () => trashDocument(id))),
   'documents:listTrashed': h(() => listTrashedDocuments()),
   'documents:restore': h((id: string) => restoreDocument(id)),
   'documents:purge': h((id: string) => deleteDocument(id)),
@@ -393,11 +393,11 @@ export const HANDLERS: Record<string, Handler> = {
   'fileManager:list': h((parentId: string | null) => listFileEntries(parentId)),
   'fileManager:get': h((id: string) => getFileEntry(id)),
   'fileManager:path': h((id: string | null) => fileFolderPath(id)),
-  'fileManager:createFolder': h((parentId: string | null, name: string, explicitId?: string) =>
-    createFileFolder(parentId, name, explicitId)),
-  'fileManager:rename': h((id: string, name: string) => renameFileEntry(id, name)),
-  'fileManager:move': h((id: string, newParentId: string | null) => moveFileEntry(id, newParentId)),
-  'fileManager:delete': h((id: string) => deleteFileEntry(id)),
+  'fileManager:createFolder': h((parentId: string | null, name: string, explicitId?: string, origin?: string) =>
+    byOrigin(origin, () => createFileFolder(parentId, name, explicitId))),
+  'fileManager:rename': h((id: string, name: string, origin?: string) => byOrigin(origin, () => renameFileEntry(id, name))),
+  'fileManager:move': h((id: string, newParentId: string | null, origin?: string) => byOrigin(origin, () => moveFileEntry(id, newParentId))),
+  'fileManager:delete': h((id: string, origin?: string) => byOrigin(origin, () => deleteFileEntry(id))),
   'fileManager:restore': h((ids: string[]) => restoreFileEntries(ids)),
   'fileManager:listTrashed': h(() => listTrashedFileEntries()),
   'fileManager:restoreDeep': h((id: string) => restoreFileEntryDeep(id)),
@@ -512,9 +512,9 @@ export const HANDLERS: Record<string, Handler> = {
     materializeRecurringBlocks()
     return listBlocksInRange(fromMs, toMs)
   }),
-  'timeblocks:create': h((draft: TimeBlockDraft) => createTimeBlock(draft)),
-  'timeblocks:delete': h((id: string, scope?: 'one' | 'series') => deleteTimeBlock(id, scope ?? 'one')),
-  'timeblocks:update': h((id: string, patch: TimeBlockPatch) => updateTimeBlock(id, patch)),
+  'timeblocks:create': h((draft: TimeBlockDraft, origin?: string) => byOrigin(origin, () => createTimeBlock(draft))),
+  'timeblocks:delete': h((id: string, scope?: 'one' | 'series', origin?: string) => byOrigin(origin, () => deleteTimeBlock(id, scope ?? 'one'))),
+  'timeblocks:update': h((id: string, patch: TimeBlockPatch, origin?: string) => byOrigin(origin, () => updateTimeBlock(id, patch))),
 
   // ── Signals: the arrival router's record of what came in ──
   'signals:record': h((input: { kind: string; targetKind?: string; targetRef?: string; payload?: string }) =>

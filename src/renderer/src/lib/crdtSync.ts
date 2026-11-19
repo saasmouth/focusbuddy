@@ -48,7 +48,9 @@ import {
   crdtScopeSuffix,
   crdtObjectScope,
   liveFolderPartition,
-  orgOfPartition
+  orgOfPartition,
+  joinBacklogApplies,
+  remoteDeleteIsStale
 } from './syncFlags'
 import type { Widget, FbNode, TimeBlock, FbDocument, WidgetLink, WireType } from '@shared/types'
 import { WORK_ITEM_COLUMNS } from '@shared/workItems'
@@ -370,6 +372,15 @@ function emitWidgetDelete(widgetId: string): void {
   recordLocal(ev, false)
   send(ev)
 }
+function emitWidgetRestore(widgetId: string): void {
+  if (!widgetPart) return
+  const pk = partitionFor('w', widgetSharedRoot(widgetId))
+  ensureDeskJoined(pk)
+  tombstoned.delete(widgetId)
+  const ev = mkEvent(pk, 'widget', widgetId, 'restore', 'set', { at: Date.now() })
+  recordLocal(ev, false)
+  send(ev)
+}
 
 function emitWidgetFields(
   widgetId: string,
@@ -451,6 +462,17 @@ function emitNodeDelete(nodeIds: string[]): void {
     ensureDeskJoined(pk)
     tombstoned.add(id)
     const ev = mkEvent(pk, 'node', id, 'delete', 'set', { at: Date.now() })
+    recordLocal(ev, false)
+    send(ev)
+  }
+}
+function emitNodeRestore(nodeIds: string[]): void {
+  if (!nodePart) return
+  for (const id of nodeIds) {
+    const pk = partitionFor('n', nodeSharedRoot(id))
+    ensureDeskJoined(pk)
+    tombstoned.delete(id)
+    const ev = mkEvent(pk, 'node', id, 'restore', 'set', { at: Date.now() })
     recordLocal(ev, false)
     send(ev)
   }
@@ -1123,7 +1145,10 @@ async function tryCreateWidget(snapshot: Record<string, unknown>): Promise<boole
   return true
 }
 
-async function applyWidgetDelete(id: string): Promise<void> {
+async function applyWidgetDelete(id: string, eventTs: number): Promise<void> {
+  // Never over a widget restored or edited after this delete was made.
+  const local = (await window.api.widgets.get(id).catch(() => null)) as { updatedAt?: number; trashedAt?: number | null } | null
+  if (local && !local.trashedAt && remoteDeleteIsStale(local.updatedAt, eventTs)) return
   tombstoned.add(id)
   try {
     await window.api.widgets.delete(id, 'sync') // soft-delete (recoverable), matches local remove()
@@ -1131,6 +1156,23 @@ async function applyWidgetDelete(id: string): Promise<void> {
     /* not present locally — the tombstone still guards against a later create */
   }
   deferUpdate(useWidgetStore, (s) => ({ widgets: s.widgets.filter((w) => w.id !== id) }))
+}
+
+// A widget brought back out of the trash on another device.
+async function applyWidgetRestore(id: string): Promise<void> {
+  tombstoned.delete(id)
+  try {
+    if (!(await window.api.widgets.restore(id, 'sync'))) return
+  } catch {
+    return // not on this device: the poll brings it
+  }
+  const w = (await window.api.widgets.get(id).catch(() => null)) as Widget | null
+  if (!w) return
+  deferUpdate(useWidgetStore, (s) =>
+    s.widgets.some((x) => x.taskId === w.taskId) && !s.widgets.some((x) => x.id === w.id)
+      ? { widgets: [...s.widgets, w] }
+      : {}
+  )
 }
 
 async function applyWidgetField(id: string, field: CrdtField, value: unknown): Promise<void> {
@@ -1174,7 +1216,7 @@ async function applyNodeParent(id: string, parentId: string | null): Promise<voi
   try {
     // move() is the validated reparent path (rejects cycles); beforeId null appends
     // at the end since sibling ordering isn't part of this slice.
-    await window.api.nodes.move(id, parentId, null)
+    await window.api.nodes.move(id, parentId, null, 'sync')
   } catch {
     /* rejected (cycle/missing) or not present locally — leave state as is */
   }
@@ -1240,7 +1282,10 @@ async function tryCreateNode(snapshot: Record<string, unknown>): Promise<boolean
   return true
 }
 
-async function applyNodeDelete(id: string): Promise<void> {
+async function applyNodeDelete(id: string, eventTs: number): Promise<void> {
+  // Never over a desk restored or edited after this delete was made.
+  const local = useNodeStore.getState().nodes.find((n) => n.id === id)
+  if (local && remoteDeleteIsStale(local.updatedAt, eventTs)) return
   // Router branch (§3 D1): a work_item delete event is its desk's trash sweep
   // propagating (§2.5.1) — soft-trash via the workItems path, never the
   // C2-guarded user delete, and never tombstoned (a purge on the origin
@@ -1266,6 +1311,21 @@ async function applyNodeDelete(id: string): Promise<void> {
   useNodeStore.setState((s) => ({ nodes: s.nodes.filter((n) => !removed.includes(n.id)) }))
 }
 
+// A desk or room brought back out of the trash on another device.
+async function applyNodeRestore(id: string): Promise<void> {
+  if (await isWorkItemId(id)) {
+    void window.api.workItems.applySyncEvent({ type: 'trash', id, trashed: false }).catch(() => {})
+    return
+  }
+  tombstoned.delete(id)
+  try {
+    await window.api.nodes.restore([id], 'sync')
+  } catch {
+    return // not on this device: the poll brings it
+  }
+  deferReload('nodes', () => void useNodeStore.getState().refresh())
+}
+
 async function applyNodeAttr(id: string, attr: string, value: unknown): Promise<void> {
   // Router branch (§3 D1): manifest attrs land through the workItems module
   // (projection recomputed main-side; a wire 'status' for a work_item is
@@ -1286,7 +1346,7 @@ async function applyNodeAttr(id: string, attr: string, value: unknown): Promise<
 
 async function applyCellToRow(rowId: string, column: string, value: unknown): Promise<void> {
   try {
-    await window.api.tables.updateRow(rowId, { cells: { [column]: value } })
+    await window.api.tables.updateRow(rowId, { cells: { [column]: value } }, 'sync')
   } catch {
     /* the row may not exist on this device yet (creation rides the poll) — the base
        write is skipped and the poll reconciles it; no data is lost */
@@ -1320,7 +1380,7 @@ async function tryCreateRow(snapshot: Record<string, unknown>): Promise<boolean>
   if (tombstoned.has(id)) return true
   let created: FbRow | null = null
   try {
-    created = await window.api.tables.createRow(snapshot as never)
+    created = await window.api.tables.createRow(snapshot as never, 'sync')
   } catch {
     return false // parent table not present yet — keep buffered
   }
@@ -1337,7 +1397,7 @@ async function tryCreateRow(snapshot: Record<string, unknown>): Promise<boolean>
 
 async function applyRowAttr(id: string, attr: string, value: unknown): Promise<void> {
   try {
-    await window.api.tables.updateRow(id, { [attr]: value } as never)
+    await window.api.tables.updateRow(id, { [attr]: value } as never, 'sync')
   } catch {
     /* not present locally — the poll reconciles it */
   }
@@ -1362,7 +1422,7 @@ async function applyRowAttr(id: string, attr: string, value: unknown): Promise<v
 async function applyRowDelete(id: string): Promise<void> {
   tombstoned.add(id)
   try {
-    await window.api.tables.deleteRow(id)
+    await window.api.tables.deleteRow(id, 'sync')
   } catch {
     /* not present locally — tombstone still guards a later create */
   }
@@ -1386,7 +1446,7 @@ function applyTableCreate(snapshot: Record<string, unknown>): void {
 async function tryCreateTable(snapshot: Record<string, unknown>): Promise<boolean> {
   if (tombstoned.has(snapshot.id as string)) return true
   try {
-    const created = await window.api.tables.create(snapshot as never)
+    const created = await window.api.tables.create(snapshot as never, 'sync')
     if (!created) return false
     deferUpdate(useTablesStore, (s) => ({ tables: { ...s.tables, [created.id]: created } }))
     return true
@@ -1398,7 +1458,7 @@ async function tryCreateTable(snapshot: Record<string, unknown>): Promise<boolea
 async function applyTableDelete(id: string): Promise<void> {
   tombstoned.add(id)
   try {
-    await window.api.tables.delete(id)
+    await window.api.tables.delete(id, 'sync')
   } catch {
     /* not present locally / no-op */
   }
@@ -1413,7 +1473,7 @@ async function applyTableDelete(id: string): Promise<void> {
 
 async function applyTableAttr(id: string, attr: string, value: unknown): Promise<void> {
   try {
-    await window.api.tables.update(id, { [attr]: value } as never)
+    await window.api.tables.update(id, { [attr]: value } as never, 'sync')
   } catch {
     /* not present locally — the poll reconciles it */
   }
@@ -1431,7 +1491,7 @@ async function applyTimeBlock(id: string, field: CrdtField, value: unknown): Pro
   else if (field === 'title') patch.title = value
   else if (field === 'status') patch.status = value
   try {
-    await window.api.timeBlocks.update(id, patch)
+    await window.api.timeBlocks.update(id, patch, 'sync')
   } catch {
     /* not present locally — the poll reconciles it */
   }
@@ -1442,8 +1502,8 @@ async function applyTimeBlock(id: string, field: CrdtField, value: unknown): Pro
 
 async function applyFile(id: string, field: CrdtField, value: unknown): Promise<void> {
   try {
-    if (field === 'name') await window.api.fileManager.rename(id, value as string)
-    else await window.api.fileManager.move(id, value as string | null)
+    if (field === 'name') await window.api.fileManager.rename(id, value as string, 'sync')
+    else await window.api.fileManager.move(id, value as string | null, 'sync')
   } catch {
     /* rejected or not present locally — the poll reconciles it */
   }
@@ -1458,7 +1518,7 @@ function applyTimeBlockCreate(snapshot: Record<string, unknown>): void {
 async function tryCreateTimeBlock(snapshot: Record<string, unknown>): Promise<boolean> {
   if (tombstoned.has(snapshot.id as string)) return true
   try {
-    await window.api.timeBlocks.create(snapshot as never)
+    await window.api.timeBlocks.create(snapshot as never, 'sync')
   } catch {
     return false // linked task not present yet — keep buffered
   }
@@ -1468,7 +1528,7 @@ async function tryCreateTimeBlock(snapshot: Record<string, unknown>): Promise<bo
 async function applyTimeBlockDelete(id: string): Promise<void> {
   tombstoned.add(id)
   try {
-    await window.api.timeBlocks.delete(id, 'one')
+    await window.api.timeBlocks.delete(id, 'one', 'sync')
   } catch {
     /* not present locally — tombstone still guards a later create */
   }
@@ -1486,7 +1546,8 @@ async function tryCreateFile(snapshot: Record<string, unknown>): Promise<boolean
     await window.api.fileManager.createFolder(
       (snapshot.parentId as string | null) ?? null,
       snapshot.name as string,
-      snapshot.id as string
+      snapshot.id as string,
+      'sync'
     )
   } catch {
     return false // parent folder not present yet — keep buffered
@@ -1497,7 +1558,7 @@ async function tryCreateFile(snapshot: Record<string, unknown>): Promise<boolean
 async function applyFileDelete(id: string): Promise<void> {
   tombstoned.add(id)
   try {
-    await window.api.fileManager.delete(id)
+    await window.api.fileManager.delete(id, 'sync')
   } catch {
     /* not present locally — tombstone still guards a later create */
   }
@@ -1512,7 +1573,7 @@ function applyDocumentCreate(snapshot: Record<string, unknown>): void {
 async function tryCreateDocument(snapshot: Record<string, unknown>): Promise<boolean> {
   if (tombstoned.has(snapshot.id as string)) return true
   try {
-    await window.api.documents.create(snapshot as never)
+    await window.api.documents.create(snapshot as never, 'sync')
   } catch {
     return false
   }
@@ -1522,7 +1583,7 @@ async function tryCreateDocument(snapshot: Record<string, unknown>): Promise<boo
 async function applyDocumentDelete(id: string): Promise<void> {
   tombstoned.add(id)
   try {
-    await window.api.documents.delete(id)
+    await window.api.documents.delete(id, 'sync')
   } catch {
     /* not present locally — tombstone still guards a later create */
   }
@@ -1530,7 +1591,7 @@ async function applyDocumentDelete(id: string): Promise<void> {
 }
 async function applyDocumentAttr(id: string, attr: string, value: unknown): Promise<void> {
   try {
-    await window.api.documents.update(id, { [attr]: value } as never)
+    await window.api.documents.update(id, { [attr]: value } as never, undefined, 'sync')
   } catch {
     /* not present locally — the poll reconciles it */
   }
@@ -1598,6 +1659,12 @@ async function applyLinkAttr(id: string, attr: string, value: unknown): Promise<
   }))
 }
 
+// When an event was made, in ms: a lifecycle payload's own `at`, else its ISO ts.
+function eventMs(ev: ChangeEvent): number {
+  const at = (ev.payload as { at?: unknown } | null)?.at
+  return typeof at === 'number' ? at : Date.parse(ev.ts)
+}
+
 function applyEvent(ev: ChangeEvent): void {
   // Record it locally (idempotent) so a reload can re-fold and it survives offline.
   recordLocal(ev, true)
@@ -1605,7 +1672,9 @@ function applyEvent(ev: ChangeEvent): void {
     if (ev.field === 'create') {
       void applyWidgetCreate((ev.payload as CreatePayload).snapshot)
     } else if (ev.field === 'delete') {
-      track(applyWidgetDelete(ev.objectId))
+      track(applyWidgetDelete(ev.objectId, eventMs(ev)))
+    } else if (ev.field === 'restore') {
+      track(applyWidgetRestore(ev.objectId))
     } else if (
       ev.field === 'content' ||
       ev.field === 'title' ||
@@ -1641,7 +1710,9 @@ function applyEvent(ev: ChangeEvent): void {
     if (ev.field === 'create') {
       void applyNodeCreate((ev.payload as CreatePayload).snapshot, ev.partitionKey)
     } else if (ev.field === 'delete') {
-      track(applyNodeDelete(ev.objectId))
+      track(applyNodeDelete(ev.objectId, eventMs(ev)))
+    } else if (ev.field === 'restore') {
+      track(applyNodeRestore(ev.objectId))
     } else if (ev.field === 'attr' && (ev.payload as AttrPayload).at !== undefined) {
       const p = ev.payload as AttrPayload
       const remote = registerOf(ev)
@@ -1799,6 +1870,16 @@ function applyFolderEntry(ev: ChangeEvent): void {
 function onCrdt(e: CrdtSocketEvent): void {
   if (e.type === 'crdtSync') {
     const events = e.payload.events as ChangeEvent[]
+    // A join's backlog is applied only for the kinds nothing else delivers (links,
+    // live-folder entries): see joinBacklogApplies. For the rest the poll is the
+    // source, and replaying old events over current rows is what destroyed data.
+    // Our own queued events in it are on the server either way.
+    if (!joinBacklogApplies(e.payload.partitionKey ?? events[0]?.partitionKey ?? '')) {
+      if (events.length) {
+        void window.api.crdt.markSynced(events.map((ev) => ({ id: ev.id, seq: ev.seq ?? null })))
+      }
+      return
+    }
     // Coalesce this replay's store commits into one render pass. A second sync
     // frame arriving while the first is still draining joins that open pass
     // rather than starting a competing one (a join replays several partitions,
@@ -1981,11 +2062,13 @@ export function initCrdtSync(): void {
       membership: emitMembership,
       widgetCreate: emitWidgetCreate,
       widgetDelete: emitWidgetDelete,
+      widgetRestore: emitWidgetRestore,
       widgetFields: emitWidgetFields,
       nodeTitle: emitNodeTitle,
       nodeParent: emitNodeParent,
       nodeCreate: emitNodeCreate,
       nodeDelete: emitNodeDelete,
+      nodeRestore: emitNodeRestore,
       nodeAttrs: emitNodeAttrs,
       rowCells: emitRowCells,
       rowOrder: emitRowOrder,

@@ -1,17 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ChangeEvent } from '../../src/shared/crdtWidgetMerge'
 
-// Reload-storm regression (ryan-command-center): a crdtJoin replays the partition's
-// whole log in ONE crdtSync frame, and every applier used to reflect its event into
-// the renderer stores the moment its IPC settled — one setState per event, spread
-// across the replay's IPC responses. Each landed as its own React update and a large
-// enough burst tripped React's nested-update guard on every app reload ("Maximum
-// update depth exceeded" via forceStoreRerender ← zustand setState ← the crdtSync
-// apply path). The engine now coalesces a sync pass's store commits into a single
-// synchronous flush, while every event still runs its full per-id path: the
-// work_item trash router, and each window.api write whose main-side cascade + detach
-// hooks (workItemDetachHook / normalizeAppliedWorkItem) are per call. Live single
-// events (a plain crdtEvent frame) keep committing directly.
+// Two rules about what the CRDT engine applies, both pinned here.
+//
+// 1. A JOIN BACKLOG (the crdtSync frame a crdtJoin answers with) is applied only for
+//    the kinds nothing else delivers: widget links (`l:`) and live-folder entries
+//    (`lfe:`). For every poll-backed kind (`w:`, `n:`, `r:`, `t:`, `f:`, `d:`) the
+//    backlog is ignored and its events are only marked synced (4.3.51). Replaying
+//    those logs over current rows destroyed data on every sign-in up to 4.3.50:
+//    old creates force-written over live rows, tombstones brought back, desks
+//    restored with Undo deleted again for everyone (2026-11-19).
+//
+// 2. A backlog that IS applied commits as ONE store update (reload-storm regression,
+//    ryan-command-center): every applier used to reflect its event the moment its IPC
+//    settled, one setState per event, and a large burst tripped React's nested-update
+//    guard ("Maximum update depth exceeded"). The engine coalesces a pass's store
+//    commits into one flush, while every event still runs its own per-id IPC. Live
+//    single events (a plain crdtEvent frame) keep committing directly.
 
 interface SocketMock {
   sendSocketMessage: ReturnType<typeof vi.fn>
@@ -35,17 +40,26 @@ vi.mock('../../src/renderer/src/lib/messagingSocket', () => {
 // window.api must exist before the engine + store modules load.
 const nodesDelete = vi.fn(async (id: string): Promise<string[]> => [id])
 const nodesUpdate = vi.fn(async (): Promise<void> => undefined)
+const nodesRestore = vi.fn(async (): Promise<boolean> => true)
+const nodesList = vi.fn(async (): Promise<unknown[]> => [])
+const nodesCreate = vi.fn(async (d: unknown): Promise<unknown> => d)
+const widgetsCreate = vi.fn(async (d: unknown): Promise<unknown> => d)
 const widgetsUpdate = vi.fn(async (): Promise<void> => undefined)
+const widgetsDelete = vi.fn(async (): Promise<boolean> => true)
+const widgetsGet = vi.fn(async (): Promise<unknown> => null)
+const linksDelete = vi.fn(async (): Promise<boolean> => true)
+const markSynced = vi.fn(async () => undefined)
 const workItemKindOf = vi.fn(async (): Promise<string | null> => null)
 const workItemApplySyncEvent = vi.fn(async (): Promise<void> => undefined)
 ;(window as unknown as { api: unknown }).api = {
   crdt: {
     record: vi.fn(async () => undefined),
-    markSynced: vi.fn(async () => undefined),
+    markSynced,
     unsynced: vi.fn(async () => [])
   },
-  nodes: { delete: nodesDelete, update: nodesUpdate },
-  widgets: { update: widgetsUpdate },
+  nodes: { delete: nodesDelete, update: nodesUpdate, restore: nodesRestore, list: nodesList, create: nodesCreate },
+  widgets: { create: widgetsCreate, update: widgetsUpdate, delete: widgetsDelete, get: widgetsGet },
+  widgetLinks: { delete: linksDelete },
   workItems: { kindOf: workItemKindOf, applySyncEvent: workItemApplySyncEvent }
 }
 
@@ -53,13 +67,14 @@ const socket = (await import('../../src/renderer/src/lib/messagingSocket')) as u
 const { initCrdtSync, stopCrdtSync } = await import('../../src/renderer/src/lib/crdtSync')
 const { useNodeStore } = await import('../../src/renderer/src/stores/nodes')
 const { useWidgetStore } = await import('../../src/renderer/src/stores/widgets')
+const { useLinksStore } = await import('../../src/renderer/src/stores/links')
 const { useAccountStore } = await import('../../src/renderer/src/stores/account')
 
-function node(id: string): { id: string; parentId: string | null; kind: string; title: string } {
-  return { id, parentId: null, kind: 'folder', title: id }
+function node(id: string, updatedAt = 0): { id: string; parentId: string | null; kind: string; title: string; updatedAt: number } {
+  return { id, parentId: null, kind: 'folder', title: id, updatedAt }
 }
-function widget(id: string): Record<string, unknown> {
-  return { id, taskId: 't1', kind: 'note', title: id, content: '', x: 0, y: 0, width: 10, height: 10, pinned: false }
+function link(id: string): Record<string, unknown> {
+  return { id, sourceWidgetId: 'a', targetWidgetId: 'b', taskId: 't1', type: 'note' }
 }
 
 let seq = 0
@@ -71,31 +86,33 @@ function ev(objectType: string, objectId: string, field: string, payload: Record
     objectType,
     objectId,
     field,
-    dataClass: field === 'delete' ? 'set' : 'register',
+    dataClass: field === 'delete' || field === 'restore' || field === 'create' ? 'set' : 'register',
     actor: 'other:dev2',
     payload
   } as ChangeEvent
 }
-const nodeDelete = (id: string): ChangeEvent => ev('node', id, 'delete', { at: 1000 })
-const nodeTitle = (id: string, title: string): ChangeEvent =>
-  ev('node', id, 'title', { value: title, at: 2000 })
-const widgetTitle = (id: string, title: string): ChangeEvent =>
-  ev('widget', id, 'title', { value: title, at: 2000 })
+const nodeDelete = (id: string, at = 1000): ChangeEvent => ev('node', id, 'delete', { at })
+const nodeRestore = (id: string): ChangeEvent => ev('node', id, 'restore', { at: 3000 })
+const nodeCreate = (id: string): ChangeEvent => ev('node', id, 'create', { snapshot: node(id) })
+const widgetCreate = (id: string): ChangeEvent =>
+  ev('widget', id, 'create', { snapshot: { id, taskId: 't1', kind: 'note', title: id, content: '', x: 0, y: 0, width: 10, height: 10 } })
+const linkDelete = (id: string): ChangeEvent => ev('link', id, 'delete', { at: 1000 })
 
 function fire(e: unknown): void {
   const handler = socket.__crdtHandler()
   if (!handler) throw new Error('crdt socket handler was not registered')
   handler(e)
 }
+const backlog = (partitionKey: string, events: ChangeEvent[]): unknown => ({ type: 'crdtSync', payload: { partitionKey, events } })
 async function settled(): Promise<void> {
   // The apply path is a chain of microtasks (store-backed isWorkItemId, the stubbed
   // IPC, the flush's Promise.allSettled) — a few macrotask turns drain all of it.
   for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0))
 }
 
-describe('crdt sync — a replay pass commits as one store update', () => {
+describe('crdt sync — what a join backlog applies, and how', () => {
   let nodeCommits: number
-  let widgetCommits: number
+  let linkCommits: number
   let unsub: Array<() => void>
 
   beforeEach(() => {
@@ -105,15 +122,16 @@ describe('crdt sync — a replay pass commits as one store update', () => {
     useAccountStore.setState({ account: { id: 'acct1' } as never })
     useNodeStore.setState({ nodes: [], loaded: true, error: null, loading: false })
     useWidgetStore.setState({ widgets: [] as never })
+    useLinksStore.setState({ links: [] as never })
     initCrdtSync()
     nodeCommits = 0
-    widgetCommits = 0
+    linkCommits = 0
     unsub = [
       useNodeStore.subscribe((s, p) => {
         if (s.nodes !== p.nodes) nodeCommits++
       }),
-      useWidgetStore.subscribe((s, p) => {
-        if (s.widgets !== p.widgets) widgetCommits++
+      useLinksStore.subscribe((s, p) => {
+        if (s.links !== p.links) linkCommits++
       })
     ]
   })
@@ -122,129 +140,118 @@ describe('crdt sync — a replay pass commits as one store update', () => {
     stopCrdtSync()
   })
 
-  it('a 60-delete replay burst lands as ONE setState, per-id IPC preserved', async () => {
-    const ids = Array.from({ length: 60 }, (_, i) => `n${i}`)
-    useNodeStore.setState({ nodes: [...ids.map(node), node('keep')] as never })
+  it('a poll-backed backlog (desks, widgets) applies nothing and only marks its events synced', async () => {
+    useNodeStore.setState({ nodes: [node('restored'), node('live')] as never })
     nodeCommits = 0
-
-    fire({ type: 'crdtSync', payload: { events: ids.map(nodeDelete) } })
+    // The shape that deleted desks for everyone: an old delete for a desk restored
+    // since, an old create for a desk deleted outside CRDT, old widget creates.
+    const nodeEvents = [nodeDelete('restored'), nodeCreate('zombie')]
+    const widgetEvents = [widgetCreate('w-old')]
+    fire(backlog('n:acct:acct1', nodeEvents))
+    fire(backlog('w:acct:acct1', widgetEvents))
     await settled()
 
-    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['keep'])
-    // ONE commit for the whole burst — this is what keeps React's nested-update
-    // guard (limit 50) out of reach on reload.
-    expect(nodeCommits).toBe(1)
-    // Batching the COMMIT must not batch the writes: every id still gets its own
-    // nodes.delete IPC, so the main-side cascade + detach hooks run per call.
-    expect(nodesDelete.mock.calls.map((c) => c[0]).sort()).toEqual([...ids].sort())
+    expect(nodesDelete).not.toHaveBeenCalled()
+    expect(nodesCreate).not.toHaveBeenCalled()
+    expect(widgetsCreate).not.toHaveBeenCalled()
+    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['restored', 'live'])
+    expect(nodeCommits).toBe(0)
+    expect(markSynced.mock.calls.flatMap((c) => (c[0] as Array<{ id: string }>).map((e) => e.id))).toEqual(
+      [...nodeEvents, ...widgetEvents].map((e) => e.id)
+    )
   })
 
-  it('a mixed replay (deletes + node fields + widget fields) commits once per store', async () => {
-    useNodeStore.setState({ nodes: [node('a'), node('b'), node('gone1'), node('gone2')] as never })
-    useWidgetStore.setState({ widgets: [widget('w1'), widget('w2')] as never })
-    nodeCommits = 0
-    widgetCommits = 0
+  it('every poll-backed prefix is ignored and the two CRDT-only prefixes are applied', async () => {
+    for (const pk of ['w:acct:acct1', 'n:org:o1', 'r:acct:acct1', 't:acct:acct1', 'f:acct:acct1', 'd:acct:acct1', 'w:desk:root1']) {
+      fire(backlog(pk, [nodeDelete(`x-${pk}`)]))
+    }
+    await settled()
+    expect(nodesDelete).not.toHaveBeenCalled()
+    fire(backlog('l:acct:acct1', [linkDelete('l1')]))
+    await settled()
+    expect(linksDelete).toHaveBeenCalledWith('l1')
+  })
 
-    fire({
-      type: 'crdtSync',
-      payload: {
-        events: [
-          nodeDelete('gone1'),
-          nodeTitle('a', 'A renamed'),
-          widgetTitle('w1', 'W1 renamed'),
-          nodeDelete('gone2'),
-          nodeTitle('b', 'B renamed'),
-          widgetTitle('w2', 'W2 renamed')
-        ]
-      }
-    })
+  it('a 60-delete link backlog lands as ONE setState, per-id IPC preserved', async () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `l${i}`)
+    useLinksStore.setState({ links: [...ids.map(link), link('keep')] as never })
+    linkCommits = 0
+
+    fire(backlog('l:acct:acct1', ids.map(linkDelete)))
     await settled()
 
-    const nodes = useNodeStore.getState().nodes
-    expect(nodes.map((n) => n.id)).toEqual(['a', 'b'])
-    expect(nodes.map((n) => n.title)).toEqual(['A renamed', 'B renamed'])
-    expect(useWidgetStore.getState().widgets.map((w) => w.title)).toEqual(['W1 renamed', 'W2 renamed'])
-    // Two node writes (the delete Set + the two renames) collapse into the single
-    // flush; same for the widget store.
-    expect(nodeCommits).toBe(1)
-    expect(widgetCommits).toBe(1)
+    expect(useLinksStore.getState().links.map((l) => l.id)).toEqual(['keep'])
+    // ONE commit for the whole burst — what keeps React's nested-update guard
+    // (limit 50) out of reach on reload.
+    expect(linkCommits).toBe(1)
+    // Batching the COMMIT must not batch the writes: every id gets its own IPC.
+    expect(linksDelete.mock.calls.map((c) => c[0]).sort()).toEqual([...ids].sort())
   })
 
-  it('a cascade returned by one delete joins the same single commit', async () => {
-    useNodeStore.setState({ nodes: [node('root'), node('child'), node('other'), node('keep')] as never })
-    nodeCommits = 0
-    nodesDelete.mockImplementation(async (id: string) => (id === 'root' ? ['root', 'child'] : [id]))
+  it('a second link frame arriving mid-pass joins it instead of committing separately', async () => {
+    useLinksStore.setState({ links: [link('x'), link('y'), link('keep')] as never })
+    linkCommits = 0
 
-    fire({ type: 'crdtSync', payload: { events: [nodeDelete('root'), nodeDelete('other')] } })
+    fire(backlog('l:acct:acct1', [linkDelete('x')]))
+    fire(backlog('l:acct:acct1', [linkDelete('y')])) // same tick, pass still open
     await settled()
 
-    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['keep'])
-    expect(nodeCommits).toBe(1)
+    expect(useLinksStore.getState().links.map((l) => l.id)).toEqual(['keep'])
+    expect(linkCommits).toBe(1)
   })
 
-  it('a second frame arriving mid-pass joins it instead of committing separately', async () => {
-    useNodeStore.setState({ nodes: [node('x'), node('y'), node('keep')] as never })
-    nodeCommits = 0
+  it('two successive link passes each commit — the coalescer never swallows the second', async () => {
+    useLinksStore.setState({ links: [link('a'), link('b'), link('keep')] as never })
+    linkCommits = 0
 
-    fire({ type: 'crdtSync', payload: { events: [nodeDelete('x')] } })
-    fire({ type: 'crdtSync', payload: { events: [nodeDelete('y')] } }) // same tick, pass still open
+    fire(backlog('l:acct:acct1', [linkDelete('a')]))
+    await settled()
+    fire(backlog('l:acct:acct1', [linkDelete('b')]))
     await settled()
 
-    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['keep'])
-    expect(nodeCommits).toBe(1)
+    expect(useLinksStore.getState().links.map((l) => l.id)).toEqual(['keep'])
+    expect(linkCommits).toBe(2)
   })
 
-  it('a work_item delete in the replay routes to the trash sweep, not the node store', async () => {
-    useNodeStore.setState({ nodes: [node('plain')] as never })
-    nodeCommits = 0
-    workItemKindOf.mockResolvedValue('work_item') // 'wi1' is not in the node store
-
-    fire({ type: 'crdtSync', payload: { events: [nodeDelete('wi1'), nodeDelete('plain')] } })
-    await settled()
-
-    expect(workItemApplySyncEvent).toHaveBeenCalledWith({ type: 'trash', id: 'wi1', trashed: true })
-    expect(nodesDelete.mock.calls.map((c) => c[0])).toEqual(['plain'])
-    expect(useNodeStore.getState().nodes).toEqual([])
-    expect(nodeCommits).toBe(1)
-  })
-
-  it('a live single delete still commits directly (no pass open)', async () => {
+  it('a live single delete still applies and commits directly (no pass open)', async () => {
     useNodeStore.setState({ nodes: [node('a'), node('b')] as never })
     nodeCommits = 0
 
     fire({ type: 'crdtEvent', payload: { event: nodeDelete('a') } })
     await settled()
 
+    expect(nodesDelete).toHaveBeenCalledWith('a', 'sync')
     expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['b'])
     expect(nodeCommits).toBe(1)
   })
 
-  it('two successive passes each commit — the coalescer never swallows the second', async () => {
-    useNodeStore.setState({ nodes: [node('a'), node('b'), node('keep')] as never })
-    nodeCommits = 0
-
-    fire({ type: 'crdtSync', payload: { events: [nodeDelete('a')] } })
+  it('a live delete OLDER than the local row (restored or edited since) is not applied', async () => {
+    // The desk was restored at 5000; the delete was made at 1000.
+    useNodeStore.setState({ nodes: [node('restored', 5000), node('other', 500)] as never })
+    fire({ type: 'crdtEvent', payload: { event: nodeDelete('restored', 1000) } })
+    fire({ type: 'crdtEvent', payload: { event: nodeDelete('other', 1000) } })
     await settled()
-    fire({ type: 'crdtSync', payload: { events: [nodeDelete('b')] } })
-    await settled()
-
-    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['keep'])
-    expect(nodeCommits).toBe(2)
+    expect(nodesDelete.mock.calls.map((c) => c[0])).toEqual(['other'])
+    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['restored'])
   })
 
-  it('deferred reflects read flush-time state, not their own stale snapshot', async () => {
-    useNodeStore.setState({ nodes: [node('a')] as never })
-    nodeCommits = 0
+  it('a live restore brings the desk back here, as a sync write that never re-pushes', async () => {
+    nodesList.mockResolvedValue([node('back')])
+    fire({ type: 'crdtEvent', payload: { event: nodeRestore('back') } })
+    await settled()
+    expect(nodesRestore).toHaveBeenCalledWith(['back'], 'sync')
+    await settled()
+    expect(useNodeStore.getState().nodes.map((n) => n.id)).toEqual(['back'])
+  })
 
-    // A rename and a delete for DIFFERENT nodes in one pass: 'late' is added to the
-    // store after the pass opens but before it flushes. The rename thunk must see
-    // the store as of flush time, so 'late' survives the commit.
-    fire({ type: 'crdtSync', payload: { events: [nodeTitle('a', 'renamed')] } })
-    useNodeStore.setState((s) => ({ nodes: [...s.nodes, node('late')] as never }))
+  it('a live work_item delete routes to the trash sweep, not the node store', async () => {
+    useNodeStore.setState({ nodes: [node('plain')] as never })
+    workItemKindOf.mockResolvedValue('work_item') // 'wi1' is not in the node store
+
+    fire({ type: 'crdtEvent', payload: { event: nodeDelete('wi1') } })
     await settled()
 
-    const nodes = useNodeStore.getState().nodes
-    expect(nodes.map((n) => n.id).sort()).toEqual(['a', 'late'])
-    expect(nodes.find((n) => n.id === 'a')!.title).toBe('renamed')
+    expect(workItemApplySyncEvent).toHaveBeenCalledWith({ type: 'trash', id: 'wi1', trashed: true })
+    expect(nodesDelete).not.toHaveBeenCalled()
   })
 })

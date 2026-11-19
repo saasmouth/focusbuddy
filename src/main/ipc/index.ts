@@ -146,6 +146,8 @@ import {
   getSyncCursorShared,
   setSyncCursorShared,
   listLocalSharedRoots,
+  byOrigin,
+  asSyncApply,
   type RemoteItem
 } from '../db/workspaceSync'
 import { invalidateAnthropicClient } from '../ai/anthropic'
@@ -994,12 +996,14 @@ export function registerIpcHandlers(): void {
         | { type: 'create'; snapshot: Record<string, unknown>; orgId?: string | null }
         | { type: 'attr'; id: string; attr: string; value: unknown }
         | { type: 'trash'; id: string; trashed: boolean }
-    ) => {
-      if (ev.type === 'create') return applyRemoteWorkItemSnapshot(ev.snapshot, ev.orgId ?? null)
-      if (ev.type === 'attr') return applyRemoteWorkItemAttr(ev.id, ev.attr, ev.value)
-      applyRemoteWorkItemTrash(ev.id, ev.trashed)
-      return 'applied'
-    }
+    ) =>
+      // Always a CRDT-channel write: it never re-pushes (see asSyncApply).
+      asSyncApply(() => {
+        if (ev.type === 'create') return applyRemoteWorkItemSnapshot(ev.snapshot, ev.orgId ?? null)
+        if (ev.type === 'attr') return applyRemoteWorkItemAttr(ev.id, ev.attr, ev.value)
+        applyRemoteWorkItemTrash(ev.id, ev.trashed)
+        return 'applied'
+      })
   )
   ipcMain.handle('nodes:list', () => listNodes())
   ipcMain.handle('nodes:get', (_e, id: string) => getNode(id))
@@ -1015,7 +1019,7 @@ export function registerIpcHandlers(): void {
     // untouched when the id is already present, so a replayed create is a
     // no-op in the database. Ask what happened before claiming it happened.
     const preexisting = draft.id ? getNode(draft.id) : null
-    const node = createNode(draft)
+    const node = byOrigin(origin, () => createNode(draft))
     // Live projection: a real ObjectCreated Event on a real user action.
     // (Binary ternary is safe: work_item was refused above.)
     if (origin !== 'sync' && isRealCreate(preexisting)) {
@@ -1036,7 +1040,7 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('nodes:update', (_e, id: string, patch: NodePatch, origin?: WriteOrigin) => {
     const before = getNode(id)
-    const node = updateNode(id, patch)
+    const node = byOrigin(origin, () => updateNode(id, patch))
     // DEC-059 — a write that changed nothing is not an update.
     if (origin !== 'sync' && node && stateChanged(before as never, node as never)) {
       emitObjectEvent({
@@ -1056,7 +1060,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('nodes:restoreTree', (_e, rootId: string) => restoreTree(rootId))
   ipcMain.handle('nodes:delete', (_e, id: string, origin?: WriteOrigin) => {
     const before = getNode(id)
-    const removed = deleteNode(id)
+    const removed = byOrigin(origin, () => deleteNode(id))
     // DEC-059 — deleting an id that is already gone is not a transition.
     if (origin !== 'sync' && isRealDelete(before)) {
       emitObjectEvent({
@@ -1085,7 +1089,7 @@ export function registerIpcHandlers(): void {
     }
     return result
   })
-  ipcMain.handle('nodes:restore', (_e, ids: string[]) => restoreNodes(ids))
+  ipcMain.handle('nodes:restore', (_e, ids: string[], origin?: WriteOrigin) => byOrigin(origin, () => restoreNodes(ids)))
   ipcMain.handle('nodes:moveToOrg', (_e, id: string, orgId: string, teamId?: string | null) =>
     moveNodeToOrg(String(id || ''), String(orgId || ''), teamId ?? null)
   )
@@ -1147,8 +1151,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('context:resumeSummary', (_e, deskId: string) => ceLiveResumeForDesk(deskId))
   ipcMain.handle(
     'nodes:move',
-    (_e, id: string, newParentId: string | null, beforeId: string | null) =>
-      moveNode(id, newParentId, beforeId)
+    (_e, id: string, newParentId: string | null, beforeId: string | null, origin?: WriteOrigin) =>
+      byOrigin(origin, () => moveNode(id, newParentId, beforeId))
   )
 
   ipcMain.handle('widgets:get', (_e, id: string) => getWidget(id))
@@ -1156,7 +1160,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('widgets:listByKind', (_e, kind: Widget['kind']) => listWidgetsByKind(kind))
   ipcMain.handle('widgets:create', (_e, draft: WidgetDraft, origin?: WriteOrigin) => {
     const preexistingWidget = draft.id ? getWidget(draft.id) : null
-    const widget = createWidget(draft)
+    const widget = byOrigin(origin, () => createWidget(draft))
     // Widgets are first-class Context-Engine objects (PLX-APP-002): a real create
     // emits an Event on the widget's object id so its Context Health can be derived.
     // DEC-059 — createWidget is idempotent by id ("so a replayed/echoed create
@@ -1181,7 +1185,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('widgets:createOptional', (_e, draft: WidgetDraft) => createWidgetIfTaskExists(draft))
   ipcMain.handle('widgets:update', (_e, id: string, patch: WidgetPatch, origin?: WriteOrigin) => {
     const beforeWidget = getWidget(id)
-    const widget = updateWidget(id, patch)
+    const widget = byOrigin(origin, () => updateWidget(id, patch))
     // Emit only for content-meaningful changes. Pure geometry/layout moves are not
     // "changed since your last visit" content and must never flood the log or
     // flicker a health frame on every drag.
@@ -1214,7 +1218,7 @@ export function registerIpcHandlers(): void {
   // the widget stayed on screen and deleting appeared to do nothing.
   ipcMain.handle('widgets:delete', (_e, id: string, origin?: WriteOrigin) => {
     const before = getWidget(id)
-    const removed = deleteWidget(id)
+    const removed = byOrigin(origin, () => deleteWidget(id))
     if (origin !== 'sync' && isRealDelete(before)) {
       emitObjectEvent({
         eventType: 'WidgetDeleted',
@@ -1227,7 +1231,7 @@ export function registerIpcHandlers(): void {
     }
     return removed
   })
-  ipcMain.handle('widgets:restore', (_e, id: string) => restoreWidget(id))
+  ipcMain.handle('widgets:restore', (_e, id: string, origin?: WriteOrigin) => byOrigin(origin, () => restoreWidget(id)))
   ipcMain.handle('widgets:bringToFront', (_e, id: string) => bringToFront(id))
 
   // Desk layout overlay (PLX-APP-010 / UX-032, ADR-0006). Per-(user, Desk,
@@ -2579,12 +2583,14 @@ export function registerIpcHandlers(): void {
     materializeRecurringBlocks()
     return listBlocksInRange(fromMs, toMs)
   })
-  ipcMain.handle('timeblocks:create', (_e, draft: TimeBlockDraft) => createTimeBlock(draft))
-  ipcMain.handle('timeblocks:update', (_e, id: string, patch: TimeBlockPatch) =>
-    updateTimeBlock(id, patch)
+  ipcMain.handle('timeblocks:create', (_e, draft: TimeBlockDraft, origin?: WriteOrigin) =>
+    byOrigin(origin, () => createTimeBlock(draft))
   )
-  ipcMain.handle('timeblocks:delete', (_e, id: string, scope?: 'one' | 'series') =>
-    deleteTimeBlock(id, scope ?? 'one')
+  ipcMain.handle('timeblocks:update', (_e, id: string, patch: TimeBlockPatch, origin?: WriteOrigin) =>
+    byOrigin(origin, () => updateTimeBlock(id, patch))
+  )
+  ipcMain.handle('timeblocks:delete', (_e, id: string, scope?: 'one' | 'series', origin?: WriteOrigin) =>
+    byOrigin(origin, () => deleteTimeBlock(id, scope ?? 'one'))
   )
 
   // ── Mac haptics ───────────────────────────────────────────────────────────
@@ -2906,15 +2912,21 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('fileManager:list', (_e, parentId: string | null) => listFileEntries(parentId))
   ipcMain.handle('fileManager:get', (_e, id: string) => getFileEntry(id))
   ipcMain.handle('fileManager:path', (_e, id: string | null) => fileFolderPath(id))
-  ipcMain.handle('fileManager:createFolder', (_e, parentId: string | null, name: string, explicitId?: string) =>
-    createFileFolder(parentId, name, explicitId)
+  ipcMain.handle(
+    'fileManager:createFolder',
+    (_e, parentId: string | null, name: string, explicitId?: string, origin?: WriteOrigin) =>
+      byOrigin(origin, () => createFileFolder(parentId, name, explicitId))
   )
-  ipcMain.handle('fileManager:rename', (_e, id: string, name: string) => renameFileEntry(id, name))
-  ipcMain.handle('fileManager:move', (_e, id: string, newParentId: string | null) => moveFileEntry(id, newParentId))
+  ipcMain.handle('fileManager:rename', (_e, id: string, name: string, origin?: WriteOrigin) =>
+    byOrigin(origin, () => renameFileEntry(id, name))
+  )
+  ipcMain.handle('fileManager:move', (_e, id: string, newParentId: string | null, origin?: WriteOrigin) =>
+    byOrigin(origin, () => moveFileEntry(id, newParentId))
+  )
   ipcMain.handle('fileManager:moveToOrg', (_e, id: string, orgId: string, teamId?: string | null) =>
     moveFileToOrg(String(id || ''), String(orgId || ''), teamId ?? null)
   )
-  ipcMain.handle('fileManager:delete', (_e, id: string) => deleteFileEntry(id))
+  ipcMain.handle('fileManager:delete', (_e, id: string, origin?: WriteOrigin) => byOrigin(origin, () => deleteFileEntry(id)))
   ipcMain.handle('fileManager:restore', (_e, ids: string[]) => restoreFileEntries(ids))
   ipcMain.handle('fileManager:listTrashed', () => listTrashedFileEntries())
   ipcMain.handle('fileManager:restoreDeep', (_e, id: string) => restoreFileEntryDeep(id))
@@ -3375,37 +3387,40 @@ export function registerIpcHandlers(): void {
   // ── Tables (Notion/Airtable-style databases) ──────────────────────────────
   ipcMain.handle('tables:list', () => listTables())
   ipcMain.handle('tables:get', (_e, id: string) => getTable(id))
-  ipcMain.handle('tables:create', (_e, draft: FbTableDraft) => createTable(draft))
-  ipcMain.handle('tables:update', (_e, id: string, patch: FbTablePatch) => {
+  ipcMain.handle('tables:create', (_e, draft: FbTableDraft, origin?: WriteOrigin) => byOrigin(origin, () => createTable(draft)))
+  ipcMain.handle('tables:update', (_e, id: string, patch: FbTablePatch, origin?: WriteOrigin) => {
     // A rename has to reach the desk too. The table's name lives on the table
     // record, but every desk-level surface reads the widget, so renaming a
     // table left "Untitled table" showing in summaries and Gallery.
     const before = typeof patch.title === 'string' ? getTable(id) : null
-    const updated = updateTable(id, patch)
-    if (updated && before && typeof patch.title === 'string' && patch.title !== before.title) {
-      syncTableWidgetTitles(id, before.title, patch.title)
-    }
+    const updated = byOrigin(origin, () => {
+      const u = updateTable(id, patch)
+      if (u && before && typeof patch.title === 'string' && patch.title !== before.title) {
+        syncTableWidgetTitles(id, before.title, patch.title)
+      }
+      return u
+    })
     onTableChanged(id)
     return updated
   })
-  ipcMain.handle('tables:delete', (_e, id: string) => deleteTable(id))
+  ipcMain.handle('tables:delete', (_e, id: string, origin?: WriteOrigin) => byOrigin(origin, () => deleteTable(id)))
   ipcMain.handle('tables:listRows', (_e, tableId: string) => listRows(tableId))
   // A table FILE's text is its rows (docs/widget-files.md): every row write
   // tells the widget-file store, which re-indexes it and, while it still has a
   // placeholder name, names it from its header and row count.
-  ipcMain.handle('tables:createRow', (_e, draft: FbRowDraft) => {
-    const row = createRow(draft)
+  ipcMain.handle('tables:createRow', (_e, draft: FbRowDraft, origin?: WriteOrigin) => {
+    const row = byOrigin(origin, () => createRow(draft))
     onTableChanged(draft.tableId)
     return row
   })
-  ipcMain.handle('tables:updateRow', (_e, id: string, patch: FbRowPatch) => {
-    const row = updateRow(id, patch)
+  ipcMain.handle('tables:updateRow', (_e, id: string, patch: FbRowPatch, origin?: WriteOrigin) => {
+    const row = byOrigin(origin, () => updateRow(id, patch))
     onTableChanged(row?.tableId)
     return row
   })
-  ipcMain.handle('tables:deleteRow', (_e, id: string) => {
+  ipcMain.handle('tables:deleteRow', (_e, id: string, origin?: WriteOrigin) => {
     const tableId = (getDb().prepare('SELECT table_id FROM fb_rows WHERE id = ?').get(id) as { table_id: string } | undefined)?.table_id
-    const ok = deleteRow(id)
+    const ok = byOrigin(origin, () => deleteRow(id))
     onTableChanged(tableId)
     return ok
   })
@@ -4096,26 +4111,28 @@ export function registerIpcHandlers(): void {
   // ── Office documents (doc / sheet / slides) ─────────────────────────────
   ipcMain.handle('documents:list', () => listDocuments())
   ipcMain.handle('documents:get', (_e, id: string) => getDocument(id))
-  ipcMain.handle('documents:create', (_e, draft: DocumentDraft) => {
-    const doc = createDocument(draft)
+  ipcMain.handle('documents:create', (_e, draft: DocumentDraft, origin?: WriteOrigin) => {
+    const doc = byOrigin(origin, () => createDocument(draft))
     void embedDocument(doc.id) // best-effort index; never blocks the save
     return doc
   })
-  ipcMain.handle('documents:update', (_e, id: string, patch: DocumentPatch, snapshotLabel?: string) => {
+  ipcMain.handle('documents:update', (_e, id: string, patch: DocumentPatch, snapshotLabel?: string, origin?: WriteOrigin) => {
     // A widget file's body has one writer (db/widgetFiles), which keeps its desk
     // instances and its name source in step. A generic document update — a
     // rename from a document list, or a body from a sync path — is translated.
     const existing = getDocument(id)
     if (existing?.docType === 'widget') {
       const body = patch.body ? parseWidgetFileBody(patch.body) : null
-      updateWidgetFile(id, {
-        title: patch.title,
-        content: body?.content,
-        color: body ? body.color : undefined
-      })
+      byOrigin(origin, () =>
+        updateWidgetFile(id, {
+          title: patch.title,
+          content: body?.content,
+          color: body ? body.color : undefined
+        })
+      )
       return getDocument(id)
     }
-    const doc = updateDocument(id, patch)
+    const doc = byOrigin(origin, () => updateDocument(id, patch))
     if (doc) {
       void embedDocument(doc.id)
       // Version history: body saves accrue periodic snapshots (interval-gated
@@ -4129,9 +4146,9 @@ export function registerIpcHandlers(): void {
   // "Delete" from the editors and the Documents list is a soft-delete into the
   // Documents Trash — the menu item says "Move to trash" and now means it.
   // Permanent removal is only the Trash view's explicit "Delete forever".
-  ipcMain.handle('documents:delete', (_e, id: string) => {
+  ipcMain.handle('documents:delete', (_e, id: string, origin?: WriteOrigin) => {
     bumpAnswerCacheVersion() // the doc set changed — invalidate cached answers
-    const ok = trashDocument(id)
+    const ok = byOrigin(origin, () => trashDocument(id))
     reindexDocumentChunks(id) // the doc is now trashed: its chunks come out
     return ok
   })

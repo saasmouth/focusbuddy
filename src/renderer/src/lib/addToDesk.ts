@@ -20,6 +20,7 @@ import { widgetFileIdFromGroup } from '@shared/widgetFiles'
 import { catalogFor } from './widgetCatalog'
 import { recordActionWithToast } from '../stores/actionHistory'
 import { useNodeStore } from '../stores/nodes'
+import { crdtEmitNodeDelete, crdtEmitNodeRestore, crdtEmitWidgetDelete, crdtEmitWidgetRestore } from './crdtBridge'
 import { useViewStore } from '../stores/view'
 import { useWidgetStore } from '../stores/widgets'
 import { useNoticeStore } from '../stores/notice'
@@ -145,15 +146,25 @@ export async function addToDesk(cmd: AddToDeskCommand, where: { deskId: string }
         }
       },
       undo: async () => {
-        if (createdDesk) trashedDesk = await window.api.nodes.delete(createdDesk.id) // takes its work widget with it
-        else if (fileId) await window.api.widgetFiles.trash(fileId)
-        else await window.api.widgets.delete(widget.id)
+        if (createdDesk) {
+          trashedDesk = await window.api.nodes.delete(createdDesk.id) // takes its work widget with it
+          crdtEmitNodeDelete(trashedDesk)
+        } else if (fileId) await window.api.widgetFiles.trash(fileId)
+        else {
+          await window.api.widgets.delete(widget.id)
+          crdtEmitWidgetDelete(widget.id)
+        }
         await refreshDesk()
       },
       redo: async () => {
-        if (createdDesk) await window.api.nodes.restore(trashedDesk)
-        else if (fileId) await window.api.documents.restore(fileId)
-        else await window.api.widgets.restore(widget.id)
+        if (createdDesk) {
+          await window.api.nodes.restore(trashedDesk)
+          crdtEmitNodeRestore(trashedDesk)
+        } else if (fileId) await window.api.documents.restore(fileId)
+        else {
+          await window.api.widgets.restore(widget.id)
+          crdtEmitWidgetRestore(widget.id)
+        }
         await refreshDesk()
       }
     })

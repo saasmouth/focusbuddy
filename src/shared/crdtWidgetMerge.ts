@@ -49,11 +49,15 @@ export type CrdtField =
   // scalar attributes (status, priority, dueDate, …).
   | 'attr'
   // Object lifecycle: 'create' carries the full initial snapshot so the object can
-  // be materialised on another device; 'delete' is a tombstone. Together they are a
-  // remove-wins existence CRDT (a delete is never undone by a late create — ids are
-  // unique per creation, so create/delete of one id are causally ordered).
+  // be materialised on another device; 'delete' is a tombstone (a soft delete into
+  // the trash); 'restore' brings that same id back out of the trash. A late create
+  // never undoes a delete (ids are unique per creation), but Undo and the trash DO
+  // bring a deleted id back, and until 4.3.51 that emitted nothing, so the log still
+  // ended "delete" and replaying it re-deleted live desks (2026-11-19). Clients
+  // before 4.3.51 ignore 'restore'; the poll still brings them the restored row.
   | 'create'
   | 'delete'
+  | 'restore'
 // 'register' is the LWW class used for geometry and node scalar fields; 'set' is the
 // OR-Set class used for membership. Both are deterministic — neither ever surfaces a
 // manual conflict.

@@ -15,6 +15,7 @@ import {
   crdtEmitMembership,
   crdtEmitWidgetCreate,
   crdtEmitWidgetDelete,
+  crdtEmitWidgetRestore,
   crdtEmitWidgetFields
 } from '../lib/crdtBridge'
 import { recordAction, recordActionWithToast } from './actionHistory'
@@ -430,12 +431,18 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
       label: addedLabel ? `Add ${addedLabel} work widget` : 'Add a work widget',
       undo: async () => {
         if (newFileId) await window.api.widgetFiles.trash(newFileId) // takes the instance with it
-        else await window.api.widgets.delete(widget.id)
+        else {
+          await window.api.widgets.delete(widget.id)
+          crdtEmitWidgetDelete(widget.id)
+        }
         set({ widgets: get().widgets.filter((w) => w.id !== widget.id) })
       },
       redo: async () => {
         if (newFileId) await window.api.documents.restore(newFileId) // puts the instance back
-        else await window.api.widgets.restore(widget.id)
+        else {
+          await window.api.widgets.restore(widget.id)
+          crdtEmitWidgetRestore(widget.id)
+        }
         if (!get().widgets.some((w) => w.id === widget.id)) set({ widgets: [...get().widgets, widget] })
       }
     })
@@ -692,12 +699,16 @@ export const useWidgetStore = create<WidgetStore>((set, get) => ({
       recordActionWithToast({
         label: words.label,
         toast: words.toast,
+        // The restore emits: without it the log ended "delete" and every sign-in
+        // replay deleted the widget again for everyone (4.3.50 and before).
         undo: async () => {
           await window.api.widgets.restore(id)
+          crdtEmitWidgetRestore(id)
           if (!get().widgets.some((w) => w.id === id)) set({ widgets: [...get().widgets, widget] })
         },
         redo: async () => {
           await window.api.widgets.delete(id)
+          crdtEmitWidgetDelete(id)
           set({ widgets: get().widgets.filter((w) => w.id !== id) })
         }
       })

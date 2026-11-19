@@ -430,9 +430,11 @@ export function moveNodeToOrg(rootId: string, orgId: string, teamId: string | nu
 export function restoreNodes(ids: string[]): boolean {
   if (!ids.length) return false
   const db = getDb()
-  const stmt = db.prepare('UPDATE nodes SET trashed_at = NULL WHERE id = ?')
+  // Stamps updated_at: see restoreTrashedTree.
+  const stmt = db.prepare('UPDATE nodes SET trashed_at = NULL, updated_at = ? WHERE id = ?')
+  const now = Date.now()
   db.transaction(() => {
-    for (const i of ids) stmt.run(i)
+    for (const i of ids) stmt.run(now, i)
   })()
   return true
 }

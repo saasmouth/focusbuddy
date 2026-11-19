@@ -91,7 +91,9 @@ describe('the arrival router (§3 D1) is wired at every seam', () => {
 })
 
 describe('the 409 baseRev fix (F010)', () => {
-  it('advanceBaseRevCore floors sync_rev and never rewinds it', () => {
+  // Since 4.3.51 it SETS the server's rev, rewinding a rev held from another
+  // scope: "never rewind" was the shared-desk 409 loop (syncConflictRevSettle.test.ts).
+  it('advanceBaseRevCore settles sync_rev to the server rev, up or down', () => {
     const raw = new DatabaseSync(':memory:')
     raw.exec('CREATE TABLE nodes (id TEXT PRIMARY KEY, sync_rev INTEGER)')
     raw.exec("INSERT INTO nodes (id, sync_rev) VALUES ('low', 3), ('high', 10), ('nul', NULL)")
@@ -106,14 +108,16 @@ describe('the 409 baseRev fix (F010)', () => {
     advanceBaseRevCore(db, 'nodes', 'nul', 7)
     const revs = raw.prepare('SELECT id, sync_rev FROM nodes ORDER BY id').all()
     expect(revs).toEqual([
-      { id: 'high', sync_rev: 10 }, // never rewound
-      { id: 'low', sync_rev: 7 }, // floored up
+      { id: 'high', sync_rev: 7 }, // settled down: the 409 said 7
+      { id: 'low', sync_rev: 7 }, // settled up
       { id: 'nul', sync_rev: 7 } // NULL treated as behind
     ])
   })
 
-  it('all three renderer conflict arms call advanceBaseRev after the apply', () => {
+  // Personal, org and shared each have an upsert arm and, since 4.3.51 (DELETE
+  // carries baseRev and can be refused), a delete arm.
+  it('all six renderer conflict arms call advanceBaseRev after the apply', () => {
     const calls = syncRenderer.match(/workspaceSync\.advanceBaseRev\(/g) ?? []
-    expect(calls.length).toBe(3)
+    expect(calls.length).toBe(6)
   })
 })

@@ -15,11 +15,13 @@ export interface CrdtEmit {
   membership: (widgetId: string, from: string | null, to: string | null) => void
   widgetCreate: (w: Widget) => void
   widgetDelete: (widgetId: string) => void
+  widgetRestore: (widgetId: string) => void
   widgetFields: (widgetId: string, patch: { content?: string; title?: string; color?: string | null; status?: string | null; zIndex?: number }) => void
   nodeTitle: (nodeId: string, title: string) => void
   nodeParent: (nodeId: string, parentId: string | null) => void
   nodeCreate: (node: FbNode) => void
   nodeDelete: (nodeIds: string[]) => void
+  nodeRestore: (nodeIds: string[]) => void
   nodeAttrs: (nodeId: string, attrs: Record<string, unknown>) => void
   rowCells: (rowId: string, cells: Record<string, unknown>) => void
   rowOrder: (rowId: string, sortOrder: number) => void
@@ -79,6 +81,11 @@ export function crdtEmitWidgetCreate(w: Widget): void {
 export function crdtEmitWidgetDelete(widgetId: string): void {
   impl?.widgetDelete(widgetId)
 }
+// A widget brought back out of the trash (Undo of a delete). Without it the log
+// ends "delete" and other devices keep the widget deleted.
+export function crdtEmitWidgetRestore(widgetId: string): void {
+  impl?.widgetRestore(widgetId)
+}
 export function crdtEmitWidgetFields(
   widgetId: string,
   patch: { content?: string; title?: string; color?: string | null; status?: string | null; zIndex?: number }
@@ -100,6 +107,10 @@ export function crdtEmitNodeCreate(node: FbNode): void {
 // removed id so each is tombstoned on other devices.
 export function crdtEmitNodeDelete(nodeIds: string[]): void {
   impl?.nodeDelete(nodeIds)
+}
+// Desks/rooms brought back out of the trash (Undo, the Trash view).
+export function crdtEmitNodeRestore(nodeIds: string[]): void {
+  impl?.nodeRestore(nodeIds)
 }
 export function crdtEmitNodeAttrs(nodeId: string, attrs: Record<string, unknown>): void {
   impl?.nodeAttrs(nodeId, attrs)

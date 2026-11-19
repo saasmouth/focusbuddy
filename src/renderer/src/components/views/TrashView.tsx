@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNodeStore } from '../../stores/nodes'
+import { crdtEmitNodeRestore } from '../../lib/crdtBridge'
 import { useWorkItemStore } from '../../stores/workItems'
 import Icon from '../Icon'
 import { confirmPermanentDelete, tombstonePurged } from '../../lib/deleteDeskFlow'
@@ -69,7 +70,7 @@ export default function TrashView(): JSX.Element {
   async function restore(id: string): Promise<void> {
     setBusyId(id)
     try {
-      await window.api.nodes.restoreTree(id)
+      crdtEmitNodeRestore(await window.api.nodes.restoreTree(id))
       await refreshNodes()
       await load()
     } finally {
@@ -82,7 +83,7 @@ export default function TrashView(): JSX.Element {
     if (!ids.length) return
     setBusyBulk(true)
     try {
-      for (const id of ids) await window.api.nodes.restoreTree(id)
+      for (const id of ids) crdtEmitNodeRestore(await window.api.nodes.restoreTree(id))
       await refreshNodes()
       await load()
       exitSelect()

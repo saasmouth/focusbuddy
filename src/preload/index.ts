@@ -179,7 +179,7 @@ const api = {
       nodeIds: string[]
       widgetIds: string[]
     }> => ipcRenderer.invoke('nodes:deletePermanent', id),
-    restore: (ids: string[]): Promise<boolean> => ipcRenderer.invoke('nodes:restore', ids),
+    restore: (ids: string[], origin?: WriteOrigin): Promise<boolean> => ipcRenderer.invoke('nodes:restore', ids, origin),
     // Trash surfacing (lifecycle L1): trashed roots + days-remaining, and
     // lossless subtree restore.
     listTrash: (): Promise<
@@ -196,9 +196,10 @@ const api = {
     move: (
       id: string,
       newParentId: string | null,
-      beforeId: string | null
+      beforeId: string | null,
+      origin?: WriteOrigin
     ): Promise<FbNode | null> =>
-      ipcRenderer.invoke('nodes:move', id, newParentId, beforeId),
+      ipcRenderer.invoke('nodes:move', id, newParentId, beforeId, origin),
     // User-driven desk relatedness. relate/unrelate return the updated related-id
     // list for the first desk so the caller can refresh without a second call.
     relate: (a: string, b: string): Promise<string[]> => ipcRenderer.invoke('nodes:relate', a, b),
@@ -274,7 +275,7 @@ const api = {
       ipcRenderer.invoke('widgets:update', id, patch, origin),
     delete: (id: string, origin?: WriteOrigin): Promise<boolean> =>
       ipcRenderer.invoke('widgets:delete', id, origin),
-    restore: (id: string): Promise<boolean> => ipcRenderer.invoke('widgets:restore', id),
+    restore: (id: string, origin?: WriteOrigin): Promise<boolean> => ipcRenderer.invoke('widgets:restore', id, origin),
     bringToFront: (id: string): Promise<Widget | null> =>
       ipcRenderer.invoke('widgets:bringToFront', id)
   },
@@ -1167,14 +1168,14 @@ const api = {
   timeBlocks: {
     list: (fromMs: number, toMs: number): Promise<TimeBlock[]> =>
       ipcRenderer.invoke('timeblocks:list', fromMs, toMs),
-    create: (draft: TimeBlockDraft): Promise<TimeBlock> =>
-      ipcRenderer.invoke('timeblocks:create', draft),
-    update: (id: string, patch: TimeBlockPatch): Promise<TimeBlock | null> =>
-      ipcRenderer.invoke('timeblocks:update', id, patch),
+    create: (draft: TimeBlockDraft, origin?: WriteOrigin): Promise<TimeBlock> =>
+      ipcRenderer.invoke('timeblocks:create', draft, origin),
+    update: (id: string, patch: TimeBlockPatch, origin?: WriteOrigin): Promise<TimeBlock | null> =>
+      ipcRenderer.invoke('timeblocks:update', id, patch, origin),
     // scope 'series' removes this occurrence and everything after it in the
     // repeating series; 'one' (default) removes just this occurrence.
-    delete: (id: string, scope?: 'one' | 'series'): Promise<boolean> =>
-      ipcRenderer.invoke('timeblocks:delete', id, scope)
+    delete: (id: string, scope?: 'one' | 'series', origin?: WriteOrigin): Promise<boolean> =>
+      ipcRenderer.invoke('timeblocks:delete', id, scope, origin)
   },
   vault: {
     meta: (): Promise<VaultMeta> => ipcRenderer.invoke('vault:meta'),
@@ -1476,12 +1477,12 @@ const api = {
     get: (id: string): Promise<FileEntry | null> => ipcRenderer.invoke('fileManager:get', id),
     path: (id: string | null): Promise<Array<{ id: string; name: string }>> =>
       ipcRenderer.invoke('fileManager:path', id),
-    createFolder: (parentId: string | null, name: string, explicitId?: string): Promise<FileEntry> =>
-      ipcRenderer.invoke('fileManager:createFolder', parentId, name, explicitId),
-    rename: (id: string, name: string): Promise<FileEntry | null> =>
-      ipcRenderer.invoke('fileManager:rename', id, name),
-    move: (id: string, newParentId: string | null): Promise<boolean> =>
-      ipcRenderer.invoke('fileManager:move', id, newParentId),
+    createFolder: (parentId: string | null, name: string, explicitId?: string, origin?: WriteOrigin): Promise<FileEntry> =>
+      ipcRenderer.invoke('fileManager:createFolder', parentId, name, explicitId, origin),
+    rename: (id: string, name: string, origin?: WriteOrigin): Promise<FileEntry | null> =>
+      ipcRenderer.invoke('fileManager:rename', id, name, origin),
+    move: (id: string, newParentId: string | null, origin?: WriteOrigin): Promise<boolean> =>
+      ipcRenderer.invoke('fileManager:move', id, newParentId, origin),
     moveToOrg: (id: string, orgId: string, teamId?: string | null): Promise<string[]> =>
       ipcRenderer.invoke('fileManager:moveToOrg', id, orgId, teamId ?? null),
     importFolder: (
@@ -1489,7 +1490,7 @@ const api = {
     ): Promise<{ ok: boolean; canceled?: boolean; files?: number; folders?: number; skipped?: number; rootId?: string | null }> =>
       ipcRenderer.invoke('fileManager:importFolder', parentId),
     // Soft-delete: returns the ids trashed (entry + subtree) so the caller can undo.
-    delete: (id: string): Promise<string[]> => ipcRenderer.invoke('fileManager:delete', id),
+    delete: (id: string, origin?: WriteOrigin): Promise<string[]> => ipcRenderer.invoke('fileManager:delete', id, origin),
     restore: (ids: string[]): Promise<boolean> => ipcRenderer.invoke('fileManager:restore', ids),
     listTrashed: (): Promise<FileEntry[]> => ipcRenderer.invoke('fileManager:listTrashed'),
     restoreDeep: (id: string): Promise<boolean> => ipcRenderer.invoke('fileManager:restoreDeep', id),
@@ -1936,11 +1937,11 @@ const api = {
   tables: {
     list: (): Promise<FbTable[]> => ipcRenderer.invoke('tables:list'),
     get: (id: string): Promise<FbTable | null> => ipcRenderer.invoke('tables:get', id),
-    create: (draft: FbTableDraft): Promise<FbTable> =>
-      ipcRenderer.invoke('tables:create', draft),
-    update: (id: string, patch: FbTablePatch): Promise<FbTable | null> =>
-      ipcRenderer.invoke('tables:update', id, patch),
-    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('tables:delete', id),
+    create: (draft: FbTableDraft, origin?: WriteOrigin): Promise<FbTable> =>
+      ipcRenderer.invoke('tables:create', draft, origin),
+    update: (id: string, patch: FbTablePatch, origin?: WriteOrigin): Promise<FbTable | null> =>
+      ipcRenderer.invoke('tables:update', id, patch, origin),
+    delete: (id: string, origin?: WriteOrigin): Promise<boolean> => ipcRenderer.invoke('tables:delete', id, origin),
     listRows: (tableId: string): Promise<FbRow[]> =>
       ipcRenderer.invoke('tables:listRows', tableId),
     // Fires whenever ANY writer (flows, forms, the local REST API, templates,
@@ -1950,12 +1951,12 @@ const api = {
       ipcRenderer.on('tables:rowsChanged', listener)
       return () => ipcRenderer.removeListener('tables:rowsChanged', listener)
     },
-    createRow: (draft: FbRowDraft): Promise<FbRow> =>
-      ipcRenderer.invoke('tables:createRow', draft),
-    updateRow: (id: string, patch: FbRowPatch): Promise<FbRow | null> =>
-      ipcRenderer.invoke('tables:updateRow', id, patch),
-    deleteRow: (id: string): Promise<boolean> =>
-      ipcRenderer.invoke('tables:deleteRow', id),
+    createRow: (draft: FbRowDraft, origin?: WriteOrigin): Promise<FbRow> =>
+      ipcRenderer.invoke('tables:createRow', draft, origin),
+    updateRow: (id: string, patch: FbRowPatch, origin?: WriteOrigin): Promise<FbRow | null> =>
+      ipcRenderer.invoke('tables:updateRow', id, patch, origin),
+    deleteRow: (id: string, origin?: WriteOrigin): Promise<boolean> =>
+      ipcRenderer.invoke('tables:deleteRow', id, origin),
     restoreRow: (id: string): Promise<FbRow | null> =>
       ipcRenderer.invoke('tables:restoreRow', id),
     reorderRows: (tableId: string, ids: string[]): Promise<void> =>
@@ -2500,10 +2501,10 @@ const api = {
   documents: {
     list: (): Promise<DocumentMeta[]> => ipcRenderer.invoke('documents:list'),
     get: (id: string): Promise<FbDocument | null> => ipcRenderer.invoke('documents:get', id),
-    create: (draft: DocumentDraft): Promise<FbDocument> =>
-      ipcRenderer.invoke('documents:create', draft),
-    update: (id: string, patch: DocumentPatch, snapshotLabel?: string): Promise<FbDocument | null> =>
-      ipcRenderer.invoke('documents:update', id, patch, snapshotLabel),
+    create: (draft: DocumentDraft, origin?: WriteOrigin): Promise<FbDocument> =>
+      ipcRenderer.invoke('documents:create', draft, origin),
+    update: (id: string, patch: DocumentPatch, snapshotLabel?: string, origin?: WriteOrigin): Promise<FbDocument | null> =>
+      ipcRenderer.invoke('documents:update', id, patch, snapshotLabel, origin),
     /**
      * Someone replaced a document's body — another editor on the same document,
      * another window, a snapshot restore, or a body that arrived from sync.
@@ -2531,7 +2532,7 @@ const api = {
       ipcRenderer.invoke('documents:updateBody', id, body, expectedBodyRev, snapshotLabel),
     // Soft-delete into the Documents Trash (restorable); purge is the only
     // permanent removal, from the Trash view's "Delete forever".
-    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('documents:delete', id),
+    delete: (id: string, origin?: WriteOrigin): Promise<boolean> => ipcRenderer.invoke('documents:delete', id, origin),
     listTrashed: (): Promise<DocumentMeta[]> => ipcRenderer.invoke('documents:listTrashed'),
     // Comments on local documents (live docs use the signal server instead).
     listComments: (docId: string): Promise<DocCommentDto[]> => ipcRenderer.invoke('docComments:list', docId),

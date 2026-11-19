@@ -196,8 +196,11 @@ export function restoreTrashedTree(d: LifecycleDb, rootId: string): string[] {
     }
   }
   walk(rootId)
-  const restore = d.prepare('UPDATE nodes SET trashed_at = NULL WHERE id = ?')
-  for (const id of ids) restore.run(id)
+  // A restore is a change: it stamps updated_at, so a delete that other devices
+  // made BEFORE it can be recognised as older and is never applied over it.
+  const restore = d.prepare('UPDATE nodes SET trashed_at = NULL, updated_at = ? WHERE id = ?')
+  const now = Date.now()
+  for (const id of ids) restore.run(now, id)
   return ids
 }
 

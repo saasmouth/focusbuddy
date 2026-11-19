@@ -72,25 +72,67 @@ interface ServerItem {
   rootId?: string | null
 }
 
-async function pullChanges(token: string, since: number): Promise<{ items: ServerItem[]; now: number } | null> {
+// ── Pulling every page ───────────────────────────────────────────────────────
+// The /workspace/*/sync endpoints answer a since-only request with at most 5,000
+// rows (SYNC_LEGACY_PAGE_LIMIT). Up to 4.3.50 the client took one such page per
+// cycle and applied it alone, so a child whose parent sorted into a LATER page
+// failed its foreign key; after three cycles the stall rule moved the cursor past
+// it, and that row never reached the device (until edited again). Now a pull asks
+// for pages (limit + cursor), follows `nextCursor` until `more` is false, and
+// applies the whole delta as one batch (parents before children), so a row only
+// counts as failed once everything after it has arrived too. A server that does not
+// page answers without `more`, which ends the walk after one page as before.
+// `now` is the FINAL page's: the high-water mark for the next pull.
+const PULL_PAGE_LIMIT = 500
+const PULL_MAX_PAGES = 1000 // half a million rows; a guard against a loop, not a cap anyone meets
+
+interface SyncPage {
+  ok: boolean
+  items?: ServerItem[]
+  now?: number
+  more?: boolean
+  nextCursor?: string | null
+}
+
+async function pullAllPages<P extends SyncPage>(
+  path: string,
+  since: number,
+  headers: Record<string, string>,
+  extraQuery: Record<string, string> = {}
+): Promise<{ items: ServerItem[]; now: number; last: P } | null> {
+  const items: ServerItem[] = []
+  let cursor: string | null = null
   try {
-    const res = await fetch(urlFor(`/workspace/sync?since=${since}`), {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) {
-      noteServerError()
-      return null
+    for (let page = 0; page < PULL_MAX_PAGES; page++) {
+      const qs = new URLSearchParams({ ...extraQuery, since: String(since), limit: String(PULL_PAGE_LIMIT) })
+      if (cursor) qs.set('cursor', cursor)
+      const res = await fetch(urlFor(`${path}?${qs}`), { headers })
+      if (!res.ok) {
+        noteServerError()
+        return null
+      }
+      const json = (await res.json()) as P
+      if (!json.ok) {
+        noteServerError()
+        return null
+      }
+      for (const it of json.items ?? []) items.push(it)
+      if (!json.more || !json.nextCursor) return { items, now: json.now ?? since, last: json }
+      cursor = json.nextCursor
     }
-    const json = (await res.json()) as { ok: boolean; items?: ServerItem[]; now?: number }
-    if (!json.ok) {
-      noteServerError()
-      return null
-    }
-    return { items: json.items ?? [], now: json.now ?? since }
+    // A server still saying "more" after PULL_MAX_PAGES pages: do not advance on a
+    // partial delta, so nothing is skipped; the next cycle starts again.
+    noteServerError()
+    return null
   } catch {
     noteOffline()
     return null
   }
+}
+
+async function pullChanges(token: string, since: number): Promise<{ items: ServerItem[]; now: number } | null> {
+  const r = await pullAllPages('/workspace/sync', since, { Authorization: `Bearer ${token}` })
+  return r ? { items: r.items, now: r.now } : null
 }
 
 type PutResult =
@@ -128,23 +170,42 @@ async function putItem(
   }
 }
 
-async function deleteItem(token: string, id: string): Promise<{ ok: boolean; rev: number }> {
+// A DELETE names the rev it last saw (?baseRev=), so a delete made against an older
+// copy is refused (409, with the server's copy) instead of tombstoning a row
+// someone restored or edited since (a guarded server, a657af5+; an older one
+// ignores the parameter). A row this device never had confirmed (sync_rev 0) sends
+// none, as before: it may be a desk moved here whose old copy is stale.
+type DeleteResult = { ok: true; rev: number } | { ok: false; conflict: true; item: ServerItem } | { ok: false; conflict: false }
+
+function withBaseRev(path: string, baseRev: number): string {
+  if (!(baseRev > 0)) return path
+  return `${path}${path.includes('?') ? '&' : '?'}baseRev=${baseRev}`
+}
+
+async function deleteRequest(path: string, headers: Record<string, string>, baseRev: number): Promise<DeleteResult> {
   try {
-    const res = await fetch(urlFor(`/workspace/items/${id}`), {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const res = await fetch(urlFor(withBaseRev(path, baseRev)), { method: 'DELETE', headers })
     if (res.status === 404) return { ok: true, rev: 0 } // server never had it; treat as done
+    if (res.status === 409) {
+      const json = (await res.json().catch(() => ({}))) as { item?: ServerItem }
+      if (json.item) return { ok: false, conflict: true, item: json.item }
+      noteServerError()
+      return { ok: false, conflict: false }
+    }
     if (!res.ok) {
       noteServerError()
-      return { ok: false, rev: 0 }
+      return { ok: false, conflict: false }
     }
     const json = (await res.json()) as { ok: boolean; item?: { rev: number } }
-    return { ok: !!json.ok, rev: json.item?.rev ?? 0 }
+    return json.ok ? { ok: true, rev: json.item?.rev ?? 0 } : { ok: false, conflict: false }
   } catch {
     noteOffline()
-    return { ok: false, rev: 0 }
+    return { ok: false, conflict: false }
   }
+}
+
+async function deleteItem(token: string, id: string, baseRev: number): Promise<DeleteResult> {
+  return deleteRequest(`/workspace/items/${id}`, { Authorization: `Bearer ${token}` }, baseRev)
 }
 
 // ── Org-shared transport (cross-member time blocks) ──────────────────────────
@@ -162,24 +223,8 @@ async function pullChangesOrg(
   orgId: string,
   since: number
 ): Promise<{ items: ServerItem[]; now: number } | null> {
-  try {
-    const res = await fetch(urlFor(`/workspace/org/sync?since=${since}`), {
-      headers: orgHeaders(token, orgId)
-    })
-    if (!res.ok) {
-      noteServerError()
-      return null
-    }
-    const json = (await res.json()) as { ok: boolean; items?: ServerItem[]; now?: number }
-    if (!json.ok) {
-      noteServerError()
-      return null
-    }
-    return { items: json.items ?? [], now: json.now ?? since }
-  } catch {
-    noteOffline()
-    return null
-  }
+  const r = await pullAllPages('/workspace/org/sync', since, orgHeaders(token, orgId))
+  return r ? { items: r.items, now: r.now } : null
 }
 
 async function putItemOrg(
@@ -216,27 +261,8 @@ async function putItemOrg(
   }
 }
 
-async function deleteItemOrg(
-  token: string,
-  orgId: string,
-  id: string
-): Promise<{ ok: boolean; rev: number }> {
-  try {
-    const res = await fetch(urlFor(`/workspace/org/items/${id}`), {
-      method: 'DELETE',
-      headers: orgHeaders(token, orgId)
-    })
-    if (res.status === 404) return { ok: true, rev: 0 } // server never had it; treat as done
-    if (!res.ok) {
-      noteServerError()
-      return { ok: false, rev: 0 }
-    }
-    const json = (await res.json()) as { ok: boolean; item?: { rev: number } }
-    return { ok: !!json.ok, rev: json.item?.rev ?? 0 }
-  } catch {
-    noteOffline()
-    return { ok: false, rev: 0 }
-  }
+async function deleteItemOrg(token: string, orgId: string, id: string, baseRev: number): Promise<DeleteResult> {
+  return deleteRequest(`/workspace/org/items/${id}`, orgHeaders(token, orgId), baseRev)
 }
 
 // ── Org file bytes (cross-member Drive files) ────────────────────────────────
@@ -501,7 +527,24 @@ async function syncOrgWorkspaceOnce(token: string, orgId: string): Promise<numbe
     }
   }
   for (const d of pending.deletes) {
-    const res = await deleteItemOrg(token, orgId, d.id)
+    const res = await deleteItemOrg(token, orgId, d.id, d.baseRev)
+    if (!res.ok && res.conflict) {
+      // Someone restored or changed it after this device's copy: take theirs.
+      await window.api.workspaceSync.applyRemoteOrg(
+        [
+          {
+            id: res.item.id,
+            itemType: res.item.itemType,
+            body: res.item.body,
+            rev: res.item.rev,
+            deleted: res.item.deleted,
+            teamId: res.item.teamId
+          }
+        ],
+        orgId
+      )
+      await window.api.workspaceSync.advanceBaseRev(res.item.itemType, res.item.id, res.item.rev)
+    }
     if (res.ok) {
       await window.api.workspaceSync.markPushed(d.itemType, d.id, res.rev || d.baseRev)
       // Reclaim the server blob when a file is tombstoned (best-effort).
@@ -587,36 +630,18 @@ async function pullChangesShared(
   token: string,
   since: number
 ): Promise<{ items: ServerItem[]; now: number; roots: string[]; owned: string[]; ownerHandles: Record<string, string> } | null> {
-  try {
-    const res = await fetch(urlFor(`/workspace/shared/sync?since=${since}`), {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) {
-      noteServerError()
-      return null
-    }
-    const json = (await res.json()) as {
-      ok: boolean
-      items?: ServerItem[]
-      now?: number
-      roots?: string[]
-      owned?: string[]
-      ownerHandles?: Record<string, string>
-    }
-    if (!json.ok) {
-      noteServerError()
-      return null
-    }
-    return {
-      items: json.items ?? [],
-      now: json.now ?? since,
-      roots: json.roots ?? [],
-      owned: json.owned ?? [],
-      ownerHandles: json.ownerHandles ?? {}
-    }
-  } catch {
-    noteOffline()
-    return null
+  const r = await pullAllPages<SyncPage & { roots?: string[]; owned?: string[]; ownerHandles?: Record<string, string> }>(
+    '/workspace/shared/sync',
+    since,
+    { Authorization: `Bearer ${token}` }
+  )
+  if (!r) return null
+  return {
+    items: r.items,
+    now: r.now,
+    roots: r.last.roots ?? [],
+    owned: r.last.owned ?? [],
+    ownerHandles: r.last.ownerHandles ?? {}
   }
 }
 
@@ -651,23 +676,12 @@ async function putItemShared(
   }
 }
 
-async function deleteItemShared(token: string, id: string, rootId: string): Promise<{ ok: boolean; rev: number }> {
-  try {
-    const res = await fetch(urlFor(`/workspace/shared/items/${id}?rootId=${encodeURIComponent(rootId)}`), {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.status === 404) return { ok: true, rev: 0 } // server never had it; treat as done
-    if (!res.ok) {
-      noteServerError()
-      return { ok: false, rev: 0 }
-    }
-    const json = (await res.json()) as { ok: boolean; item?: { rev: number } }
-    return { ok: !!json.ok, rev: json.item?.rev ?? 0 }
-  } catch {
-    noteOffline()
-    return { ok: false, rev: 0 }
-  }
+async function deleteItemShared(token: string, id: string, rootId: string, baseRev: number): Promise<DeleteResult> {
+  return deleteRequest(
+    `/workspace/shared/items/${id}?rootId=${encodeURIComponent(rootId)}`,
+    { Authorization: `Bearer ${token}` },
+    baseRev
+  )
 }
 
 // One full push+pull cycle for every desk shared with this account by name. Pushes
@@ -698,8 +712,21 @@ async function syncSharedWorkspaceOnce(token: string): Promise<number> {
   }
   for (const d of pending.deletes) {
     if (!d.rootId) continue
-    const res = await deleteItemShared(token, d.id, d.rootId)
+    const res = await deleteItemShared(token, d.id, d.rootId, d.baseRev)
     if (res.ok) await window.api.workspaceSync.markPushed(d.itemType, d.id, res.rev || d.baseRev)
+    else if (res.conflict) {
+      await window.api.workspaceSync.applyRemoteShared([
+        {
+          id: res.item.id,
+          itemType: res.item.itemType,
+          body: res.item.body,
+          rev: res.item.rev,
+          deleted: res.item.deleted,
+          rootId: res.item.rootId
+        }
+      ])
+      await window.api.workspaceSync.advanceBaseRev(res.item.itemType, res.item.id, res.item.rev)
+    }
   }
 
   // ── Pull remote changes ──
@@ -772,6 +799,38 @@ function currentCycleFailure(): 'none' | 'offline' | 'server' {
 }
 
 // One full push+pull cycle. Returns the number of remote items applied locally.
+// One full re-pull per device, the first time 4.3.51 syncs. Up to 4.3.50 a pull
+// that spanned more than one page could give up on rows whose parent sorted into
+// a later page (the stall rule moved the cursor past them), and those rows never
+// reached that device. Pulls now walk every page, but a cursor already past a
+// skipped row would never offer it again, so each cursor starts over once. The
+// apply skips every row this device already holds at its rev, so this costs one
+// paged download and changes nothing that is already right. The flag lives in this
+// profile's localStorage; losing it only means one more harmless re-pull.
+const REPULL_FLAG = 'fb.sync.repull.4351'
+async function repullOnceAfterUpgrade(memberOrgIds: string[]): Promise<void> {
+  try {
+    if (localStorage.getItem(REPULL_FLAG) === '1') return
+  } catch {
+    return // no storage: never loop on a flag that cannot be written
+  }
+  try {
+    await window.api.workspaceSync.setCursor(0)
+    await window.api.workspaceSync.setCursorShared(0)
+    for (const orgId of memberOrgIds) await window.api.workspaceSync.setCursorOrg(orgId, 0)
+  } catch (err) {
+    // Never let the recovery stop a sync cycle; it is tried again next cycle.
+    // eslint-disable-next-line no-console
+    console.warn('[sync] one-time re-pull could not reset a cursor; will retry', err)
+    return
+  }
+  try {
+    localStorage.setItem(REPULL_FLAG, '1')
+  } catch {
+    /* see above */
+  }
+}
+
 export async function syncWorkspaceOnce(): Promise<number> {
   const token = useAccountStore.getState().sessionToken
   if (!enabled() || !token) {
@@ -796,6 +855,7 @@ export async function syncWorkspaceOnce(): Promise<number> {
     // The active org runs first so the workspace on screen stays the freshest.
     const activeOrg = useOrgStore.getState().activeOrgId || PERSONAL_ORG_ID
     const memberOrgIds = useOrgStore.getState().orgs.map((o) => o.id)
+    await repullOnceAfterUpgrade(memberOrgIds)
     let orgApplied = 0
     for (const orgId of orgSyncOrder(activeOrg, memberOrgIds)) {
       orgApplied += await syncOrgWorkspaceOnce(token, orgId)
@@ -843,8 +903,15 @@ export async function syncWorkspaceOnce(): Promise<number> {
       }
     }
     for (const d of pending.deletes) {
-      const res = await deleteItem(token, d.id)
+      const res = await deleteItem(token, d.id, d.baseRev)
       if (res.ok) await window.api.workspaceSync.markPushed(d.itemType, d.id, res.rev || d.baseRev)
+      else if (res.conflict) {
+        // Someone restored or changed it after this device's copy: take theirs.
+        await window.api.workspaceSync.applyRemote([
+          { id: res.item.id, itemType: res.item.itemType, body: res.item.body, rev: res.item.rev, deleted: res.item.deleted }
+        ])
+        await window.api.workspaceSync.advanceBaseRev(res.item.itemType, res.item.id, res.item.rev)
+      }
     }
 
     // ── Pull remote changes ──
