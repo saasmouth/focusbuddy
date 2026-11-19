@@ -1,11 +1,57 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { addWidgetToDesk, launchApp, type LaunchedApp, waitForReady } from './_helpers'
 
-// Change 1 verification: a new widget added from the side menu ("Add to this
-// desk"; the "+" palette add button until 4.3.32) should land
-// beside the active widget (right or left), not hundreds/thousands of px away.
-// Specifically the new widget x must be within 2 × viewport width of the active
-// widget, and within the visible canvas viewport.
+// A sticky added from the side menu ("Add to this desk"), with no spot chosen,
+// takes its zone in the owner's starting-sizes standard: the top-right corner
+// of the part of the desk you can see (shared/widgetPlacement.ts, 'corner').
+//
+// Where that corner is depends on the window and on the UI zoom the app picks
+// for the screen: a 1440x900 window lays out at 1600 CSS px at zoom 0.9 but at
+// 1694 at 0.85 (a 1512-wide display). This spec used to pin x = 1100, the
+// corner of the 1600 layout, and so failed on the 1694 one while the app was
+// right (4.3.51 and 4.3.52, x = 1200). It now measures the corner on screen.
+
+/**
+ * The part of the canvas you can see, in screen px, and the canvas zoom. The
+ * canvas surface runs the whole window width, under the side menu (memory:
+ * plexii-starting-sizes), so the menu's right edge is the left of the view.
+ */
+async function visibleCanvas(window: Page): Promise<{ left: number; top: number; right: number; bottom: number; zoom: number }> {
+  return window.evaluate(() => {
+    const surface = document.querySelector<HTMLElement>('[data-canvas-surface="true"]')!.getBoundingClientRect()
+    const menu = document.querySelector<HTMLElement>('[data-testid="desk-sidebar"], [data-testid="desk-sidebar-collapsed"]')?.getBoundingClientRect()
+    const zoom = (window as unknown as { __fbWidgets: { getState: () => { zoom: number } } }).__fbWidgets.getState().zoom
+    return { left: Math.max(surface.left, menu?.right ?? surface.left), top: surface.top, right: surface.right, bottom: surface.bottom, zoom }
+  })
+}
+
+/**
+ * The widget sits in the top-right corner of what you can see: its top and right
+ * edges 20 canvas units in from the view's (the zone's margin), give or take one
+ * step of the 20-unit grid, wholly inside the view, and on top where it shows.
+ */
+async function expectInTopRightCorner(window: Page, widgetId: string): Promise<void> {
+  const view = await visibleCanvas(window)
+  const el = window.locator(`[data-widget-id="${widgetId}"]`)
+  await expect(el).toBeVisible()
+  const box = (await el.boundingBox())!
+  const step = 20 * view.zoom
+  const report = JSON.stringify({ view, box })
+  const fromRight = view.right - (box.x + box.width)
+  const fromTop = box.y - view.top
+  expect(fromRight, `right edge a margin in from the view's: ${report}`).toBeGreaterThanOrEqual(step - 1)
+  expect(fromRight, `right edge a margin in from the view's: ${report}`).toBeLessThan(2 * step)
+  expect(fromTop, `top edge a margin below the view's: ${report}`).toBeGreaterThanOrEqual(step - 1)
+  expect(fromTop, `top edge a margin below the view's: ${report}`).toBeLessThan(2 * step)
+  expect(box.x, `clear of the side menu: ${report}`).toBeGreaterThanOrEqual(view.left)
+  expect(box.y + box.height, `inside the view: ${report}`).toBeLessThanOrEqual(view.bottom)
+  // Seen, not just placed: the widget is what is under its own centre.
+  const onTop = await window.evaluate(
+    ({ id, x, y }) => document.elementFromPoint(x, y)?.closest('[data-widget-id]')?.getAttribute('data-widget-id') === id,
+    { id: widgetId, x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  )
+  expect(onTop, `nothing covers it: ${report}`).toBe(true)
+}
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -97,8 +143,7 @@ test('a widget added with no spot chosen takes its zone, in view and clear of th
   // of the desk you can see (the side menu floats over the left of the canvas).
   // The rule for a kind with no zone, beside the active widget, is covered in
   // tests/unit/spawnPosition.test.ts.
-  expect(spawned.x, JSON.stringify(spawned)).toBe(1100)
-  expect(spawned.y, JSON.stringify(spawned)).toBe(20)
+  await expectInTopRightCorner(window, spawned.id)
   const apart =
     spawned.x >= anchor.x + anchor.width ||
     spawned.x + spawned.width <= anchor.x ||
@@ -106,16 +151,15 @@ test('a widget added with no spot chosen takes its zone, in view and clear of th
     spawned.y + spawned.height <= anchor.y
   expect(apart, 'the new widget must not land on the active one').toBe(true)
 
-  // Must also be within the visible viewport (canvas coordinates 0–1440 is a
-  // reasonable bound for a default window at zoom=1 and no pan).
-  expect(spawned.x, 'x within visible range').toBeLessThan(3000)
-  expect(spawned.x, 'x not deeply negative').toBeGreaterThan(-3000)
-
   // Log for evidence.
   console.log(`anchor: x=${anchor.x} w=${anchor.width}; spawned: x=${spawned.x} y=${spawned.y}`)
 })
 
-test('palette-add without an active widget falls back to viewport centre, not off-screen', async () => {
+// Was "palette-add without an active widget falls back to viewport centre":
+// true before the starting-sizes standard, when a sticky had no zone. Its 2000 px
+// bounds then passed wherever the sticky went. A sticky now takes its zone with
+// or without an active widget, so this checks the same corner on an empty desk.
+test('a sticky added to an empty desk, with nothing active, takes its zone too', async () => {
   launched = await launchApp()
   const { window } = launched
   await waitForReady(window)
@@ -143,19 +187,13 @@ test('palette-add without an active widget falls back to viewport centre, not of
     const all = await api.widgets.listByTask(tid)
     return all
       .filter((w) => !w.archived && w.kind !== 'minimap')
-      .map((w) => ({ x: w.x, y: w.y }))
+      .map((w) => ({ id: w.id, x: w.x, y: w.y }))
   }, taskId)
 
-  // At least one non-minimap widget was created.
-  expect(widgets.length).toBeGreaterThanOrEqual(1)
-
+  // Exactly the one sticky, in the top-right corner of what you can see.
+  expect(widgets).toHaveLength(1)
   const spawned = widgets[0]
-  // Must land reasonably near viewport centre. The viewport centre in canvas
-  // space at default pan=0 / zoom=1 is approximately w/2, h/2. The fallback
-  // should not put the widget at fixed (60, 60) or at a random large offset.
-  // We use a 2000px radius from origin as a loose bound.
-  expect(spawned.x, 'no-active fallback x within 2000').toBeLessThan(2000)
-  expect(spawned.x, 'no-active fallback x not deeply negative').toBeGreaterThan(-2000)
+  await expectInTopRightCorner(window, spawned.id)
 
   console.log(`no-active fallback spawn: x=${spawned.x} y=${spawned.y}`)
 })
