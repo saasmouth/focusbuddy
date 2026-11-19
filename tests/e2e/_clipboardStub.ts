@@ -53,13 +53,22 @@ export async function installClipboardStub(page: Page, initial: Record<string, s
       store().writes++
       store().version++
     }
+    const FILE_KEY = '__file:'
+    const bytesOf = (b64: string): Uint8Array => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
     const nativeExec = document.execCommand.bind(document)
     const isEditable = (el: Element | null): el is HTMLElement =>
       !!el && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el as HTMLElement).isContentEditable)
 
     const fire = (kind: 'copy' | 'cut' | 'paste'): boolean => {
       const dt = new DataTransfer()
-      if (kind === 'paste') for (const [t, v] of Object.entries(store().data)) dt.setData(t, v)
+      if (kind === 'paste') {
+        for (const [t, v] of Object.entries(store().data)) {
+          // A picture on the clipboard reaches a paste event as a FILE, as
+          // Chromium hands it over (types ['Files']), never as a string type.
+          if (t.startsWith(FILE_KEY)) dt.items.add(new File([bytesOf(v)], 'image.png', { type: t.slice(FILE_KEY.length) }))
+          else dt.setData(t, v)
+        }
+      }
       const target = (document.activeElement as Element | null) ?? document.body
       const ev = new ClipboardEvent(kind, { clipboardData: dt, bubbles: true, cancelable: true, composed: true })
       target.dispatchEvent(ev)
@@ -103,14 +112,25 @@ export async function installClipboardStub(page: Page, initial: Record<string, s
         write: async (items: ClipboardItem[]) => {
           const out: Record<string, string> = {}
           for (const item of items) {
-            for (const t of item.types) out[t] = await (await item.getType(t)).text()
+            for (const t of item.types) {
+              const blob = await item.getType(t)
+              if (t.startsWith('image/') && t !== 'image/svg+xml') {
+                // A picture is kept as its bytes (as base64), never as text.
+                const bytes = new Uint8Array(await blob.arrayBuffer())
+                let bin = ''
+                for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+                out[FILE_KEY + t] = btoa(bin)
+              } else out[t] = await blob.text()
+            }
           }
           put(out)
         },
         read: async () => {
-          const entries = Object.entries(store().data)
+          const entries = Object.entries(store().data).map(([t, v]): [string, Blob] =>
+            t.startsWith(FILE_KEY) ? [t.slice(FILE_KEY.length), new Blob([bytesOf(v)], { type: t.slice(FILE_KEY.length) })] : [t, new Blob([v], { type: t })]
+          )
           if (!entries.length) return []
-          return [new ClipboardItem(Object.fromEntries(entries.map(([t, v]) => [t, new Blob([v], { type: t })])))]
+          return [new ClipboardItem(Object.fromEntries(entries))]
         }
       }
     })
@@ -182,15 +202,25 @@ export const MOD = process.platform === 'darwin' ? 'Meta' : 'Control'
  * Specs read and write through app.evaluate(({ clipboard }) => ...) as before.
  */
 export async function installMainClipboardStub(app: ElectronApplication): Promise<void> {
-  await app.evaluate(({ clipboard, webContents }) => {
+  await app.evaluate(({ app: electronApp, clipboard, webContents }) => {
     type Entries = Record<string, Buffer>
-    const g = globalThis as unknown as {
-      __plexiiMainStub?: { entries: Entries; seen: Map<number, { id: string; version: number }>; timer?: NodeJS.Timeout }
-    }
+    type MainStub = { entries: Entries; seen: Map<number, { id: string; version: number }>; timer?: NodeJS.Timeout; copyImageAt: Array<{ x: number; y: number }> }
+    const g = globalThis as unknown as { __plexiiMainStub?: MainStub }
     if (g.__plexiiMainStub) return
     const CUSTOM = 'electron application/osclipboard;format="org.chromium.web-custom-data"'
     const STANDARD = new Set(['text/plain', 'text/html', 'text/rtf', 'image/png', 'text/uri-list'])
-    const st: { entries: Entries; seen: Map<number, { id: string; version: number }>; timer?: NodeJS.Timeout } = { entries: {}, seen: new Map() }
+    // A raw OS flavour written by the app (Draw writes public.png and
+    // public.svg-image raw on macOS) is listed by the real clipboard under its
+    // raw name AND the web type Chromium maps it to; so it is here.
+    const RAW = /^electron application\/osclipboard;format="(.+)"$/
+    const MAPPED: Record<string, string> = {
+      'public.png': 'image/png',
+      'public.svg-image': 'image/svg+xml',
+      'public.utf8-plain-text': 'text/plain',
+      'public.html': 'text/html',
+      'public.rtf': 'text/rtf'
+    }
+    const st: MainStub = { entries: {}, seen: new Map(), copyImageAt: [] }
     g.__plexiiMainStub = st
 
     // Chromium's pickle of custom types: uint32 payload size, uint32 count, then
@@ -243,7 +273,8 @@ export async function installMainClipboardStub(app: ElectronApplication): Promis
       const e: Entries = {}
       const custom: Record<string, string> = {}
       for (const [t, v] of Object.entries(data)) {
-        if (STANDARD.has(t)) e[t] = Buffer.from(v, 'utf8')
+        if (t.startsWith('__file:')) e[t.slice('__file:'.length)] = Buffer.from(v, 'base64')
+        else if (STANDARD.has(t)) e[t] = Buffer.from(v, 'utf8')
         else custom[t] = v
       }
       if (Object.keys(custom).length) e[CUSTOM] = pickle(custom)
@@ -253,7 +284,9 @@ export async function installMainClipboardStub(app: ElectronApplication): Promis
       const out: Record<string, string> = {}
       for (const [t, b] of Object.entries(e)) {
         if (t === CUSTOM) Object.assign(out, unpickle(b))
-        else if (STANDARD.has(t) && t !== 'image/png') out[t] = b.toString('utf8')
+        // A picture goes to the page as bytes, which its paste event hands over as a file.
+        else if (t === 'image/png') out['__file:image/png'] = b.toString('base64')
+        else if (STANDARD.has(t)) out[t] = b.toString('utf8')
       }
       return out
     }
@@ -299,6 +332,10 @@ export async function installMainClipboardStub(app: ElectronApplication): Promis
           for (const t of item.types ?? []) if (item.getType) e[t] = await asBuffer(await item.getType(t))
         }
       } else if (input && typeof input === 'object') await add(input as Record<string, unknown>)
+      for (const t of Object.keys(e)) {
+        const web = MAPPED[RAW.exec(t)?.[1] ?? '']
+        if (web && !(web in e)) e[web] = e[t]
+      }
       setEntries(e)
     }
     // The Edit menu and context-menu roles: the page's own copy/cut/paste,
@@ -307,10 +344,17 @@ export async function installMainClipboardStub(app: ElectronApplication): Promis
       const w = wc as unknown as Record<string, unknown>
       for (const cmd of ['copy', 'cut', 'paste', 'pasteAndMatchStyle']) {
         const kind = cmd === 'pasteAndMatchStyle' ? 'paste' : cmd
-        w[cmd] = () => void wc.executeJavaScript(`document.execCommand(${JSON.stringify(kind)})`).catch(() => undefined)
+        // Only a page with the renderer half: in any other, execCommand would
+        // be Chromium's own and reach the system clipboard.
+        w[cmd] = () => void wc.executeJavaScript(`window.__plexiiStubInstalled && document.execCommand(${JSON.stringify(kind)})`).catch(() => undefined)
       }
+      // The web context menu's Copy Image writes the system clipboard from
+      // Chromium directly; here it is only recorded (st.copyImageAt).
+      w.copyImageAt = (x: number, y: number) => void st.copyImageAt.push({ x, y })
     }
     for (const wc of webContents.getAllWebContents()) route(wc)
+    // Pages made later (a second window, a webview) are routed too.
+    electronApp.on('web-contents-created', (_e, wc) => route(wc))
 
     // Keep step with each page's renderer half.
     st.timer = setInterval(() => {

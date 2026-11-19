@@ -21,6 +21,7 @@
 import { test, expect, type Page, type ElectronApplication } from '@playwright/test'
 import { mkdirSync } from 'fs'
 import { launchApp, waitForReady, suppressFeatureSpotlights, chooseCloudAiSource, typeInComposer, type LaunchedApp } from './_helpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 const SHOTS = '/private/tmp/claude-501/-Users-mymac-Desktop-My-Apps-06-Agentic-Starter-Kit--links-/496f07e8-34aa-467c-81bd-e6d13054477c/scratchpad/ctx-menus/wp3'
 mkdirSync(SHOTS, { recursive: true })
@@ -36,6 +37,8 @@ type Seed = { taskId: string; fileId: string; folderId: string }
 async function boot(theme: 'light' | 'dark'): Promise<{ window: Page; app: ElectronApplication; seed: Seed }> {
   launched = await launchApp({ env: { PLEXI_WEB_MENU_HOOK: '1' } })
   const { window, app } = launched
+  // Menus that copy write the test's own clipboard (_clipboardStub.ts, both halves), never the owner's.
+  await installMainClipboardStub(app)
   await waitForReady(window)
   const seed = (await window.evaluate(async () => {
     const api = (window as unknown as { api: typeof window.api }).api
@@ -48,6 +51,7 @@ async function boot(theme: 'light' | 'dark'): Promise<{ window: Page; app: Elect
   await suppressFeatureSpotlights(window)
   await window.reload()
   await waitForReady(window)
+  await installClipboardStub(window)
   await chooseCloudAiSource(window)
   return { window, app, seed }
 }
@@ -220,7 +224,7 @@ for (const theme of ['light', 'dark'] as const) {
     await window.screenshot({ path: `${SHOTS}/chat-assistant-reply-${theme}.png` })
     expect(await mainMenuEvents(app)).toBe(before)
 
-    await app.evaluate(({ clipboard }) => clipboard.writeText(''))
+    await app.evaluate(({ clipboard }) => clipboard.clear())
     await window.locator('[data-testid="chat-menu-copy"]').click()
     await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe('The reply to copy.')
 

@@ -11,6 +11,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, switchArea, chooseCloudAiSource, placeDesign, selectBarTab } from './_helpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -45,9 +46,12 @@ async function menu(window: Page, bar: string, name: string, item: string): Prom
 }
 
 test('CP-1 — Design: ⌘C and ⌘V add a copy, offset and on top', async () => {
-  const { window, dispose } = await launchApp()
+  const { app, window, dispose } = await launchApp()
   try {
+    // The test's own clipboard (_clipboardStub.ts, both halves), never the owner's.
+    await installMainClipboardStub(app)
     await waitForReady(window)
+    await installClipboardStub(window)
     await chooseCloudAiSource(window)
     await openDesign(window)
 
@@ -211,9 +215,12 @@ test('CP-4 — Design: a page can be duplicated, with everything on it', async (
 })
 
 test('CP-5 — Slides: ⌘C/⌘V on a slide, and Duplicate slide', async () => {
-  const { window, dispose } = await launchApp()
+  const { app, window, dispose } = await launchApp()
   try {
+    // The test's own clipboard (_clipboardStub.ts, both halves), never the owner's.
+    await installMainClipboardStub(app)
     await waitForReady(window)
+    await installClipboardStub(window)
     await chooseCloudAiSource(window)
     await switchArea(window, 'office')
     await expect(window.locator('[data-testid="office-app-slides"]')).toBeVisible({ timeout: 8_000 })

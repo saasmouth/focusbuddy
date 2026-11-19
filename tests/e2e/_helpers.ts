@@ -8,6 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchGuarded, type NetGuard } from './_netGuard'
+import { clipboardGuardViolations } from './_clipboardGuard'
 
 /**
  * Boot the built Electron app with an isolated userData directory so each test
@@ -47,6 +48,13 @@ export async function launchApp(opts?: {
   netGuardSelfTest?: boolean
   /** See the worktree's staged on-device models (default: only specs named in _bundledModels.ts). */
   bundledModels?: boolean
+  /**
+   * Let this app reach the machine's real clipboard. Only for the opt-in native
+   * specs (real input or the real pasteboard, under the real-input lock);
+   * everything else uses the test's own clipboard (_clipboardStub.ts), and the
+   * clipboard guard (_clipboardGuard.ts) fails a spec that reaches past it.
+   */
+  realClipboard?: boolean
 }): Promise<LaunchedApp> {
   const userDataDir = opts?.userDataDir ?? mkdtempSync(join(tmpdir(), 'plexii-e2e-'))
   const ownsDir = !opts?.userDataDir
@@ -86,11 +94,14 @@ export async function launchApp(opts?: {
       ...(opts?.env ?? {})
     },
     timeout: 20_000
-  }, { selfTest: opts?.netGuardSelfTest, bundledModels: opts?.bundledModels })
+  }, { selfTest: opts?.netGuardSelfTest, bundledModels: opts?.bundledModels, realClipboard: opts?.realClipboard })
   // Forward main-process stdout/stderr to test stdout so debugging "page
   // closed" failures actually shows the real Electron error.
   app.process().stdout?.on('data', (b) => process.stdout.write(`[main] ${b}`))
   app.process().stderr?.on('data', (b) => process.stderr.write(`[main] ${b}`))
+  // launchGuarded installed the clipboard guard unless the spec opted out; its
+  // refusals fail the spec at dispose (_clipboardGuard.ts).
+  const guardClipboard = !opts?.realClipboard
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
 
@@ -122,6 +133,8 @@ export async function launchApp(opts?: {
   )
 
   async function dispose(): Promise<void> {
+    // What the clipboard guard refused, read while the app is still up.
+    const clipboardRefused = guardClipboard ? await clipboardGuardViolations(app) : []
     // app.close() on Electron 37 / macOS can hang indefinitely when the
     // inspector remains attached. Race it against a 5 s timeout and fall back
     // to SIGKILL so tests don't exhaust the 30 s afterEach budget.
@@ -153,6 +166,11 @@ export async function launchApp(opts?: {
       netGuard.assertClean()
     } finally {
       netGuard.finish()
+    }
+    if (clipboardRefused.length) {
+      throw new Error(
+        `This spec reached for the machine's clipboard; use the test's own (tests/e2e/_clipboardStub.ts: installMainClipboardStub after launchApp, installClipboardStub after each load). Refused:\n  - ${clipboardRefused.join('\n  - ')}`
+      )
     }
   }
   return { app, window, userDataDir, dispose, netGuard }

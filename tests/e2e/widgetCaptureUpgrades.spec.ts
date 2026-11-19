@@ -11,14 +11,16 @@
  *      user stamp an emoji on the title row. Both fields persist as JSON in
  *      widget.content ({bgFill, icon}).
  *
- *   3. MarkdownWidget "Copy as markdown" toolbar button — button exists with
- *      the right title and is clickable without throwing a page error.
+ *   3. MarkdownWidget "Copy as markdown" toolbar button — it copies the note's
+ *      markdown source, on the test's own clipboard (_clipboardStub.ts, both
+ *      halves), never the owner's.
  *
  * All tests are hermetic: isolated userData dir, no network, no AI keys.
  */
 
 import { test, expect } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
+import { installClipboardStub, installMainClipboardStub, stubClipboard } from './_clipboardStub'
 
 // ---------------------------------------------------------------------------
 // Shared lifecycle
@@ -287,8 +289,9 @@ test('card widget icon picker sets an emoji in persisted content', async () => {
 // 3. Markdown "Copy as markdown" button
 // ---------------------------------------------------------------------------
 
-test('markdown widget has "Copy as markdown" toolbar button and clicking it causes no page error', async () => {
+test('markdown widget has "Copy as markdown" toolbar button and it copies the markdown source', async () => {
   launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   const { window } = launched
 
   await waitForReady(window)
@@ -302,6 +305,8 @@ test('markdown widget has "Copy as markdown" toolbar button and clicking it caus
   })
 
   await window.waitForSelector(`[data-widget-id="${widgetId}"]`, { timeout: 6_000 })
+  // After the seed's reload: the page's half of the test clipboard.
+  await installClipboardStub(window)
 
   // The "Copy as markdown" button is in the toolbar (title attribute).
   const copyBtn = window
@@ -310,31 +315,9 @@ test('markdown widget has "Copy as markdown" toolbar button and clicking it caus
 
   await expect(copyBtn).toBeVisible({ timeout: 5_000 })
 
-  // Click it — this calls navigator.clipboard.writeText internally. Electron's
-  // test renderer has clipboard access; the important assertion is that the
-  // click completes without throwing a page error.
+  // It copies the note's markdown SOURCE (navigator.clipboard.writeText), not
+  // its rendered text: the heading keeps its #, the list its markers.
   await copyBtn.click()
-
-  // Brief pause to let any async clipboard write settle.
-  await window.waitForTimeout(300)
-
-  // Attempt to read clipboard. navigator.clipboard.readText requires focus
-  // and is available in Electron. We treat a read failure as non-fatal (the
-  // button existing + no error is the primary assertion).
-  let clipboardText: string | null = null
-  try {
-    clipboardText = await window.evaluate(async () => {
-      return navigator.clipboard.readText()
-    })
-  } catch {
-    // readText can throw in some Electron/headless configurations — not fatal.
-  }
-
-  if (clipboardText !== null) {
-    // If we can read it, assert it contains the heading text.
-    expect(clipboardText).toContain('Hi')
-  }
-
-  // Primary assertion: no page errors, button was clickable.
+  await expect.poll(async () => (await stubClipboard(window)).data['text/plain'] ?? '').toMatch(/^# Hi\n\n[-*] one\n[-*] two\n?$/)
   expect(pageErrors).toHaveLength(0)
 })

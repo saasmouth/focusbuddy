@@ -12,7 +12,7 @@
 // a paste event carrying a PNG file, as the platform would.
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
-import { installClipboardStub, stubClipboard, MOD, installMainClipboardStub } from './_clipboardStub'
+import { installClipboardStub, MOD, installMainClipboardStub } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 test.afterEach(async () => {
@@ -52,7 +52,16 @@ test('PC-1 ⌘C on an Image work widget copies the picture as PNG', async () => 
   const { ids } = await deskWith(launched, [{ kind: 'image', content: `data:image/png;base64,${PNG_B64}` }])
   await launched.window.locator(`[data-widget-id="${ids[0]}"] [data-testid="image-widget-body"]`).click({ position: { x: 20, y: 200 } })
   await launched.window.keyboard.press(`${MOD}+c`)
-  await expect.poll(async () => Object.keys((await stubClipboard(launched!.window)).data)).toContain('image/png')
+  // What another app pastes: real PNG bytes, read in main as they would be.
+  await expect
+    .poll(async () =>
+      launched!.app.evaluate(async ({ clipboard }) => {
+        const item = (await clipboard.read())[0]
+        if (!item?.types.includes('image/png')) return ''
+        return Buffer.from(await (await item.getType('image/png')).arrayBuffer()).subarray(0, 8).toString('hex')
+      })
+    )
+    .toBe('89504e470d0a1a0a')
 })
 
 test('PC-2 a picture pasted into a Gallery joins it, not the desk; one ⌘Z takes it out', async () => {

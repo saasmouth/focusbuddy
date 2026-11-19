@@ -10,29 +10,22 @@
  * AD-2 two Deck text boxes copied and pasted into a design land as two text
  *      frames, and the notice says how to make them flow.
  *
- * Every result is read back from the stored document. This spec uses the
- * real system clipboard: every item and type on it is saved first and put
- * back afterwards (tests/e2e/_macPasteboard.ts).
+ * Every result is read back from the stored document. The clipboard is the
+ * test's own (tests/e2e/_clipboardStub.ts, both halves), never the owner's.
  */
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, gotoView, chooseCloudAiSource, suppressFeatureSpotlights, selectBarTab, switchArea } from './_helpers'
 import { openDocument, rectObject, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
-import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 type El = Record<string, unknown> & { id: string; type: string; x: number; y: number; w: number; h: number; src?: string; storyId?: string }
 type StoredDesign = { elements: El[]; stories?: Record<string, { blocks: Array<{ text?: string }> }> }
 
-let saved: SavedPasteboard | null = null
-test.beforeAll(() => {
-  if (process.platform === 'darwin') saved = savePasteboard()
-})
-test.afterAll(() => {
-  if (saved) restorePasteboard(saved)
-})
-
 async function boot(): Promise<{ window: Page; dispose: () => Promise<void>; app: Awaited<ReturnType<typeof launchApp>>['app'] }> {
   const launched = await launchApp()
+  await installMainClipboardStub(launched.app)
   await waitForReady(launched.window)
+  await installClipboardStub(launched.window)
   await chooseCloudAiSource(launched.window)
   await suppressFeatureSpotlights(launched.window)
   return launched

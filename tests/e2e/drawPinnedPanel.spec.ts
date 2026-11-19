@@ -10,32 +10,31 @@
  *   PP-3 ⌘0, ⌥⌘0, Zoom to Selection and Paste all keep art beside the panel.
  *
  * Throwaway profile (launchApp), PLEXI_APP=preview3. PP-3 copies and pastes,
- * so every item and type on the real macOS pasteboard is saved first and put
- * back afterwards.
+ * on the test's own clipboard (tests/e2e/_clipboardStub.ts, both halves),
+ * never the owner's.
  */
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, type LaunchedApp, waitForReady } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, openDrawPanel, readStored, rectObject, seedDrawDoc, stagePoint, v1Body } from './_drawHelpers'
-import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 let app: LaunchedApp
 let window: Page
-let savedPasteboard: SavedPasteboard | null = null
 const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
 
 test.beforeAll(async () => {
   app = await launchApp({ env: { PLEXI_APP: 'preview3' } })
+  await installMainClipboardStub(app.app)
   window = app.window
   await waitForReady(window)
+  await installClipboardStub(window)
   await keepNoticesOutOfTheWay(window)
-  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
 })
 
 test.afterAll(async () => {
-  // Leave the panel unpinned for whatever runs next in this profile, and the pasteboard as it was.
+  // Leave the panel unpinned for whatever runs next in this profile.
   await window.locator('[data-testid="draw-panel-layers-pin"][aria-pressed="true"]').click().catch(() => undefined)
-  if (savedPasteboard) restorePasteboard(savedPasteboard)
   await app.dispose()
 })
 

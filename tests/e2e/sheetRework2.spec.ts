@@ -18,6 +18,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady } from './_helpers'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 // ── Shared navigation helpers (copied from sheetEditorV2.spec.ts) ────────────
 
@@ -430,9 +431,12 @@ test('SR2-5 — default row height matches Excel (20px); dragging the row-resize
 // ── SR2-6. A paste that pushes a reference off the grid ───────────────────────
 
 test('SR2-6 — a formula pasted above its referent shows #REF!, not a clamped reference', async () => {
-  const { window, dispose } = await launchApp()
+  const { app, window, dispose } = await launchApp()
   try {
+    // The test's own clipboard (_clipboardStub.ts, both halves), never the owner's.
+    await installMainClipboardStub(app)
     await waitForReady(window)
+    await installClipboardStub(window)
     await openDocumentsHub(window)
     await startBlankSpreadsheet(window)
 

@@ -15,26 +15,25 @@
  *      lands as ONE picture of the slide element (an SVG asset), not as a
  *      text object holding its words.
  *
- * Every result is read back from the stored document. This spec uses the
- * machine's real clipboard: every item and type on it is saved before and put
- * back after (tests/e2e/_macPasteboard.ts).
+ * Every result is read back from the stored document. The clipboard is the
+ * test's own (tests/e2e/_clipboardStub.ts, both halves), never the owner's.
  */
 import { test, expect, type Page } from '@playwright/test'
 import { launchApp, waitForReady, chooseCloudAiSource, suppressFeatureSpotlights, switchArea, gotoView, selectBarTab, type LaunchedApp } from './_helpers'
 import { keepNoticesOutOfTheWay, openDocument, readStored, rectObject, runMenu, seedDrawDoc, v1Body } from './_drawHelpers'
-import { restorePasteboard, savePasteboard, type SavedPasteboard } from './_macPasteboard'
+import { installClipboardStub, installMainClipboardStub } from './_clipboardStub'
 
 let app: LaunchedApp
 let window: Page
-let savedPasteboard: SavedPasteboard | null = null
 
 test.describe.configure({ mode: 'serial' })
 
 test.beforeAll(async () => {
-  if (process.platform === 'darwin') savedPasteboard = savePasteboard()
   app = await launchApp()
+  await installMainClipboardStub(app.app)
   window = app.window
   await waitForReady(window)
+  await installClipboardStub(window)
   await chooseCloudAiSource(window)
   await suppressFeatureSpotlights(window)
   await keepNoticesOutOfTheWay(window)
@@ -42,7 +41,6 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.dispose()
-  if (savedPasteboard) restorePasteboard(savedPasteboard)
 })
 
 // ── Shared ───────────────────────────────────────────────────────────────────
@@ -292,7 +290,7 @@ test('AW-4 a Deck text box copied and pasted into a drawing lands as one picture
   await selectBarTab(window, 'slides-toolbar', 'arrange')
   await expect(window.locator('[data-testid="slides-el-delete"]')).toBeEnabled({ timeout: 3_000 })
   await window.keyboard.press('Meta+c')
-  // The element clip is on the pasteboard (Chromium's web custom data).
+  // The element clip is on the clipboard (Chromium's web custom data).
   await expect
     .poll(
       async () =>
