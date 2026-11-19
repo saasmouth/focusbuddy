@@ -22,6 +22,20 @@ REPO="${REPO:-saasmouth/focusbuddy}"
 DIR="${RELEASE_DIR:-release}"
 TAG="v${VERSION}"
 
+# One EXIT trap for everything this script must undo, success or failure: the
+# compat copies' temp folder and the feed-flip lock (scripts/feed-flip-lock.sh).
+# A second `trap ... EXIT` would silently replace the first, so there is one.
+# shellcheck source=feed-flip-lock.sh
+source "${HERE0}/feed-flip-lock.sh"
+COMPAT_DIR=""
+cleanup() {
+  if [ -n "$COMPAT_DIR" ]; then rm -rf "$COMPAT_DIR"; fi
+  feed_lock_release
+}
+trap cleanup EXIT
+# Fail fast, before uploading anything: another release is flipping the feed.
+feed_lock_refuse_if_busy
+
 # Which mac slice this release ships. 4.3.1 onward is `universal`; older
 # releases were `arm64`.
 MAC_ARCH="${MAC_ARCH:-universal}"
@@ -121,7 +135,6 @@ gh release upload "$TAG" "$ZIP" "$BLOCKMAP" "$DMG" "$YML" --repo "$REPO" --clobb
 # the old name. Drop this once no supported client builds per-arch URLs.
 if [ "$MAC_ARCH" = "universal" ]; then
   COMPAT_DIR="$(mktemp -d)"
-  trap 'rm -rf "$COMPAT_DIR"' EXIT
   COMPAT_ZIP="${COMPAT_DIR}/${PREFIX}-mac-arm64.zip"
   cp "$ZIP" "$COMPAT_ZIP"
   cp "$BLOCKMAP" "${COMPAT_ZIP}.blockmap"
@@ -153,9 +166,16 @@ fi
 #
 # upload-release-assets.mjs already handles mac fully (universal + arm64 +
 # Haptyx- aliases + the manifest). It just was never called from here.
+#
+# The upload flips the live feed, so it holds the feed-flip lock: nothing that
+# reads the live feeds (a site publish, the Insights crawler) may see it move
+# half-way (scripts/feed-flip-lock.sh). Released the moment the upload ends,
+# and by the EXIT trap if it fails.
 if [ -n "${R2_BUCKET:-}" ]; then
+  feed_lock_take "$VERSION"
   echo "Mirroring mac assets to the update feed (R2)…"
   RELEASE_DIR="$DIR" node "${HERE0}/upload-release-assets.mjs" "$VERSION"
+  feed_lock_release
 else
   echo "R2_BUCKET is not set — SKIPPING the update-feed mirror." >&2
   echo "The GitHub release will be complete but every installed mac client" >&2
@@ -165,4 +185,6 @@ else
 fi
 
 echo "Running the release completeness gate…"
-exec "${HERE0}/verify-release-assets.sh" "$VERSION"
+# Not exec: exec replaces this shell, and the EXIT trap (the temp folder) would
+# never run. set -e passes the gate's failure on as this script's.
+"${HERE0}/verify-release-assets.sh" "$VERSION"
