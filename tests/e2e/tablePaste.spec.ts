@@ -2,11 +2,14 @@
 //
 // The table cells are always-live FieldEditor inputs, so range selection is a
 // drag (real mouse) that highlights cells; copy/paste then operate on the range.
-// Clipboard is exercised through the Electron clipboard module (set/read via
-// app.evaluate) so the test doesn't depend on OS clipboard state.
+// The clipboard is the test's own (_clipboardStub.ts), never the system one:
+// that is shared between workers and is the owner's. The keys are pressed with
+// nothing else done first (this spec used to focus the table body itself
+// before ⌘C, which hid that a real drag left the keys going nowhere).
 
 import { test, expect } from '@playwright/test'
 import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
+import { installClipboardStub, setStubClipboard, stubClipboard, MOD } from './_clipboardStub'
 
 let launched: LaunchedApp | null = null
 
@@ -95,45 +98,39 @@ async function dragSelect(
   await window.waitForTimeout(120)
 }
 
-async function setClipboard(app: LaunchedApp['app'], text: string): Promise<void> {
-  await app.evaluate(({ clipboard }, t: string) => clipboard.writeText(t), text)
+async function setClipboard(window: LaunchedApp['window'], text: string): Promise<void> {
+  await installClipboardStub(window)
+  await setStubClipboard(window, { 'text/plain': text })
 }
-async function readClipboard(app: LaunchedApp['app']): Promise<string> {
-  return app.evaluate(({ clipboard }) => clipboard.readText())
-}
-async function focusBody(window: LaunchedApp['window'], widgetId: string): Promise<void> {
-  await window.evaluate((wid: string) => {
-    const el = document.querySelector(`[data-widget-id="${wid}"] [data-testid="table-body"]`)
-    ;(el as HTMLElement | null)?.focus()
-  }, widgetId)
+async function readClipboard(window: LaunchedApp['window']): Promise<string> {
+  return (await stubClipboard(window)).data['text/plain'] ?? ''
 }
 
 test('TP-1 — drag-select a range then Ctrl+C copies the cells as TSV', async () => {
   launched = await launchApp()
-  const { window, app } = launched
+  const { window } = launched
   await waitForReady(window)
   const seed = await seedTable(window)
   await openTable(window, 'PasteTest', seed.widgetId)
 
+  await installClipboardStub(window)
   await dragSelect(window, seed.widgetId, [0, 0], [1, 1])
-  await focusBody(window, seed.widgetId)
-  await window.keyboard.press('Control+c')
+  await window.keyboard.press(`${MOD}+c`)
   await window.waitForTimeout(150)
 
-  expect(await readClipboard(app)).toBe('Ann\tNYC\nBob\tLA')
+  expect(await readClipboard(window)).toBe('Ann\tNYC\nBob\tLA')
 })
 
 test('TP-2 — bulk paste a single value fills the whole selection (coerced)', async () => {
   launched = await launchApp()
-  const { window, app } = launched
+  const { window } = launched
   await waitForReady(window)
   const seed = await seedTable(window)
   await openTable(window, 'PasteTest', seed.widgetId)
 
-  await setClipboard(app, 'ZZ')
+  await setClipboard(window, 'ZZ')
   await dragSelect(window, seed.widgetId, [0, 0], [1, 0]) // Name column, rows 0-1
-  await focusBody(window, seed.widgetId)
-  await window.keyboard.press('Control+v')
+  await window.keyboard.press(`${MOD}+v`)
   await window.waitForTimeout(300)
 
   expect(await cellValue(window, seed.widgetId, 0, 0), 'row0 Name').toBe('ZZ')
@@ -144,17 +141,16 @@ test('TP-2 — bulk paste a single value fills the whole selection (coerced)', a
 
 test('TP-3 — bulk paste a block writes from the top-left across rows', async () => {
   launched = await launchApp()
-  const { window, app } = launched
+  const { window } = launched
   await waitForReady(window)
   const seed = await seedTable(window)
   await openTable(window, 'PasteTest', seed.widgetId)
 
-  await setClipboard(app, 'Paris\tParis City\nRome\tRome City')
+  await setClipboard(window, 'Paris\tParis City\nRome\tRome City')
   // Select starting at row 0, col 0 (a single anchor cell drag-selecting to itself
   // won't register; select a 2x2 region so the block lands inside it).
   await dragSelect(window, seed.widgetId, [0, 0], [1, 1])
-  await focusBody(window, seed.widgetId)
-  await window.keyboard.press('Control+v')
+  await window.keyboard.press(`${MOD}+v`)
   await window.waitForTimeout(300)
 
   expect(await cellValue(window, seed.widgetId, 0, 0)).toBe('Paris')

@@ -1482,7 +1482,11 @@ export default function Canvas(): JSX.Element {
         clearSelection()
         return
       }
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A') && !typing) {
+      // ⌘A in a work widget is the widget's own select-all (every cell of a
+      // table, a sheet, a slide's elements): it is already handled, or focus is
+      // inside the widget and the desk keeps out of it either way.
+      const inWidget = !!el?.closest?.('[data-widget-id]')
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A') && !typing && !e.defaultPrevented && !inWidget) {
         const ids = selectableWidgets().map((w) => w.id)
         if (ids.length > 0) {
           e.preventDefault()

@@ -137,6 +137,15 @@ export interface ModifierContext {
   isChildOfSection: boolean
   /** Screen-pinned widgets never join a desk selection. */
   isPinned: boolean
+  /**
+   * The press is inside the content of the widget being worked in (it is the
+   * active widget, and the press is not on its header). There Shift belongs to
+   * the content: a range of table or sheet cells, slide elements, diagram
+   * shapes. Taking it for the desk made shift-click ranges impossible in every
+   * work widget (owner, 2026-11-19: "why i cant copy multiple rows and cells").
+   * The header, and any widget not yet active, keep Shift for the desk.
+   */
+  inActiveContent?: boolean
 }
 
 export interface ModifierClick {
@@ -162,7 +171,7 @@ export interface ModifierClick {
  * has no desk meaning on a widget, so it is plain too.
  */
 export function resolveModifierClick(mods: ModifierState, ctx: ModifierContext): ModifierClick {
-  if (mods.shiftKey && !ctx.isChildOfSection && !ctx.isPinned) {
+  if (mods.shiftKey && !ctx.isChildOfSection && !ctx.isPinned && !ctx.inActiveContent) {
     return { kind: 'select', toggleSelection: true, dive: false, runAction: false }
   }
   if ((mods.metaKey || mods.ctrlKey) && ctx.zoom < 0.8 && !ctx.isChildOfSection) {
