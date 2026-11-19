@@ -12,6 +12,7 @@
 import type { FbRow, FieldDefinition } from '@shared/fields'
 import { coerceCellValue } from './actionExecutor'
 import { extendSeries } from './sheetFill'
+import { toHtmlTable } from '@shared/gridClipboard'
 
 export interface RC {
   r: number
@@ -84,20 +85,12 @@ export function cellsToTsv(rows: FbRow[], columns: FieldDefinition[], range: RCR
     .join('\n')
 }
 
-const escapeHtml = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
 /**
- * The same range as an HTML table: what Write, Mail, Word and Google Docs keep
- * as rows and columns (Sheets and Excel read either). The column names are a
- * header row only when the whole width of the table is copied with its first
- * row, so a block from the middle stays a plain block.
+ * The same range as an HTML table (shared/gridClipboard.toHtmlTable): what
+ * Write, Mail, Word and Google Docs keep as rows and columns.
  */
 export function cellsToHtml(rows: FbRow[], columns: FieldDefinition[], range: RCRange): string {
-  const body = rangeMatrix(rows, columns, range)
-    .map((cells) => `<tr>${cells.map((t) => `<td>${escapeHtml(t)}</td>`).join('')}</tr>`)
-    .join('')
-  return `<meta charset="utf-8"><table><tbody>${body}</tbody></table>`
+  return toHtmlTable(rangeMatrix(rows, columns, range))
 }
 
 export interface TablePastePlan {

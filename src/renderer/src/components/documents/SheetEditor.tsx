@@ -39,7 +39,7 @@ import {
 } from './sheet/sheetOps'
 import { extendSeries, canToggleSeries, numericFill } from '../../lib/sheetFill'
 import { rewriteFormulaRefs, remapFormulaRefs, displayCell, buildSpillMap, makeWorkbook, makeNames } from '../../lib/sheetFormula'
-import { isSingleCell } from '@shared/gridClipboard'
+import { isSingleCell, toHtmlTable } from '@shared/gridClipboard'
 import SheetGrid, { ROW_HEADER_W, HEADER_H } from './sheet/SheetGrid'
 import { acceptsWidgetDrag, widgetIdFromDrop } from '../../lib/widgetDropInsert'
 import { fitEmbedBox } from './embed/embedSize'
@@ -967,6 +967,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
     const spill = buildSpillMap(grid, workbook, names)
     const out = cellsCopyPayload(tab, selection, (r, c) => displayCell(grid, r, c, workbook, spill, names))
     data.setData('text/plain', out.tsv)
+    // What the cells SHOW, as a table: a range pasted into Write, Mail or Word
+    // keeps its rows and columns (they read the HTML; spreadsheets read the TSV).
+    data.setData('text/html', toHtmlTable(out.values))
     if (out.json) data.setData(CELLS_CLIP_MIME, out.json)
     rememberCopy(out.tsv, kind)
   }
