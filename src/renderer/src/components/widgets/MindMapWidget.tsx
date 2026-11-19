@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { recordAction } from '../../stores/actionHistory'
 import { outlineHtml, outlineText, parseOutline, type OutlineNode } from '../../lib/outlineClipboard'
+import { useKeptLines } from '../../lib/pastedLines'
 import MentionTextarea from '../MentionTextarea'
 import type { ActionProposal, GoToTarget, Widget, WidgetKind } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
@@ -1918,9 +1919,12 @@ function ConversationView({
   onUndoProposal: (ck: string, ti: number, pi: number) => void
 }): JSX.Element {
   const [replyDraft, setReplyDraft] = useState('')
+  // Lines of a multi-line paste, kept for the reply sent (lib/pastedLines).
+  const kept = useKeptLines()
   function handleSubmit(): void {
     if (!replyDraft.trim() || busy === 'invoke' || conversation.capped) return
-    onReplyToAgent(suggestion, replyDraft)
+    onReplyToAgent(suggestion, kept.restore(replyDraft))
+    kept.reset()
     setReplyDraft('')
   }
   return (
@@ -2038,6 +2042,7 @@ function ConversationView({
             type="text"
             value={replyDraft}
             onChange={(e) => setReplyDraft(e.target.value)}
+            onPaste={kept.onPaste}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()

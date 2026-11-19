@@ -1,3 +1,4 @@
+import { useKeptLines } from '../../lib/pastedLines'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { sanitizeHtml } from '../../lib/htmlSanitize'
@@ -98,6 +99,8 @@ export default function DesignAiPanel({
 
   // ── The model's layer over the measured findings ──────────────────────────
   const [purpose, setPurpose] = useState('')
+  // Lines of a multi-line paste, kept for the brief (lib/pastedLines).
+  const kept = useKeptLines()
   const [reviewHtml, setReviewHtml] = useState<string | null>(null)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [reviewCopied, setReviewCopied] = useState(false)
@@ -115,8 +118,8 @@ export default function DesignAiPanel({
   // page. Never the document — a design with embedded images is megabytes of
   // bytes no model could act on.
   const brief = useMemo(
-    () => (body ? designBrief(body, advice, { purpose }) : null),
-    [body, advice, purpose]
+    () => (body ? designBrief(body, advice, { purpose: kept.restore(purpose) }) : null),
+    [body, advice, purpose, kept]
   )
   const key = brief ? briefKey(brief) : null
 
@@ -389,6 +392,7 @@ export default function DesignAiPanel({
               <input
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
+                onPaste={kept.onPaste}
                 placeholder="What is this for? e.g. a conference poster"
                 className="fb-field w-full px-2.5 py-1.5 text-[12px]"
                 aria-label="What this design is for"

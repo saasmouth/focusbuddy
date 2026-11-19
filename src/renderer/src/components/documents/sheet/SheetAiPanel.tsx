@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useKeptLines } from '../../../lib/pastedLines'
 import Icon from '../../Icon'
 import { sanitizeHtml } from '../../../lib/htmlSanitize'
 import WorkspaceAsk from '../editor/WorkspaceAsk'
@@ -32,11 +33,14 @@ interface Props {
 
 export default function SheetAiPanel({ ai, onImportSource }: Props): JSX.Element {
   const [question, setQuestion] = useState('')
+  // Lines of a multi-line paste, kept for the question sent (lib/pastedLines).
+  const kept = useKeptLines()
   const [importing, setImporting] = useState(false)
 
   const submitQuestion = (): void => {
-    const q = question.trim()
+    const q = kept.restore(question.trim())
     if (!q || ai.busy) return
+    kept.reset()
     void ai.ask(q)
   }
 
@@ -93,6 +97,7 @@ export default function SheetAiPanel({ ai, onImportSource }: Props): JSX.Element
               <input
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
+                onPaste={kept.onPaste}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') submitQuestion()
                 }}

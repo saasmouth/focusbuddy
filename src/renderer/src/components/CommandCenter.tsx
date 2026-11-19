@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useKeptLines } from '../lib/pastedLines'
 import { effectiveQuickAddMap } from '../lib/keymap'
 import { createPortal } from 'react-dom'
 import { useNodeStore } from '../stores/nodes'
@@ -114,6 +115,8 @@ export default function CommandCenter({
 }: Props): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [query, setQuery] = useState('')
+  // Lines of a multi-line paste, kept for what Ask Plexii sends (lib/pastedLines).
+  const kept = useKeptLines()
   const [highlightIdx, setHighlightIdx] = useState(0)
   // DEC-028: the armed @attention pill — Tab on the Attention row (or on an
   // "@a…" partial) arms it; the query then IS the capture text.
@@ -970,7 +973,8 @@ export default function CommandCenter({
                 .openWeb(searchUrl(useWebPanel.getState().engine, text), { expanded: true })
             } else {
               useAssistantChrome.getState().openPanel()
-              void useChatStore.getState().send(null, text, NEW_CHAT_KEY)
+              void useChatStore.getState().send(null, kept.restore(text), NEW_CHAT_KEY)
+              kept.reset()
             }
             closePalette()
           }
@@ -1084,6 +1088,7 @@ export default function CommandCenter({
                     setHighlightIdx(0)
                   }}
                   onKeyDown={paletteKeyDown}
+                  onPaste={kept.onPaste}
                   placeholder={
                     editorScope && editorCommands.length > 0
                       ? `Command the ${editorScope.toLowerCase()}, or search everything…`
