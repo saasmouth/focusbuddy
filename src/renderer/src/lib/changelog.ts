@@ -38,6 +38,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.52',
+    date: '2026-11-19T06:00:00Z',
+    title: 'PlexiiDesk 4.3.52 — share a desk and earn credit, ⌘Z inside every work widget, and Finder files paste as files',
+    tag: 'feature',
+    summary:
+      'Share a desk with someone new and you get US$5 of Plexii credit when they join. ⌘Z now takes back what you do inside work widgets, and files copied in Finder paste as the files.',
+    highlights: [
+      'Share a desk with someone new: you get US$5 of Plexii credit when they join. When someone joins from a desk you shared, an invite you sent or your link, Plexii tells you how much you earned and your new balance, and the note stays until you close it.',
+      'Use my credit, on that note and in Settings › Earn credit, opens your Plexii credit page in the browser. You can earn up to US$144 a year.',
+      '⌘Z takes back what you do inside work widgets, not only moves: adding, ticking, renaming and deleting tasks, editing a diagram, changing a picture, drawing and clearing the scratchpad. Duplicating several work widgets is one ⌘Z.',
+      'Files copied in Finder paste as the files: on a desk as file work widgets, in Files into the folder you are in, into the assistant, and pictures into a Gallery.',
+      'Pictures copy out of Plexii and paste in. Several pasted lines become several tasks, a mind map branch copies as an outline and pastes back as branches, and cells copied from PlexiiCells paste as a table in other apps.',
+      'In the assistant, pasted or dropped pictures and documents wait above your message and go with it, and pasted lines keep their line breaks.',
+      'A PDF on a desk no longer takes your typing when it finishes loading, and ⌘Z right after dropping files on a desk undoes the drop.',
+      'When Plexii AI is busy, Plexii waits and tries again, and says so in plain words.'
+    ]
+  },
+  {
     version: '4.3.51',
     date: '2026-11-19T09:00:00Z',
     title: 'PlexiiDesk 4.3.51 — signing in can no longer change your desks, and tables copy and paste like a spreadsheet',
