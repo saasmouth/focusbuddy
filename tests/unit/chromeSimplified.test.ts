@@ -227,7 +227,20 @@ describe('the Plexii pill is the obvious thing in its corner', () => {
     expect(css).toContain('@media (prefers-reduced-motion: no-preference)')
     // Colour and size are NOT behind the media query — the button must stay
     // findable for someone who has asked for less motion.
-    const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: no-preference)'))
+    // That media block only, to its matching brace: later rules in the file
+    // (another surface's own motion) are not the halo's.
+    const start = css.indexOf('@media (prefers-reduced-motion: no-preference)')
+    let depth = 0
+    let end = start
+    for (let i = css.indexOf('{', start); i < css.length; i++) {
+      if (css[i] === '{') depth++
+      else if (css[i] === '}' && --depth === 0) {
+        end = i + 1
+        break
+      }
+    }
+    const reduced = css.slice(start, end)
+    expect(reduced).toContain('fb-pill-pulse')
     expect(reduced).not.toContain('linear-gradient')
   })
 
