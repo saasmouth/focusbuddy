@@ -11,7 +11,7 @@ import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import type { Widget } from '@shared/types'
 import { widgetFilePaneId, widgetFromFile } from '@shared/widgetFiles'
-import { WidgetChromeContext, WidgetRemovableContext, WidgetSurfaceContext } from '@renderer/lib/widgetSurface'
+import { WidgetChromeContext, WidgetReadOnlyContext, WidgetRemovableContext, WidgetSurfaceContext } from '@renderer/lib/widgetSurface'
 import { useWidgetFilesStore } from '@renderer/stores/widgetFiles'
 import { useWidgetStore } from '@renderer/stores/widgets'
 import { loaderFor } from './kinds'
@@ -53,16 +53,20 @@ function useBoxSize(): [RefObject<HTMLDivElement>, { width: number; height: numb
   return [ref, size]
 }
 
-function Drawn({ widget }: { widget: Widget }): JSX.Element | null {
+// Read-only (signed out in PlexiiLite), the widget draws what it holds and no
+// control that would change it (lib/widgetSurface WidgetReadOnlyContext).
+function Drawn({ widget, readOnly }: { widget: Widget; readOnly: boolean }): JSX.Element | null {
   const C = componentFor(widget.kind)
   if (!C) return null
   return (
     <WidgetSurfaceContext.Provider value="embedded">
       <WidgetChromeContext.Provider value="data">
         <WidgetRemovableContext.Provider value={false}>
-          <Suspense fallback={null}>
-            <C widget={widget} />
-          </Suspense>
+          <WidgetReadOnlyContext.Provider value={readOnly}>
+            <Suspense fallback={null}>
+              <C widget={widget} />
+            </Suspense>
+          </WidgetReadOnlyContext.Provider>
         </WidgetRemovableContext.Provider>
       </WidgetChromeContext.Provider>
     </WidgetSurfaceContext.Provider>
@@ -70,7 +74,7 @@ function Drawn({ widget }: { widget: Widget }): JSX.Element | null {
 }
 
 /** A widget file: the desk's file pane id, so its edits go to the file (stores/widgets). */
-function WidgetFileShown({ fileId }: { fileId: string }): JSX.Element {
+function WidgetFileShown({ fileId, readOnly }: { fileId: string; readOnly: boolean }): JSX.Element {
   const file = useWidgetFilesStore((s) => s.files[fileId])
   const load = useWidgetFilesStore((s) => s.load)
   const [ref, size] = useBoxSize()
@@ -81,13 +85,13 @@ function WidgetFileShown({ fileId }: { fileId: string }): JSX.Element {
   const widget = useMemo(() => (file ? widgetFromFile(file, size) : null), [file, size])
   return (
     <div ref={ref} className="plexii-widget-host-box" data-widget-host-kind={file?.kind ?? ''}>
-      {widget ? <Drawn widget={widget} /> : null}
+      {widget ? <Drawn widget={widget} readOnly={readOnly} /> : null}
     </div>
   )
 }
 
 /** An Office document: the desk's Office widget for it, keyed by the document id. */
-function DocumentShown({ documentId, docType, title }: { documentId: string; docType: string; title: string }): JSX.Element {
+function DocumentShown({ documentId, docType, title, readOnly }: { documentId: string; docType: string; title: string; readOnly: boolean }): JSX.Element {
   const [ref, size] = useBoxSize()
   const widget = useMemo(
     () => ({ id: `widget-host:${documentId}`, taskId: '', kind: docType, title, content: documentId, x: 0, y: 0, width: size.width, height: size.height, zIndex: 1, color: null }) as unknown as Widget,
@@ -98,7 +102,7 @@ function DocumentShown({ documentId, docType, title }: { documentId: string; doc
   }, [widget.id])
   return (
     <div ref={ref} className="plexii-widget-host-box" data-widget-host-kind={docType}>
-      <Drawn widget={widget} />
+      <Drawn widget={widget} readOnly={readOnly} />
     </div>
   )
 }
@@ -122,8 +126,8 @@ export function createReactView(root: HTMLElement, onRenderError: (detail: strin
     return (
       <Boundary key={s.generation} onError={onRenderError}>
         {shown.family === 'widget'
-          ? <WidgetFileShown fileId={shown.fileId!} />
-          : <DocumentShown documentId={shown.documentId!} docType={shown.kind} title={shown.title} />}
+          ? <WidgetFileShown fileId={shown.fileId!} readOnly={shown.readOnly} />
+          : <DocumentShown documentId={shown.documentId!} docType={shown.kind} title={shown.title} readOnly={shown.readOnly} />}
       </Boundary>
     )
   }

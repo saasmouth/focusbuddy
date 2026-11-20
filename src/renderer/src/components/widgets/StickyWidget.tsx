@@ -16,6 +16,7 @@ import {
   toggleChecklist,
   splitStickyBlocks
 } from '../../lib/stickyText'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 const COLORS = ['#fef08a', '#fbcfe8', '#bae6fd', '#bbf7d0', '#fed7aa']
 
@@ -51,7 +52,9 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
   // A sticky shows a rendered view (bold, bullets, tickable checkboxes) and
   // flips to a raw textarea while the user is editing. New / empty stickies
   // start in edit mode so they are immediately typeable.
-  const [editing, setEditing] = useState(widget.content.trim() === '')
+  // A viewer (read-only, lib/widgetSurface) never edits: no textarea, no toolbar.
+  const readOnly = useWidgetReadOnly()
+  const [editing, setEditing] = useState(!readOnly && widget.content.trim() === '')
 
   // Auto-grow: the frame grows a sticky to its content (useAutoGrowHeight in
   // WidgetFrame), capped at GROW_MAX_HEIGHT.sticky. This component used to run
@@ -166,7 +169,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
 
   const rendered = (
     <div
-      className={`fb-sticky-rendered w-full flex-1 font-hand text-stone-900 cursor-text whitespace-pre-wrap ${
+      className={`fb-sticky-rendered w-full flex-1 font-hand text-stone-900 ${readOnly ? 'cursor-default' : 'cursor-text'} whitespace-pre-wrap ${
         'fb-body'
       }`}
       onMouseDown={(e) => {
@@ -174,13 +177,13 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
         if ((e.target as HTMLElement).closest('[data-sticky-check]')) return
       }}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('[data-sticky-check]')) return
+        if (readOnly || (e.target as HTMLElement).closest('[data-sticky-check]')) return
         setEditing(true)
         requestAnimationFrame(() => textareaRef.current?.focus())
       }}
     >
       {text.trim() === '' ? (
-        <span className="text-stone-700/40">Write a note…</span>
+        readOnly ? null : <span className="text-stone-700/40">Write a note…</span>
       ) : (
         splitStickyBlocks(text).map((block, bi) => {
           if (block.type === 'table') {
@@ -220,6 +223,11 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
             const done = check[1].toLowerCase() === 'x'
             return (
               <div key={idx} className="flex items-start gap-1.5 leading-snug">
+                {readOnly ? (
+                  <span className="mt-0.5 shrink-0 text-stone-700" role="img" aria-label={done ? 'Done' : 'Not done'}>
+                    <Icon name={done ? 'check_box' : 'check_box_outline_blank'} size={16} />
+                  </span>
+                ) : (
                 <button
                   data-sticky-check
                   data-testid={`sticky-check-${idx}`}
@@ -232,6 +240,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
                 >
                   <Icon name={done ? 'check_box' : 'check_box_outline_blank'} size={16} />
                 </button>
+                )}
                 <span className={done ? 'line-through opacity-55' : ''}>{renderInline(check[2])}</span>
               </div>
             )
@@ -331,6 +340,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
           narrow sticky; wrapping (not shrinking below 24px, not spilling
           past the note edge) is the same accessible-toolbar pattern already
           used there. */}
+      {!readOnly && (
       <div className="flex items-center gap-0.5 flex-wrap">
         {COLORS.map((c) => (
           // PLX-A11Y-001: the visible swatch stays 12px (the sticky's compact
@@ -369,6 +379,7 @@ export default function StickyWidget({ widget, inline = false }: Props): JSX.Ele
           <Icon name="checklist" size={13} />
         </button>
       </div>
+      )}
       <div className="flex flex-col">
         {editing ? editor : rendered}
       </div>

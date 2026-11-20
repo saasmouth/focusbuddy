@@ -11,6 +11,7 @@ import Icon from '../Icon'
 import MetricBindingEditor from './MetricBindingEditor'
 import { useWidgetStore } from '../../stores/widgets'
 import { sparklinePath, delta, compact } from '../../lib/sparkline'
+import { readingControl, useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // One number worth watching, its direction of travel, and how it got there.
 //
@@ -65,6 +66,10 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
   const update = useWidgetStore((s) => s.update)
   const model = useMemo(() => parse(widget.content), [widget.content])
   const [editing, setEditing] = useState(false)
+  // A viewer (read-only, lib/widgetSurface): the number and its readings, and
+  // switching between series (a reading control: read-only never saves); no
+  // data-source setup.
+  const readOnly = useWidgetReadOnly()
   const [rows, setRows] = useState<FbRow[]>([])
   const [rowError, setRowError] = useState<string | null>(null)
 
@@ -127,7 +132,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
     void update(widget.id, { content: JSON.stringify({ ...model, activeIndex: i }) })
   }
 
-  if (editing) {
+  if (editing && !readOnly) {
     return (
       <WidgetFrame
         widget={widget}
@@ -170,6 +175,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
               <span className="fb-t-caption truncate text-[var(--ink-50)]">
                 {model.title || 'Measured'}
               </span>
+              {!readOnly && (
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -178,6 +184,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
               >
                 <Icon name="tune" size={12} />
               </button>
+              )}
             </div>
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-[26px] font-semibold leading-none tracking-tight text-[var(--ink-100)]">
@@ -238,6 +245,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
           <div className="text-[10px] text-[var(--ink-40)] leading-snug max-w-[200px]">
             This card shows one number, how it is moving, and the readings behind it.
           </div>
+          {!readOnly && (
           <button
             type="button"
             onClick={() => setEditing(true)}
@@ -245,6 +253,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
           >
             Connect it to a table
           </button>
+          )}
         </div>
       </WidgetFrame>
     )
@@ -265,6 +274,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
             {model.series.map((s, i) => (
               <button
                 key={s.label + i}
+                {...readingControl}
                 onClick={() => setTab(i)}
                 className={`px-2 py-0.5 rounded-full text-[11px] transition-colors ${
                   i === idx
@@ -283,6 +293,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
             <span className="fb-t-caption truncate text-[var(--ink-50)]">
               {active.caption ?? active.label}
             </span>
+            {!readOnly && (
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -291,6 +302,7 @@ export default function StatCardWidget({ widget }: { widget: Widget }): JSX.Elem
             >
               <Icon name="tune" size={12} />
             </button>
+            )}
           </div>
           <div className="flex items-baseline gap-2 mt-0.5">
             <span className="text-[26px] leading-none font-semibold text-[var(--ink-100)] tracking-tight">

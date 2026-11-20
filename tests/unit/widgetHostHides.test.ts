@@ -53,3 +53,25 @@ describe('inside the widget host', () => {
     for (const id of ['doc-bold', 'dg-import-drawio', 'paste']) expect(offeredHere(id)).toBe(true)
   })
 })
+
+describe('embeds by id and the document\'s "/" menu (1a, 2026-11-20)', () => {
+  const EMBEDS = ['doc-insert-widget', 'doc-insert-doc', 'sl-widget', 'ds-insert-widget', 'dg-insert-widget']
+
+  it('outside the host: every embed is offered, and "/" offers the three inserts', async () => {
+    const { slashItems } = await import('../../src/renderer/src/components/documents/editor/SlashMenu')
+    for (const id of EMBEDS) expect(offeredHere(id)).toBe(true)
+    expect(slashItems('').map((i) => i.title)).toEqual(expect.arrayContaining(['Insert work widget from a desk', 'Insert office file', 'Insert saved snippet']))
+  })
+
+  it('in the host: an embed by id is not offered (the file would point at something not in it), and "/" offers block types only', async () => {
+    const { slashItems } = await import('../../src/renderer/src/components/documents/editor/SlashMenu')
+    enterWidgetHost({ readOnly: false })
+    for (const id of EMBEDS) expect(offeredHere(id)).toBe(false)
+    const titles = slashItems('').map((i) => i.title)
+    expect(titles).toEqual(expect.arrayContaining(['Heading 1', 'Bullet list', 'Table', 'Divider']))
+    expect(titles.filter((t) => /snippet|desk|office file/i.test(t))).toEqual([])
+    // Filtering by what was typed still works on what is left.
+    expect(slashItems('quote').map((i) => i.title)).toEqual(['Quote'])
+    expect(slashItems('snippet')).toEqual([])
+  })
+})

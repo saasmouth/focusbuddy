@@ -42,6 +42,8 @@ export function enterWidgetHost(mode: WidgetHostMode): void {
  *   AI: the host is not signed in and has no assistant.
  *   Document comments: kept by Plexii beside the document, not in its body,
  *   so the file would lose them.
+ *   Embeds of another Plexii object by id (a desk's work widget, another
+ *   Office file): the file would point at something that is not in it.
  *   Imports and exports that go through the desktop (a note's HTML and PDF,
  *   a sheet's .xlsx and .csv): the file here is PlexiiLite's, and the desktop
  *   dialogs they need are not in the host. Imports that read a file in the
@@ -56,7 +58,11 @@ const NEEDS_PLEXII: ReadonlySet<string> = new Set([
   'doc-comments',
   'md-export',
   'sheet-import', 'sheet-export-xlsx', 'sheet-export-csv',
-  'doc-ai-draft', 'doc-ai-rewrite', 'sheet-ai-fill', 'sl-ai', 'dg-ai-diagram', 'ai.applyPaint', 'ai.applyScene'
+  'doc-ai-draft', 'doc-ai-rewrite', 'sheet-ai-fill', 'sl-ai', 'dg-ai-diagram', 'ai.applyPaint', 'ai.applyScene', 'page-ai-prompt',
+  // Embeds of another Plexii object, by its id: a desk's work widget, another
+  // Office file. The file would keep a reference to something that is not in
+  // it, and there is no desk or other file here to pick from.
+  'doc-insert-widget', 'doc-insert-doc', 'sl-widget', 'ds-insert-widget', 'dg-insert-widget'
 ])
 
 /** False for a command or menu action the widget host does not offer; true everywhere else. */

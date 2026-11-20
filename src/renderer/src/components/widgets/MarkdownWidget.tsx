@@ -22,6 +22,7 @@ import { WidgetImage } from './widgetImage'
 import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { WIDGET_LINK_OPTIONS } from './widgetLink'
 import { offeredHere } from '../../lib/widgetHost'
+import { readingControl, useWidgetReadOnly } from '../../lib/widgetSurface'
 
 interface Props {
   widget: Widget
@@ -34,6 +35,8 @@ interface ToolbarBtn {
   shortcut?: string
   isActive?: (e: Editor) => boolean
   run: (e: Editor) => void
+  /** Only reads the note (copying it), so a viewer keeps it (lib/widgetSurface readingControl). */
+  reads?: true
 }
 
 const TOOLBAR: ToolbarBtn[] = [
@@ -129,6 +132,7 @@ const TOOLBAR: ToolbarBtn[] = [
     // PlexiDesk as portable text (paste into GitHub, Obsidian, a PR, anywhere).
     icon: 'content_copy',
     title: 'Copy as markdown',
+    reads: true,
     run: (e) => {
       const storage = e.storage as { markdown?: { getMarkdown: () => string } }
       const md = storage.markdown?.getMarkdown() ?? ''
@@ -155,8 +159,12 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
   const [exportMsg, setExportMsg] = useState<string | null>(null)
 
   const pasteRef = useRef<(e: ClipboardEvent) => boolean>(() => false)
+  // A viewer (read-only, lib/widgetSurface): the note is not editable, and the
+  // toolbar keeps only what reads it (Copy as markdown).
+  const readOnly = useWidgetReadOnly()
   const editor = useEditor(
     {
+      editable: !readOnly,
       extensions: [
         StarterKit.configure({
           // Use tiptap-markdown's link/code handling; keep StarterKit defaults otherwise
@@ -345,11 +353,12 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
   const body = (
     <div ref={containerRef} className="relative h-full w-full flex flex-col bg-[var(--surface-raised)]">
       <div className="px-2 py-1 border-b border-[var(--edge-soft)] flex items-center gap-0.5 flex-wrap bg-[var(--surface-sunken)]">
-        {TOOLBAR.map((b) => {
+        {TOOLBAR.filter((b) => !readOnly || b.reads).map((b) => {
           const active = editor ? b.isActive?.(editor) ?? false : false
           return (
             <button
               key={b.title}
+              {...(b.reads ? readingControl : {})}
               type="button"
               onMouseDown={(e) => e.preventDefault()} // keep editor focus
               onClick={(e) => {
@@ -369,7 +378,7 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
         })}
         {/* Exporting writes a file through the desktop; the widget host's file
             is PlexiiLite's, so these are not offered there (lib/widgetHost). */}
-        {offeredHere('md-export') && (
+        {offeredHere('md-export') && !readOnly && (
           <>
             <span className="mx-0.5 h-4 w-px bg-[var(--surface-sunken)]" aria-hidden />
             <button

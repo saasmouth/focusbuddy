@@ -15,6 +15,7 @@ import { Binding, CustomData, IconInput } from './parts'
 import { DIAGRAM_TABS, diagramCtx, diagramRailItems, type DiagramDialog, type DiagramPanel, type DiagramSidePane } from './ribbon'
 import { diagramMenus } from './diagramMenus'
 import { barMenuItem, barProps } from '../../../lib/menus/officeCommand'
+import { readingControl, useWidgetReadOnly } from '../../../lib/widgetSurface'
 
 // The PlexiiDiagrams frame on the shared office shell (SPEC §6.1): the menu bar
 // and ribbon tabs on one row, the active tab's controls under them, the tool
@@ -476,6 +477,9 @@ function PagesBar({
 }): JSX.Element {
   const [renaming, setRenaming] = useState<number | null>(null)
   const [menu, setMenu] = useState<number | null>(null)
+  // The widget host's read-only tile (lib/widgetSurface) draws no panels, so the
+  // Layers toggle would open nothing there; a co-editor who may only view keeps it.
+  const viewer = useWidgetReadOnly()
   const summary =
     sel.nodes.size || sel.edges.size
       ? [sel.nodes.size ? `${sel.nodes.size} shape${sel.nodes.size === 1 ? '' : 's'}` : '', sel.edges.size ? `${sel.edges.size} line${sel.edges.size === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') + ' selected'
@@ -503,6 +507,8 @@ function PagesBar({
             ) : (
               <button
                 type="button"
+                // Read-only, going to another page is reading (lib/widgetSurface).
+                {...(readOnly ? readingControl : {})}
                 // The active page's menu edits pages (rename, duplicate, move, delete); a
                 // read-only diagram has no such menu.
                 onClick={() => (i === pageIdx ? !readOnly && setMenu(menu === i ? null : i) : cmd.gotoPage(i))}
@@ -560,6 +566,7 @@ function PagesBar({
         </span>
       )}
       {/* The same Layers panel the rail toggles: one state (SPEC §3.7). */}
+      {!viewer && (
       <button
         type="button"
         onClick={onLayers}
@@ -572,6 +579,7 @@ function PagesBar({
         <Icon name="layers" size={14} />
         {page.layers?.length ? page.layers.length : ''}
       </button>
+      )}
     </div>
   )
 }

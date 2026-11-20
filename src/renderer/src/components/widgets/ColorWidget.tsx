@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { readingControl, useWidgetReadOnly } from '../../lib/widgetSurface'
 
 interface EyeDropperResult {
   sRGBHex: string
@@ -27,6 +28,9 @@ export default function ColorWidget({ widget, inline = false }: Props): JSX.Elem
   const update = useWidgetStore((s) => s.update)
   const [color, setColor] = useState<string>(widget.content || '#fbbf24')
   const [copied, setCopied] = useState(false)
+  // A viewer (read-only, lib/widgetSurface): the colour and its values, and
+  // copying the hex (a reading control); no picker, no eyedropper.
+  const readOnly = useWidgetReadOnly()
   const lastSavedRef = useRef(color)
 
   useEffect(() => {
@@ -68,6 +72,9 @@ export default function ColorWidget({ widget, inline = false }: Props): JSX.Elem
         className={`flex-1 rounded border border-black/10 ${inline ? 'min-h-[200px]' : 'min-h-[60px]'}`}
         style={{ backgroundColor: color }}
       />
+      {readOnly ? (
+        <div className={`text-[var(--ink-100)] font-mono ${inline ? 'text-base' : 'text-xs'}`} data-testid="color-hex">{color}</div>
+      ) : (
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -84,18 +91,20 @@ export default function ColorWidget({ widget, inline = false }: Props): JSX.Elem
           }`}
         />
       </div>
+      )}
       <div className={`text-[var(--ink-70)] font-mono ${inline ? 'text-sm' : 'text-[11px]'}`}>
         {rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : 'invalid hex'}
       </div>
       <div className="flex gap-1.5">
         <button
+          {...readingControl}
           onClick={() => void copyHex()}
           className="fb-btn-surface flex-1 inline-flex items-center justify-center gap-1 text-xs px-2 py-1.5"
         >
           <Icon name={copied ? 'check' : 'content_copy'} size={14} />
           <span>{copied ? 'copied' : 'copy hex'}</span>
         </button>
-        {hasDropper && (
+        {hasDropper && !readOnly && (
           <button
             onClick={() => void pickFromScreen()}
             title="Pick a color from anywhere on screen"

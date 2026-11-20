@@ -133,7 +133,42 @@ person's first real edit.
 
 **Read-only never posts a save.** Every editing gesture is refused before any
 widget sees it: keys, clicks, pastes, drops and menus. Scrolling, Tab and
-following a link still work.
+following a link still work, and so does a **reading control** (below).
+
+## Read-only: what a tile shows
+
+A read-only tile shows what the file holds and **no control that would change
+it**. A control there could only be refused, so it would be a dead button. The
+host provides `WidgetReadOnlyContext` (`lib/widgetSurface.ts`), and each widget
+and editor draws its viewer form:
+
+- **Documents:** the page, sheet, deck, diagram, design or drawing only. There is
+  no menu bar, ribbon, tool rail, overlay panel or side pane
+  (`OfficeShellLayout`), and no add page, sheet or row, formula bar, or empty
+  speaker notes.
+- **Widgets:** the content as text. A card's title and body, a field's value
+  (`lib/fieldValueText.ts`), a table's columns and every row, a task list's
+  tasks with which are done and when they are due, a form block's filled-in
+  values, a calculator's sum without its keypad, a timer's time without its
+  buttons. There are no toolbars, colour dots, pickers, "Add" buttons or
+  placeholders inviting typing.
+
+**Reading controls** still work. They are marked `data-reading-control`
+(`readingControl` in `lib/widgetSurface.ts`), and the input guard lets a click
+or Enter/Space on one through:
+
+- copying (a colour's hex, Copy as markdown);
+- moving around what is there: a deck's slides, a sheet's tabs, a design's or
+  diagram's pages, a mind map's breadcrumb, a stat card's series, a task list's
+  Active / Done / All, the place map's pan, zoom and "Open in OpenStreetMap".
+
+Whatever they change stays in the page. Read-only never saves.
+
+`tests/widget-host/readOnly.spec.ts` loads every kind read-only and fails on
+any visible control that is not a reading control, any field that is not
+read-only, and any placeholder. It then clicks every reading control (nothing
+may break or save) and proves that copy, a task list's tabs and a deck's slides
+still work.
 
 ## Making new files
 
@@ -200,6 +235,15 @@ where it is drawn.
   .xlsx and .csv import and export. PlexiiLite owns the file, and the desktop
   dialogs these need are not here.
 - **A page's living mode:** it summarises a canvas the file does not have.
+- **Embeds of another Plexii object by id:** a desk's work widget or another
+  Office file (Insert, the "/" menu, the palette). The file would keep a
+  reference to something that is not in it.
+- **A mind map's desk actions:** explore a node as a canvas, convert it to a
+  task, attach a tool, find agents.
+- **AI in prompts and empty states:** a new Document says 'Write something, or
+  press "/" for commands…', and a page's "/" menu has no AI prompt.
+  `tests/widget-host/emptyStates.spec.ts` makes every kind (as New does) and
+  reads its placeholders, empty states and "/" menus.
 
 ## What it does instead of failing
 

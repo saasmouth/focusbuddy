@@ -4,6 +4,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import { alarm, beep } from '../../lib/audioBeep'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 interface TimerData {
   targetSec: number
@@ -156,6 +157,10 @@ export default function TimerWidget({ widget, inline = false }: Props): JSX.Elem
     isDone ? '#ef4444' : isUrgent ? '#ef4444' : pct > 0.75 ? '#f59e0b' : pct > 0.5 ? '#eab308' : '#10b981'
 
   const display = isDone ? "Time's up" : fmt(remaining)
+  // A viewer (read-only, lib/widgetSurface) sees the timer as the file holds it
+  // (a running one still counts down); setting, starting or resetting it would
+  // change the file, so none of that is drawn.
+  const readOnly = useWidgetReadOnly()
 
   const body = (
     <div className="h-full w-full bg-[var(--surface-sunken)] flex flex-col">
@@ -196,7 +201,7 @@ export default function TimerWidget({ widget, inline = false }: Props): JSX.Elem
           </div>
         </div>
 
-        {data.state === 'idle' && (
+        {data.state === 'idle' && !readOnly && (
           <div className="flex items-center gap-1 text-xs text-[var(--ink-70)]">
             <input
               type="number"
@@ -230,6 +235,7 @@ export default function TimerWidget({ widget, inline = false }: Props): JSX.Elem
         )}
       </div>
 
+      {!readOnly && (
       <div className="px-3 pb-3 flex items-center justify-center gap-2">
         {(data.state === 'idle' || data.state === 'paused' || data.state === 'done') && (
           <button onClick={handleStart} className="btn-primary">
@@ -250,6 +256,7 @@ export default function TimerWidget({ widget, inline = false }: Props): JSX.Elem
           </button>
         )}
       </div>
+      )}
     </div>
   )
 

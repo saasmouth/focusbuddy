@@ -78,7 +78,10 @@ describe('SlidesEditor readOnly never emits', () => {
     // Select the second slide (navigation is allowed).
     act(() => (host.querySelector('[aria-label="Slide 2"]') as HTMLElement).click())
     expect(host.querySelector('[aria-label="Slide 2"]')!.getAttribute('aria-current')).toBe('true')
-    // Try to edit the notes.
+    // A slide with no notes shows no notes box read-only: nothing invites typing.
+    expect(host.querySelector('[data-testid="slides-notes-editor"]')).toBeNull()
+    // Back to the first slide, which has notes, and try to edit them.
+    act(() => (host.querySelector('[aria-label="Slide 1"]') as HTMLElement).click())
     typeInto(q('[data-testid="slides-notes-editor"]') as HTMLTextAreaElement, 'edited by a viewer')
     // Try the keyboard.
     key('Delete')

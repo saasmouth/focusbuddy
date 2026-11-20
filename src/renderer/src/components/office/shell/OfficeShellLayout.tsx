@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import Icon from '../../Icon'
 import { ASIDE_COLLAPSE_BELOW, PANEL_SHEET_BELOW, PANEL_WIDTH } from './layout'
+import { useWidgetReadOnly } from '../../../lib/widgetSurface'
 
 // The office shell frame (spec §1, §2.4, §2.6): ContextBar on top, ToolRail on
 // the left, an optional navigator (Deck thumbnails), the canvas, an optional
@@ -51,7 +52,19 @@ export interface OfficeShellLayoutProps {
   testid: string
 }
 
-export default function OfficeShellLayout({ bar, rail, children, leftAside, asideLabel = 'Navigator', bottom, panels, rightPane, testid }: OfficeShellLayoutProps): JSX.Element {
+export default function OfficeShellLayout({ bar: barIn, rail: railIn, children, leftAside, asideLabel = 'Navigator', bottom, panels: panelsIn, rightPane: rightPaneIn, testid }: OfficeShellLayoutProps): JSX.Element {
+  // A viewer (the widget host's read-only tile, lib/widgetSurface): the
+  // document and its navigator only. The bar, the tool rail, the overlay panels
+  // and the side pane exist to change the document; there, every one of their
+  // controls would be refused, so none is drawn rather than a ribbon of dead
+  // buttons. (A co-editor who may only view keeps the bar with its controls
+  // off and saying why: LiveDocEditorView passes readOnly to the editors, not
+  // this context.)
+  const viewer = useWidgetReadOnly()
+  const bar = viewer ? null : barIn
+  const rail = viewer ? null : railIn
+  const panels = viewer ? undefined : panelsIn
+  const rightPane = viewer ? undefined : rightPaneIn
   const root = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<{ width: number; height: number; pillCorner: boolean }>({ width: Infinity, height: Infinity, pillCorner: false })
   const [asideOpen, setAsideOpen] = useState(false)
@@ -71,7 +84,7 @@ export default function OfficeShellLayout({ bar, rail, children, leftAside, asid
   const ctx: ShellSize = { ...size, sheetPanels: size.width < PANEL_SHEET_BELOW, raise }
   return (
     <ShellSizeContext.Provider value={ctx}>
-      <div ref={root} data-testid={testid} className="h-full min-h-0 flex flex-col">
+      <div ref={root} data-testid={testid} data-viewer={viewer || undefined} className="h-full min-h-0 flex flex-col">
         {bar}
         <div className="relative flex-1 min-h-0 flex">
           {rail}

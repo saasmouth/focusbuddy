@@ -878,7 +878,8 @@ export default function DrawStudio({ content, title, onChange, onDesk = false, f
       <div className="shrink min-h-0 overflow-y-auto" data-testid="draw-notices" style={inset ? { paddingLeft: inset } : undefined}>
         {state.readOnly && <ReadOnlyBanner compat={state.compat} />}
 
-        <KeysNotice ctx={ctx} />
+        {/* Which keys moved is news to someone who edits; read-only there is nothing to press. */}
+        {!readOnly && <KeysNotice ctx={ctx} />}
 
         <IsolationBar ctx={ctx} />
       </div>

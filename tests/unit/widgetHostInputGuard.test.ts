@@ -45,6 +45,29 @@ describe('read-only', () => {
     fire(document.getElementById('a')!, new MouseEvent('click', { bubbles: true, cancelable: true }))
     expect(reached).toEqual(['wheel', 'keydown', 'click'])
   })
+
+  it('a reading control (copy, switch slide) is pressed by click or Enter or Space; anything else on it is refused', () => {
+    document.body.insertAdjacentHTML('beforeend', '<div data-reading-control id="r"><span id="inner">Slide 2</span></div>')
+    const inner = document.getElementById('inner')!
+    expect(fire(inner, new Event('pointerdown', { bubbles: true, cancelable: true }))).toBe(true)
+    expect(fire(inner, new MouseEvent('mousedown', { bubbles: true, cancelable: true }))).toBe(true)
+    expect(fire(inner, new MouseEvent('click', { bubbles: true, cancelable: true }))).toBe(true)
+    expect(fire(inner, key('Enter'))).toBe(true)
+    expect(fire(inner, key(' '))).toBe(true)
+    expect(reached).toEqual(['pointerdown', 'click', 'keydown', 'keydown'])
+    reached = []
+    // Typing, a paste, a drop, a menu or a double-click on it is still editing.
+    expect(fire(inner, key('a'))).toBe(false)
+    expect(fire(inner, key('Backspace'))).toBe(false)
+    expect(fire(inner, new Event('paste', { bubbles: true, cancelable: true }))).toBe(false)
+    expect(fire(inner, new Event('drop', { bubbles: true, cancelable: true }))).toBe(false)
+    expect(fire(inner, new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))).toBe(false)
+    expect(fire(inner, new MouseEvent('dblclick', { bubbles: true, cancelable: true }))).toBe(false)
+    expect(reached).toEqual([])
+    // And a click beside it is refused as before.
+    expect(fire(document.getElementById('b')!, new MouseEvent('click', { bubbles: true, cancelable: true }))).toBe(false)
+    expect(touches).toBe(0)
+  })
 })
 
 describe('editing', () => {

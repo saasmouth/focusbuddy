@@ -53,6 +53,8 @@ import { applyFilters, groupRows, isGroupableColumn } from '../../lib/tableFilte
 import type { RowGroup } from '../../lib/tableFilter'
 import { inWidgetHost } from '../../lib/widgetHost'
 import { UNTITLED_TABLE, starterTableColumns } from '../../lib/tableStarter'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
+import { fieldValueText } from '../../lib/fieldValueText'
 
 // All available views with the icon + label that drive the switcher pill.
 const VIEW_OPTIONS: Array<{ id: TableViewMode; label: string; icon: string }> = [
@@ -161,6 +163,8 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
   const deleteRow = useTablesStore((s) => s.deleteRow)
   const reorderRows = useTablesStore((s) => s.reorderRows)
   const updateWidget = useWidgetStore((s) => s.update)
+  // A viewer (read-only, lib/widgetSurface): see the early return below.
+  const readOnly = useWidgetReadOnly()
 
   const tableId = widget.content
   const table = tableId ? tables[tableId] : null
@@ -378,6 +382,61 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
     if (inline) return body
     return (
       <WidgetFrame widget={widget} headerLabel="Table" headerAccent="bg-[var(--edge-firm)]">
+        {body}
+      </WidgetFrame>
+    )
+  }
+
+  // A viewer (read-only, lib/widgetSurface) reads the table: its column names
+  // and every row it holds, each value as text. No toolbar, views, filters,
+  // handles or editors: a viewer can change none of it, and a filter it cannot
+  // see or clear would hide rows without saying so.
+  if (readOnly) {
+    const cols = table.schema.columns
+    const body = (
+      <div className="h-full w-full overflow-auto bg-[var(--surface-raised)]" data-testid="table-read-only">
+        {cols.length === 0 ? (
+          <p className="p-3 text-[12px] text-[var(--ink-50)]">This table has no columns yet.</p>
+        ) : (
+          <table className="w-full border-collapse text-[12px]">
+            <thead>
+              <tr>
+                {cols.map((c) => (
+                  <th key={c.id} scope="col" className="sticky top-0 bg-[var(--surface-sunken)] text-left font-semibold text-[var(--ink-70)] px-2 py-1.5 border-b border-[var(--edge-soft)] whitespace-nowrap">
+                    {c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-[var(--edge-soft)]">
+                  {cols.map((c) => (
+                    <td key={c.id} className="px-2 py-1.5 align-top text-[var(--ink-90)] whitespace-pre-wrap break-words">
+                      {c.type === 'checkbox' ? (
+                        <span role="img" aria-label={r.cells[c.id] === true ? 'Yes' : 'No'} className="text-[var(--ink-70)]">
+                          <Icon name={r.cells[c.id] === true ? 'check_box' : 'check_box_outline_blank'} size={15} />
+                        </span>
+                      ) : (
+                        fieldValueText(c, r.cells[c.id])
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {cols.length > 0 && rows.length === 0 && <p className="p-3 text-[12px] text-[var(--ink-50)]">No rows yet.</p>}
+      </div>
+    )
+    if (inline) return body
+    return (
+      <WidgetFrame
+        widget={widget}
+        headerLabel={`${table.title || 'Untitled table'} · ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`}
+        headerAccent="bg-[var(--edge-firm)]"
+      >
         {body}
       </WidgetFrame>
     )

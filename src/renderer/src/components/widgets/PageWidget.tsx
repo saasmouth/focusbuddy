@@ -22,7 +22,8 @@ import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { confirmDialog } from '../plexi/PromptDialog'
 import AnsweredBy from '../ai/AnsweredBy'
 import { WIDGET_LINK_OPTIONS } from './widgetLink'
-import { inWidgetHost } from '../../lib/widgetHost'
+import { inWidgetHost, offeredHere } from '../../lib/widgetHost'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -94,9 +95,11 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
   }
 
   const pasteRef = useRef<(e: ClipboardEvent) => boolean>(() => false)
+  // A viewer (read-only, lib/widgetSurface) reads the page; it never edits it.
+  const readOnly = useWidgetReadOnly()
   const editor = useEditor(
     {
-      editable: !isLiving,
+      editable: !isLiving && !readOnly,
       extensions: [
         StarterKit.configure({
           // Keep StarterKit defaults; everything from heading 1-3 to code blocks works out of the box.
@@ -482,17 +485,22 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
             label="Divider"
             onClick={() => applyBlock(() => editor?.chain().focus().setHorizontalRule().run())}
           />
-          <div className="my-1 border-t border-[var(--edge-soft)]" />
-          <SlashItem
-            icon="auto_awesome"
-            label="AI prompt"
-            shortcut="/ai"
-            onClick={() => {
-              removeSlashTrigger()
-              setSlashOpen(false)
-              setAiOpen(true)
-            }}
-          />
+          {/* No AI in the widget host (lib/widgetHost). */}
+          {offeredHere('page-ai-prompt') && (
+            <>
+              <div className="my-1 border-t border-[var(--edge-soft)]" />
+              <SlashItem
+                icon="auto_awesome"
+                label="AI prompt"
+                shortcut="/ai"
+                onClick={() => {
+                  removeSlashTrigger()
+                  setSlashOpen(false)
+                  setAiOpen(true)
+                }}
+              />
+            </>
+          )}
         </div>
       )}
 
