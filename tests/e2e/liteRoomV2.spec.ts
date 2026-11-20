@@ -63,7 +63,12 @@ async function signIn(window: Page): Promise<void> {
     const store = (window as unknown as { __fbAccount: { setState: (s: object) => void } }).__fbAccount
     store.setState({
       account: { id: 'acct-e2e-lite-v2', email: 'lite@example.com', handle: 'lite', firstName: 'Robin', lastName: 'Lee' },
-      sessionToken: 'e2e-session-token'
+      // No session token: what these specs test is gated on the account alone, and
+      // without a token the app starts no sync, messaging or credit check, so
+      // nothing can reach for a production host. (With a token, the shared
+      // workspace sync was once caught by the net guard's session layer under
+      // load, in the 4.3.54 RC's full run.)
+      sessionToken: null
     })
   })
 }
