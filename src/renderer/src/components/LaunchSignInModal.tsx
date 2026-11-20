@@ -854,9 +854,9 @@ export default function LaunchSignInModal(): JSX.Element | null {
                   return
                 }
                 const url = `${signalConfig.httpUrl.replace(/\/+$/, '')}/auth/sso/start?domain=${encodeURIComponent(domain)}`
-                // The one-time state lets the link back sign in without a
-                // question (lib/authHandoff.ts).
-                void withSignInState(url).then((u) => window.api.files.openExternal(u))
+                // The one-time state and PKCE challenge: the link back brings a
+                // code only this app can redeem (lib/authHandoff.ts).
+                void withSignInState(url, 'sso').then((u) => window.api.files.openExternal(u))
               }}
               data-testid="signin-sso"
               className="w-full text-[12px] text-accent hover:underline py-1"
@@ -871,7 +871,7 @@ export default function LaunchSignInModal(): JSX.Element | null {
               <button
                 type="button"
                 onClick={() =>
-                  void withSignInState(webAccountUrl(mode, email)).then((u) => window.api.files.openExternal(u))
+                  void withSignInState(webAccountUrl(mode, email), 'website').then((u) => window.api.files.openExternal(u))
                 }
                 className="text-[11px] text-stone-400 hover:text-stone-100 transition-colors"
                 data-testid="account-required-note"

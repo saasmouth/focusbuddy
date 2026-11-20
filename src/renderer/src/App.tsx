@@ -54,7 +54,9 @@ import VerifyEmailModal from './components/VerifyEmailModal'
 import InviteTeammateNudge from './components/InviteTeammateNudge'
 import GrowthEffects from './components/GrowthEffects'
 import FirstRunOnboarding from './components/FirstRunOnboarding'
-import { receiveAuthHandoff } from './lib/authHandoff'
+import { receiveAuthHandoff, receiveAuthNotice, withSignInState, type NoticeDeps } from './lib/authHandoff'
+import { webAccountUrl } from './lib/siteUrls'
+import { alertDialog } from './components/plexi/PromptDialog'
 import OnboardingTour from './components/onboarding/OnboardingTour'
 import FeatureSpotlightPopup from './components/onboarding/FeatureSpotlightPopup'
 import OnboardingHub from './components/onboarding/OnboardingHub'
@@ -66,6 +68,7 @@ import { useNodeStore } from './stores/nodes'
 import { useTemplateStore } from './stores/templates'
 import { useVaultStore } from './stores/vault'
 import { useAccountStore } from './stores/account'
+import { useNoticeStore } from './stores/notice'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
 import { isShareRecipient, shareDeskId, shareLanding, sharePresentation } from './lib/shareMode'
@@ -354,6 +357,34 @@ export default function App(): JSX.Element {
     void consumeAndSubscribe()
     return () => { detach?.() }
   }, [adoptHandoff])
+
+  // Auth step 2 (2026-11-20): what main says about an auth link that was not a
+  // sign-in to adopt. A refused code link is one alert; a /start (the website's
+  // cold button) begins a sign-in in the browser, only when nobody is signed in:
+  // it never switches accounts (lib/authHandoff.ts receiveAuthNotice).
+  useEffect(() => {
+    const api = window.api?.auth
+    if (!api?.onNotice || !api.takeNotices) return
+    const deps: NoticeDeps = {
+      alert: alertDialog,
+      notify: (text) => useNoticeStore.getState().show({ text, icon: 'info' }, 8000),
+      signedInAs: () => {
+        const s = useAccountStore.getState()
+        return s.sessionToken && s.account ? s.account.email : null
+      },
+      beginBrowserSignIn: async () => {
+        const url = await withSignInState(webAccountUrl('login'), 'website')
+        await window.api.files.openExternal(url)
+      }
+    }
+    void api
+      .takeNotices()
+      .then((waiting) => {
+        for (const n of waiting) void receiveAuthNotice(n, deps)
+      })
+      .catch(() => {})
+    return api.onNotice((n) => void receiveAuthNotice(n, deps))
+  }, [])
 
   // Share deep link (plexii://share?token=...) from the "Open in PlexiDesk"
   // notification email → accept the share into "Shared with me" so it appears in

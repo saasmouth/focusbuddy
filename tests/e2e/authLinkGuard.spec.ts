@@ -135,7 +135,7 @@ test('ALG-4 the state works once: the same link again, or a made-up state, is as
   launched = await launchApp({ beforeFirstWindow: async (app) => void (await serverKnowsSender(app)) })
   const { app, window } = launched
   await waitForReady(window)
-  const state = await window.evaluate(() => (window as unknown as { api: { auth: { beginSignIn: () => Promise<string> } } }).api.auth.beginSignIn())
+  const { state } = await window.evaluate(() => (window as unknown as { api: { auth: { beginSignIn: () => Promise<{ state: string }> } } }).api.auth.beginSignIn())
   await openLink(app, `haptyx://auth?token=first-session-token&state=${state}`)
   await expect.poll(() => sessionToken(window), { timeout: 10_000 }).toBe('first-session-token')
   for (const [token, st] of [['replayed-session-token', state], ['madeup-session-token', 'not-a-state-this-app-made-0000']]) {

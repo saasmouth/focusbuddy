@@ -103,8 +103,8 @@ import {
 } from '@shared/widgetFiles'
 import { join as pathJoin } from 'node:path'
 import { buildMeetingIcs } from '@shared/ics'
-import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeetRoom, consumePendingMdEditPath } from '../authProtocol'
-import { createSignInNonce } from '../signInNonce'
+import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeetRoom, consumePendingMdEditPath, takeAuthNotices } from '../authProtocol'
+import { createSignIn } from '../signInNonce'
 import { clearDeskHandoff, importDeskHandoff, pendingDeskHandoff } from '../deskHandoffReceiver'
 import { askWithDialog, beginLiteRoom, clearLiteRoom, pendingLiteRoom } from '../liteRoomReceiver'
 import { takeOpenedPlexiiFiles } from '../plexiiFileOpen'
@@ -3565,8 +3565,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('auth:get-pending', () => consumePendingAuthHandoff())
   // A sign-in this app is starting (the website's account page, SSO): its
   // one-time state, which the link back must carry to be adopted without a
-  // question (signInNonce.ts).
-  ipcMain.handle('auth:begin-sign-in', () => createSignInNonce())
+  // question, and the PKCE challenge for the URL. The verifier stays in main
+  // (signInNonce.ts), which alone redeems the code that comes back
+  // (authCodeRedeem.ts).
+  ipcMain.handle('auth:begin-sign-in', () => createSignIn())
+  // Auth links that were not a sign-in to adopt (a refused code link, a /start),
+  // kept for a window that wasn't ready (authProtocol.ts notify).
+  ipcMain.handle('auth:take-notices', () => takeAuthNotices())
   // Same drain-pending pattern for a share deep link (plexii://share?token=...).
   ipcMain.handle('share:get-pending', () => consumePendingShareToken())
   ipcMain.handle('meet:get-pending', () => consumePendingMeetRoom())

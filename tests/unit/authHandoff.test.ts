@@ -2,7 +2,7 @@
 // only a sign-in it started is adopted without a question; every other link is
 // checked with the server and asked about, naming the SERVER's account.
 import { describe, expect, it, vi } from 'vitest'
-import { receiveAuthHandoff, type HandoffDeps } from '../../src/renderer/src/lib/authHandoff'
+import { receiveAuthHandoff, receiveAuthNotice, signInUrl, type HandoffDeps, type NoticeDeps } from '../../src/renderer/src/lib/authHandoff'
 
 const SERVER = { id: 'a1', email: 'sender@evil.test' } as never
 function deps(over: Partial<HandoffDeps> = {}): HandoffDeps & { asked: string[] } {
@@ -63,3 +63,101 @@ describe('a sign-in link', () => {
     expect(adopt).not.toHaveBeenCalled()
   })
 })
+
+// ── Auth step 2 (2026-11-20): the URL a sign-in opens, and the notices ──────
+describe('the URL a sign-in this app starts opens', () => {
+  const begin = { state: 'AbCdEfGhIjKlMnOpQrStUvWxYz012345', codeChallenge: 'X'.repeat(43) }
+  it('the website: state, PKCE challenge (S256) and this client', () => {
+    const u = new URL(signInUrl('https://www.plexiidesk.com/account/login?from=app', 'website', begin))
+    expect(Object.fromEntries(u.searchParams)).toEqual({
+      from: 'app',
+      state: begin.state,
+      code_challenge: begin.codeChallenge,
+      code_challenge_method: 'S256',
+      client_id: 'plexiidesk'
+    })
+  })
+  it('SSO: state and PKCE challenge, as /auth/sso/start takes them (no client)', () => {
+    const u = new URL(signInUrl('https://api.plexiidesk.com/auth/sso/start?domain=acme.com', 'sso', begin))
+    expect(Object.fromEntries(u.searchParams)).toEqual({ domain: 'acme.com', state: begin.state, code_challenge: begin.codeChallenge, code_challenge_method: 'S256' })
+  })
+  it('the verifier is never in it', () => {
+    expect(signInUrl('https://x.test/a', 'website', begin)).not.toMatch(/verifier/)
+  })
+})
+
+describe('what the window does with a notice from main', () => {
+  function noticeDeps(over: Partial<NoticeDeps> = {}): NoticeDeps & { alerts: string[]; toasts: string[]; began: number } {
+    const d = {
+      alerts: [] as string[],
+      toasts: [] as string[],
+      began: 0,
+      alert: vi.fn(async (a: { title: string; body?: string }) => {
+        d.alerts.push(`${a.title} | ${a.body ?? ''}`)
+      }) as never,
+      notify: (text: string) => {
+        d.toasts.push(text)
+      },
+      signedInAs: () => null as string | null,
+      beginBrowserSignIn: async () => {
+        d.began++
+      },
+      ...over
+    }
+    return d
+  }
+
+  it('a code link this Plexii did not start: one alert, saying so plainly', async () => {
+    const d = noticeDeps()
+    await receiveAuthNotice({ kind: 'link-refused', why: 'not-started' }, d)
+    expect(d.alerts).toEqual(['This sign-in link has expired or wasn’t started from this Plexii | Sign in again from Plexii.'])
+  })
+
+  it('the server said no, or could not be reached', async () => {
+    const d = noticeDeps()
+    await receiveAuthNotice({ kind: 'link-refused', why: 'refused' }, d)
+    await receiveAuthNotice({ kind: 'link-refused', why: 'unreachable' }, d)
+    expect(d.alerts).toEqual([
+      'This sign-in link has expired | Sign in again from Plexii.',
+      'Plexii couldn’t finish signing in | It couldn’t reach the server. Check your connection, then sign in again from Plexii.'
+    ])
+  })
+
+  it('one alert at a time: links arriving while one is up are not stacked on top', async () => {
+    let close: () => void = () => {}
+    const d = noticeDeps({
+      alert: vi.fn(
+        () =>
+          new Promise<void>((r) => {
+            close = r
+          })
+      ) as never
+    })
+    const first = receiveAuthNotice({ kind: 'link-refused', why: 'not-started' }, d)
+    await receiveAuthNotice({ kind: 'link-refused', why: 'not-started' }, d)
+    await receiveAuthNotice({ kind: 'link-refused', why: 'refused' }, d)
+    expect(d.alert).toHaveBeenCalledTimes(1)
+    close()
+    await first
+    // Once it is closed, the next one is shown.
+    const next = receiveAuthNotice({ kind: 'link-refused', why: 'refused' }, d)
+    expect(d.alert).toHaveBeenCalledTimes(2)
+    close()
+    await next
+  })
+
+  it('/start with nobody signed in: a sign-in begins in the browser', async () => {
+    const d = noticeDeps()
+    await receiveAuthNotice({ kind: 'start' }, d)
+    expect(d.began).toBe(1)
+    expect(d.alerts).toEqual([])
+  })
+
+  it('/start with someone signed in: never switches accounts; a quiet line says who is signed in', async () => {
+    const d = noticeDeps({ signedInAs: () => 'me@example.com' })
+    await receiveAuthNotice({ kind: 'start' }, d)
+    expect(d.began).toBe(0)
+    expect(d.toasts).toEqual(['You’re already signed in to Plexii as me@example.com.'])
+  })
+})
+

@@ -9,40 +9,66 @@
 // sign-in finishing and is adopted without a question; anything else is asked
 // about (renderer, App.tsx). The nonces live in this process's memory only, so
 // a restart or another machine's link can never match.
+//
+// Step 2 (2026-11-20; plexii-work/auth-step2-design.md): each started sign-in
+// also keeps a PKCE verifier (RFC 7636, S256). The URL carries only its
+// challenge. The link back then brings a one-time code instead of a session
+// token, and main alone, holding the verifier, redeems it (authCodeRedeem.ts).
+// The verifier never leaves this process: not to the renderer, not into a URL.
 
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 
 /** How long a started sign-in may take to come back: minutes, not hours. */
 export const SIGN_IN_NONCE_TTL_MS = 10 * 60_000
 /** At most this many outstanding at once; the oldest goes first. */
 export const SIGN_IN_NONCE_MAX = 8
 
-// nonce -> expiry (ms). A Map keeps insertion order, oldest first.
-const outstanding = new Map<string, number>()
+// state -> { expiry (ms), verifier }. A Map keeps insertion order, oldest first.
+const outstanding = new Map<string, { exp: number; verifier: string }>()
 
 function prune(now: number): void {
-  for (const [n, exp] of outstanding) if (exp <= now) outstanding.delete(n)
+  for (const [n, o] of outstanding) if (o.exp <= now) outstanding.delete(n)
 }
 
-/** A new state for a sign-in this app is starting. */
-export function createSignInNonce(now: number = Date.now()): string {
+/** S256: the challenge a PKCE verifier is checked against (RFC 7636 4.2). */
+export function pkceChallenge(verifier: string): string {
+  return createHash('sha256').update(verifier).digest('base64url')
+}
+
+/**
+ * A sign-in this app is starting: its one-time state, and the PKCE challenge
+ * for the URL. The verifier stays here.
+ */
+export function createSignIn(now: number = Date.now()): { state: string; codeChallenge: string } {
   prune(now)
   while (outstanding.size >= SIGN_IN_NONCE_MAX) {
     const oldest = outstanding.keys().next().value as string
     outstanding.delete(oldest)
   }
-  const nonce = randomBytes(24).toString('base64url')
-  outstanding.set(nonce, now + SIGN_IN_NONCE_TTL_MS)
-  return nonce
+  const state = randomBytes(24).toString('base64url')
+  // 32 random bytes: a 43-character verifier, the shortest RFC 7636 allows and 256 bits.
+  const verifier = randomBytes(32).toString('base64url')
+  outstanding.set(state, { exp: now + SIGN_IN_NONCE_TTL_MS, verifier })
+  return { state, codeChallenge: pkceChallenge(verifier) }
+}
+
+/** The sign-in a state names, once, if this app started it and it has not expired; used up either way. */
+export function consumeSignIn(state: string | null | undefined, now: number = Date.now()): { verifier: string } | null {
+  if (!state) return null
+  const o = outstanding.get(state)
+  if (o === undefined) return null
+  outstanding.delete(state)
+  return o.exp > now ? { verifier: o.verifier } : null
+}
+
+/** A new state for a sign-in this app is starting (the legacy token link uses only the state). */
+export function createSignInNonce(now: number = Date.now()): string {
+  return createSignIn(now).state
 }
 
 /** True once for a state this app made that has not expired; it is used up either way. */
 export function consumeSignInNonce(state: string | null | undefined, now: number = Date.now()): boolean {
-  if (!state) return false
-  const exp = outstanding.get(state)
-  if (exp === undefined) return false
-  outstanding.delete(state)
-  return exp > now
+  return consumeSignIn(state, now) !== null
 }
 
 /** Tests only. */
