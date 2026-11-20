@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
 
 // A vector shape on the canvas — rectangle / ellipse / diamond / triangle /
 // hexagon / star / line / arrow, with fill, stroke and an optional centred
@@ -118,6 +119,14 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
     }, 250)
     return () => window.clearTimeout(h)
   }, [data, widget.id, update])
+
+  // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
+  useSaveOnUnmount(() => {
+    const next = JSON.stringify(data)
+    if (next === lastSaved.current) return
+    lastSaved.current = next
+    void update(widget.id, { content: next })
+  })
 
   // Adopt content from a synced sibling (live sync) without a remount/refresh.
   useEffect(() => {

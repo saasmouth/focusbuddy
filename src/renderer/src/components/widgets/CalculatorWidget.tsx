@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { evaluateArithmetic } from '../../lib/calcExpression'
+import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
 
 const KEYS: Array<{
   label: string
@@ -60,6 +61,13 @@ export default function CalculatorWidget({ widget, inline = false }: Props): JSX
     }, 400)
     return () => window.clearTimeout(handle)
   }, [expr, widget.id, update])
+
+  // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
+  useSaveOnUnmount(() => {
+    if (expr === lastSavedRef.current) return
+    lastSavedRef.current = expr
+    void update(widget.id, { content: expr })
+  })
 
   const preview = safeEval(expr)
 
