@@ -14,6 +14,9 @@
 // Explorer and PlexiiLite (which IMPORTS these declarations) remember them.
 import { DOCUMENT_FILE_TYPES, WIDGET_FILE_TYPES, type WidgetFileType } from './widgetFiles'
 
+/** Larger than any Plexii file: one over this is never read as a Plexii file (opened from Finder, or in a room from PlexiiLite). */
+export const PLEXII_FILE_MAX_BYTES = 64 * 1024 * 1024
+
 /** Every .plexii-* type Plexii imports: work widgets first, then documents. */
 export function importablePlexiiFileTypes(): WidgetFileType[] {
   return [...Object.values(WIDGET_FILE_TYPES), ...Object.values(DOCUMENT_FILE_TYPES)] as WidgetFileType[]

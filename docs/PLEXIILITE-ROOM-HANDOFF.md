@@ -1,9 +1,13 @@
-# Open This Room in Plexii: the room handoff, version 1
+# Open This Room in Plexii: the room handoff, versions 1 and 2
 
 This file is the contract between PlexiiLite (the writer) and Plexii (the reader).
 It is kept, word for word, in both repos: `docs/PLEXIILITE-ROOM-HANDOFF.md`, with
-the same example in `tests/fixtures/plexiilite-room-v1.json`. Change both together,
-and bump `version` for anything an older reader would misread.
+the same examples in `tests/fixtures/plexiilite-room-v1.json` and
+`tests/fixtures/plexiilite-room-v2.json`. Change both together, and bump `version`
+for anything an older reader would misread.
+
+Version 2 (2026-11-20) is version 1 plus one optional field on a tile,
+`plexiiFile`, that marks a Plexii widget or document file. See "Version 2" below.
 
 ## What happens
 
@@ -11,6 +15,8 @@ and bump `version` for anything an older reader would misread.
    folder). PlexiiLite offers it only when the app macOS opens `plexii://` links
    with is Plexii (`app.haptyx.desktop`) and its Info.plist says
    `PlexiiTakesLiteRooms` is 1 or more (the highest handoff version it reads).
+   PlexiiLite writes version 2 only to a Plexii whose `PlexiiTakesLiteRooms` is 2
+   or more, and version 1, exactly as before, to any other.
 2. PlexiiLite writes one JSON file into ITS OWN data folder, never the person's
    folders: `~/Library/Application Support/PlexiiLite/handoff/<id>.json`, where
    `<id>` is a random UUID (lower case, version 4), mode 0600. It removes its own
@@ -64,7 +70,7 @@ and bump `version` for anything an older reader would misread.
 | Field | Rule |
 |---|---|
 | `format` | Exactly `"plexiilite.room"`. |
-| `version` | The integer 1. A reader refuses a version it doesn't know and says a newer PlexiiLite sent it. |
+| `version` | The integer 1, or 2 (see "Version 2"). A reader refuses a version higher than it reads and says a newer PlexiiLite sent it. |
 | `createdAt` | ISO 8601 time the file was written. A reader refuses a file more than a day old (expired) or more than five minutes in the future. |
 | `app` | Who wrote it, for people reading the file. Up to 100 characters. |
 | `folder` | The room's folder: an absolute, normalised path (no `.` or `..` parts, no `//`, no trailing `/`), not `/`, up to 4,096 characters. |
@@ -117,3 +123,61 @@ in from a file it can't trust in full. The file is at most 1 MiB.
   24 px rows, 12 px gaps), keyed by the new desk objects.
 - The desk opens in the matching view: Desk → canvas, Workcentre → Workcentre,
   List → list, Focus → canvas.
+
+## Version 2: Plexii widget and document files
+
+A room can hold Plexii's own files: a work widget (`.plexii-sticky`,
+`.plexii-tasks`, …) or an Office document (`.plexii-doc`, `.plexii-sheet`, …), in
+the format of Plexii's `docs/widget-files.md`. Version 1 brings those in as plain
+files. Version 2 marks them, so Plexii brings them in live: as work widgets and
+documents the person can edit.
+
+A version 2 file is a version 1 file with `"version": 2` and, on a tile that is a
+Plexii file, one more field:
+
+```json
+{
+  "name": "Launch plan.plexii-doc",
+  "relPath": "Launch plan.plexii-doc",
+  "kind": "plexii",
+  "size": 797,
+  "inCloud": false,
+  "desk": { "x": 360, "y": 40, "w": 720, "h": 520, "z": 1 },
+  "workcentre": { "x": 3, "y": 0, "w": 6, "h": 14 },
+  "plexiiFile": { "family": "document", "kind": "doc" }
+}
+```
+
+| Field | Rule |
+|---|---|
+| `tiles[].plexiiFile` | Optional. On a tile PlexiiLite sees, from its name, is a Plexii file Plexii brings in live: a work widget that can be a file (`family: "widget"`, `kind`: the widget's kind, such as `sticky` or `task-list`) or an Office document (`family: "document"`, `kind`: its doc type, such as `doc` or `sheet`). Not on a plain file, and not on an embed tool's file (`.plexii-calendar`, `.plexii-browser`, …), which Plexii never imports. |
+| `plexiiFile.family` | Exactly `"widget"` or `"document"`. |
+| `plexiiFile.kind` | Lower-case letters and `-`, 1 to 32 characters. A kind the reader doesn't know is not an error: the hint is only a hint. |
+
+A malformed `plexiiFile` refuses the whole file, like any known field that breaks
+a rule. In a version 1 file, `plexiiFile` is a field the reader doesn't know, and
+is ignored.
+
+**The hint never decides anything.** After the person says yes, Plexii reads a
+marked file (at most 64 MB) and its own import decides from the content, exactly
+as Files › Import does:
+
+- A work widget file becomes a new work widget file in the room's Files folder,
+  placed on the desk as a linked instance of it.
+- A document file becomes a new document in the room's Files folder, placed on
+  the desk as its Office widget.
+- A file that isn't one Plexii can read (damaged, a kind this Plexii doesn't
+  have, or larger than 64 MB) comes in as a plain file instead, as in version 1,
+  and the summary names it.
+
+Everything else is as in version 1:
+
+- A Plexii file counts toward the 200 files and 1 GB like any file.
+- It is laid out where it was. One never placed on the Desk goes below the rest
+  at its own starting size.
+- The question says how many of the files come in as Plexii files.
+- The room's own files are never changed.
+
+The whole v2 example is `tests/fixtures/plexiilite-room-v2.json`: a sticky, a
+document and a plain file.
+
