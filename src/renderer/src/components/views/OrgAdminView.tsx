@@ -5,6 +5,7 @@ import { confirmDialog } from '../plexi/PromptDialog'
 import { personDisplayName } from '../../lib/personName'
 import { useAccountStore } from '../../stores/account'
 import { useOrgStore } from '../../stores/org'
+import OrgSsoVerification from './OrgSsoVerification'
 import {
   listOrgs,
   getOrg,
@@ -29,12 +30,14 @@ import {
   listAudit,
   getSso,
   setSso as setSsoConfig,
+  verifySso,
   clearSso,
   getScim,
   mintScimToken,
   revokeScimToken,
   type AuditEvent,
   type OrgSsoConfig,
+  type OrgSsoRecord,
   type OrgScimStatus,
   type OrgMembership,
   type OrgDetail,
@@ -80,7 +83,7 @@ export default function OrgAdminView(): JSX.Element {
   const [openProfile, setOpenProfile] = useState<string | null>(null)
   const [newOffice, setNewOffice] = useState('')
   const [audit, setAudit] = useState<AuditEvent[]>([])
-  const [sso, setSsoState] = useState<{ configured: boolean; config: OrgSsoConfig | null }>({ configured: false, config: null })
+  const [sso, setSsoState] = useState<{ configured: boolean; config: OrgSsoConfig | null; verification: OrgSsoRecord | null }>({ configured: false, config: null, verification: null })
   const [ssoConn, setSsoConn] = useState('')
   const [ssoDomain, setSsoDomain] = useState('')
   // Directory sync (SCIM) state. The base URL comes from the server; the raw
@@ -632,7 +635,8 @@ export default function OrgAdminView(): JSX.Element {
                     onClick={async () => {
                       if (!token || !selId) return
                       const r = await setSsoConfig(token, selId, ssoConn.trim(), ssoDomain.trim())
-                      setMsg(r.ok ? 'SSO connection saved.' : r.error ?? 'Could not save SSO.')
+                      // Saving looks the domain's DNS record up again (signal verifySsoDomain).
+                      setMsg(r.ok ? `SSO connection saved. ${r.verification?.message ?? ''}`.trim() : r.error ?? 'Could not save SSO.')
                       if (r.ok) await refreshAux()
                     }}
                     disabled={!ssoConn.trim() || !ssoDomain.trim()}
@@ -654,8 +658,22 @@ export default function OrgAdminView(): JSX.Element {
                       Remove
                     </button>
                   )}
-                  {sso.config && <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Active for {sso.config.domain}</span>}
                 </div>
+                {/* SSO runs only once the domain is proven by a DNS record: say so,
+                    rather than "Active" as soon as the settings are saved. */}
+                {sso.config && (
+                  <OrgSsoVerification
+                    key={`${sso.config.domain}:${sso.config.verifiedAt ?? 'no'}`}
+                    domain={sso.config.domain}
+                    record={sso.verification}
+                    verifiedAt={sso.config.verifiedAt ?? null}
+                    serverReady={sso.configured}
+                    onCheck={async () => {
+                      if (!token || !selId) return { verified: false, verifiedAt: null, message: 'Sign in again to check.' }
+                      return verifySso(token, selId)
+                    }}
+                  />
+                )}
               </div>
             )}
           </div>
