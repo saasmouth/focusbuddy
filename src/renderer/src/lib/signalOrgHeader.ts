@@ -12,6 +12,14 @@ import { useOrgStore } from '../stores/org'
 // The server treats a missing/invalid/non-member org as the caller's personal
 // org, so this can never widen access — it only ever narrows to a real org the
 // account belongs to.
+//
+// Except signal's /public/* routes: unauthenticated and org-agnostic, so the
+// header means nothing there, and it costs. This wrapper also runs in the web
+// runtime (web/boot.tsx imports the renderer's main), where any custom header
+// makes a cross-origin GET one the browser must PREFLIGHT: an extra round trip
+// on every page that reads, say, /public/server-features, and from an origin
+// outside signal's CORS allowlist a preflight signal answers 404 (seen on
+// v184/v185, 2026-11-20). Without it the request stays simple.
 
 let installed = false
 
@@ -37,8 +45,8 @@ export function installSignalOrgHeader(): void {
           : input instanceof URL
             ? input.href
             : (input as Request).url
-      const host = new URL(rawUrl, window.location.href).host
-      if (host === signalHost) {
+      const target = new URL(rawUrl, window.location.href)
+      if (target.host === signalHost && !target.pathname.startsWith('/public/')) {
         const orgId = useOrgStore.getState().activeOrgId || 'personal'
         // Stamp the active org as a DEFAULT only — a caller that set x-plexi-org
         // explicitly (the per-org sync loop, or a cross-org team listing) keeps its
