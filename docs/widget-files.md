@@ -105,6 +105,80 @@ Remake them after a deliberate format change with
 `WRITE_WIDGET_FILE_FIXTURES=1 npx vitest run tests/unit/widgetFileFixtures.test.ts`,
 and tell PlexiiLite.
 
+### Opening a file from Finder or Explorer (F3, 2026-11-20)
+
+Double-click a `.plexii-*` file and Plexii opens it. The installed app claims the
+31 types it imports, 25 work widgets and 6 documents
+(`importablePlexiiFileTypes()` in `shared/plexiiFileTypes.ts`). The embed tools
+(`EMBED_TOOL_FILE_TYPES`: a calendar, a browser, a PDF placed in a document) are
+never imported, so never claimed.
+
+**What the app tells the OS.** `electron-builder.cjs` reads
+`build/plexii-file-types.cjs`, because it can't read TypeScript.
+`tests/unit/plexiiFileAssociations.test.ts` fails the moment that list differs
+from the shared tables.
+
+- **macOS.** `mac.extendInfo.UTExportedTypeDeclarations` declares each type as
+  Plexii's own. It conforms to `public.json`, so Quick Look shows the text, and
+  carries its one extension. `mac.extendInfo.CFBundleDocumentTypes` opens each
+  type by its type identifier, as the owner (`LSHandlerRank: Owner`). Its role is
+  `Viewer`, because Plexii brings in a copy and never writes the file back. No
+  icon is given, so macOS draws each document's icon from the app's.
+- **Windows.** `win.fileAssociations` makes the NSIS installer register each
+  extension under its own ProgID. It sits under `win`, not at the top level:
+  there electron-builder would also add extension-only types to the Mac app.
+
+Type identifiers (`plexiiFileUti`) and ProgIDs (`plexiiFileProgId`) are stable
+forever once shipped:
+
+| type id | macOS type identifier | Windows ProgID | Finder / Explorer name |
+| --- | --- | --- | --- |
+| `plexii.widget.table` | `com.plexiidesk.widget.table` | `Plexii.widget.table` | Plexii Table |
+| `plexii.widget.task-list` | `com.plexiidesk.widget.task-list` | `Plexii.widget.taskList` | Plexii Task list |
+| `plexii.document.sheet` | `com.plexiidesk.document.sheet` | `Plexii.document.sheet` | Plexii Spreadsheet |
+| … every other type, by the same rule | `com.plexiidesk.` + the type id without `plexii.` | `Plexii.` + the same, hyphens dropped and the next letter capitalised | `Plexii ` + the type's label |
+
+**PlexiiLite** opens the same files, so it declares the same identifiers as
+IMPORTED types (`UTImportedTypeDeclarations`), never exported ones. Plexii owns
+them.
+
+**What happens when a file is opened** (`main/plexiiFileOpen.ts`). The OS hands
+Plexii a file in one of three ways:
+
+- macOS sends `open-file`, whether the file launched the app, the app was already
+  running, or the file was dropped on the Dock icon;
+- a Windows launch has the path in argv;
+- on Windows, a second instance's argv reaches the running app through
+  `second-instance`.
+
+Each way, main reads the file AT ONCE, because a Mail attachment can be gone a
+moment later. A file over 64 MB, a folder, a missing file or one Plexii may not
+read is kept as the reason, in plain words. Main keeps every file until the window
+takes it. Files handed over together are told to the window once, after the last
+is read, so they make one batch and one notice. With no window open (macOS keeps
+running without one), main opens one.
+
+The window (`PlexiiFileOpenEffects.tsx`, `lib/openPlexiiFiles.ts`) takes the files
+once someone is signed in, because the copy goes into that person's Files.
+Each file comes in through `widgetFiles:import`, the same import as Files ›
+Import, as a new copy in Files. Then:
+
+- **A desk is on screen:** the copy goes on that desk where a new widget goes. A
+  document becomes its Office widget pointing at the new document; a work widget
+  becomes a linked instance of its new file.
+- **No desk is on screen:** the file is opened. With several files, the last one
+  is opened.
+
+One notice says what happened, and names each file that could not be opened and
+why. Plexii never writes to the file.
+
+**Checked on macOS.** A throwaway bundle with these exact keys was registered
+with LaunchServices, then removed. With it registered, `.plexii-sheet` resolved to
+`com.plexiidesk.document.sheet` ("Plexii Spreadsheet", conforming to JSON), and
+the bundle was the default app, ahead of TextEdit. `.plexii-calendar` stayed
+unclaimed. LaunchServices ignores apps inside temporary folders, so such a probe
+must sit somewhere else.
+
 ## Linked instances (desk placement)
 
 A widget file placed on a desk is an ordinary `widgets` row:
@@ -482,6 +556,7 @@ Writes go through the existing review-and-apply flow:
 | `widgetFiles:export(id)` / `widgetFiles:import({ path?, text?, parentId? })` | `.plexii-*` round trip. Import takes a work widget file or an Office document file and returns `{ ok, kind: 'widget', file }` or `{ ok, kind: 'document', document }` |
 | `widgetFiles:exportText({ fileId } \| { documentId })` | the exact file text and the name to offer it under, `{ ok, name, text }`; no dialog |
 | `widgetFiles:trash(id)` | trashes the document, its Files pointer and every desk instance (restore puts them back) |
+| `plexiiFiles:takeOpened()` | every `.plexii-*` file the OS handed over since the last call (`OpenedPlexiiFile[]`: its name and text, or why it could not be read). Desktop only. Main sends `plexiiFiles:opened` when more are waiting |
 
 Delete and restore otherwise use the existing `documents:*` channels; `trashDocument` and `restoreDocument` carry a work widget file's desk instances with it (see "Remove or delete").
 

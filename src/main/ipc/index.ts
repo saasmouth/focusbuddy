@@ -107,6 +107,7 @@ import { consumePendingAuthHandoff, consumePendingShareToken, consumePendingMeet
 import { createSignInNonce } from '../signInNonce'
 import { clearDeskHandoff, importDeskHandoff, pendingDeskHandoff } from '../deskHandoffReceiver'
 import { askWithDialog, beginLiteRoom, clearLiteRoom, pendingLiteRoom } from '../liteRoomReceiver'
+import { takeOpenedPlexiiFiles } from '../plexiiFileOpen'
 import { offlineSignInEmail, rememberOfflineSignIn, verifyOfflineSignIn } from '../db/offlineSignIn'
 import {
   checkForUpdates,
@@ -3581,6 +3582,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('deskHandoff:import', (_e, bundleText: string, accountId: string) =>
     importDeskHandoff(String(bundleText ?? ''), String(accountId ?? ''))
   )
+  // Double-clicked .plexii-* files (F3, main/plexiiFileOpen.ts): main read each
+  // one the OS handed over; the window takes them once someone is signed in and
+  // brings each in as a copy (widgetFiles:import). Desktop only: the browser
+  // runtime has no Finder or Explorer to hand it a file.
+  ipcMain.handle('plexiiFiles:takeOpened', () => takeOpenedPlexiiFiles())
   // "Open This Room in Plexii" (liteRoomReceiver.ts): a room PlexiiLite handed
   // over, kept until someone is signed in. begin reads it, ASKS on the window
   // that called (a native sheet; the window can't answer for the person), and
