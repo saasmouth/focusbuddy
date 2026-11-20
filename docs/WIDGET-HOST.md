@@ -17,7 +17,7 @@ A second entry of the browser build (`vite.widgethost.config.ts`, output
 - hands the text back when the person changes something.
 
 It never signs in, never touches a disk, and reaches the network only where a
-widget itself does (a map's tiles).
+widget itself does: the place map (see "The network" below).
 
 PlexiiLite owns the file: atomic writes, the check for changes made outside, and
 Undo. The page is a view and an editor of the text it was given, nothing more.
@@ -244,6 +244,37 @@ where it is drawn.
   press "/" for commands…', and a page's "/" menu has no AI prompt.
   `tests/widget-host/emptyStates.spec.ts` makes every kind (as New does) and
   reads its placeholders, empty states and "/" menus.
+
+## The network
+
+The page asks nothing of any server except what a widget itself does, and only
+one widget does: the **place map** (`location-map`, a `.plexii-place` file).
+
+- **Tiles** from `tile.openstreetmap.org`, whenever the map is shown.
+- **Search** on `nominatim.openstreetmap.org`, only when the person looks a place
+  up (an explicit search, never a keystroke or a pan). Read-only never searches.
+
+That is expected, and PlexiiLite discloses it.
+
+**No local AI.** Until 2026-11-20 the host asked `http://localhost:11434/api/tags`
+(an Ollama server) on every page that showed a calculator, a chart, a task list
+and ten other kinds (1a found it). The search index did it: opening a file
+saves it into the page's database, and a save embeds the document for search,
+which with no key asks for a model on this computer. The host build now swaps
+`src/main/ai/localModel.ts` for `src/web/worker/main/hostLocalModel.ts`
+(`HOST_MODULE_SWAPS` in `vite.widgethost.config.ts`), which has no model and
+nowhere to ask, so the host carries no local-model client at all. Search keeps
+to keywords; nothing is faked. The share app keeps its client.
+
+`tests/widget-host/network.spec.ts` checks this:
+
+- It opens and saves each kind's example file, watching every request the page
+  and its Worker make.
+- It refuses everything that is not for the test server, so the tests reach no
+  other server.
+- It fails on any request to port 11434, and on any request off the page other
+  than the place map's OpenStreetMap hosts.
+- It fails if the built host contains an Ollama address.
 
 ## What it does instead of failing
 
