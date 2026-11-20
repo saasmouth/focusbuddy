@@ -26,7 +26,11 @@ const db = vi.hoisted(() => ({
   folders: [] as Array<{ id: string; name: string; parentId: string | null }>,
   ingested: [] as Array<{ from: string; name: string; parentId: string | null }>,
   events: [] as Array<{ eventType: string; objectId: string }>,
-  reviewed: [] as string[]
+  reviewed: [] as string[],
+  // Version 2: Plexii files brought in by the store's own import, and documents sent to search.
+  imported: [] as Array<{ id: string; family: string; kind: string; title: string; parentId: string | null; text: string }>,
+  embedded: [] as string[],
+  answerCacheBumps: [] as number[]
 }))
 vi.mock('../../src/main/db/nodes', () => ({
   createNode: (d: Record<string, unknown>) => {
@@ -55,6 +59,43 @@ vi.mock('../../src/main/db/filesFromDisk', () => ({
     readFileSync(from)
     db.ingested.push({ from, name: opts.originalName, parentId: opts.parentId })
     return { id: `file-${db.ingested.length}` }
+  }
+}))
+// The store's own import of a .plexii-* file (db/widgetFiles importPlexiiFileText),
+// stood in for with the REAL parser deciding: the file's content, never the hint.
+vi.mock('../../src/main/db/widgetFiles', async () => {
+  const { parsePlexiiFile, widgetFileGroupId } = await vi.importActual<typeof import('../../src/shared/widgetFiles')>('../../src/shared/widgetFiles')
+  return {
+    importPlexiiFileText: (text: string, parentId: string | null) => {
+      const p = parsePlexiiFile(text)
+      if ('error' in p) return { ok: false, error: p.error }
+      const n = db.imported.length + 1
+      if (p.family === 'document') {
+        const id = `doc-${n}`
+        db.imported.push({ id, family: 'document', kind: p.file.docType, title: p.file.title, parentId, text })
+        return { ok: true, kind: 'document', document: { id, docType: p.file.docType, title: p.file.title } }
+      }
+      const id = `wf-${n}`
+      db.imported.push({ id, family: 'widget', kind: p.file.kind, title: p.file.title, parentId, text })
+      return { ok: true, kind: 'widget', file: { id, kind: p.file.kind, title: p.file.title, content: p.file.content, color: p.file.color } }
+    },
+    placeWidgetFile: (id: string, at: Record<string, unknown>) => {
+      const f = db.imported.find((i) => i.id === id)
+      if (!f) return null
+      const w = { ...at, kind: f.kind, title: f.title, content: 'from-file', syncGroupId: widgetFileGroupId(id), id: `w-${db.widgets.length + 1}`, zIndex: db.widgets.length + 1 }
+      db.widgets.push(w)
+      return w
+    }
+  }
+})
+vi.mock('../../src/main/documentRetrieval', () => ({
+  embedDocument: async (id: string) => {
+    db.embedded.push(id)
+  }
+}))
+vi.mock('../../src/main/ai/answerCache', () => ({
+  bumpAnswerCacheVersion: () => {
+    db.answerCacheBumps.push(1)
   }
 }))
 vi.mock('../../src/main/context/engine', () => ({
@@ -267,7 +308,7 @@ describe('begin: read, ask, and only then bring in', () => {
     r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
     expect(r).toMatchObject({ ok: false, stop: 'schema' })
     R.resetLiteRoomForTests()
-    handOver((f) => (f.version = 2))
+    handOver((f) => (f.version = 3))
     r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
     expect(r).toMatchObject({ ok: false, stop: 'newer' })
     expect(r.ok ? '' : r.message).toMatch(/Update Plexii/)
@@ -315,3 +356,112 @@ describe('begin: read, ask, and only then bring in', () => {
     expect(db.nodes).toEqual([])
   })
 })
+
+// ── Version 2 (F4, 2026-11-20): a room's Plexii widget and document files ────
+describe('version 2: a room\'s Plexii files come in live', () => {
+  const V2 = JSON.parse(readFileSync(resolve(__dirname, '../fixtures/plexiilite-room-v2.json'), 'utf8')) as Record<string, unknown>
+  const EXAMPLES = resolve(__dirname, '../fixtures/widget-files')
+  let venue: string
+  function handOverV2(patch: (f: Record<string, unknown>) => void = () => {}): void {
+    venue = join(base, 'Venue')
+    mkdirSync(venue, { recursive: true })
+    writeFileSync(join(venue, 'Call the venue.plexii-sticky'), readFileSync(join(EXAMPLES, 'example.plexii-sticky')))
+    writeFileSync(join(venue, 'Launch plan.plexii-doc'), readFileSync(join(EXAMPLES, 'example.plexii-doc')))
+    writeFileSync(join(venue, 'notes.txt'), 'first line\n')
+    const f = JSON.parse(JSON.stringify(V2)) as Record<string, unknown>
+    f.folder = venue
+    f.createdAt = new Date().toISOString()
+    patch(f)
+    writeFileSync(join(lite, 'handoff', `${ID}.json`), JSON.stringify(f))
+  }
+
+  it('yes: each Plexii file is brought in by the store\'s own import, into the room\'s Files folder, and placed live where it was', async () => {
+    handOverV2()
+    const r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(asked[0]!.detail).toContain('2 of them are Plexii files: they come in as work widgets and documents you can edit.')
+    expect(db.folders).toEqual([{ id: 'folder-1', name: 'Venue', parentId: null }])
+    // Read from the room and imported as new objects in the room's Files folder: the file's own text.
+    expect(db.imported.map((i) => [i.family, i.kind, i.title, i.parentId])).toEqual([
+      ['widget', 'sticky', 'Call the venue', 'folder-1'],
+      ['document', 'doc', 'Launch plan', 'folder-1']
+    ])
+    expect(db.imported[0]!.text).toBe(readFileSync(join(EXAMPLES, 'example.plexii-sticky'), 'utf8'))
+    // Only the plain file goes through the drop pipeline's copy.
+    expect(db.ingested.map((i) => [i.name, i.parentId])).toEqual([['notes.txt', 'folder-1']])
+    // Back to front by the Desk's z: the document (z 1), the sticky (z 2); then the never-placed file.
+    expect(db.widgets.map((w) => [w.title, w.kind, w.x, w.y, w.width, w.height])).toEqual([
+      ['Launch plan', 'doc', 380, 60, 720, 520],
+      ['Call the venue', 'sticky', 60, 60, 280, 220],
+      ['notes.txt', 'file', 60, 60 + 520 + 48, 320, 240]
+    ])
+    // The sticky is an instance of its new work widget file; the document's widget points AT the new document.
+    expect(db.widgets.find((w) => w.kind === 'sticky')!.syncGroupId).toBe('wf:wf-1')
+    expect(db.widgets.find((w) => w.kind === 'doc')!.content).toBe('doc-2')
+    for (const w of db.widgets) expect(w.taskId).toBe('desk-1')
+    expect(db.events.map((e) => e.eventType)).toEqual(['DeskCreated', 'WidgetCreated', 'WidgetCreated', 'WidgetCreated'])
+    // A new document goes into search, as documents:create does; the answer cache knows the set changed.
+    expect(db.embedded).toEqual(['doc-2'])
+    expect(db.answerCacheBumps.length).toBeGreaterThan(0)
+    expect(r.workcentre!.items).toEqual({ 'w-1': { x: 3, y: 0, w: 6, h: 14 }, 'w-2': { x: 0, y: 0, w: 3, h: 6 } })
+    expect(r.summary).toBe('3 files brought in from “Venue”, 2 of them as work widgets and documents you can edit.')
+    // The room is as it was.
+    expect(readFileSync(join(venue, 'Launch plan.plexii-doc'), 'utf8')).toBe(readFileSync(join(EXAMPLES, 'example.plexii-doc'), 'utf8'))
+  })
+
+  it('the content decides, never the hint: a marked file that is not a Plexii file comes in as a plain file, and the summary says so', async () => {
+    handOverV2()
+    writeFileSync(join(venue, 'Launch plan.plexii-doc'), JSON.stringify({ type: 'plexii.document.doc', version: 1, title: 'x', docType: 'doc', body: { nope: 1 } }))
+    const r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(db.imported.map((i) => i.kind)).toEqual(['sticky'])
+    expect(db.ingested.map((i) => i.name)).toEqual(['Launch plan.plexii-doc', 'notes.txt'])
+    expect(db.widgets.find((w) => w.title === 'Launch plan.plexii-doc')!.kind).toBe('file')
+    expect(r.summary).toBe('3 files brought in from “Venue”, 1 of them as a work widget or document you can edit. Launch plan.plexii-doc came in as a plain file: it couldn’t be read as a Plexii file.')
+  })
+
+  it('a hint naming another kind than the file is: the file\'s own kind wins', async () => {
+    handOverV2((f) => ((f.tiles as Record<string, unknown>[])[0]!.plexiiFile = { family: 'document', kind: 'sheet' }))
+    const r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
+    expect(r.ok).toBe(true)
+    expect(db.imported.map((i) => [i.family, i.kind])).toEqual([
+      ['widget', 'sticky'],
+      ['document', 'doc']
+    ])
+  })
+
+  it('a .plexii-* file with no hint (version 1, or not marked) stays a plain file', async () => {
+    handOverV2((f) => {
+      f.version = 1
+    })
+    const r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(db.imported).toEqual([])
+    expect(db.ingested.map((i) => i.name)).toEqual(['Call the venue.plexii-sticky', 'Launch plan.plexii-doc', 'notes.txt'])
+    expect(r.summary).toBe('3 files brought in from “Venue”.')
+  })
+
+  it('a marked file larger than any Plexii file is never read as one: it comes in plain, and is named', async () => {
+    handOverV2()
+    const r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base, plexiiFileMaxBytes: 500 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(db.imported.map((i) => i.kind)).toEqual(['sticky'])
+    expect(db.ingested.map((i) => i.name)).toEqual(['Launch plan.plexii-doc', 'notes.txt'])
+    expect(r.summary).toContain('Launch plan.plexii-doc came in as a plain file')
+  })
+
+  it('a Plexii file\'s bytes count toward the room\'s size limit like any file\'s', async () => {
+    handOverV2()
+    const r = await R.beginLiteRoom(ID, answer(true), { liteData: lite, home: base, maxBytes: 500 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(db.imported.map((i) => i.kind)).toEqual(['sticky'])
+    expect(r.leftOut).toContainEqual({ name: 'Launch plan.plexii-doc', why: 'size' })
+    expect(db.ingested.map((i) => i.name)).toEqual(['notes.txt'])
+  })
+})
+

@@ -21,8 +21,12 @@ import type { FbNode, Widget } from './types'
 import type { WorkcentreLayout } from './deskLayout'
 
 export const LITE_ROOM_FORMAT = 'plexiilite.room'
-/** The handoff version this build reads (and declares in its Info.plist, below). */
-export const LITE_ROOM_VERSION = 1
+/**
+ * The highest handoff version this build reads (and declares in its Info.plist,
+ * below). It reads every version from 1 up to this. Version 2 (F4, 2026-11-20)
+ * marks the tiles that are Plexii widget and document files (plexiiFile).
+ */
+export const LITE_ROOM_VERSION = 2
 /**
  * The Info.plist key PlexiiLite reads, on the app macOS opens plexii:// links
  * with, before it offers "Open This Room in Plexii": the highest handoff version
@@ -82,6 +86,16 @@ export interface LiteRoomCell {
   fixH?: boolean
 }
 
+/**
+ * Version 2: a tile that is a Plexii widget or document file, as PlexiiLite saw
+ * it from the name. A hint only: Plexii reads the file, and its content decides
+ * what it becomes (shared/widgetFiles.ts parsePlexiiFile).
+ */
+export interface LiteRoomPlexiiFile {
+  family: 'widget' | 'document'
+  kind: string
+}
+
 export interface LiteRoomTile {
   name: string
   relPath: string
@@ -90,6 +104,8 @@ export interface LiteRoomTile {
   inCloud: boolean
   desk: LiteRoomDesk | null
   workcentre: LiteRoomCell | null
+  /** Version 2 only: this tile is a Plexii file (a hint). */
+  plexiiFile?: LiteRoomPlexiiFile
 }
 
 export interface LiteRoomPage {
@@ -101,7 +117,8 @@ export interface LiteRoomPage {
 
 export interface LiteRoom {
   format: typeof LITE_ROOM_FORMAT
-  version: typeof LITE_ROOM_VERSION
+  /** The version the file was written as: 1 or 2. */
+  version: 1 | 2
   createdAt: string
   app: string
   folder: string
@@ -171,6 +188,15 @@ function cellOf(v: unknown, at: string): LiteRoomCell | null {
   return out
 }
 
+/** Version 2's hint: family `widget` or `document`, and a kind (lower-case letters and `-`, up to 32). */
+function plexiiFileOf(v: unknown, at: string): LiteRoomPlexiiFile {
+  need(isObj(v), `${at}.plexiiFile`)
+  const o = v as Record<string, unknown>
+  need(o.family === 'widget' || o.family === 'document', `${at}.plexiiFile.family`)
+  need(typeof o.kind === 'string' && /^[a-z-]{1,32}$/.test(o.kind), `${at}.plexiiFile.kind`)
+  return { family: o.family as LiteRoomPlexiiFile['family'], kind: o.kind as string }
+}
+
 const isWebAddress = (v: unknown): v is string => {
   if (typeof v !== 'string' || v.length > 8192) return false
   try {
@@ -190,6 +216,7 @@ export function parseLiteRoom(raw: unknown, now: number = Date.now()): LiteRoomP
   if (!isObj(raw) || raw.format !== LITE_ROOM_FORMAT) return { ok: false, refusal: 'format', detail: 'not a PlexiiLite room' }
   if (!isInt(raw.version) || raw.version < 1) return { ok: false, refusal: 'schema', detail: 'version' }
   if (raw.version > LITE_ROOM_VERSION) return { ok: false, refusal: 'newer', detail: `version ${raw.version}` }
+  const version = raw.version as 1 | 2
   try {
     need(typeof raw.createdAt === 'string' && raw.createdAt.length <= 40, 'createdAt')
     const at = Date.parse(raw.createdAt as string)
@@ -221,7 +248,10 @@ export function parseLiteRoom(raw: unknown, now: number = Date.now()): LiteRoomP
       need(typeof o.kind === 'string' && /^[a-z-]{1,32}$/.test(o.kind), `${at}.kind`)
       need(isInt(o.size) && o.size >= 0, `${at}.size`)
       need(typeof o.inCloud === 'boolean', `${at}.inCloud`)
-      return { name: o.name as string, relPath: o.relPath as string, kind: o.kind as string, size: o.size as number, inCloud: o.inCloud as boolean, desk: deskOf(o.desk, at), workcentre: cellOf(o.workcentre, at) }
+      const tile: LiteRoomTile = { name: o.name as string, relPath: o.relPath as string, kind: o.kind as string, size: o.size as number, inCloud: o.inCloud as boolean, desk: deskOf(o.desk, at), workcentre: cellOf(o.workcentre, at) }
+      // Version 2 knows plexiiFile; to a version 1 file it is a field it doesn't know, ignored.
+      if (version >= 2 && o.plexiiFile !== undefined) tile.plexiiFile = plexiiFileOf(o.plexiiFile, at)
+      return tile
     })
     const folders = (raw.folders as unknown[]).map((f, i) => {
       const at = `folders[${i}]`
@@ -244,7 +274,7 @@ export function parseLiteRoom(raw: unknown, now: number = Date.now()): LiteRoomP
       ok: true,
       room: {
         format: LITE_ROOM_FORMAT,
-        version: LITE_ROOM_VERSION,
+        version,
         createdAt: raw.createdAt as string,
         app: raw.app as string,
         folder,
@@ -387,6 +417,17 @@ export function liteRoomQuestion(plan: LiteRoomPlan, home: string): LiteRoomQues
     '',
     'The folder and its files aren’t changed: Plexii keeps its own copy.'
   ]
+  const live = plan.bring.filter((t) => t.plexiiFile).length
+  if (live) {
+    lines.splice(
+      1,
+      0,
+      '',
+      live === 1
+        ? '1 of them is a Plexii file: it comes in as a work widget or document you can edit.'
+        : `${live.toLocaleString('en-US')} of them are Plexii files: they come in as work widgets and documents you can edit.`
+    )
+  }
   if (plan.leftOut.length) lines.push('', `Left out (${plan.leftOut.length}):`, ...leftOutLines(plan.leftOut))
   return { message: `Bring “${room.name}” into Plexii?`, detail: lines.join('\n'), buttons: ['Bring In', 'Cancel'] }
 }
@@ -397,14 +438,31 @@ export function liteRoomNothing(plan: LiteRoomPlan): string {
   return `Nothing in “${plan.room.name}” can be brought into Plexii.${why.length ? ` ${why.join(' ')}` : ' The room is empty.'}`
 }
 
-/** What was done, after: "24 files brought in from “Projects”; 2 left out: talk.mov (only in iCloud), Ideas (a folder)." */
-export function liteRoomSummary(name: string, files: number, pages: number, leftOut: LeftOut[]): string {
+/**
+ * What was done, after: "24 files brought in from “Projects”; 2 left out: talk.mov
+ * (only in iCloud), Ideas (a folder)." Version 2 adds how many came in as Plexii
+ * files (`live`), and names those PlexiiLite marked as Plexii files that couldn't
+ * be read as one and came in as plain files (`asPlain`).
+ */
+export function liteRoomSummary(name: string, files: number, pages: number, leftOut: LeftOut[], v2: { live?: number; asPlain?: string[] } = {}): string {
   const came = [plural(files, 'file'), pages ? plural(pages, 'browser window') : ''].filter(Boolean).join(' and ')
-  const head = `${came} brought in from “${name}”`
-  if (!leftOut.length) return `${head}.`
-  const named = leftOut.slice(0, 3).map((l) => `${l.name} (${LEFT_OUT_SHORT[l.why]})`)
-  const rest = leftOut.length > 3 ? ` and ${leftOut.length - 3} more` : ''
-  return `${head}; ${leftOut.length} left out: ${named.join(', ')}${rest}.`
+  const live = v2.live ?? 0
+  const head = `${came} brought in from “${name}”${
+    live === 1 ? ', 1 of them as a work widget or document you can edit' : live > 1 ? `, ${live.toLocaleString('en-US')} of them as work widgets and documents you can edit` : ''
+  }`
+  let said: string
+  if (!leftOut.length) said = `${head}.`
+  else {
+    const named = leftOut.slice(0, 3).map((l) => `${l.name} (${LEFT_OUT_SHORT[l.why]})`)
+    const rest = leftOut.length > 3 ? ` and ${leftOut.length - 3} more` : ''
+    said = `${head}; ${leftOut.length} left out: ${named.join(', ')}${rest}.`
+  }
+  const plain = v2.asPlain ?? []
+  if (plain.length) {
+    const names = plain.length === 2 ? plain.join(' and ') : listNames(plain, 3)
+    said += plain.length === 1 ? ` ${names} came in as a plain file: it couldn’t be read as a Plexii file.` : ` ${names} came in as plain files: they couldn’t be read as Plexii files.`
+  }
+  return said
 }
 
 /** Why nothing was brought in, said to the person. */
@@ -429,6 +487,8 @@ export interface LiteRoomObject {
   kind: LiteRoomObjectKind
   desk: LiteRoomDesk | null
   cell: LiteRoomCell | null
+  /** Its size when it was never placed on the Desk, when not the kind's default (a Plexii document starts at its own size). */
+  size?: { w: number; h: number }
 }
 
 export interface LiteRoomPlacement {
@@ -486,7 +546,7 @@ export function mapLiteRoomLayout(objects: LiteRoomObject[], cols: number | null
   let rowH = 0
   for (const o of objects) {
     if (o.desk) continue
-    const s = LITE_ROOM_DEFAULT_SIZE[o.kind]
+    const s = o.size ?? LITE_ROOM_DEFAULT_SIZE[o.kind]
     if (x > LITE_ROOM_ORIGIN.x && x + s.w > right) {
       x = LITE_ROOM_ORIGIN.x
       y += rowH + GAP
@@ -528,6 +588,8 @@ export type LiteRoomBegin =
       view: 'canvas' | 'workcentre' | 'list'
       files: number
       pages: number
+      /** Version 2: how many of the files came in as work widgets and documents. */
+      live: number
       leftOut: LeftOut[]
       summary: string
     }

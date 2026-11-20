@@ -78,7 +78,7 @@ describe('the file', () => {
   // Each mutation of the fixture, and what it is refused as: the whole file, never part of it.
   const mutations: [string, (f: Record<string, unknown>) => void, string][] = [
     ['not a room', (f) => (f.format = 'plexii.desk'), 'format'],
-    ['a newer version', (f) => (f.version = 2), 'newer'],
+    ['a newer version', (f) => (f.version = 3), 'newer'],
     ['version 0', (f) => (f.version = 0), 'schema'],
     ['a version that is no integer', (f) => (f.version = '1'), 'schema'],
     ['expired: older than a day', (f) => (f.createdAt = new Date(NOW - LITE_ROOM_MAX_AGE_MS - 1000).toISOString()), 'expired'],
@@ -245,6 +245,107 @@ describe('where things go on the desk', () => {
   it('a cell wider than the columns is narrowed to them', () => {
     const wide = mapLiteRoomLayout([{ key: 'a', kind: 'file', desk: null, cell: { x: 0, y: 0, w: 30, h: 4 } }], 12, 'workcentre')
     expect(wide.workcentre!.items.a!.w).toBe(12)
+  })
+})
+
+// ── Version 2 (F4, 2026-11-20): Plexii widget and document files ─────────────
+// tests/fixtures/plexiilite-room-v2.json is the contract's v2 example, kept
+// identical in PlexiiLite: a sticky, a document and a plain file.
+const V2_TEXT = readFileSync(resolve(__dirname, '../fixtures/plexiilite-room-v2.json'), 'utf8')
+const v2 = (): Record<string, unknown> => JSON.parse(V2_TEXT) as Record<string, unknown>
+const V2_NOW = Date.parse('2026-11-20T09:31:00.000Z')
+const parsedV2 = (): LiteRoom => {
+  const r = parseLiteRoom(v2(), V2_NOW)
+  if (!r.ok) throw new Error(`v2 fixture refused: ${r.refusal} ${r.detail}`)
+  return r.room
+}
+
+describe('version 2: Plexii widget and document files', () => {
+  it('this build reads versions 1 and 2', () => {
+    expect(LITE_ROOM_VERSION).toBe(2)
+    expect(parseLiteRoom(fixture(), NOW).ok).toBe(true)
+  })
+
+  it('the v2 fixture is accepted, and each Plexii file carries its hint', () => {
+    const room = parsedV2()
+    expect(room.version).toBe(2)
+    expect(room.tiles.map((t) => [t.name, t.plexiiFile ?? null])).toEqual([
+      ['Call the venue.plexii-sticky', { family: 'widget', kind: 'sticky' }],
+      ['Launch plan.plexii-doc', { family: 'document', kind: 'doc' }],
+      ['notes.txt', null]
+    ])
+  })
+
+  it('in a version 1 file a hint is an unknown field, ignored: such a file stays a plain file', () => {
+    const f = fixture()
+    ;(f.tiles as Record<string, unknown>[])[0]!.plexiiFile = { family: 'widget', kind: 'sticky' }
+    const r = parseLiteRoom(f, NOW)
+    expect(r.ok && r.room.tiles[0]!.plexiiFile).toBeUndefined()
+  })
+
+  const bad: [string, unknown][] = [
+    ['a hint that is no object', 'sticky'],
+    ['a family that is neither widget nor document', { family: 'app', kind: 'sticky' }],
+    ['a kind with capitals', { family: 'widget', kind: 'Sticky' }],
+    ['no kind', { family: 'document' }],
+    ['a kind too long', { family: 'widget', kind: 'x'.repeat(33) }]
+  ]
+  for (const [what, hint] of bad) {
+    it(`refuses the whole v2 file for ${what}`, () => {
+      const f = v2()
+      ;(f.tiles as Record<string, unknown>[])[0]!.plexiiFile = hint
+      const r = parseLiteRoom(f, V2_NOW)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.refusal).toBe('schema')
+    })
+  }
+
+  it('a kind this build does not know is still only a hint: accepted (the file\'s content decides)', () => {
+    const f = v2()
+    ;(f.tiles as Record<string, unknown>[])[0]!.plexiiFile = { family: 'widget', kind: 'hologram' }
+    expect(parseLiteRoom(f, V2_NOW).ok).toBe(true)
+  })
+
+  it('Plexii files count toward the limits like any file', () => {
+    const plan = planLiteRoom(parsedV2())
+    expect(plan.bring.map((t) => t.name)).toEqual(['Call the venue.plexii-sticky', 'Launch plan.plexii-doc', 'notes.txt'])
+    expect(plan.bytes).toBe(232 + 797 + 11)
+    expect(planLiteRoom(parsedV2(), { files: 200, bytes: 500 }).leftOut).toEqual([{ name: 'Launch plan.plexii-doc', why: 'size' }])
+  })
+
+  it('the question says which come in as Plexii files you can edit', () => {
+    const q = liteRoomQuestion(planLiteRoom(parsedV2()), '/Users/someone')
+    expect(q.detail).toContain('with its own copy of 3 files (1 KB) from ~/Projects/Venue')
+    expect(q.detail).toContain('2 of them are Plexii files: they come in as work widgets and documents you can edit.')
+    const one = parsedV2()
+    one.tiles = one.tiles.filter((t) => t.name !== 'Launch plan.plexii-doc')
+    expect(liteRoomQuestion(planLiteRoom(one), '/Users/someone').detail).toContain('1 of them is a Plexii file: it comes in as a work widget or document you can edit.')
+    // Version 1 never says so.
+    expect(liteRoomQuestion(planLiteRoom(parsedFixture()), '/Users/someone').detail).not.toContain('Plexii file')
+  })
+
+  it('the summary says how many came in as Plexii files, and names any that came in plain', () => {
+    expect(liteRoomSummary('Venue', 3, 0, [], { live: 2 })).toBe('3 files brought in from “Venue”, 2 of them as work widgets and documents you can edit.')
+    expect(liteRoomSummary('Venue', 3, 0, [], { live: 1, asPlain: ['Broken.plexii-sheet'] })).toBe(
+      '3 files brought in from “Venue”, 1 of them as a work widget or document you can edit. Broken.plexii-sheet came in as a plain file: it couldn’t be read as a Plexii file.'
+    )
+    expect(liteRoomSummary('Venue', 2, 0, [{ name: 'talk.mov', why: 'in-cloud' }], { asPlain: ['a.plexii-doc', 'b.plexii-tasks'] })).toBe(
+      '2 files brought in from “Venue”; 1 left out: talk.mov (only in iCloud). a.plexii-doc and b.plexii-tasks came in as plain files: they couldn’t be read as Plexii files.'
+    )
+  })
+
+  it('the contract\'s v2 example tile is the fixture\'s, word for word', () => {
+    const doc = readFileSync(resolve(__dirname, '../../docs/PLEXIILITE-ROOM-HANDOFF.md'), 'utf8')
+    const section = doc.slice(doc.indexOf('## Version 2'))
+    const block = /```json\n([\s\S]*?)\n```/.exec(section)
+    expect(block).not.toBeNull()
+    const fromDoc = JSON.parse(block![1]!) as Record<string, unknown>
+    expect(fromDoc).toEqual((v2().tiles as Record<string, unknown>[]).find((t) => t.name === fromDoc.name))
+  })
+
+  it('a Plexii object never placed on the Desk goes below at its own starting size', () => {
+    const l = mapLiteRoomLayout([{ key: 'doc', kind: 'file', desk: null, cell: null, size: { w: 960, h: 660 } }], null, 'desk')
+    expect(l.canvas.doc).toEqual({ x: 60, y: 60, width: 960, height: 660 })
   })
 })
 

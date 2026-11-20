@@ -16,10 +16,10 @@
 // to the file.
 import { app, BrowserWindow } from 'electron'
 import { readFile, stat } from 'node:fs/promises'
-import { isImportablePlexiiFileName, type OpenedPlexiiFile } from '@shared/plexiiFileTypes'
+import { isImportablePlexiiFileName, PLEXII_FILE_MAX_BYTES, type OpenedPlexiiFile } from '@shared/plexiiFileTypes'
 
 /** Larger than any Plexii file: a file over this is refused, not read into memory. */
-export const OPENED_FILE_MAX_BYTES = 64 * 1024 * 1024
+export const OPENED_FILE_MAX_BYTES = PLEXII_FILE_MAX_BYTES
 
 let queue: OpenedPlexiiFile[] = []
 let seq = 0

@@ -179,6 +179,20 @@ the bundle was the default app, ahead of TextEdit. `.plexii-calendar` stayed
 unclaimed. LaunchServices ignores apps inside temporary folders, so such a probe
 must sit somewhere else.
 
+### In a room from PlexiiLite (F4, 2026-11-20)
+
+"Open This Room in Plexii" brings a room's Plexii files in live from handoff
+version 2 (`docs/PLEXIILITE-ROOM-HANDOFF.md`, "Version 2"; `PlexiiTakesLiteRooms`
+is 2). PlexiiLite marks each `.plexii-*` tile with a hint (`plexiiFile`). Plexii
+reads the file, and `importPlexiiFileText` decides from its content:
+
+- a work widget file is placed as a linked instance;
+- a document is placed as its Office widget;
+- both are filed in the room's Files folder.
+
+A marked file Plexii can't read comes in as a plain file, and the summary names
+it. Version 1 rooms are unchanged: every file is a plain file.
+
 ## Linked instances (desk placement)
 
 A widget file placed on a desk is an ordinary `widgets` row:

@@ -10,6 +10,8 @@ import { canCreateMore, limitFor } from '../lib/gating'
 import { crdtEmitNodeCreate, crdtEmitWidgetCreate } from '../lib/crdtBridge'
 import { nudgeSync } from '../lib/syncNudge'
 import { currentDeviceClass } from '../lib/deviceClass'
+import { refreshFileDesks } from '../lib/linkBadge'
+import { useDocumentsStore } from '../stores/documents'
 
 // "Open This Room in Plexii", the window's end (main/liteRoomReceiver.ts;
 // shared/liteRoom.ts has the contract with PlexiiLite).
@@ -20,7 +22,9 @@ import { currentDeviceClass } from '../lib/deviceClass'
 // asks main to begin: main reads the room and ASKS the person itself (a native
 // sheet), then brings it in on yes. What comes back is a new desk: told to the
 // sync engine as every create from this window is, its Workcentre kept with this
-// person's layout, opened, and summed up in a notice.
+// person's layout, opened, and summed up in a notice. Since version 2 (F4) the
+// room's Plexii files come in as work widgets and documents (main reads each one
+// with the store's own import); Files is refreshed so it lists them.
 //
 // Mounted once in App. Renders nothing. Not in the browser runtime, which has no
 // PlexiiLite to hand anything over.
@@ -78,6 +82,12 @@ export default function LiteRoomEffects(): null {
         crdtEmitNodeCreate(result.node)
         for (const w of result.widgets) crdtEmitWidgetCreate(w)
         nudgeSync()
+        // Version 2: Plexii files came in as work widget files and documents: Files
+        // lists them, and each work widget file's "On <desk>" now names this desk.
+        if (result.live) {
+          void useDocumentsStore.getState().refresh()
+          refreshFileDesks()
+        }
         const deskId = result.node.id
         if (result.workcentre) {
           await window.api.deskLayout
