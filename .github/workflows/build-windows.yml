@@ -160,19 +160,22 @@ jobs:
       # registers each type (build/plexii-file-types.cjs) in this user's registry;
       # this proves it on a real Windows machine. It installs what was just built,
       # silently and for this user only (a silent install never starts Plexii: that
-      # takes --force-run), checks every type opens the installed app, uninstalls,
+      # takes --force-run), checks every type opens the installed app (the
+      # registry, and Windows' own answer to "what opens this file"), uninstalls,
       # and checks they are gone (scripts/check-windows-file-associations.mjs).
-      # Nothing here reaches the network. Before the publish step on purpose: a
-      # tag never ships an installer that fails this.
+      # The folder has spaces in its name on purpose: electron-builder writes the
+      # program's path unquoted, and this proves Windows still finds it. Nothing
+      # here reaches the network. Before the publish step on purpose: a tag never
+      # ships an installer that fails this.
       - name: Check the .plexii-* file types the installer registers
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $setup = Get-ChildItem release -Filter 'PlexiDesk-*.exe' | Select-Object -First 1
           if (-not $setup) { throw 'No installer in release/' }
-          $dir = Join-Path $env:RUNNER_TEMP 'plexii-assoc-check'
-          # NSIS: /D= comes last, unquoted.
-          $p = Start-Process -FilePath $setup.FullName -ArgumentList '/S', "/D=$dir" -Wait -PassThru
+          $dir = Join-Path $env:RUNNER_TEMP 'Plexii Assoc Check'
+          # NSIS: /D= comes last and unquoted, even with spaces, so the arguments go as one raw string.
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/S /D=$dir" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "The installer exited with $($p.ExitCode)" }
           $exe = Get-ChildItem $dir -Filter '*.exe' | Where-Object { $_.Name -notlike 'Uninstall *' } | Select-Object -First 1
           if (-not $exe) { throw "No app in $dir after the install" }
@@ -182,7 +185,7 @@ jobs:
           # copies itself to TEMP and returns at once.
           $un = Get-ChildItem $dir -Filter 'Uninstall *.exe' | Select-Object -First 1
           if (-not $un) { throw "No uninstaller in $dir" }
-          $p = Start-Process -FilePath $un.FullName -ArgumentList '/S', "_?=$dir" -Wait -PassThru
+          $p = Start-Process -FilePath $un.FullName -ArgumentList "/S _?=$dir" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "The uninstaller exited with $($p.ExitCode)" }
           node scripts/check-windows-file-associations.mjs removed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
