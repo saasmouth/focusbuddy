@@ -25,6 +25,18 @@ export { unservedChannels, isDatabaseLeader } from './dbClient'
 type Listener = (...args: unknown[]) => void
 
 /**
+ * Where window.api's calls go. The share app's default is the tab coordinator
+ * (dbClient: one database per origin, held by one tab). The widget host passes
+ * its own: a private Worker per page, with no election (src/web/widgetHost).
+ */
+export interface ApiTransport {
+  call(channel: string, args: unknown[]): Promise<unknown>
+  subscribe(event: string, cb: Listener): () => void
+}
+
+const coordinated: ApiTransport = { call: dbCall, subscribe: dbSubscribe }
+
+/**
  * Build the api object.
  *
  * Namespaces are materialised from the channel map, so the shape matches the
@@ -33,17 +45,17 @@ type Listener = (...args: unknown[]) => void
  * renderer already handles rejected api calls; what it cannot handle is a
  * method that is simply absent, which throws a TypeError deep inside a render.
  */
-export function createBrowserApi(): Record<string, Record<string, unknown>> {
+export function createBrowserApi(transport: ApiTransport = coordinated): Record<string, Record<string, unknown>> {
   const api: Record<string, Record<string, unknown>> = {}
 
   for (const [path, channel] of Object.entries(INVOKE_CHANNELS)) {
     const [ns, method] = path.split('.')
-    ;(api[ns] ??= {})[method] = (...args: unknown[]) => dbCall(channel, args)
+    ;(api[ns] ??= {})[method] = (...args: unknown[]) => transport.call(channel, args)
   }
 
   for (const [path, channel] of Object.entries(LISTEN_CHANNELS)) {
     const [ns, method] = path.split('.')
-    ;(api[ns] ??= {})[method] = (cb: Listener) => dbSubscribe(channel, cb)
+    ;(api[ns] ??= {})[method] = (cb: Listener) => transport.subscribe(channel, cb)
   }
 
   // The session and the platform questions belong to the page, not the

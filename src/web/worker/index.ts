@@ -14,6 +14,8 @@ import { openWorkspaceDatabase } from './database'
 import { HANDLERS } from './handlers'
 import { SHARE_COPY_HANDLERS } from './shareCopy'
 import { adoptSession } from './main/account'
+import { storageForWorker } from './hostMode'
+import { INTERIM_F1_HANDLERS } from './widgetHostInterim'
 
 export interface WorkerRequest {
   id: number
@@ -48,7 +50,13 @@ export interface WorkerResponse {
 
 // Opening is awaited before the first message is answered. Requests that arrive
 // during startup queue behind this promise rather than racing an empty handle.
-const ready = openWorkspaceDatabase().then(
+// A Worker started by the widget host is named for it and keeps its rows in
+// memory (worker/hostMode.ts); every other Worker opens the workspace.
+const forWidgetHost = storageForWorker((self as { name?: string }).name) === 'memory'
+// The widget host's file channels until F1's land (worker/widgetHostInterim.ts).
+// Only for the host: the share app's answers are unchanged.
+const HOST_ONLY: Record<string, unknown> = forWidgetHost ? INTERIM_F1_HANDLERS : {}
+const ready = openWorkspaceDatabase({ memoryOnly: forWidgetHost }).then(
   () => null,
   (err: Error) => err
 )
@@ -73,7 +81,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest | WorkerInit>): Promis
 
   // The desktop's channels first; then the share page's own, which exist only
   // here (worker/shareCopy.ts) and so are not in the mirrored table.
-  const handler = HANDLERS[channel] ?? SHARE_COPY_HANDLERS[channel]
+  const handler = HANDLERS[channel] ?? SHARE_COPY_HANDLERS[channel] ?? HOST_ONLY[channel]
   if (!handler) {
     // An honest refusal, naming the channel. The desktop serves 526 of these
     // and this runtime serves a subset; a call outside the subset must say so

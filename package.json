@@ -48,6 +48,8 @@
     "web:dev": "vite --config vite.web.config.ts",
     "web:build": "node scripts/derive-web-channel-map.cjs && vite build --config vite.web.config.ts",
     "web:preview": "vite preview --config vite.web.config.ts --port 5180",
+    "widget-host:build": "node scripts/derive-web-channel-map.cjs && vite build --config vite.widgethost.config.ts",
+    "test:widget-host": "playwright test --config playwright.widgethost.config.ts",
     "typecheck:webruntime": "tsc --noEmit -p tsconfig.webruntime.json",
     "install:local": "bash scripts/install-local.sh",
     "status": "node scripts/status-server.mjs",

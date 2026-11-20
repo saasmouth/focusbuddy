@@ -16,6 +16,7 @@ import { applyProposal } from '../../lib/actionExecutor'
 import { resolveGoToTarget, goToTarget } from '../../lib/goToTarget'
 import { catalogFor, entriesByCategory } from '../../lib/widgetCatalog'
 import { setOrigin } from '../../lib/nodeCanvasOrigin'
+import { inWidgetHost } from '../../lib/widgetHost'
 
 // AI mind-mapper widget — Phase 1 + Phase 2 (this file).
 //
@@ -1583,15 +1584,18 @@ function SidePanel({
           </div>
         )}
         <div className="space-y-1.5">
-          <button
-            onClick={onExpand}
-            disabled={busy === 'expand'}
-            className="w-full text-[11px] px-2 py-1.5 rounded-md bg-accent text-white hover:opacity-90 inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
-            data-testid="mindmap-expand"
-          >
-            <Icon name="auto_awesome" size={12} />
-            {busy === 'expand' ? 'Expanding…' : 'AI Expand (+ branches)'}
-          </button>
+          {/* No AI in the widget host (lib/widgetHost). */}
+          {!inWidgetHost() && (
+            <button
+              onClick={onExpand}
+              disabled={busy === 'expand'}
+              className="w-full text-[11px] px-2 py-1.5 rounded-md bg-accent text-white hover:opacity-90 inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+              data-testid="mindmap-expand"
+            >
+              <Icon name="auto_awesome" size={12} />
+              {busy === 'expand' ? 'Expanding…' : 'AI Expand (+ branches)'}
+            </button>
+          )}
           {/* Manual node creation. Add child = subordinate; Add
               sibling = peer at the same level. Sibling is disabled
               for the root (it has no parent). */}

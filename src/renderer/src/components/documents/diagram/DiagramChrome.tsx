@@ -311,7 +311,7 @@ export function DiagramChrome({
         rightPane={
           <ShellSidePane
             testid="diagram-sidepane"
-            panes={[{ id: 'ai', title: 'AI diagram', icon: 'auto_awesome', testid: 'diagram-ai-pane', render: () => <AiPane cmd={cmd} /> }]}
+            panes={[{ id: 'ai', ai: true, title: 'AI diagram', icon: 'auto_awesome', testid: 'diagram-ai-pane', render: () => <AiPane cmd={cmd} /> }]}
             activeId={sidePane}
             onChange={(id) => setSidePane(id === 'ai' ? 'ai' : null)}
           />

@@ -6,6 +6,7 @@ import type { EditorCommand } from '../../stores/editorCommands'
 import { menuPlatform } from './menuAction'
 import type { DocumentOps } from '../../components/documents/editor/documentOps'
 import { READ_ONLY_REASON } from '../../components/office/shell/primitives'
+import { offeredHere } from '../widgetHost'
 
 // One definition per office action (SPEC §9, "no repeats"): label, key, icon,
 // enabled state with its reason, and what it does. The menu bar, the ribbon,
@@ -151,7 +152,7 @@ export function paletteEntry(c: OfficeCommand): EditorCommand {
 
 /** The palette's rows: only commands that are live now (a palette row cannot show why it is off). */
 export function paletteEntries(cs: OfficeCommand[]): EditorCommand[] {
-  return cs.filter((c) => !c.enabled || c.enabled()).map(paletteEntry)
+  return cs.filter((c) => offeredHere(c.id) && (!c.enabled || c.enabled())).map(paletteEntry)
 }
 
 /**

@@ -1694,6 +1694,7 @@ export default function DesignEditor({
   const sidePanes: SidePane[] = [
     {
       id: 'assist',
+      ai: true,
       title: 'PlexiiAssist',
       icon: 'auto_awesome',
       testid: 'design-ai-panel',
@@ -1714,6 +1715,7 @@ export default function DesignEditor({
   // rail's last item.
   sidePanes.push({
     id: 'generate',
+    ai: true,
     title: 'AI design',
     icon: 'auto_awesome',
     testid: 'design-generate-pane',

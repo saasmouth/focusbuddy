@@ -44,7 +44,9 @@ const ROOT = resolve(__dirname, '../..')
 /** The page's entry, and the Worker dbClient.ts starts with `new Worker(new URL(...))`. */
 const ENTRIES = {
   page: 'src/web/boot.tsx',
-  worker: 'src/web/worker/index.ts'
+  worker: 'src/web/worker/index.ts',
+  // The widget host's page (vite.widgethost.config.ts); it starts the same Worker.
+  widgetHost: 'src/web/widgetHost/main.tsx'
 } as const
 
 const NODE_ONLY = new Set([...builtinModules, ...builtinModules.map((m) => `node:${m}`), 'electron'])

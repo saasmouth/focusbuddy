@@ -1218,6 +1218,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             panes={[
               {
                 id: 'ai',
+                ai: true,
                 title: 'PlexiiAssist',
                 icon: 'auto_awesome',
                 testid: 'slides-ai-assistant',
@@ -1225,6 +1226,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               },
               {
                 id: 'generate',
+                ai: true,
                 title: 'Generate deck',
                 icon: 'slideshow',
                 testid: 'slides-ai-generate',

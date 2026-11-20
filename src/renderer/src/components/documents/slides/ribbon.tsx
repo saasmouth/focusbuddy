@@ -24,6 +24,7 @@ import {
 } from '../../office/shell'
 import FontPicker from '../editor/FontPicker'
 import type { AlignEdge } from './slideOps'
+import { offeredHere } from '../../../lib/widgetHost'
 
 // PlexiiDeck on the office shell (SPEC §6.4): the ToolRail items and every
 // ContextBar tab. Owner ruling D1 retired the right ElementInspector and the
@@ -282,7 +283,7 @@ const insertTab: BarTab<DeckCtx> = {
       <BarButton {...barProps(c.cmds.insertTable)} showLabel onClick={c.cmds.insertTable.run} testid="slides-insert-table" />
       <BarButton {...barProps(c.cmds.insertChart)} showLabel onClick={c.cmds.insertChart.run} testid="slides-insert-chart" />
       <BarDialogButton {...barProps(c.cmds.insertWidget)} onOpen={c.cmds.insertWidget.run} testid="slides-insert-widget" />
-      <BarDialogButton {...barProps(c.cmds.insertSnippet)} onOpen={c.cmds.insertSnippet.run} testid="slides-insert-snippet" />
+      {offeredHere(c.cmds.insertSnippet.id) && <BarDialogButton {...barProps(c.cmds.insertSnippet)} onOpen={c.cmds.insertSnippet.run} testid="slides-insert-snippet" />}
       {/* The old toolbar's AI button opened deck generation in one click; it still does. */}
       <BarButton icon="auto_awesome" label="AI slides" showLabel onClick={() => c.openSidePane('generate')} controls={SIDE_PANE_DOM_ID} testid="slides-insert-ai" />
       {!c.singleSlide && (
@@ -407,7 +408,7 @@ const arrangeTab: BarTab<DeckCtx> = {
         <BarSep />
         <BarButton {...barProps(c.cmds.duplicate)} onClick={c.cmds.duplicate.run} testid="slides-el-duplicate" />
         <BarButton {...barProps(c.cmds.remove)} onClick={c.cmds.remove.run} testid="slides-el-delete" />
-        <BarDialogButton {...barProps(c.cmds.saveSnippet)} onOpen={c.cmds.saveSnippet.run} testid="slides-save-snippet" />
+        {offeredHere(c.cmds.saveSnippet.id) && <BarDialogButton {...barProps(c.cmds.saveSnippet)} onOpen={c.cmds.saveSnippet.run} testid="slides-save-snippet" />}
         <FrameControls c={c} />
       </>
     )

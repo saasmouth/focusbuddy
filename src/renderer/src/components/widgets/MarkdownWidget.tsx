@@ -21,6 +21,7 @@ import { isTextContextTarget } from './bodyMenus'
 import { WidgetImage } from './widgetImage'
 import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { WIDGET_LINK_OPTIONS } from './widgetLink'
+import { offeredHere } from '../../lib/widgetHost'
 
 interface Props {
   widget: Widget
@@ -366,33 +367,39 @@ export default function MarkdownWidget({ widget, inline = false }: Props): JSX.E
             </button>
           )
         })}
-        <span className="mx-0.5 h-4 w-px bg-[var(--surface-sunken)]" aria-hidden />
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={(e) => {
-            e.stopPropagation()
-            void runExport('html')
-          }}
-          title="Export as HTML"
-          data-testid="md-export-html"
-          className="inline-flex items-center justify-center h-6 w-6 rounded text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)] transition-colors"
-        >
-          <Icon name="html" size={13} />
-        </button>
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={(e) => {
-            e.stopPropagation()
-            void runExport('pdf')
-          }}
-          title="Export as PDF"
-          data-testid="md-export-pdf"
-          className="inline-flex items-center justify-center h-6 w-6 rounded text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)] transition-colors"
-        >
-          <Icon name="picture_as_pdf" size={13} />
-        </button>
+        {/* Exporting writes a file through the desktop; the widget host's file
+            is PlexiiLite's, so these are not offered there (lib/widgetHost). */}
+        {offeredHere('md-export') && (
+          <>
+            <span className="mx-0.5 h-4 w-px bg-[var(--surface-sunken)]" aria-hidden />
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation()
+                void runExport('html')
+              }}
+              title="Export as HTML"
+              data-testid="md-export-html"
+              className="inline-flex items-center justify-center h-6 w-6 rounded text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)] transition-colors"
+            >
+              <Icon name="html" size={13} />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation()
+                void runExport('pdf')
+              }}
+              title="Export as PDF"
+              data-testid="md-export-pdf"
+              className="inline-flex items-center justify-center h-6 w-6 rounded text-[var(--ink-50)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink-100)] transition-colors"
+            >
+              <Icon name="picture_as_pdf" size={13} />
+            </button>
+          </>
+        )}
       </div>
       {exportMsg && (
         <div

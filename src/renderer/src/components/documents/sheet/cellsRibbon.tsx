@@ -18,6 +18,7 @@ import FontPicker from '../editor/FontPicker'
 import { barProps, type OfficeCommand } from '../../../lib/menus/officeCommand'
 import type { CellsCommands } from './cellsCommands'
 import type { SheetMenuActions } from '../editor/SheetMenuBar'
+import { offeredHere } from '../../../lib/widgetHost'
 
 // PlexiiCells on the office shell (SPEC §6.3): the ToolRail items and every
 // ContextBar tab. Owner ruling D1 moved the formatting row's controls into tabs
@@ -114,13 +115,15 @@ export function cmdToggle(c: CCtx, id: string, extra: Partial<Parameters<typeof 
   return <BarToggle {...barProps(k)} pressed={!!k.checked?.()} onChange={k.run} {...extra} />
 }
 
-export function cmdButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element {
+export function cmdButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element | null {
+  if (!offeredHere(id)) return null
   const k = cmd(c, id)
   return <BarButton {...barProps(k)} onClick={k.run} {...extra} />
 }
 
 /** A control that opens a dialog; BarDialogButton gives it its ellipsis. */
-export function cmdDialogButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarDialogButton>[0]> = {}): JSX.Element {
+export function cmdDialogButton(c: CCtx, id: string, extra: Partial<Parameters<typeof BarDialogButton>[0]> = {}): JSX.Element | null {
+  if (!offeredHere(id)) return null
   const k = cmd(c, id)
   return <BarDialogButton {...barProps(k)} onOpen={k.run} {...extra} />
 }

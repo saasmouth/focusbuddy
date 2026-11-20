@@ -104,6 +104,7 @@ import {
   suggestedSheetSnippetName,
   useCellsSnippetTarget
 } from './sheet/cellsSnippets'
+import { inWidgetHost } from '../../lib/widgetHost'
 
 // A work widget dropped on the grid: this wide, as tall as its content.
 const EMBED_BOX = { w: 320, h: 220, maxH: 520 }
@@ -1845,15 +1846,18 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             placeholder="Select a cell. Start with = for a formula, e.g. =SUM(A2:A9)"
             className="fb-field flex-1 px-3 py-1.5 text-[13px] font-mono"
           />
-          <button
-            onClick={() => setFormulaAiOpen((v) => !v)}
-            data-testid="sheet-formula-ai-btn"
-            title="Ask AI to write a formula"
-            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/[0.06] text-accent px-2.5 py-1.5 text-[12px] hover:bg-accent/[0.12]"
-          >
-            <Icon name="function" size={13} />
-            AI
-          </button>
+          {/* No AI in the widget host (lib/widgetHost). */}
+          {!inWidgetHost() && (
+            <button
+              onClick={() => setFormulaAiOpen((v) => !v)}
+              data-testid="sheet-formula-ai-btn"
+              title="Ask AI to write a formula"
+              className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/[0.06] text-accent px-2.5 py-1.5 text-[12px] hover:bg-accent/[0.12]"
+            >
+              <Icon name="function" size={13} />
+              AI
+            </button>
+          )}
           <button
             onClick={openNames}
             data-testid="sheet-names-toggle"

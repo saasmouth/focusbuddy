@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.note",
+  "version": 1,
+  "title": "Test note",
+  "kind": "note",
+  "content": "",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

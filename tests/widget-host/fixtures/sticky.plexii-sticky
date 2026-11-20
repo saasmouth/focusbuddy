@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.sticky",
+  "version": 1,
+  "title": "Test sticky",
+  "kind": "sticky",
+  "content": "",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

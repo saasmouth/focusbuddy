@@ -51,6 +51,7 @@ import TableFilterBar from './TableFilterBar'
 import { useTableWidgetSnippets } from './useWidgetSnippets'
 import { applyFilters, groupRows, isGroupableColumn } from '../../lib/tableFilter'
 import type { RowGroup } from '../../lib/tableFilter'
+import { inWidgetHost } from '../../lib/widgetHost'
 
 // All available views with the icon + label that drive the switcher pill.
 const VIEW_OPTIONS: Array<{ id: TableViewMode; label: string; icon: string }> = [
@@ -1515,15 +1516,18 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                     that did not exist anywhere in the table. */}
                 <div className="flex items-center justify-end gap-0.5">
                   <ColumnAdder onAdd={addColumn} />
-                  <button
-                    onClick={() => setAiOpen(true)}
-                    className="inline-flex items-center justify-center h-5 w-5 rounded text-accent hover:bg-accent/10 transition-colors"
-                    title="Ask AI for columns"
-                    aria-label="Ask AI for columns"
-                    data-testid="table-ai-columns"
-                  >
-                    <Icon name="auto_awesome" size={12} />
-                  </button>
+                  {/* No AI in the widget host (lib/widgetHost). */}
+                  {!inWidgetHost() && (
+                    <button
+                      onClick={() => setAiOpen(true)}
+                      className="inline-flex items-center justify-center h-5 w-5 rounded text-accent hover:bg-accent/10 transition-colors"
+                      title="Ask AI for columns"
+                      aria-label="Ask AI for columns"
+                      data-testid="table-ai-columns"
+                    >
+                      <Icon name="auto_awesome" size={12} />
+                    </button>
+                  )}
                 </div>
               </th>
             </tr>
@@ -1584,16 +1588,18 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
                     <Icon name="add" size={14} />
                     <span>Add row</span>
                   </button>
-                  <button
-                    onClick={() => setAiOpen(true)}
-                    className="inline-flex items-center gap-1 text-[12px] py-1.5 px-2.5 rounded bg-accent text-white hover:brightness-110 transition-[filter]"
-                    title="Generate rows with AI"
-                    aria-label="Generate rows with AI"
-                    data-testid="table-ai-rows"
-                  >
-                    <Icon name="auto_awesome" size={13} />
-                    <span>AI</span>
-                  </button>
+                  {!inWidgetHost() && (
+                    <button
+                      onClick={() => setAiOpen(true)}
+                      className="inline-flex items-center gap-1 text-[12px] py-1.5 px-2.5 rounded bg-accent text-white hover:brightness-110 transition-[filter]"
+                      title="Generate rows with AI"
+                      aria-label="Generate rows with AI"
+                      data-testid="table-ai-rows"
+                    >
+                      <Icon name="auto_awesome" size={13} />
+                      <span>AI</span>
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

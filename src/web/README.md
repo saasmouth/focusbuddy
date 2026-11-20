@@ -379,3 +379,12 @@ undefined" says nothing about which of a hundred calls produced it.
 exist. Both failure modes it guards against were real: serving `ai:status` when
 the channel is `ai:getStatus` (dead code that looks like coverage), and passing
 `snapshots:create` a label where it wanted the widgets to snapshot.
+
+## The widget host
+
+A second entry of this build, `src/web/widgetHost` (`npm run widget-host:build`,
+`npm run test:widget-host`): ONE Plexii widget or Office document from a
+`.plexii-*` file, for PlexiiLite. It reuses everything here except the tab
+coordinator: each page has its own Worker, whose database lives in memory
+(`worker/hostMode.ts`). Its message contract, what it hides and why, and its
+sizes are in `docs/WIDGET-HOST.md`.

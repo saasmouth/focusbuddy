@@ -22,6 +22,7 @@ import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { confirmDialog } from '../plexi/PromptDialog'
 import AnsweredBy from '../ai/AnsweredBy'
 import { WIDGET_LINK_OPTIONS } from './widgetLink'
+import { inWidgetHost } from '../../lib/widgetHost'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -117,7 +118,9 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
         Placeholder.configure({
           placeholder: isLiving
             ? 'Living page — set a query above to populate this.'
-            : 'Start writing… press / for blocks, or click AI draft above'
+            : inWidgetHost()
+              ? 'Start writing… press / for blocks'
+              : 'Start writing… press / for blocks, or click AI draft above'
         })
       ],
       content: tryParseContent(widget.content),
@@ -361,7 +364,9 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
           onConvertToManual={() => void convertToManual()}
         />
       )}
-      {!isLiving && (
+      {/* Both of its controls need Plexii itself -- the AI, and a canvas for a
+          living page to summarise -- so the widget host (lib/widgetHost) has none. */}
+      {!isLiving && !inWidgetHost() && (
         <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] shrink-0">
           <button
             onClick={() => {

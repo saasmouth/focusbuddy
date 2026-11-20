@@ -1,0 +1,16 @@
+{
+  "source": "material-symbols/material-symbols-outlined.woff2",
+  "sourceVersion": "0.45.5",
+  "sourceSha256": "4357717d8c965f5f199ca25e78c98d10e0848e1ac8442e0b0573ce304c1bc22b",
+  "pinned": {
+    "GRAD": 0,
+    "opsz": 24,
+    "wght": 500
+  },
+  "keptAxes": [
+    "FILL"
+  ],
+  "glyphs": 6589,
+  "sha256": "540bff95bc567ed60daf794a3d2bac5087887e15a8f8321280aa284aca0db491",
+  "bytes": 497480
+}
