@@ -1,0 +1,31 @@
+{
+  "type": "plexii.document.sheet",
+  "version": 1,
+  "title": "Supplies",
+  "docType": "sheet",
+  "body": {
+    "columns": [
+      "A",
+      "B",
+      "C"
+    ],
+    "rows": [
+      [
+        "Item",
+        "Qty",
+        "Price"
+      ],
+      [
+        "Pens",
+        "2",
+        "1.50"
+      ],
+      [
+        "Paper",
+        "1",
+        "4.00"
+      ]
+    ]
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

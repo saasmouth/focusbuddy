@@ -20,7 +20,7 @@ import type { ShareableKind } from '@shared/types'
 import Icon from '../Icon'
 import CanvasContextMenu, { type CtxMenuItem } from '../CanvasContextMenu'
 import { exceedsSyncLimit, syncLimitLabel } from '@shared/fileSyncLimits'
-import { isWidgetFileName } from '@shared/widgetFiles'
+import { isPlexiiFileName } from '@shared/widgetFiles'
 import {
   fileTypeIcon,
   fileTypeLabel,
@@ -214,10 +214,10 @@ export default function FilesView(): JSX.Element {
   async function ingestOsFiles(fileList: ArrayLike<File>, parentId: string | null): Promise<void> {
     const payloads: Array<{ buffer: ArrayBuffer; originalName: string; mimeType: string }> = []
     for (const f of Array.from(fileList)) {
-      // An exported widget file (.plexii-table …) comes back as the widget it
-      // was, not as an opaque file. A malformed one falls through to a plain
-      // file so nothing the user dropped is lost.
-      if (isWidgetFileName(f.name)) {
+      // An exported widget file (.plexii-table …) or Office document file
+      // (.plexii-doc …) comes back as what it was, not as an opaque file. A
+      // malformed one falls through to a plain file so nothing dropped is lost.
+      if (isPlexiiFileName(f.name)) {
         const r = await window.api.widgetFiles.import({ text: await f.text(), parentId })
         if (r.ok) continue
       }

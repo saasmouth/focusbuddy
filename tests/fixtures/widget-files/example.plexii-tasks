@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.task-list",
+  "version": 1,
+  "title": "Before the launch",
+  "kind": "task-list",
+  "content": "{\"scope\":\"own\",\"filter\":\"open\",\"items\":[{\"id\":\"2542dfb9-acd0-4bbe-99c1-35443b5a00c6\",\"title\":\"Check the price page\",\"done\":false,\"dueAt\":null},{\"id\":\"fb5d9e63-f95b-42bb-8f1a-9feb5852c8bd\",\"title\":\"Post the release notes\",\"done\":false,\"dueAt\":null}]}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

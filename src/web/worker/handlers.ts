@@ -34,7 +34,8 @@ import {
 } from '../../main/db/documents'
 import {
   createWidgetFile, getWidgetFile, listWidgetFiles, updateWidgetFile, listWidgetFileInstances, listWidgetFilePlacements,
-  placeWidgetFile, createAndPlaceWidgetFile, promoteWidgetToFile, trashWidgetFile
+  placeWidgetFile, createAndPlaceWidgetFile, promoteWidgetToFile, trashWidgetFile,
+  importPlexiiFileText, exportPlexiiFileText
 } from '../../main/db/widgetFiles'
 import { listTemplates, deleteTemplate } from '../../main/db/templates'
 import {
@@ -130,6 +131,7 @@ export const PARITY: ReadonlyArray<{ channel: string; missing: string }> = [
   { channel: 'nodes:relate', missing: 'relation mirroring into the graph' },
   { channel: 'tables:update', missing: 'table-rename propagation to the desk widget' },
   { channel: 'documents:create', missing: 'embedding the new document for semantic search' },
+  { channel: 'widgetFiles:import', missing: 'embedding an imported document for semantic search' },
   { channel: 'documents:update', missing: 'a named snapshot, and re-embedding' },
   { channel: 'documents:delete', missing: 'answer-cache invalidation' },
   { channel: 'knowledge:create', missing: 'embedding the new entry for semantic search' },
@@ -254,8 +256,10 @@ export const HANDLERS: Record<string, Handler> = {
   'documents:purge': h((id: string) => deleteDocument(id)),
 
   // ── widget files (docs/widget-files.md) ──────────────────────────────────
-  // The same store the desktop calls. Export/import are absent: they are a
-  // native save/open dialog, which a browser tab does not have.
+  // The same store the desktop calls. The save/open dialog export is absent (a
+  // browser tab has none); a .plexii-* file's TEXT goes in and out instead (F1),
+  // which is what PlexiiLite's widget host uses: import from text, and the exact
+  // file text to post back after a change.
   'widgetFiles:create': h((draft: never, opts?: { defaultContent?: string }) =>
     createWidgetFile(draft, { defaultContent: opts?.defaultContent })),
   'widgetFiles:get': h((id: string) => getWidgetFile(id)),
@@ -268,6 +272,11 @@ export const HANDLERS: Record<string, Handler> = {
     createAndPlaceWidgetFile(draft, at, { defaultContent: opts?.defaultContent })),
   'widgetFiles:promote': h((widgetId: string) => promoteWidgetToFile(widgetId)),
   'widgetFiles:trash': h((id: string) => trashWidgetFile(id)),
+  'widgetFiles:import': h((input?: { text?: string; parentId?: string | null }) =>
+    typeof input?.text === 'string'
+      ? importPlexiiFileText(input.text, input.parentId ?? null)
+      : { ok: false as const, error: 'In the browser, a Plexii file is imported from its text.' }),
+  'widgetFiles:exportText': h((ref: { fileId?: string; documentId?: string }) => exportPlexiiFileText(ref)),
 
   // ── templates ────────────────────────────────────────────────────────────
   'templates:list': h(() => listTemplates()),

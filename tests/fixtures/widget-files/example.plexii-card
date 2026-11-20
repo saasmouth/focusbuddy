@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.card",
+  "version": 1,
+  "title": "Weekly review",
+  "kind": "card",
+  "content": "{\"title\":\"Weekly review\",\"body\":\"Wins, misses and the next three things.\",\"accent\":\"#6366f1\"}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

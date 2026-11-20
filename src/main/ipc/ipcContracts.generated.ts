@@ -404,6 +404,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'widgetFiles:create': [{ kind: 'object', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'widgetFiles:createAndPlace': [{ kind: 'object', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'widgetFiles:export': [{ kind: 'string', optional: false, nullable: false }],
+  'widgetFiles:exportText': [{ kind: 'object', optional: false, nullable: false }],
   'widgetFiles:get': [{ kind: 'string', optional: false, nullable: false }],
   'widgetFiles:instances': [{ kind: 'string', optional: false, nullable: false }],
   'widgetFiles:place': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: false, nullable: false }],

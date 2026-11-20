@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.gallery",
+  "version": 1,
+  "title": "Gallery",
+  "kind": "gallery",
+  "content": "{\"fileIds\":[]}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

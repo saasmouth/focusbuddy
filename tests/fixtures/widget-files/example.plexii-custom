@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.custom",
+  "version": 1,
+  "title": "Custom work widget",
+  "kind": "custom",
+  "content": "{\"spec\":\"\",\"code\":\"\"}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}
