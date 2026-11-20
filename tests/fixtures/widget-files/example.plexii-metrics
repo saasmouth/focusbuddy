@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.metrics",
+  "version": 1,
+  "title": "Metrics",
+  "kind": "metrics",
+  "content": "{\"cells\":[]}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.sticky",
+  "version": 1,
+  "title": "Call the venue",
+  "kind": "sticky",
+  "content": "Call the venue about Thursday: two more chairs.",
+  "color": "#fef08a",
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

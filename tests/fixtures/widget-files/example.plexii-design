@@ -1,0 +1,31 @@
+{
+  "type": "plexii.document.design",
+  "version": 1,
+  "title": "Design",
+  "docType": "design",
+  "body": {
+    "schemaVersion": 1,
+    "width": 1080,
+    "height": 1080,
+    "background": {
+      "type": "solid",
+      "color": "#ffffff"
+    },
+    "elements": [],
+    "pages": [
+      {
+        "id": "pg-1",
+        "background": {
+          "type": "solid",
+          "color": "#ffffff"
+        },
+        "elements": []
+      }
+    ],
+    "activePage": 0,
+    "category": "social",
+    "brandApplied": false,
+    "editingMasterId": null
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

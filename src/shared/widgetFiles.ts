@@ -8,6 +8,11 @@
 // shared by main, the renderer and the tests.
 
 import type {
+  DocBody,
+  FbDocument,
+  MapBody,
+  SheetBody,
+  SlidesBody,
   Widget,
   WidgetFileOutlineNode,
   WidgetFile,
@@ -15,6 +20,9 @@ import type {
   WidgetFileTitleSource,
   WidgetKind
 } from './types'
+import type { DesignBody } from './design'
+import { isFieldType } from './fields'
+import type { DrawBody } from './draw'
 import { cleanTitle, isUntitled, titleFromText } from './titles'
 import { contentToPlainText, widgetToText, type WidgetTextResolvers } from './widgetText'
 
@@ -569,6 +577,12 @@ export function parseWidgetFileExport(text: string): WidgetFileExport | { error:
   if (!kind || !isStandaloneWidgetKind(kind)) {
     return { error: `This work widget type (${String(p.type ?? p.kind ?? 'unknown')}) is not supported by this version of PlexiiDesk.` }
   }
+  // A table's data travels in `table`, and Plexii draws its columns as given: a
+  // column that is not a FieldDefinition crashes the table while drawing (a0,
+  // 2026-11-20). So a table file with one is refused, never half-imported.
+  if (p.table !== undefined && !tableDataMatches(p.table)) {
+    return { error: 'This table file is damaged: its columns or rows are not a Plexii table.' }
+  }
   return {
     type: typeof p.type === 'string' ? p.type : widgetFileType(kind)!.typeId,
     version: 1,
@@ -582,6 +596,175 @@ export function parseWidgetFileExport(text: string): WidgetFileExport | { error:
         : undefined,
     exportedAt: typeof p.exportedAt === 'string' ? p.exportedAt : ''
   }
+}
+
+/** `table` as Plexii writes it: FieldDefinition columns ({ id, type, label, config }) and object rows. */
+function tableDataMatches(t: unknown): boolean {
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return false
+  const { columns, rows } = t as { columns?: unknown; rows?: unknown }
+  if (!Array.isArray(columns) || !Array.isArray(rows)) return false
+  const ok = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+  return (
+    columns.every((c) => ok(c) && typeof c.id === 'string' && c.id !== '' && isFieldType(c.type) && typeof c.label === 'string' && ok(c.config)) &&
+    rows.every(ok)
+  )
+}
+
+// ── Plexii Office documents as files (F1, 2026-11-20) ──────────────────────
+// The six Office kinds as files of their own, so PlexiiLite can make them in a
+// folder and Plexii can open them (docs/plans/widget-files.md, F1). A document
+// file holds the documents row's body exactly as Plexii stores it, so the format
+// is the app's own, never a second copy of it. Shared word for word with
+// PlexiiLite (src/shared/plexiiWidgetFiles.ts there, kept equal by a test).
+
+export type OfficeDocType = 'doc' | 'sheet' | 'slides' | 'map' | 'design' | 'draw'
+
+/** Stable forever once shipped: written into every exported file. */
+export const DOCUMENT_FILE_TYPES: Readonly<Record<OfficeDocType, WidgetFileType>> = {
+  doc: { typeId: 'plexii.document.doc', ext: '.plexii-doc', label: 'Document', icon: 'description' },
+  sheet: { typeId: 'plexii.document.sheet', ext: '.plexii-sheet', label: 'Spreadsheet', icon: 'table_chart' },
+  slides: { typeId: 'plexii.document.slides', ext: '.plexii-slides', label: 'Slides', icon: 'slideshow' },
+  map: { typeId: 'plexii.document.map', ext: '.plexii-map', label: 'Diagram', icon: 'account_tree' },
+  design: { typeId: 'plexii.document.design', ext: '.plexii-design', label: 'Design', icon: 'palette' },
+  draw: { typeId: 'plexii.document.draw', ext: '.plexii-draw', label: 'Artwork', icon: 'draw' }
+}
+
+export type OfficeDocBody = DocBody | SheetBody | SlidesBody | MapBody | DesignBody | DrawBody
+
+/** What a `.plexii-doc` (… `.plexii-draw`) file holds. Version 1. */
+export interface DocumentFileExport {
+  type: string
+  version: 1
+  title: string
+  docType: OfficeDocType
+  /** The documents row's body, unchanged. */
+  body: OfficeDocBody
+  exportedAt: string
+}
+
+export function isOfficeDocType(t: unknown): t is OfficeDocType {
+  return typeof t === 'string' && Object.prototype.hasOwnProperty.call(DOCUMENT_FILE_TYPES, t)
+}
+
+/** The doc type an extension or a type id names, for import. */
+export function docTypeForDocumentFileType(extOrTypeId: string): OfficeDocType | null {
+  const needle = extOrTypeId.trim().toLowerCase()
+  const withDot = needle.startsWith('.') ? needle : `.${needle}`
+  for (const [docType, t] of Object.entries(DOCUMENT_FILE_TYPES) as Array<[OfficeDocType, WidgetFileType]>) {
+    if (t.typeId === needle || t.ext === withDot) return docType
+  }
+  return null
+}
+
+/** True for a filename Plexii writes for an Office document file. */
+export function isDocumentFileName(name: string): boolean {
+  const m = /\.plexii-[a-z-]+$/i.exec(name.trim())
+  return !!m && docTypeForDocumentFileType(m[0]) !== null
+}
+
+/** True for any `.plexii-*` file Plexii can import: a work widget or a document. */
+export function isPlexiiFileName(name: string): boolean {
+  return isWidgetFileName(name) || isDocumentFileName(name)
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+
+/**
+ * Is this body the shape its doc type stores? Only enough to refuse a file that
+ * is not one (an import never turns a wrong file into an empty document); the
+ * app's own read path (db/documents parseBody) normalises the rest.
+ */
+export function officeBodyMatches(docType: OfficeDocType, body: unknown): boolean {
+  if (!isObject(body)) return false
+  switch (docType) {
+    case 'doc':
+      return body.type === 'doc' || (isObject(body.doc) && body.doc.type === 'doc')
+    case 'sheet':
+      return (Array.isArray(body.columns) && Array.isArray(body.rows)) || (body.version === 2 && Array.isArray(body.sheets))
+    case 'slides':
+      return Array.isArray(body.slides)
+    case 'map':
+      return Array.isArray(body.nodes)
+    case 'design':
+      return Array.isArray(body.elements) && typeof body.width === 'number' && typeof body.height === 'number'
+    case 'draw':
+      return Array.isArray(body.layers) || Array.isArray(body.artboards)
+  }
+}
+
+export function buildDocumentFileExport(
+  doc: Pick<FbDocument, 'docType' | 'title' | 'body'>,
+  opts: { now?: Date } = {}
+): DocumentFileExport {
+  if (!isOfficeDocType(doc.docType)) throw new Error(`Not an Office document: ${doc.docType}`)
+  return {
+    type: DOCUMENT_FILE_TYPES[doc.docType].typeId,
+    version: 1,
+    title: doc.title,
+    docType: doc.docType,
+    body: doc.body as OfficeDocBody,
+    exportedAt: (opts.now ?? new Date()).toISOString()
+  }
+}
+
+/** The filename a document file is offered under. */
+export function documentFileExportName(doc: Pick<FbDocument, 'docType' | 'title'>): string {
+  const t = isOfficeDocType(doc.docType) ? DOCUMENT_FILE_TYPES[doc.docType] : null
+  const base = (doc.title || t?.label || 'Document').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80)
+  return `${base || 'Document'}${t?.ext ?? '.plexii-doc'}`
+}
+
+/**
+ * Parse a document file. Refuses anything that is not a document envelope for a
+ * doc type this build knows, or whose body is not that type's shape.
+ */
+export function parseDocumentFileExport(text: string): DocumentFileExport | { error: string } {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { error: 'This file is not a Plexii document file (it is not valid JSON).' }
+  }
+  if (!isObject(parsed)) return { error: 'This file is not a Plexii document file.' }
+  const docType = isOfficeDocType(parsed.docType)
+    ? parsed.docType
+    : typeof parsed.type === 'string'
+      ? docTypeForDocumentFileType(parsed.type)
+      : null
+  if (!docType) {
+    return { error: `This document type (${String(parsed.type ?? parsed.docType ?? 'unknown')}) is not supported by this version of PlexiiDesk.` }
+  }
+  if (!officeBodyMatches(docType, parsed.body)) {
+    return { error: `This ${DOCUMENT_FILE_TYPES[docType].label.toLowerCase()} file is damaged: its contents are not a Plexii ${DOCUMENT_FILE_TYPES[docType].label.toLowerCase()}.` }
+  }
+  return {
+    type: DOCUMENT_FILE_TYPES[docType].typeId,
+    version: 1,
+    title: typeof parsed.title === 'string' ? parsed.title : '',
+    docType,
+    body: parsed.body as OfficeDocBody,
+    exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : ''
+  }
+}
+
+/** Any `.plexii-*` file's text: a work widget or an Office document. */
+export function parsePlexiiFile(
+  text: string
+): { family: 'widget'; file: WidgetFileExport } | { family: 'document'; file: DocumentFileExport } | { error: string } {
+  let head: unknown
+  try {
+    head = JSON.parse(text)
+  } catch {
+    return { error: 'This file is not a Plexii file (it is not valid JSON).' }
+  }
+  const isDocument =
+    isObject(head) && (isOfficeDocType(head.docType) || (typeof head.type === 'string' && docTypeForDocumentFileType(head.type) !== null))
+  if (isDocument) {
+    const file = parseDocumentFileExport(text)
+    return 'error' in file ? file : { family: 'document', file }
+  }
+  const file = parseWidgetFileExport(text)
+  return 'error' in file ? file : { family: 'widget', file }
 }
 
 // ── Content from plain shapes ───────────────────────────────────────────────

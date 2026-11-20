@@ -94,6 +94,8 @@ const macSigning = hasNotaryCreds
 // <url>/latest-mac.yml and resolves each asset's `path` beside it, while GitHub
 // nests assets under /download/<tag>/. So the provider follows the origin.
 const { readActiveDomains, usesGithubReleases } = require('./scripts/read-active-domains.cjs')
+// The .plexii-* files the app opens from Finder and Explorer (F3): build/plexii-file-types.cjs.
+const plexiiFileTypes = require('./build/plexii-file-types.cjs')
 const { domains: ACTIVE_DOMAINS, describe: ACTIVE_DESCRIBE } = readActiveDomains(__dirname)
 /**
  * Whether this packaging pass includes the local AI model.
@@ -369,8 +371,9 @@ module.exports = {
       // opens plexii:// links with before it offers to hand a room over, so a
       // Plexii that can't take one is never sent one. The value is the highest
       // handoff version this build reads: shared/liteRoom.ts LITE_ROOM_VERSION
-      // (tests/unit/liteRoom.test.ts keeps the two equal).
-      PlexiiTakesLiteRooms: 1,
+      // (tests/unit/liteRoom.test.ts keeps the two equal). 2 since F4: a room's
+      // Plexii widget and document files come in live, not as plain files.
+      PlexiiTakesLiteRooms: 2,
       // macOS asks the person once before Plexii first reads files in these
       // folders (a room sent from PlexiiLite is usually in one). These are the
       // reasons it shows; without them the question gives none.
@@ -379,7 +382,13 @@ module.exports = {
       NSDocumentsFolderUsageDescription:
         'PlexiiDesk reads the files you choose to bring in or work on from your Documents folder, such as a room sent from PlexiiLite.',
       NSDownloadsFolderUsageDescription:
-        'PlexiiDesk reads the files you choose to bring in or work on from your Downloads folder, such as a room sent from PlexiiLite.'
+        'PlexiiDesk reads the files you choose to bring in or work on from your Downloads folder, such as a room sent from PlexiiLite.',
+      // Double-click a .plexii-* file and Plexii opens it (F3): every type it
+      // imports, declared as Plexii's own and opened by Plexii as their owner.
+      // build/plexii-file-types.cjs says why each key; the list is kept equal to
+      // the shared tables by tests/unit/plexiiFileAssociations.test.ts.
+      UTExportedTypeDeclarations: plexiiFileTypes.macExportedTypes(),
+      CFBundleDocumentTypes: plexiiFileTypes.macDocumentTypes()
     },
     ...macSigning
   },
@@ -413,7 +422,11 @@ module.exports = {
   // if unset; SmartScreen warns until signed with an OV/EV cert).
   win: {
     icon: 'build/icon.ico',
-    target: [{ target: 'nsis', arch: ['x64'] }]
+    target: [{ target: 'nsis', arch: ['x64'] }],
+    // Double-click a .plexii-* file and Plexii opens it (F3). Here, not at the
+    // top level: there electron-builder would also add extension-only document
+    // types to the Mac app, beside the ones mac.extendInfo declares by type.
+    fileAssociations: plexiiFileTypes.winFileAssociations()
   },
 
   nsis: {

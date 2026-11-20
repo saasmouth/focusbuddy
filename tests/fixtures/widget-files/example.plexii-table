@@ -1,0 +1,36 @@
+{
+  "type": "plexii.widget.table",
+  "version": 1,
+  "title": "Guests",
+  "kind": "table",
+  "content": "e414afec-c860-433e-8e0d-3ea6c3b2f202",
+  "color": null,
+  "table": {
+    "title": "Guests",
+    "columns": [
+      {
+        "id": "c-name",
+        "type": "text-short",
+        "label": "Name",
+        "config": {}
+      },
+      {
+        "id": "c-rsvp",
+        "type": "text-short",
+        "label": "RSVP",
+        "config": {}
+      }
+    ],
+    "rows": [
+      {
+        "c-name": "Ann",
+        "c-rsvp": "Yes"
+      },
+      {
+        "c-name": "Bob",
+        "c-rsvp": "Maybe"
+      }
+    ]
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

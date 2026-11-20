@@ -43,6 +43,7 @@ import MetricsOverlay from './components/MetricsOverlay'
 import LaunchSignInModal from './components/LaunchSignInModal'
 import DeskHandoffEffects from './components/DeskHandoffEffects'
 import LiteRoomEffects from './components/LiteRoomEffects'
+import PlexiiFileOpenEffects from './components/PlexiiFileOpenEffects'
 import { shareGate } from './lib/shareGate'
 import UpgradePromptModal from './components/UpgradePromptModal'
 import CreditPromptModal from './components/CreditPromptModal'
@@ -966,6 +967,9 @@ export default function App(): JSX.Element {
         {/* "Open This Room in Plexii", received: a room handed over by
             PlexiiLite, asked about once someone is signed in. */}
         <LiteRoomEffects />
+        {/* A .plexii-* file double-clicked in Finder or Explorer, brought
+            in as a copy once someone is signed in, onto the desk on screen. */}
+        <PlexiiFileOpenEffects />
         <CreditPromptModal />
         <LocalAiPrompts />
         <CreditEarnedCard />

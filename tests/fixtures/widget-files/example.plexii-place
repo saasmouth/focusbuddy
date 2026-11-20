@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.location",
+  "version": 1,
+  "title": "Place",
+  "kind": "location-map",
+  "content": "{\"zoom\":16}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

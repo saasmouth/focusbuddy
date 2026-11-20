@@ -6,6 +6,7 @@ import type { AppClipboardRead } from '@shared/appClipboard'
 import type { PastedFilesPayload } from '@shared/types'
 import type { XlsxSheetRead } from '@shared/xlsxSheet'
 import type { LiteRoomBegin } from '@shared/liteRoom'
+import type { OpenedPlexiiFile } from '@shared/plexiiFileTypes'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -2661,14 +2662,22 @@ const api = {
     trash: (id: string): Promise<boolean> => ipcRenderer.invoke('widgetFiles:trash', id),
     export: (id: string): Promise<{ ok: true; path: string } | { ok: false; canceled?: true; error?: string }> =>
       ipcRenderer.invoke('widgetFiles:export', id),
+    /** A work widget file or, since F1, an Office document file (.plexii-doc …). */
     import: (input?: {
       path?: string
       text?: string
       parentId?: string | null
     }): Promise<
-      | { ok: true; file: import('@shared/types').WidgetFile }
+      | { ok: true; kind: 'widget'; file: import('@shared/types').WidgetFile }
+      | { ok: true; kind: 'document'; document: import('@shared/types').FbDocument }
       | { ok: false; canceled?: true; error?: string }
-    > => ipcRenderer.invoke('widgetFiles:import', input)
+    > => ipcRenderer.invoke('widgetFiles:import', input),
+    /** The exact text of a .plexii-* file for a work widget file or an Office document. */
+    exportText: (ref: {
+      fileId?: string
+      documentId?: string
+    }): Promise<{ ok: true; name: string; text: string } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('widgetFiles:exportText', ref)
   },
   localAi: {
     status: (): Promise<{
@@ -3038,6 +3047,17 @@ const api = {
   // "Open This Room in Plexii": a room PlexiiLite handed over by a
   // plexii://lite-room?id=<id> link (main/liteRoomReceiver.ts). Kept by main until
   // someone is signed in; begin reads it, asks the person, and brings it in on yes.
+  // Double-clicked .plexii-* files (F3, main/plexiiFileOpen.ts): main reads each
+  // one the OS hands over and keeps it; the window takes them once someone is
+  // signed in (PlexiiFileOpenEffects). onOpened says more are waiting.
+  plexiiFiles: {
+    takeOpened: (): Promise<OpenedPlexiiFile[]> => ipcRenderer.invoke('plexiiFiles:takeOpened'),
+    onOpened: (cb: (waiting: number) => void): (() => void) => {
+      const handler = (_: unknown, waiting: number): void => cb(waiting)
+      ipcRenderer.on('plexiiFiles:opened', handler)
+      return () => ipcRenderer.removeListener('plexiiFiles:opened', handler)
+    }
+  },
   liteRoom: {
     pending: (): Promise<{ id: string; at: number } | null> => ipcRenderer.invoke('liteRoom:pending'),
     clear: (id?: string): Promise<boolean> => ipcRenderer.invoke('liteRoom:clear', id),

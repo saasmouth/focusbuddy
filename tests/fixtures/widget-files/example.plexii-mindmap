@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.mindmap",
+  "version": 1,
+  "title": "Launch plan",
+  "kind": "mindmap",
+  "content": "{\"root\":{\"id\":\"f7d39b0a-8a34-48f3-9463-4b6abe7e5555\",\"label\":\"Launch plan\",\"kind\":\"idea\",\"children\":[{\"id\":\"d5ddbe03-35b9-4549-8835-1e1bcdd96f92\",\"label\":\"Site\",\"kind\":\"idea\",\"children\":[{\"id\":\"f28deabd-65cc-4803-9a81-2c44d4d94240\",\"label\":\"Price page\",\"kind\":\"idea\",\"children\":[],\"userReplies\":[],\"capped\":false}],\"userReplies\":[],\"capped\":false},{\"id\":\"0d4a48e5-fc47-4174-85ec-2850e0b0d0cb\",\"label\":\"App\",\"kind\":\"idea\",\"children\":[{\"id\":\"602584f5-effc-4aa6-b1c4-57f66f8eadb5\",\"label\":\"Release notes\",\"kind\":\"idea\",\"children\":[],\"userReplies\":[],\"capped\":false}],\"userReplies\":[],\"capped\":false}],\"userReplies\":[],\"capped\":false},\"selectedId\":null,\"viewRootId\":\"f7d39b0a-8a34-48f3-9463-4b6abe7e5555\",\"agentSuggestions\":{},\"agentConversations\":{},\"agentStats\":{}}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

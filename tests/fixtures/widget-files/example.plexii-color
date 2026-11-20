@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.color",
+  "version": 1,
+  "title": "Colour swatch",
+  "kind": "color",
+  "content": "#fbbf24",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

@@ -1,0 +1,57 @@
+{
+  "type": "plexii.document.slides",
+  "version": 1,
+  "title": "Slides",
+  "docType": "slides",
+  "body": {
+    "slides": [
+      {
+        "id": "08c8cc32-86a4-4826-93aa-c049c64fb0f4",
+        "title": "Title slide",
+        "bullets": [],
+        "notes": "",
+        "layout": "title",
+        "elements": [
+          {
+            "id": "mig-1",
+            "type": "text",
+            "x": 140,
+            "y": 280,
+            "w": 1000,
+            "h": 130,
+            "z": 1,
+            "styleRole": "title",
+            "fontFamily": "Inter, system-ui, sans-serif",
+            "vAlign": "middle",
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "text": "Title slide",
+                    "bold": true,
+                    "color": "#1c1917",
+                    "fontSize": 54
+                  }
+                ],
+                "align": "center"
+              }
+            ]
+          }
+        ],
+        "transition": "none",
+        "background": {
+          "type": "solid",
+          "color": "#ffffff"
+        },
+        "schemaVersion": 2
+      }
+    ],
+    "theme": "plexi-default",
+    "schemaVersion": 2,
+    "size": {
+      "w": 1280,
+      "h": 720
+    }
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

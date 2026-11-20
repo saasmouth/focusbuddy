@@ -12,6 +12,13 @@
 // window can't bring a room in without the person's yes, and a link alone (a web
 // page can open plexii:// links) never does.
 //
+// Version 2 (F4, 2026-11-20): a tile PlexiiLite marks as a Plexii widget or
+// document file (plexiiFile) is READ, and the store's own import decides from its
+// content (importPlexiiFileText, as Files › Import): a work widget file placed as
+// a linked instance, a document as its Office widget, both filed in the room's
+// Files folder. A marked file that isn't one Plexii can read comes in as a plain
+// file instead, and the summary names it. The hint never decides anything.
+//
 // The bringing in is the drop pipeline's: each file is copied into Plexii's own
 // store by ingestFromPath (as a file dropped from Finder is, by ingestFromBuffer:
 // the same copy, the same image shrinking, the same fb_files row), and placed as
@@ -20,9 +27,10 @@
 // new desk and widgets, exactly as its own creates do.
 import { app, BrowserWindow, dialog } from 'electron'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { Widget, WidgetDraft } from '@shared/types'
+import type { Widget, WidgetDraft, WidgetKind } from '@shared/types'
 import type { WorkcentreLayout } from '@shared/deskLayout'
 import {
   homeShort,
@@ -46,6 +54,11 @@ import { createWidget } from './db/widgets'
 import { createFolder } from './db/files'
 import { ingestFromPath } from './db/filesFromDisk'
 import { emitObjectEvent, markReviewed } from './context/engine'
+import { importPlexiiFileText, placeWidgetFile } from './db/widgetFiles'
+import { embedDocument } from './documentRetrieval'
+import { bumpAnswerCacheVersion } from './ai/answerCache'
+import { PLEXII_FILE_MAX_BYTES } from '@shared/plexiiFileTypes'
+import { startSizeFor } from '@shared/widgetStartSizes'
 
 export interface PendingLiteRoom {
   id: string
@@ -148,7 +161,11 @@ export function askWithDialog(win: BrowserWindow | null): LiteRoomAsk {
  * forgotten whatever the answer: a refusal, a no or a yes all end it (PlexiiLite
  * sends a new id each time the person chooses Open This Room in Plexii).
  */
-export async function beginLiteRoom(id: string, ask: LiteRoomAsk, opts: { liteData?: string; home?: string; now?: number; maxBytes?: number } = {}): Promise<LiteRoomBegin> {
+export async function beginLiteRoom(
+  id: string,
+  ask: LiteRoomAsk,
+  opts: { liteData?: string; home?: string; now?: number; maxBytes?: number; plexiiFileMaxBytes?: number } = {}
+): Promise<LiteRoomBegin> {
   if (!LITE_ROOM_ID.test(id)) return { ok: false, stop: 'missing', message: LITE_ROOM_REFUSED.missing }
   if (asking.has(id)) return { ok: false, stop: 'busy', message: '' }
   if (done.has(id)) {
@@ -171,14 +188,33 @@ export async function beginLiteRoom(id: string, ask: LiteRoomAsk, opts: { liteDa
     clearLiteRoom(id)
     done.add(id)
     if (!yes) return { ok: false, stop: 'declined', message: `Nothing was brought in from “${read.room.name}”.` }
-    return await importLiteRoom(plan, opts.home ?? homedir(), opts.maxBytes)
+    return await importLiteRoom(plan, opts.home ?? homedir(), opts.maxBytes, opts.plexiiFileMaxBytes)
   } finally {
     asking.delete(id)
   }
 }
 
+/** One tile brought in, and what it became: a plain file (Plexii's copy), a work widget file, or a document. */
+type Copied = {
+  key: string
+  desk: LiteRoomObject['desk']
+  cell: LiteRoomObject['cell']
+  made: { as: 'file'; fileId: string; title: string } | { as: 'widget'; id: string; kind: string } | { as: 'document'; id: string; docType: string; title: string }
+}
+
+/** Where one never placed on the Desk starts: a document or work widget at its own starting size; a plain file at a dropped file's. */
+function startOf(made: Copied['made']): LiteRoomObject['size'] {
+  const s = made.as === 'document' ? startSizeFor(made.docType) : made.as === 'widget' ? startSizeFor(made.kind) : null
+  return s ? { w: s.width, h: s.height } : undefined
+}
+
 /** Copy the room's files in (the drop pipeline), make its desk, and place everything as it was. */
-export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes: number = LITE_ROOM_MAX_TOTAL_BYTES): Promise<LiteRoomBegin> {
+export async function importLiteRoom(
+  plan: LiteRoomPlan,
+  home: string,
+  maxBytes: number = LITE_ROOM_MAX_TOTAL_BYTES,
+  plexiiFileMaxBytes: number = PLEXII_FILE_MAX_BYTES
+): Promise<LiteRoomBegin> {
   const { room } = plan
   const folder = checkRoomFolder(room.folder)
   if (!folder.ok) {
@@ -190,7 +226,9 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes:
     return { ok: false, stop: 'folder', message }
   }
   const leftOut: LeftOut[] = [...plan.leftOut]
-  const copied: { key: string; title: string; fileId: string; desk: LiteRoomObject['desk']; cell: LiteRoomObject['cell'] }[] = []
+  const copied: Copied[] = []
+  // Marked as Plexii files by PlexiiLite, but not ones Plexii could read: came in plain.
+  const asPlain: string[] = []
   let total = 0
   let filesFolder: { id: string } | null = null
   for (const t of plan.bring) {
@@ -207,9 +245,23 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes:
     try {
       // In Files, beside the desk: a folder named after the room (made with the first file that comes in).
       filesFolder ??= createFolder(null, room.name)
+      if (t.plexiiFile) {
+        const made = c.size <= plexiiFileMaxBytes ? importPlexiiFileText(await readFile(c.path, 'utf8'), filesFolder.id) : null
+        if (made?.ok) {
+          total += c.size
+          copied.push({
+            key: t.name,
+            desk: t.desk,
+            cell: t.workcentre,
+            made: made.kind === 'document' ? { as: 'document', id: made.document.id, docType: made.document.docType, title: made.document.title } : { as: 'widget', id: made.file.id, kind: made.file.kind }
+          })
+          continue
+        }
+        asPlain.push(t.name)
+      }
       const file = await ingestFromPath(c.path, { originalName: t.name, parentId: filesFolder.id })
       total += c.size
-      copied.push({ key: t.name, title: t.name, fileId: file.id, desk: t.desk, cell: t.workcentre })
+      copied.push({ key: t.name, desk: t.desk, cell: t.workcentre, made: { as: 'file', fileId: file.id, title: t.name } })
     } catch (e) {
       const code = (e as NodeJS.ErrnoException)?.code
       leftOut.push({ name: t.name, why: code === 'EACCES' || code === 'EPERM' ? 'denied' : code === 'ENOENT' ? 'gone' : 'unreadable' })
@@ -218,6 +270,9 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes:
   if (!copied.length && !plan.pages.length) {
     return { ok: false, stop: 'empty', message: liteRoomNothing({ ...plan, leftOut }) }
   }
+  const live = copied.filter((c) => c.made.as !== 'file').length
+  if (live) bumpAnswerCacheVersion() // the set of documents changed, as for widgetFiles:import
+  for (const c of copied) if (c.made.as === 'document') void embedDocument(c.made.id) // into search, as documents:create does
 
   // The desk, as nodes:create makes one (a real create: its event, and reviewed by its maker).
   const node = createNode({ parentId: null, kind: 'task', title: room.name })
@@ -232,7 +287,7 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes:
   markReviewed(node.id)
 
   const objects: LiteRoomObject[] = [
-    ...copied.map((c) => ({ key: c.key, kind: 'file' as const, desk: c.desk, cell: c.cell })),
+    ...copied.map((c) => ({ key: c.key, kind: 'file' as const, desk: c.desk, cell: c.cell, size: startOf(c.made) })),
     ...plan.pages.map((p, i) => ({ key: `page/${i}`, kind: 'page' as const, desk: p.desk, cell: p.workcentre }))
   ]
   const layout = mapLiteRoomLayout(objects, room.cols, room.view)
@@ -241,13 +296,26 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes:
   const idOf = new Map<string, string>()
   for (const key of layout.order) {
     const at = layout.canvas[key]!
-    const file = fileOf.get(key)
-    const page = file ? null : plan.pages[Number(key.slice('page/'.length))]!
-    const draft: WidgetDraft = file
-      ? { taskId: node.id, kind: 'file', title: file.title, content: file.fileId, x: at.x, y: at.y, width: at.width, height: at.height, color: null }
-      : { taskId: node.id, kind: 'webview', title: page!.title || new URL(page!.url).hostname, content: page!.url, x: at.x, y: at.y, width: at.width, height: at.height }
+    const c = fileOf.get(key)
+    const place = { x: at.x, y: at.y, width: at.width, height: at.height }
+    let w: Widget | null
+    if (c?.made.as === 'widget') {
+      // A linked instance of the new work widget file (the store's own placement).
+      w = placeWidgetFile(c.made.id, { taskId: node.id, ...place })
+    } else {
+      const page = c ? null : plan.pages[Number(key.slice('page/'.length))]!
+      const draft: WidgetDraft =
+        c?.made.as === 'document'
+          ? // The document's Office widget, pointing AT the new document (as a drop from Files makes one).
+            // (Each Office doc type is also the kind of its widget: doc, sheet, slides, map, design, draw.)
+            { taskId: node.id, kind: c.made.docType as WidgetKind, title: c.made.title, content: c.made.id, ...place, color: null }
+          : c?.made.as === 'file'
+            ? { taskId: node.id, kind: 'file', title: c.made.title, content: c.made.fileId, ...place, color: null }
+            : { taskId: node.id, kind: 'webview', title: page!.title || new URL(page!.url).hostname, content: page!.url, ...place }
+      w = createWidget(draft)
+    }
+    if (!w) continue
     // As widgets:create makes one: the row, its event, reviewed by its maker.
-    const w = createWidget(draft)
     emitObjectEvent({
       eventType: 'WidgetCreated',
       category: 'user',
@@ -273,7 +341,8 @@ export async function importLiteRoom(plan: LiteRoomPlan, home: string, maxBytes:
     files: copied.length,
     pages: plan.pages.length,
     leftOut,
-    summary: liteRoomSummary(room.name, copied.length, plan.pages.length, leftOut)
+    live,
+    summary: liteRoomSummary(room.name, copied.length, plan.pages.length, leftOut, { live, asPlain })
   }
 }
 

@@ -23,6 +23,27 @@ export type FieldType =
   | 'relation' // links to rows of another fb_tables table
   | 'doc-ref' // references one or more PlexiOffice documents (doc/sheet/slides/draw/design)
 
+// Every FieldType at runtime. A Record keyed by the union, so a type added above
+// and not here fails the typecheck: an import can check a column's type (2026-11-20).
+const FIELD_TYPE_SET: Record<FieldType, true> = {
+  'text-short': true,
+  'text-long': true,
+  'text-rich': true,
+  number: true,
+  checkbox: true,
+  'single-select': true,
+  'multi-select': true,
+  date: true,
+  attachment: true,
+  button: true,
+  relation: true,
+  'doc-ref': true
+}
+export const FIELD_TYPES = Object.keys(FIELD_TYPE_SET) as readonly FieldType[]
+export function isFieldType(t: unknown): t is FieldType {
+  return typeof t === 'string' && Object.prototype.hasOwnProperty.call(FIELD_TYPE_SET, t)
+}
+
 // Per-type config. Discriminated by `type` at runtime via a parent
 // FieldDefinition so we never need to inspect this in isolation.
 export interface SelectOption {
