@@ -40,6 +40,7 @@ import { LOCAL_FILE_PARTITION } from '../shared/webviewPartition'
 import { installFocusTracker } from './streamdeckActions'
 import { installActivityTracker } from './activityTracker'
 import { registerDeepLinkProtocol } from './authProtocol'
+import { registerPlexiiFileOpen } from './plexiiFileOpen'
 import { claimsDeepLinks } from '../shared/deepLink'
 import { installAutoUpdater, checkForUpdates } from './autoUpdate'
 import { detectOfficeBuild, detectPreviewBuild, productDisplayName } from './appMode'
@@ -341,6 +342,16 @@ function applyDisplayMediaHandler(ses: Electron.Session): void {
 // claimsDeepLinks says why).
 registerDeepLinkProtocol({
   claimProtocol: claimsDeepLinks({ office: isOfficeBuild, preview: isPreviewBuild, packaged: app.isPackaged, platform: process.platform, env: process.env })
+})
+
+// Double-click a .plexii-* file in Finder or Explorer and Plexii opens it (F3).
+// Before ready, as above: macOS sends the file that launched the app as an
+// open-file event before ready. After the single-instance lock is taken, which
+// it reads. See plexiiFileOpen.ts.
+registerPlexiiFileOpen({
+  ensureWindow: () => {
+    if (BrowserWindow.getAllWindows().length === 0) createCommandCenter()
+  }
 })
 
 // Send a zoom command to the focused window's renderer, which owns the app-wide
