@@ -31,7 +31,9 @@ import { parseDeskHandoffLink } from '@shared/deskHandoff'
 import { receiveDeskHandoff } from './deskHandoffReceiver'
 import { parseLiteRoomLink } from '@shared/liteRoom'
 import { receiveLiteRoom } from './liteRoomReceiver'
-import { consumeSignInNonce } from './signInNonce'
+import { consumeSignIn, consumeSignInNonce } from './signInNonce'
+import { parseAuthLink, type AuthLink, type AuthNotice } from '@shared/authLink'
+import { redeemSignInCode } from './authCodeRedeem'
 
 // Named in shared/deepLink.ts, because the renderer generates these links too
 // and the two must not drift. See that file for why both schemes are answered
@@ -62,24 +64,8 @@ let pendingShareToken: string | null = null
 // same drain-on-ready pattern.
 let pendingMeetRoom: string | null = null
 
-function parseDeepLinkUrl(url: string): (Omit<AuthHandoff, 'origin' | 'startedHere'> & { state: string | null }) | null {
-  try {
-    const parsed = new URL(url)
-    if (!hasKnownScheme(parsed.protocol)) return null
-    // Expect plexii://auth?token=... The host portion is the "action".
-    if (parsed.host !== 'auth') return null
-    const token = parsed.searchParams.get('token')
-    if (!token) return null
-    return {
-      sessionToken: token,
-      email: parsed.searchParams.get('email'),
-      handle: parsed.searchParams.get('handle'),
-      state: parsed.searchParams.get('state')
-    }
-  } catch {
-    return null
-  }
-}
+// Auth links are parsed in shared/authLink.ts (a session token, a one-time
+// code, the website's Cancel, or /start). The renderer never sees a code.
 
 // plexii://share?token=<shareToken> — the "Open in PlexiDesk" link from the
 // share-notification email. Returns the share token to hand to the renderer,
@@ -217,14 +203,110 @@ function broadcast(handoff: AuthHandoff) {
   }
 }
 
+// ── Auth step 2 (2026-11-20): one-time codes, Cancel, /start ────────────────
+
+// What the window is told that is not a sign-in: a link refused, or "begin a
+// sign-in". Kept until a window takes them (a link can launch the app).
+let pendingNotices: AuthNotice[] = []
+/** A page can open /start as often as it likes: one sign-in begun per this long. */
+const START_COOLDOWN_MS = 30_000
+let lastStartAt = -Infinity
+// States whose sign-in just finished. The website sends a fresh code on each
+// press of Continue, so a second press brings a second link for a state already
+// used: nothing to redeem, and nothing to warn about on top of a sign-in that
+// worked. Ten minutes, a handful at most.
+const finished = new Map<string, number>()
+const FINISHED_TTL_MS = 10 * 60_000
+function rememberFinished(state: string, now: number): void {
+  for (const [s, exp] of finished) if (exp <= now) finished.delete(s)
+  while (finished.size >= 16) finished.delete(finished.keys().next().value as string)
+  finished.set(state, now + FINISHED_TTL_MS)
+}
+
+function notify(notice: AuthNotice): void {
+  const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
+  if (wins.length === 0) {
+    pendingNotices.push(notice)
+    return
+  }
+  let told = false
+  for (const win of wins) {
+    try {
+      win.webContents.send('auth:notice', notice)
+      told = true
+    } catch {
+      // Still loading: it takes what is waiting (auth:take-notices) when ready.
+    }
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+  if (!told) pendingNotices.push(notice)
+}
+
+/** The window takes every notice waiting, once each. */
+export function takeAuthNotices(): AuthNotice[] {
+  const taken = pendingNotices
+  pendingNotices = []
+  return taken
+}
+
+export async function handleAuthLink(link: AuthLink, origin: AuthHandoff['origin'], now: number = Date.now()): Promise<void> {
+  switch (link.kind) {
+    case 'token':
+      // The legacy link. Any page can open it: only a sign-in this app started
+      // (its state comes back) is adopted without a question; the renderer asks
+      // about the rest, naming the account the server says the token is.
+      broadcast({ sessionToken: link.sessionToken, email: link.email, handle: link.handle, origin, startedHere: consumeSignInNonce(link.state, now) })
+      return
+    case 'code': {
+      // Only a sign-in this app started has the verifier the code needs. Any
+      // other code link (cold, from someone else, expired, already used) is
+      // refused here, before any network call: it can't be redeemed anyway.
+      const started = consumeSignIn(link.state, now)
+      if (!started || !link.code) {
+        // A second press of Continue for a sign-in that just worked: quiet.
+        if (!started && link.state && (finished.get(link.state) ?? 0) > now) return
+        notify({ kind: 'link-refused', why: 'not-started' })
+        return
+      }
+      await app.whenReady()
+      // Exactly once: a code is spent by its first attempt.
+      const r = await redeemSignInCode(link.code, started.verifier)
+      if (!r.ok) {
+        notify({ kind: 'link-refused', why: r.why })
+        return
+      }
+      // A fresh desktop session for the sign-in this app started: adopted without a question.
+      rememberFinished(link.state!, now)
+      broadcast({ sessionToken: r.sessionToken, email: r.email, handle: r.handle, origin, startedHere: true })
+      return
+    }
+    case 'error':
+      // The person pressed Cancel on the website. Spend the state; nothing to say.
+      consumeSignIn(link.state, now)
+      return
+    case 'start':
+      // "Begin a sign-in", from the website's cold button. Any page can open it,
+      // so the window decides: only when nobody is signed in, never switching
+      // accounts. And not again within the cooldown.
+      if (now - lastStartAt < START_COOLDOWN_MS) return
+      lastStartAt = now
+      notify({ kind: 'start' })
+      return
+  }
+}
+
+/** Tests: forget waiting notices and the /start cooldown. */
+export function _resetAuthLinksForTests(): void {
+  pendingNotices = []
+  lastStartAt = -Infinity
+  finished.clear()
+}
+
 function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
-  const parsed = parseDeepLinkUrl(url)
-  if (parsed) {
-    const { state, ...handoff } = parsed
-    // Any page can open this link. Only a sign-in this app started (its state
-    // comes back) is adopted without a question; the renderer asks about the
-    // rest, naming the account the server says the token is.
-    broadcast({ ...handoff, origin, startedHere: consumeSignInNonce(state) })
+  const link = parseAuthLink(url)
+  if (link) {
+    void handleAuthLink(link, origin)
     return
   }
   // Also route share deep links (plexii://share?token=...) from the share

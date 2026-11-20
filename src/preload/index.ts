@@ -6,6 +6,7 @@ import type { AppClipboardRead } from '@shared/appClipboard'
 import type { PastedFilesPayload } from '@shared/types'
 import type { XlsxSheetRead } from '@shared/xlsxSheet'
 import type { LiteRoomBegin } from '@shared/liteRoom'
+import type { AuthNotice } from '@shared/authLink'
 import type { WriteOrigin } from '../shared/writeOrigin'
 import type { LocalAiStatus, LocalDownloadProgress, CloudConsentRequest, GroundingReport, AiFeatureRoute, LocalEngineState, AnsweredBy } from '@shared/localAi'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -2979,8 +2980,15 @@ const api = {
       origin: 'open-url' | 'argv' | 'second-instance'
       startedHere: boolean
     } | null> => ipcRenderer.invoke('auth:get-pending'),
-    /** The one-time state for a sign-in this app is starting; add it to the URL it opens. */
-    beginSignIn: (): Promise<string> => ipcRenderer.invoke('auth:begin-sign-in'),
+    /** A sign-in this app is starting: its one-time state and PKCE challenge, for the URL it opens. */
+    beginSignIn: (): Promise<{ state: string; codeChallenge: string }> => ipcRenderer.invoke('auth:begin-sign-in'),
+    /** Auth links that were not a sign-in to adopt (a refused code link, a /start): every one waiting. */
+    takeNotices: (): Promise<AuthNotice[]> => ipcRenderer.invoke('auth:take-notices'),
+    onNotice: (cb: (notice: AuthNotice) => void): (() => void) => {
+      const handler = (_: unknown, notice: AuthNotice): void => cb(notice)
+      ipcRenderer.on('auth:notice', handler)
+      return () => ipcRenderer.removeListener('auth:notice', handler)
+    },
     onIncomingToken: (
       cb: (handoff: {
         sessionToken: string
