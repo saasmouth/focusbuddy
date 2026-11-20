@@ -37,10 +37,21 @@ The script works like this:
 
 - It builds in a temporary worktree at the commit, then removes it, whatever happened.
 - It swaps the output in whole.
-- It writes `widget-host.json` beside the files: the full commit, the `protocol`
-  number, and every file's size and SHA-256.
+- It completes `manifest.json`, PlexiiLite's manifest (1a's contract):
 
-PlexiiLite should refuse a host whose `protocol` it does not speak.
+  ```json
+  { "protocol": 1, "pin": "<full commit>", "kinds": ["sticky", "note", "…"],
+    "documents": { "doc": { "ext": ".plexii-doc", "label": "Document" }, "…": {} },
+    "builtAt": "…", "files": [{ "path": "…", "bytes": 0, "sha256": "…" }], "totalBytes": 0 }
+  ```
+
+  The build writes `protocol`, `kinds` and `documents` from the lists the page
+  loads (`src/web/widgetHost/capabilities.ts`). The script adds `pin`, `builtAt`,
+  `files` and `totalBytes`. It refuses a build that wrote no manifest, or one
+  whose protocol is not the source's.
+
+PlexiiLite refuses a host whose `protocol` it does not speak, and makes and shows
+only what `kinds` and `documents` list.
 
 In focusbuddy, `npm run widget-host:build` builds `out/widget-host/` and
 `npm run test:widget-host` tests that build in Chromium.
@@ -48,7 +59,8 @@ In focusbuddy, `npm run widget-host:build` builds `out/widget-host/` and
 ## Embedding
 
 The page is `index.html`. PlexiiLite shows it in a `<webview>` with its own
-partition and its own preload. It can also run in an `<iframe>`, which is how
+partition and its own preload. It makes new files in a hidden window it opens
+itself (`?via=window`). The page can also run in an `<iframe>`, which is how
 its tests run.
 
 - **Read-only:** `?readonly=1` on the address (also a field of `load`).
@@ -69,6 +81,7 @@ Every host→PlexiiLite message carries `protocol: 1`. All types are prefixed
 |---|---|---|---|
 | `ready` | host → Lite | — | The page is listening. Sent once. |
 | `load` | Lite → host | `{ text, readOnly? }` | The file's text. One per page; open a new page for another file. |
+| `create` | Lite → host | `{ kind }` | Make a new file of this kind with Plexii's own code and answer with `save` (see "Making new files"). Needs no `load`, shows nothing. |
 | `loaded` | host → Lite | `{ family: 'widget' \| 'document', kind, title, readOnly }` | The file was accepted and is being drawn. |
 | `save` | host → Lite | `{ text }` | The file's new text, as `JSON.stringify(…, null, 2)`. See "Saving". |
 | `flush` | Lite → host | — | Post any pending save now. Send it before a tile closes, a room switches, or the app quits. |
@@ -88,6 +101,7 @@ Error codes:
 | `render-failed` | The widget threw while drawing, with the error. |
 | `save-failed` | The page could not write the file out after a change. Sent once per distinct reason. |
 | `already-loaded` | A second `load` arrived. |
+| `cannot-create` | A `create` for a kind the host does not make, or one that failed, with its reason. It never replaces what the page shows. |
 
 ## Saving
 
@@ -120,6 +134,21 @@ person's first real edit.
 **Read-only never posts a save.** Every editing gesture is refused before any
 widget sees it: keys, clicks, pastes, drops and menus. Scrolling, Tab and
 following a link still work.
+
+## Making new files
+
+`create { kind }` makes the file with the same calls the app makes for a new one,
+then answers with `save` at once. Asking for a file is the person's action, so it
+waits for no touch.
+
+- **A widget:** `widgetFiles.create` with the kind's catalog default. For a file,
+  `createWidgetFile` itself puts a task list in its own-list mode.
+- **A table:** also its backing table, with the starter columns the desk's table
+  widget gives a new one, Name and Done (`lib/tableStarter.ts`, which both use).
+- **An Office document:** `documents.create`, which gives it the blank body
+  Plexii gives a new document.
+
+The text is the exporter's, exactly what a later save carries.
 
 ## The database
 

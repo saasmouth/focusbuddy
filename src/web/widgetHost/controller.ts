@@ -5,6 +5,9 @@
 // preload relay, the transport is this page's private Worker, the view mounts
 // the widget, and the guard watches (or, read-only, refuses) input.
 import { classifyFileText } from './classify'
+import { isHostDocumentType, isHostWidgetKind } from './kinds'
+import { HOST_DOCUMENTS } from './capabilities'
+import { widgetFileType } from '../../shared/widgetFiles'
 import { EMBEDDER_TYPES, HOST_TYPES, hostError, hostMessage, type HostErrorCode } from './protocol'
 import { createSaveGate, type SaveGate } from './saveGate'
 import type { Embedder } from './embedder'
@@ -36,6 +39,8 @@ export interface HostOptions {
   guard: (opts: { readOnly: boolean; onTouch: () => void }) => () => void
   /** Office editors debounce body writes; this writes them now (stores/documents). */
   flushDocuments: () => void
+  /** Make a new file of a kind the host shows, with Plexii's own code; its text (create.ts). */
+  create: (kind: string) => Promise<{ ok: true; text: string } | { ok: false; error: string }>
   debounceMs?: number
   /** How long a flush waits for writes in flight before exporting anyway. */
   settleTimeoutMs?: number
@@ -67,7 +72,8 @@ export function startWidgetHost(o: HostOptions): void {
   const fail = (code: HostErrorCode, info: { label?: string; detail?: string } = {}): void => {
     const msg = hostError(code, info)
     o.embedder.post(msg)
-    if (msg.type === HOST_TYPES.error && code !== 'already-loaded' && code !== 'save-failed') o.view.showProblem(msg.message)
+    // A refusal that is not about the file on show never replaces it.
+    if (msg.type === HOST_TYPES.error && code !== 'already-loaded' && code !== 'save-failed' && code !== 'cannot-create') o.view.showProblem(msg.message)
   }
 
   async function exportAndOffer(): Promise<void> {
@@ -183,10 +189,31 @@ export function startWidgetHost(o: HostOptions): void {
     o.embedder.post(hostMessage({ type: HOST_TYPES.loaded, family: shown.family, kind: shown.kind, title: shown.title, readOnly }))
   }
 
+  /**
+   * A new file, made by Plexii's own code and handed back as a save. Asking
+   * for it IS the person's action (New > Plexii widget), so it does not wait
+   * for a touch; it shows nothing and needs no load (PlexiiLite makes new
+   * files in a hidden page, ?via=window).
+   */
+  async function create(kind: string): Promise<void> {
+    // Named by its label where Plexii has one, else by the kind as asked.
+    const label = kind in HOST_DOCUMENTS ? HOST_DOCUMENTS[kind as keyof typeof HOST_DOCUMENTS].label : widgetFileType(kind)?.label ?? kind
+    if (!isHostWidgetKind(kind) && !isHostDocumentType(kind)) return fail('cannot-create', { label })
+    let r: { ok: true; text: string } | { ok: false; error: string }
+    try {
+      r = await o.create(kind)
+    } catch (e) {
+      r = { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+    if (!r.ok) return fail('cannot-create', { label, detail: r.error })
+    o.embedder.post(hostMessage({ type: HOST_TYPES.save, text: r.text }))
+  }
+
   o.transport.onWrite(schedule)
   o.transport.onPush(schedule)
   o.embedder.listen((msg) => {
     if (msg.type === EMBEDDER_TYPES.load) void load(msg.text, msg.readOnly)
+    else if (msg.type === EMBEDDER_TYPES.create) void create(msg.kind)
     else if (msg.type === EMBEDDER_TYPES.flush) void flush()
   })
   o.embedder.post(hostMessage({ type: HOST_TYPES.ready }))

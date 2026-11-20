@@ -178,3 +178,47 @@ test.describe('what used to be dead now works', () => {
     await expect(page.locator('.plexii-widget-host-box')).toContainText('Plexii')
   })
 })
+
+test.describe('making new files (create, for PlexiiLite\'s New > Plexii widget / document)', () => {
+  test('the build says what it can make: manifest.json beside index.html', async ({ request }) => {
+    const m = await (await request.get('/manifest.json')).json()
+    expect(m.protocol).toBe(1)
+    expect(m.kinds).toHaveLength(19)
+    expect(Object.keys(m.documents)).toEqual(['doc', 'sheet', 'slides', 'map', 'design', 'draw'])
+  })
+
+  test('every kind it lists can be made by Plexii\'s own code, in a page that shows nothing, and the new file opens', async ({ page, context, request }) => {
+    test.setTimeout(240_000)
+    const m = await (await request.get('/manifest.json')).json()
+    await openHost(page, '?via=window')
+    for (const kind of [...m.kinds, ...Object.keys(m.documents)]) {
+      const before = (await ofType(page, 'save')).length
+      await page.evaluate((k) => window.postMessage({ type: 'plexii-widget-host:create', kind: k }, '*'), kind)
+      await expect.poll(async () => (await ofType(page, 'save')).length, { message: kind }).toBe(before + 1)
+      const file = JSON.parse(String((await ofType(page, 'save')).at(-1)!.text))
+      if (kind in m.documents) expect(file, kind).toMatchObject({ type: `plexii.document.${kind}`, version: 1, docType: kind, body: expect.any(Object) })
+      else expect(file, kind).toMatchObject({ version: 1, kind })
+      if (kind === 'table') expect(file.table.columns.map((c: { label: string }) => c.label)).toEqual(['Name', 'Done'])
+      if (kind === 'task-list') expect(JSON.parse(file.content).scope).toBe('own')
+    }
+    expect(await ofType(page, 'error')).toEqual([])
+    // A made file opens like any other.
+    const saved = (await ofType(page, 'save')).length
+    await page.evaluate((k) => window.postMessage({ type: 'plexii-widget-host:create', kind: k }, '*'), 'table')
+    await expect.poll(async () => (await ofType(page, 'save')).length).toBe(saved + 1)
+    const tableText = String((await ofType(page, 'save')).at(-1)!.text)
+    expect(JSON.parse(tableText)).toMatchObject({ kind: 'table' })
+    const tile = await context.newPage()
+    await openHost(tile)
+    await load(tile, tableText)
+    expect(await loaded(tile)).toMatchObject({ kind: 'table' })
+    await expect(tile.locator('.plexii-widget-host-box')).toContainText('Name')
+  })
+
+  test('a kind it cannot make is refused, named', async ({ page }) => {
+    await openHost(page, '?via=window')
+    await page.evaluate(() => window.postMessage({ type: 'plexii-widget-host:create', kind: 'inbox' }, '*'))
+    await expect.poll(async () => (await ofType(page, 'error')).length).toBe(1)
+    expect((await ofType(page, 'error'))[0]).toMatchObject({ code: 'cannot-create', message: expect.stringMatching(/^Plexii can't make an? .+ here\.$/) })
+  })
+})

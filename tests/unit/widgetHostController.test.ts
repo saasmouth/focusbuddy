@@ -15,7 +15,7 @@ const sticky = (content = 'milk'): string =>
   JSON.stringify({ type: 'plexii.widget.sticky', version: 1, title: 'Shopping', kind: 'sticky', content, color: null, exportedAt: '2026-11-20T00:00:00.000Z' }, null, 2)
 const docText = JSON.stringify({ type: 'plexii.document.doc', version: 1, title: 'Letter', docType: 'doc', body: { type: 'doc', content: [] }, exportedAt: '' })
 
-function setup(opts: { readOnlyFromUrl?: boolean; importResult?: unknown; importThrows?: string; exportFails?: string } = {}) {
+function setup(opts: { readOnlyFromUrl?: boolean; importResult?: unknown; importThrows?: string; exportFails?: string; createResult?: unknown } = {}) {
   const posted: HostMessage[] = []
   let deliver: (m: EmbedderMessage) => void = () => {}
   const embedder = { post: (m: HostMessage) => void posted.push(m), listen: (cb: (m: EmbedderMessage) => void) => { deliver = cb; return () => {} } }
@@ -47,10 +47,12 @@ function setup(opts: { readOnlyFromUrl?: boolean; importResult?: unknown; import
   let guardOpts: { readOnly: boolean; onTouch: () => void } | null = null
   const guard = vi.fn((o: { readOnly: boolean; onTouch: () => void }) => { guardOpts = o; return () => {} })
   const flushDocuments = vi.fn()
-  startWidgetHost({ embedder, transport, view, readOnlyFromUrl: opts.readOnlyFromUrl ?? false, guard, flushDocuments, debounceMs: 300 })
+  const create = vi.fn(async (kind: string) => opts.createResult ?? { ok: true, text: `{"type":"plexii.widget.${kind}","kind":"${kind}"}` })
+  startWidgetHost({ embedder, transport, view, readOnlyFromUrl: opts.readOnlyFromUrl ?? false, guard, flushDocuments, create, debounceMs: 300 })
   return {
-    posted, calls, view, guard, flushDocuments, transport,
+    posted, calls, view, guard, flushDocuments, transport, create,
     load: (text: string, readOnly = false) => deliver({ type: EMBEDDER_TYPES.load, text, readOnly }),
+    make: (kind: string) => deliver({ type: EMBEDDER_TYPES.create, kind }),
     flush: () => deliver({ type: EMBEDDER_TYPES.flush }),
     touch: () => guardOpts!.onTouch(),
     edit: async (next: string, landsAfterMs = 0) => { await transport.call('widgetFiles:update', ['f1', { content: 'x' }, next, landsAfterMs]) },
@@ -196,6 +198,45 @@ describe('saving', () => {
       expect(h.types()).not.toContain('save')
       expect(h.types()).toContain('flushed')
     }
+  })
+})
+
+describe('create (a new file, made by Plexii\'s own code)', () => {
+  it('answers with the new file as a save, at once: asking for it is the person\'s action', async () => {
+    const h = setup()
+    h.make('sticky')
+    await settle()
+    expect(h.create).toHaveBeenCalledWith('sticky')
+    expect(h.posted.at(-1)).toEqual({ type: 'plexii-widget-host:save', protocol: 1, text: '{"type":"plexii.widget.sticky","kind":"sticky"}' })
+  })
+
+  it('every kind the host shows can be made, documents too; it needs no load', async () => {
+    const h = setup()
+    for (const kind of ['table', 'task-list', 'doc', 'draw']) h.make(kind)
+    await settle()
+    expect(h.create.mock.calls.map((c) => c[0])).toEqual(['table', 'task-list', 'doc', 'draw'])
+    expect(h.types().filter((t) => t === 'save')).toHaveLength(4)
+  })
+
+  it('a kind it cannot make is refused, named, and the page is not replaced by the refusal', async () => {
+    const h = setup()
+    h.make('voice-recorder')
+    h.make('hologram')
+    await settle()
+    expect(h.create).not.toHaveBeenCalled()
+    expect(h.posted.filter((m) => m.type === 'plexii-widget-host:error')).toEqual([
+      { type: 'plexii-widget-host:error', protocol: 1, code: 'cannot-create', message: "Plexii can't make a Voice note here." },
+      { type: 'plexii-widget-host:error', protocol: 1, code: 'cannot-create', message: "Plexii can't make a hologram here." }
+    ])
+    expect(h.view.showProblem).not.toHaveBeenCalled()
+  })
+
+  it('a create that fails says why, and posts no save', async () => {
+    const h = setup({ createResult: { ok: false, error: 'the table could not be made' } })
+    h.make('table')
+    await settle()
+    expect(h.types()).not.toContain('save')
+    expect(h.posted.at(-1)).toMatchObject({ code: 'cannot-create', message: "Plexii can't make a Table here: the table could not be made." })
   })
 })
 

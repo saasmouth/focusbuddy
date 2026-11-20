@@ -22,6 +22,7 @@ import { createReactView } from './view'
 import { hostError } from './protocol'
 import { routeLinks } from './links'
 import { servePickers } from './pickers'
+import { makeCreate } from './create'
 
 const readOnlyFromUrl = new URLSearchParams(location.search).get('readonly') === '1'
 // Before anything renders: the renderer asks this to hide desk and AI controls.
@@ -61,5 +62,11 @@ startWidgetHost({
   },
   readOnlyFromUrl,
   guard: (opts) => guardInput(opts),
-  flushDocuments: flushPendingDocumentSaves
+  flushDocuments: flushPendingDocumentSaves,
+  create: makeCreate({
+    api: (window as unknown as { api: Parameters<typeof makeCreate>[0]['api'] }).api,
+    exportText: (which) => transport.call('widgetFiles:exportText', [which]) as Promise<{ ok?: boolean; text?: string; error?: string }>,
+    // The desk picker's default for the kind; loaded only when a file is made.
+    defaultContent: async (kind) => String((await import('@renderer/lib/widgetCatalog')).catalogFor(kind as never)?.defaultContent ?? '')
+  })
 })

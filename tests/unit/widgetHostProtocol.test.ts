@@ -35,7 +35,7 @@ describe('widget host protocol 1', () => {
     expect(hostError('save-failed', { detail: 'disk full.' }).message).toBe("Plexii couldn't save the last change: disk full.")
     expect(hostError('render-failed', { detail: 'boom' }).message).toBe('This widget hit a problem while drawing: boom.')
     // Every code has a sentence: none falls through to an empty or technical message.
-    for (const code of ['not-a-plexii-file', 'newer-than-host', 'needs-plexii', 'import-failed', 'save-failed', 'render-failed', 'database-unavailable', 'already-loaded'] as const) {
+    for (const code of ['not-a-plexii-file', 'newer-than-host', 'needs-plexii', 'import-failed', 'save-failed', 'render-failed', 'database-unavailable', 'already-loaded', 'cannot-create'] as const) {
       const m = hostError(code, { label: 'Widget', detail: 'x' }).message
       expect(m).toMatch(/^[A-Z].*\.$/)
       expect(m).not.toMatch(/undefined|null|\[object/)
@@ -46,6 +46,15 @@ describe('widget host protocol 1', () => {
     expect(readEmbedderMessage({ type: EMBEDDER_TYPES.load, text: '{"a":1}' })).toEqual({ type: 'plexii-widget-host:load', text: '{"a":1}', readOnly: false })
     expect(readEmbedderMessage({ type: EMBEDDER_TYPES.load, text: 'x', readOnly: true })).toEqual({ type: 'plexii-widget-host:load', text: 'x', readOnly: true })
     expect(readEmbedderMessage({ type: EMBEDDER_TYPES.flush })).toEqual({ type: 'plexii-widget-host:flush' })
+  })
+
+  it('create: a kind to make a new file of (PlexiiLite\'s New > Plexii widget / document)', () => {
+    expect(readEmbedderMessage({ type: EMBEDDER_TYPES.create, kind: 'sticky' })).toEqual({ type: 'plexii-widget-host:create', kind: 'sticky' })
+    for (const bad of [{ type: EMBEDDER_TYPES.create }, { type: EMBEDDER_TYPES.create, kind: '' }, { type: EMBEDDER_TYPES.create, kind: 3 }, { type: EMBEDDER_TYPES.create, kind: 'x'.repeat(65) }]) {
+      expect(readEmbedderMessage(bad)).toBeNull()
+    }
+    expect(hostError('cannot-create', { label: 'Inbox' }).message).toBe("Plexii can't make an Inbox here.")
+    expect(hostError('cannot-create', { label: 'Voice note' }).message).toBe("Plexii can't make a Voice note here.")
   })
 
   it('anything else is ignored, including the host\'s own posts seen by a top-level page', () => {

@@ -40,10 +40,24 @@ describe('widgetFiles:import', () => {
 
   it('a table brings its columns and rows', async () => {
     const text = JSON.stringify({ type: 'plexii.widget.table', version: 1, title: 'Prices', kind: 'table', content: 'old-id', color: null,
-      table: { title: 'Prices', columns: [{ id: 'c1', name: 'Item', type: 'text' }], rows: [{ c1: 'tea' }, { c1: 'milk' }] }, exportedAt: '' })
+      table: { title: 'Prices', columns: [{ id: 'c1', type: 'text-short', label: 'Item', config: {} }], rows: [{ c1: 'tea' }, { c1: 'milk' }] }, exportedAt: '' })
     const r = await call('widgetFiles:import', { text })
     expect(r).toMatchObject({ ok: true, kind: 'widget', file: { kind: 'table' } })
     expect(listRows(r.file.content).map((x) => x.cells)).toEqual([{ c1: 'tea' }, { c1: 'milk' }])
+  })
+
+  it('a table whose columns or rows are not a Plexii table is refused as damaged, and makes nothing (as F1 refuses it)', async () => {
+    const DAMAGED = 'This table file is damaged: its columns or rows are not a Plexii table.'
+    const table = (t: unknown): string => JSON.stringify({ type: 'plexii.widget.table', version: 1, title: 'T', kind: 'table', content: '', color: null, table: t, exportedAt: '' })
+    for (const t of [
+      { title: 'T', columns: [{ id: 'c1', name: 'Item', type: 'text' }], rows: [] },
+      { title: 'T', columns: [{ id: 'c1', type: 'no-such-type', label: 'Item', config: {} }], rows: [] },
+      { title: 'T', columns: [{ id: 'c1', type: 'text-short', label: 'Item', config: {} }], rows: ['not a row'] },
+      { title: 'T', columns: 'nope', rows: [] }
+    ]) {
+      expect(await call('widgetFiles:import', { text: table(t) })).toEqual({ ok: false, error: DAMAGED })
+    }
+    expect((db.prepare('SELECT COUNT(*) AS n FROM documents').get() as { n: number }).n).toBe(0)
   })
 
   it('an Office document becomes a documents row with its body unchanged', async () => {
@@ -78,12 +92,12 @@ describe('widgetFiles:exportText', () => {
 
   it('a table\'s rows travel with it, edits included', async () => {
     const text = JSON.stringify({ type: 'plexii.widget.table', version: 1, title: 'Prices', kind: 'table', content: '', color: null,
-      table: { title: 'Prices', columns: [{ id: 'c1', name: 'Item', type: 'text' }], rows: [{ c1: 'tea' }] }, exportedAt: '' })
+      table: { title: 'Prices', columns: [{ id: 'c1', type: 'text-short', label: 'Item', config: {} }], rows: [{ c1: 'tea' }] }, exportedAt: '' })
     const { file } = await call('widgetFiles:import', { text })
     const [row] = listRows(file.content)
     updateRow(row.id, { cells: { c1: 'coffee' } } as never)
     const out = JSON.parse((await call('widgetFiles:exportText', { fileId: file.id })).text)
-    expect(out.table).toMatchObject({ title: 'Prices', columns: [{ id: 'c1', name: 'Item' }], rows: [{ c1: 'coffee' }] })
+    expect(out.table).toMatchObject({ title: 'Prices', columns: [{ id: 'c1', type: 'text-short', label: 'Item' }], rows: [{ c1: 'coffee' }] })
   })
 
   it('a document comes back with its current body', async () => {

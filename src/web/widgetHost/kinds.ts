@@ -14,6 +14,7 @@
 // as an honest "works only in Plexii", never as a broken widget.
 import type { ComponentType } from 'react'
 import type { Widget } from '@shared/types'
+import { HOST_DOCUMENTS } from './capabilities'
 
 type Loader = () => Promise<{ default: ComponentType<{ widget: Widget }> }>
 
@@ -39,9 +40,9 @@ export const HOST_WIDGET_LOADERS = {
   'location-map': () => import('@renderer/components/widgets/LocationMapWidget')
 } satisfies Record<string, Loader>
 
-/** The six Office document types; each is shown by the desk's Office widget. */
-export const HOST_DOCUMENT_TYPES = ['doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const
-export type HostDocumentType = (typeof HOST_DOCUMENT_TYPES)[number]
+/** The six Office document types (capabilities.ts); each is shown by the desk's Office widget. */
+export const HOST_DOCUMENT_TYPES = Object.keys(HOST_DOCUMENTS) as Array<keyof typeof HOST_DOCUMENTS>
+export type HostDocumentType = keyof typeof HOST_DOCUMENTS
 const officeWidget: Loader = () => import('@renderer/components/widgets/OfficeDocWidget')
 
 export type HostWidgetKind = keyof typeof HOST_WIDGET_LOADERS

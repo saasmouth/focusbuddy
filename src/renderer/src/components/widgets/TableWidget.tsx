@@ -52,6 +52,7 @@ import { useTableWidgetSnippets } from './useWidgetSnippets'
 import { applyFilters, groupRows, isGroupableColumn } from '../../lib/tableFilter'
 import type { RowGroup } from '../../lib/tableFilter'
 import { inWidgetHost } from '../../lib/widgetHost'
+import { UNTITLED_TABLE, starterTableColumns } from '../../lib/tableStarter'
 
 // All available views with the icon + label that drive the switcher pill.
 const VIEW_OPTIONS: Array<{ id: TableViewMode; label: string; icon: string }> = [
@@ -184,23 +185,8 @@ export default function TableWidget({ widget, inline = false }: Props): JSX.Elem
       const ownName = isPlaceholderWidgetFileTitle(widget.title) ? '' : widget.title
       const created = await createTable({
         taskId: widget.taskId || null,
-        title: ownName || 'Untitled table',
-        schema: {
-          columns: [
-            {
-              id: 'c-name',
-              type: 'text-short',
-              label: 'Name',
-              config: {} as never
-            } as FieldDefinition,
-            {
-              id: 'c-done',
-              type: 'checkbox',
-              label: 'Done',
-              config: {} as never
-            } as FieldDefinition
-          ]
-        }
+        title: ownName || UNTITLED_TABLE,
+        schema: { columns: starterTableColumns() }
       })
       // Only the content: re-sending the title alongside it read as a rename
       // and made a placeholder the user's name.

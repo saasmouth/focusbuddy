@@ -4,8 +4,23 @@
 // commit). Everything else -- the module swaps that let the data layer run in
 // a Worker, the aliases, the WASM handling -- is the web build's, unchanged.
 import { resolve } from 'path'
-import { defineConfig, mergeConfig } from 'vite'
+import { defineConfig, mergeConfig, type Plugin } from 'vite'
 import web from './vite.web.config'
+import { hostManifest } from './src/web/widgetHost/capabilities'
+
+/**
+ * manifest.json beside index.html: what this host can make and show, from the
+ * same lists the page loads (capabilities.ts). PlexiiLite reads it; haptyx-web
+ * build-widget-host.mjs adds the pinned commit and every file's hash.
+ */
+function writeManifest(): Plugin {
+  return {
+    name: 'plexii-widget-host-manifest',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'manifest.json', source: JSON.stringify(hostManifest(), null, 2) + '\n' })
+    }
+  }
+}
 
 export default mergeConfig(
   web,
@@ -17,6 +32,7 @@ export default mergeConfig(
     // The share app's public files (its Service Worker, Vercel and Netlify
     // rules) have no place here: the host serves no Drive bytes and no routes.
     publicDir: false,
+    plugins: [writeManifest()],
     build: {
       outDir: resolve(__dirname, 'out/widget-host'),
       emptyOutDir: true,

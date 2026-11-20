@@ -18,12 +18,23 @@ import { getWidgetFile, importWidgetFile } from '../../main/db/widgetFiles'
 import { getTable, listRows } from '../../main/db/tables'
 import { createDocument, getDocument } from '../../main/db/documents'
 import type { FbDocument } from '../../shared/types'
+import { FIELD_TYPE_LABELS } from '../../shared/fields'
 
 const OFFICE = ['doc', 'sheet', 'slides', 'map', 'design', 'draw'] as const
 type OfficeDocType = (typeof OFFICE)[number]
 const isOffice = (x: unknown): x is OfficeDocType => typeof x === 'string' && (OFFICE as readonly string[]).includes(x)
 
 type Result = Record<string, unknown>
+
+const DAMAGED_TABLE = 'This table file is damaged: its columns or rows are not a Plexii table.'
+const isRecord = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
+/** Columns that are FieldDefinitions ({ id, type, label, config }) and rows that are objects. */
+function isPlexiiTable(t: { columns?: unknown; rows?: unknown }): boolean {
+  if (!Array.isArray(t.columns) || !Array.isArray(t.rows)) return false
+  const okColumn = (c: unknown): boolean =>
+    isRecord(c) && typeof c.id === 'string' && typeof c.label === 'string' && typeof c.type === 'string' && c.type in FIELD_TYPE_LABELS && isRecord(c.config)
+  return t.columns.every(okColumn) && t.rows.every(isRecord)
+}
 
 /** F1's document envelope, read minimally: a type or docType, a title, a body object. */
 function parseDocument(p: Record<string, unknown>): { docType: OfficeDocType; title: string; body: FbDocument['body'] } | { error: string } | null {
@@ -50,6 +61,10 @@ function importText(input: { text?: unknown; parentId?: string | null } | undefi
   }
   const env = parseWidgetFileExport(input.text)
   if ('error' in env) return { ok: false, error: env.error }
+  // As F1 refuses it (9e, 2026-11-20): a table carries real column definitions
+  // and object rows, or nothing is made. A file with other columns crashed the
+  // table while drawing.
+  if (env.kind === 'table' && env.table && !isPlexiiTable(env.table)) return { ok: false, error: DAMAGED_TABLE }
   return { ok: true, kind: 'widget', file: importWidgetFile(env, input.parentId ?? null) }
 }
 

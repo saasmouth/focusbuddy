@@ -26,6 +26,8 @@
 //            browser. Links never navigate the page (links.ts).
 // Embedder -> host:
 //   load     { text, readOnly? }. One per page; open a new page for another file.
+//   create   { kind }: make a new file of this kind with Plexii's own code and
+//            answer with `save` (PlexiiLite's New > Plexii widget / document).
 //   flush    post any pending save now, then `flushed` (before a tile closes).
 
 export const WIDGET_HOST_PROTOCOL = 1 as const
@@ -39,7 +41,7 @@ export const HOST_TYPES = {
   flushed: `${P}flushed`,
   openLink: `${P}open-link`
 } as const
-export const EMBEDDER_TYPES = { load: `${P}load`, flush: `${P}flush` } as const
+export const EMBEDDER_TYPES = { load: `${P}load`, create: `${P}create`, flush: `${P}flush` } as const
 
 export type HostErrorCode =
   | 'not-a-plexii-file'
@@ -50,6 +52,7 @@ export type HostErrorCode =
   | 'render-failed'
   | 'database-unavailable'
   | 'already-loaded'
+  | 'cannot-create'
 
 type Body =
   | { type: typeof HOST_TYPES.ready }
@@ -63,6 +66,7 @@ export type HostMessage = Body & { protocol: typeof WIDGET_HOST_PROTOCOL }
 
 export type EmbedderMessage =
   | { type: typeof EMBEDDER_TYPES.load; text: string; readOnly: boolean }
+  | { type: typeof EMBEDDER_TYPES.create; kind: string }
   | { type: typeof EMBEDDER_TYPES.flush }
 
 /** A host->embedder message, stamped with the protocol. */
@@ -89,7 +93,8 @@ export function hostError(code: HostErrorCode, info: { label?: string; detail?: 
     'save-failed': `Plexii couldn't save the last change: ${clause(info.detail)}.`,
     'render-failed': `This widget hit a problem while drawing: ${clause(info.detail)}.`,
     'database-unavailable': `This widget couldn't start: ${clause(info.detail)}.`,
-    'already-loaded': 'This page already shows a file. Open a new page for another one.'
+    'already-loaded': 'This page already shows a file. Open a new page for another one.',
+    'cannot-create': `Plexii can't make ${article.toLowerCase()} ${label} here${info.detail ? `: ${clause(info.detail)}` : ''}.`
   }
   return hostMessage({ type: HOST_TYPES.error, code, message: message[code] })
 }
@@ -103,6 +108,9 @@ export function readEmbedderMessage(data: unknown): EmbedderMessage | null {
   if (!data || typeof data !== 'object') return null
   const d = data as Record<string, unknown>
   if (d.type === EMBEDDER_TYPES.flush) return { type: EMBEDDER_TYPES.flush }
+  if (d.type === EMBEDDER_TYPES.create) {
+    return typeof d.kind === 'string' && d.kind.length > 0 && d.kind.length <= 64 ? { type: EMBEDDER_TYPES.create, kind: d.kind } : null
+  }
   if (d.type !== EMBEDDER_TYPES.load) return null
   if (typeof d.text !== 'string') return null
   if (d.readOnly !== undefined && typeof d.readOnly !== 'boolean') return null
