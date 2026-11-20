@@ -3,6 +3,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
+import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
 
 interface EyeDropperResult {
   sRGBHex: string
@@ -37,6 +38,13 @@ export default function ColorWidget({ widget, inline = false }: Props): JSX.Elem
     }, 300)
     return () => window.clearTimeout(handle)
   }, [color, widget.id, update])
+
+  // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
+  useSaveOnUnmount(() => {
+    if (color === lastSavedRef.current) return
+    lastSavedRef.current = color
+    void update(widget.id, { content: color })
+  })
 
   const hasDropper = typeof window !== 'undefined' && 'EyeDropper' in window
 

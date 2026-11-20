@@ -22,6 +22,7 @@ import { useEditorWidgetSnippets } from './useWidgetSnippets'
 import { confirmDialog } from '../plexi/PromptDialog'
 import AnsweredBy from '../ai/AnsweredBy'
 import { WIDGET_LINK_OPTIONS } from './widgetLink'
+import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -84,11 +85,19 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
   // Throttle the persist call — Tiptap fires onUpdate on every keystroke and
   // the markdown serializer + IPC roundtrip add up quickly.
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The editor a write is waiting for, until the timer writes it.
+  const pendingEditor = useRef<Editor | null>(null)
+  function persistNow(editor: Editor): void {
+    pendingEditor.current = null
+    const json = JSON.stringify(editor.getJSON())
+    void update(widget.id, { content: json })
+  }
   function schedulePersist(editor: Editor): void {
     if (persistTimer.current) clearTimeout(persistTimer.current)
+    pendingEditor.current = editor
     persistTimer.current = setTimeout(() => {
-      const json = JSON.stringify(editor.getJSON())
-      void update(widget.id, { content: json })
+      persistTimer.current = null
+      persistNow(editor)
     }, 250)
   }
 
@@ -185,11 +194,19 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
     [widget.id, widget.livingGeneratedAt]
   )
 
-  useEffect(() => {
-    return () => {
-      if (persistTimer.current) clearTimeout(persistTimer.current)
+  // Write an edit still waiting for its timer when the page goes away
+  // (lib/useSaveOnUnmount): clearing the timer alone dropped it.
+  useSaveOnUnmount(() => {
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = null
+    const pending = pendingEditor.current
+    if (!pending) return
+    try {
+      persistNow(pending)
+    } catch {
+      // An editor already torn down has nothing left to give.
     }
-  }, [])
+  })
 
   // A destination for saved snippets and ⌘V. A living page is written for
   // the person, so it takes neither.

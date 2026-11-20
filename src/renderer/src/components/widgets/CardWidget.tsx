@@ -6,6 +6,7 @@ import type { Widget } from '@shared/types'
 import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { parseInline } from '../../lib/inlineMarkdown'
+import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
 
 // Render the card body's markdown-lite as JSX: **bold**, *italic*, links (both
 // [text](url) and bare URLs) that open in the user's browser, and "- " bullets.
@@ -134,6 +135,14 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
     }, 300)
     return () => window.clearTimeout(h)
   }, [data, widget.id, update])
+
+  // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
+  useSaveOnUnmount(() => {
+    const next = JSON.stringify(data)
+    if (next === lastSaved.current) return
+    lastSaved.current = next
+    void update(widget.id, { content: next })
+  })
 
   // Adopt content pushed in from a synced sibling (live sync). Without this the
   // linked copy only reflects edits after a remount / hard refresh. We compare

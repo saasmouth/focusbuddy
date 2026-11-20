@@ -14,6 +14,7 @@ import {
   type BlockField,
   type BlockFieldType
 } from '../../lib/customBlockTemplates'
+import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
 
 // Custom Block — a WYSIWYG form/record designer. In DESIGN mode the user drops
 // typed fields and positions/resizes them freely; in USE mode the same block is
@@ -101,6 +102,14 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
     }, 300)
     return () => window.clearTimeout(h)
   }, [data, widget.id, update])
+
+  // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
+  useSaveOnUnmount(() => {
+    const next = JSON.stringify(data)
+    if (next === lastSaved.current) return
+    lastSaved.current = next
+    void update(widget.id, { content: next })
+  })
 
   // Adopt fields/values pushed in from a synced sibling (live sync), so a linked
   // copy updates without a remount/refresh. Compared against lastSaved so our
