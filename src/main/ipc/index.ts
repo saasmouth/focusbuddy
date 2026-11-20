@@ -79,7 +79,8 @@ import {
   createWidgetFile,
   exportWidgetFile,
   getWidgetFile,
-  importWidgetFile,
+  importPlexiiFileText,
+  exportPlexiiFileText,
   listWidgetFileInstances,
   listWidgetFilePlacements,
   listWidgetFiles,
@@ -96,9 +97,9 @@ import { proposeContext } from '../ai/aiContext'
 import { clearQueryVectorCache } from '../ai/embeddings'
 import {
   parseWidgetFileBody,
-  parseWidgetFileExport,
   widgetFileExportName,
-  WIDGET_FILE_TYPES
+  WIDGET_FILE_TYPES,
+  DOCUMENT_FILE_TYPES
 } from '@shared/widgetFiles'
 import { join as pathJoin } from 'node:path'
 import { buildMeetingIcs } from '@shared/ics'
@@ -4226,7 +4227,12 @@ export function registerIpcHandlers(): void {
         const win = BrowserWindow.getFocusedWindow()
         const opts = {
           properties: ['openFile' as const],
-          filters: [{ name: 'Plexii work widget files', extensions: Object.values(WIDGET_FILE_TYPES).map((t) => t!.ext.slice(1)) }]
+          filters: [
+            {
+              name: 'Plexii files',
+              extensions: [...Object.values(WIDGET_FILE_TYPES), ...Object.values(DOCUMENT_FILE_TYPES)].map((t) => t!.ext.slice(1))
+            }
+          ]
         }
         const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
         if (res.canceled || !res.filePaths[0]) return { ok: false as const, canceled: true as const }
@@ -4238,12 +4244,17 @@ export function registerIpcHandlers(): void {
         return { ok: false as const, error: 'That file could not be read.' }
       }
     }
-    const env = parseWidgetFileExport(text)
-    if ('error' in env) return { ok: false as const, error: env.error }
+    // A work widget file or, since F1, an Office document file (.plexii-doc …).
+    const result = importPlexiiFileText(text, input?.parentId ?? null)
+    if (!result.ok) return result
     bumpAnswerCacheVersion()
-    const file = importWidgetFile(env, input?.parentId ?? null)
-    return { ok: true as const, file }
+    if (result.kind === 'document') void embedDocument(result.document.id) // as documents:create does
+    return result
   })
+  // The exact text of a .plexii-* file for a work widget file or an Office
+  // document, for whoever writes it somewhere (PlexiiLite's widget host posts it
+  // back to its file). The web worker answers the same channel.
+  ipcMain.handle('widgetFiles:exportText', (_e, ref: { fileId?: string; documentId?: string }) => exportPlexiiFileText(ref))
   ipcMain.handle('documents:restore', (_e, id: string) => {
     const ok = restoreDocument(id)
     if (ok) void embedDocument(id) // back into semantic search, best-effort

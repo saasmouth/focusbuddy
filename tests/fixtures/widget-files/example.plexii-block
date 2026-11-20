@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.custom-block",
+  "version": 1,
+  "title": "Form block",
+  "kind": "custom-block",
+  "content": "",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

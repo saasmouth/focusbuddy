@@ -70,6 +70,41 @@ table's columns and rows for a table (its content is only a table id). Import
 reads the same envelope back into a new widget file. Files "Add files" sends a
 `.plexii-*` file through the importer instead of storing it as an opaque file.
 
+### Office documents as files (F1, 2026-11-20)
+
+The six Office kinds are files too, so PlexiiLite can make them in a folder and
+Plexii can open them (plexii-lite `docs/plans/widget-files.md`). They are in
+`DOCUMENT_FILE_TYPES`:
+
+| doc type | type id | extension | label |
+| --- | --- | --- | --- |
+| doc | `plexii.document.doc` | `.plexii-doc` | Document |
+| sheet | `plexii.document.sheet` | `.plexii-sheet` | Spreadsheet |
+| slides | `plexii.document.slides` | `.plexii-slides` | Slides |
+| map | `plexii.document.map` | `.plexii-map` | Diagram |
+| design | `plexii.document.design` | `.plexii-design` | Design |
+| draw | `plexii.document.draw` | `.plexii-draw` | Artwork |
+
+A document file is `{ type, version: 1, title, docType, body, exportedAt }`,
+where `body` is the documents row's body exactly as Plexii stores it (TipTap for a
+doc, the sheet, slides, map, design or draw body), never a second format.
+`parseDocumentFileExport` refuses a file whose body is not its type's shape, so an
+import never turns a wrong file into an empty document. Import makes a new
+document (a copy) and files it into Files, at the root unless a folder is named,
+as an imported widget file is.
+
+`parsePlexiiFile(text)` reads either family, `isPlexiiFileName(name)` recognises
+either extension, and `importPlexiiFileText` / `exportPlexiiFileText`
+(`db/widgetFiles.ts`) are the one import and export for any `.plexii-*` file.
+
+**Examples.** `tests/fixtures/widget-files/example.plexii-*`: one per widget type
+and per document type, made by the store itself (never by hand) and kept word for
+word in PlexiiLite. `widgetFileFixtures.test.ts` checks that every type has one,
+that each reads as its type, and that each imports and exports back to itself.
+Remake them after a deliberate format change with
+`WRITE_WIDGET_FILE_FIXTURES=1 npx vitest run tests/unit/widgetFileFixtures.test.ts`,
+and tell PlexiiLite.
+
 ## Linked instances (desk placement)
 
 A widget file placed on a desk is an ordinary `widgets` row:
@@ -444,7 +479,8 @@ Writes go through the existing review-and-apply flow:
 | `widgetFiles:place(id, draft)` | creates the linked instance on a desk; returns `Widget` |
 | `widgetFiles:createAndPlace(input, draft)` | the side-menu drag gesture as one call (`createAndPlaceWidgetFile`; a task list made this way is the desk's tasks) |
 | `widgetFiles:promote(widgetId)` | "Save as file" |
-| `widgetFiles:export(id)` / `widgetFiles:import(path?)` | `.plexii-*` round trip |
+| `widgetFiles:export(id)` / `widgetFiles:import({ path?, text?, parentId? })` | `.plexii-*` round trip. Import takes a work widget file or an Office document file and returns `{ ok, kind: 'widget', file }` or `{ ok, kind: 'document', document }` |
+| `widgetFiles:exportText({ fileId } \| { documentId })` | the exact file text and the name to offer it under, `{ ok, name, text }`; no dialog |
 | `widgetFiles:trash(id)` | trashes the document, its Files pointer and every desk instance (restore puts them back) |
 
 Delete and restore otherwise use the existing `documents:*` channels; `trashDocument` and `restoreDocument` carry a work widget file's desk instances with it (see "Remove or delete").
@@ -584,8 +620,10 @@ The side menu's Tasks tooltip says which one a drag and a click make.
 ## Web runtime
 
 The cloud runtime's worker (`src/web/worker/handlers.ts`) calls the same store
-for every `widgetFiles:*` channel except export and import, which need a native
-save or open dialog.
+for every `widgetFiles:*` channel except the dialog export. Import takes a file's
+TEXT there (there is no open dialog), and `widgetFiles:exportText` returns the
+file's text: what PlexiiLite's widget host uses to load a `.plexii-*` file and to
+post it back after a change.
 
 ## Lexicon
 

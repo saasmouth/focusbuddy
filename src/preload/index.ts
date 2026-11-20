@@ -2661,14 +2661,22 @@ const api = {
     trash: (id: string): Promise<boolean> => ipcRenderer.invoke('widgetFiles:trash', id),
     export: (id: string): Promise<{ ok: true; path: string } | { ok: false; canceled?: true; error?: string }> =>
       ipcRenderer.invoke('widgetFiles:export', id),
+    /** A work widget file or, since F1, an Office document file (.plexii-doc …). */
     import: (input?: {
       path?: string
       text?: string
       parentId?: string | null
     }): Promise<
-      | { ok: true; file: import('@shared/types').WidgetFile }
+      | { ok: true; kind: 'widget'; file: import('@shared/types').WidgetFile }
+      | { ok: true; kind: 'document'; document: import('@shared/types').FbDocument }
       | { ok: false; canceled?: true; error?: string }
-    > => ipcRenderer.invoke('widgetFiles:import', input)
+    > => ipcRenderer.invoke('widgetFiles:import', input),
+    /** The exact text of a .plexii-* file for a work widget file or an Office document. */
+    exportText: (ref: {
+      fileId?: string
+      documentId?: string
+    }): Promise<{ ok: true; name: string; text: string } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('widgetFiles:exportText', ref)
   },
   localAi: {
     status: (): Promise<{

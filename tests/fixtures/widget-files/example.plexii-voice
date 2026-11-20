@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.voice-note",
+  "version": 1,
+  "title": "Voice note",
+  "kind": "voice-recorder",
+  "content": "",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

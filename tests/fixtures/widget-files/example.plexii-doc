@@ -1,0 +1,42 @@
+{
+  "type": "plexii.document.doc",
+  "version": 1,
+  "title": "Launch plan",
+  "docType": "doc",
+  "body": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Launch plan"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Ship the widget files in PlexiiLite 0.8.0."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Then bring rooms into Plexii with them."
+          }
+        ]
+      }
+    ]
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

@@ -22,8 +22,14 @@ import { createTable, createRow, getTable, listRows } from './tables'
 import { createWidget, getWidget } from './widgets'
 import { isUntitled } from '@shared/titles'
 import {
+  buildDocumentFileExport,
   buildWidgetFileExport,
   defaultWidgetFileContent,
+  documentFileExportName,
+  isOfficeDocType,
+  parsePlexiiFile,
+  widgetFileExportName,
+  type DocumentFileExport,
   deriveWidgetFileTitle,
   isPlaceholderWidgetFileTitle,
   isStandaloneWidgetKind,
@@ -925,4 +931,62 @@ export function importWidgetFile(env: WidgetFileExport, parentId: string | null 
     content = t.id
   }
   return createWidgetFile({ kind: env.kind, title: env.title, content, color: env.color, parentId })
+}
+
+// ── Office documents as files, and one import / export for any .plexii-* (F1) ──
+
+/**
+ * A new Office document from a document file: a copy, like a widget import. It
+ * goes into Files straight away, at the root unless a folder was named, as an
+ * imported widget file does.
+ */
+export function importDocumentFile(env: DocumentFileExport, parentId: string | null = null): FbDocument {
+  const doc = createDocument({ docType: env.docType, title: env.title, body: env.body as FbDocument['body'] })
+  try {
+    fileDocument(doc.id, parentId)
+  } catch {
+    /* still a document; Files lists it from Office */
+  }
+  return doc
+}
+
+/** An Office document as a document file, or null for a missing, archived or non-Office one. */
+export function exportDocumentFile(documentId: string): DocumentFileExport | null {
+  const doc = getDocument(documentId)
+  if (!doc || doc.archived || !isOfficeDocType(doc.docType)) return null
+  return buildDocumentFileExport(doc)
+}
+
+export type PlexiiFileImport =
+  | { ok: true; kind: 'widget'; file: WidgetFile }
+  | { ok: true; kind: 'document'; document: FbDocument }
+  | { ok: false; error: string }
+
+/** Any .plexii-* file's text in, a new work widget file or Office document out. */
+export function importPlexiiFileText(text: string, parentId: string | null = null): PlexiiFileImport {
+  const parsed = parsePlexiiFile(text)
+  if ('error' in parsed) return { ok: false, error: parsed.error }
+  if (parsed.family === 'document') return { ok: true, kind: 'document', document: importDocumentFile(parsed.file, parentId) }
+  return { ok: true, kind: 'widget', file: importWidgetFile(parsed.file, parentId) }
+}
+
+/**
+ * The exact text of a .plexii-* file for a work widget file or an Office
+ * document (JSON, two-space indent), and the name to offer it under. A table's
+ * rows travel with it.
+ */
+export function exportPlexiiFileText(
+  ref: { fileId?: string; documentId?: string } | null | undefined
+): { ok: true; name: string; text: string } | { ok: false; error: string } {
+  if (ref?.fileId) {
+    const env = exportWidgetFile(ref.fileId)
+    if (!env) return { ok: false, error: 'That work widget file no longer exists.' }
+    return { ok: true, name: widgetFileExportName(env), text: JSON.stringify(env, null, 2) }
+  }
+  if (ref?.documentId) {
+    const env = exportDocumentFile(ref.documentId)
+    if (!env) return { ok: false, error: 'That document no longer exists, or is not an Office document.' }
+    return { ok: true, name: documentFileExportName(env), text: JSON.stringify(env, null, 2) }
+  }
+  return { ok: false, error: 'Name a work widget file or a document to export.' }
 }

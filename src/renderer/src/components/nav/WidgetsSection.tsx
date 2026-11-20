@@ -261,10 +261,10 @@ export default function WidgetsSection(): JSX.Element {
           entity={{ kind: 'place', id: 'import-widget-file' }}
           label="Import work widget file…"
           testid="sidemenu-widgets-import-widget-file"
-          title="Open a .plexii-table, .plexii-tasks … file exported from Plexii"
+          title="Open a .plexii-table, .plexii-tasks, .plexii-doc … file exported from Plexii"
           onClick={() => {
             void window.api.widgetFiles.import().then((r) => {
-              if (r.ok) useViewStore.getState().goDocument(r.file.id)
+              if (r.ok) useViewStore.getState().goDocument(r.kind === 'document' ? r.document.id : r.file.id)
               else if (!r.canceled) useNoticeStore.getState().show({ text: r.error ?? 'Import failed.', icon: 'error' })
             })
           }}

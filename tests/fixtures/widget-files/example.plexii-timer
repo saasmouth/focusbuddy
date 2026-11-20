@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.timer",
+  "version": 1,
+  "title": "Timer",
+  "kind": "timer",
+  "content": "{\"targetSec\":600,\"elapsedSec\":0,\"state\":\"idle\",\"startedAt\":null}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}
