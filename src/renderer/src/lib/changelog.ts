@@ -38,6 +38,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.54',
+    date: '2026-11-20T06:00:00Z',
+    title: 'PlexiiDesk 4.3.54 — open Plexii files from Finder, and edits are kept when a work widget closes',
+    tag: 'feature',
+    summary:
+      'Double-click a Plexii file and Plexii opens it. Rooms from PlexiiLite bring their Plexii work widgets and documents in ready to edit. And signing in from the website no longer asks you to confirm.',
+    highlights: [
+      'If you close a desk or switch away right after typing in a Page, Card, Calculator, Colour swatch, Shape or Form block, what you typed is now kept.',
+      'Double-click a Plexii file (.plexii-doc, .plexii-sheet, .plexii-sticky and the rest) in Finder or File Explorer and Plexii opens it. A copy goes into Files and onto the desk you have open, or it opens on its own if no desk is open. The file itself is not changed.',
+      'Import work widget file… now takes Plexii documents too: documents, spreadsheets, slides, diagrams, designs and artwork.',
+      'Open This Room in Plexii, from PlexiiLite, now brings the room\'s Plexii work widgets and documents in as work widgets and documents you can edit, not as plain files.',
+      'Signing in through the website or with SSO no longer asks you to confirm the account. The link back to Plexii now carries a one-time code that only this Plexii can use, never your sign-in itself.'
+    ]
+  },
+  {
     version: '4.3.53',
     date: '2026-11-20T01:00:00Z',
     title: 'PlexiiDesk 4.3.53 — sign-in links are safer',
