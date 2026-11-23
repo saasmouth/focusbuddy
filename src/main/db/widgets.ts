@@ -6,6 +6,7 @@ import { adoptWidgetAsFile, syncWidgetFileFromInstance } from './widgetFiles'
 import { WIDGET_FILE_GROUP_PREFIX } from '@shared/widgetFiles'
 import { clampToKindMin } from '@shared/widgetSizing'
 import type { Widget, WidgetDraft, WidgetPatch } from '@shared/types'
+import { OWN_TRASH_RETENTION_MS, pastRetentionSql, purgeCutoffs } from './trashRetention'
 
 interface WidgetRow {
   id: string
@@ -424,18 +425,19 @@ export function restoreWidget(id: string): boolean {
 
 // Permanently remove widgets trashed longer than maxAgeMs (default 7 days). The
 // hard DELETE cascades their links. Runs once per session.
-export function purgeTrashedWidgets(maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
+export function purgeTrashedWidgets(maxAgeMs = OWN_TRASH_RETENTION_MS): void {
   const db = getDb()
-  const cutoff = Date.now() - maxAgeMs
+  // A widget deleted elsewhere is kept 30 days (trashRetention.ts).
+  const [elsewhereCutoff, cutoff] = purgeCutoffs(Date.now(), maxAgeMs)
   // Except the instances a trashed work widget file took with it: restoring the
   // file from Trash puts them back where they were, for as long as the file
   // sits in Trash (documents have no age-out). Purging the file purges them.
   db.prepare(
-    `DELETE FROM widgets WHERE trashed_at IS NOT NULL AND trashed_at < ?
+    `DELETE FROM widgets WHERE trashed_at IS NOT NULL AND ${pastRetentionSql()}
        AND NOT (sync_group_id LIKE 'wf:%' AND EXISTS (
          SELECT 1 FROM documents d
           WHERE d.id = substr(widgets.sync_group_id, 4) AND d.trashed_at = widgets.trashed_at))`
-  ).run(cutoff)
+  ).run(elsewhereCutoff, cutoff)
 }
 
 export function bringToFront(id: string): Widget | null {

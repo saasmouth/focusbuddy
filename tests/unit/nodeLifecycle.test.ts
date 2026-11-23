@@ -31,6 +31,7 @@ function freshDb(): { raw: DatabaseSync; db: LifecycleDb } {
       title TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'open',
       trashed_at INTEGER,
+      deleted_elsewhere_at INTEGER,
       shared_root_id TEXT,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
