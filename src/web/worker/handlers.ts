@@ -39,6 +39,12 @@ import {
 } from '../../main/db/widgetFiles'
 import { listTemplates, deleteTemplate } from '../../main/db/templates'
 import {
+  listDeletedElsewhere,
+  restoreDeletedElsewhere,
+  deleteForeverDeletedElsewhere,
+  type DeletedElsewhereKind
+} from '../../main/db/syncTrash'
+import {
   listAllShareLinks, revokeShareLink, setShareLinkScope, deleteShareLink,
   listSharedWithMe, removeSharedItem
 } from '../../main/db/shares'
@@ -134,6 +140,8 @@ export const PARITY: ReadonlyArray<{ channel: string; missing: string }> = [
   { channel: 'widgetFiles:import', missing: 'embedding an imported document for semantic search' },
   { channel: 'documents:update', missing: 'a named snapshot, and re-embedding' },
   { channel: 'documents:delete', missing: 'answer-cache invalidation' },
+  { channel: 'trash:restoreDeletedElsewhere', missing: 're-embedding a restored document for semantic search' },
+  { channel: 'trash:deleteForeverDeletedElsewhere', missing: 'a deleted document\'s embedding and answer-cache invalidation' },
   { channel: 'knowledge:create', missing: 'embedding the new entry for semantic search' },
   { channel: 'knowledge:update', missing: 're-embedding the edited entry' },
   { channel: 'print:document', missing: 'printing: a browser tab has no printer (Print… is left out in this runtime)' },
@@ -162,6 +170,11 @@ export const HANDLERS: Record<string, Handler> = {
   'nodes:restore': h((ids: string[], origin?: string) => byOrigin(origin, () => restoreNodes(ids))),
   'nodes:listTrash': h(() => listTrash()),
   'nodes:restoreTree': h((rootId: string) => restoreTree(rootId)),
+  // 4.3.55: what was deleted elsewhere (main/db/syncTrash.ts). What the desktop
+  // also does for a document is in PARITY above.
+  'trash:listDeletedElsewhere': h(() => listDeletedElsewhere()),
+  'trash:restoreDeletedElsewhere': h((kind: DeletedElsewhereKind, id: string) => restoreDeletedElsewhere(kind, id)),
+  'trash:deleteForeverDeletedElsewhere': h((kind: DeletedElsewhereKind, id: string) => deleteForeverDeletedElsewhere(kind, id)),
   'nodes:moveToOrg': h((id: string, orgId: string, teamId?: string | null) =>
     moveNodeToOrg(String(id || ''), String(orgId || ''), teamId ?? null)),
 

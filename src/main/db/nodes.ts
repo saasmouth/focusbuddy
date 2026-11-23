@@ -505,17 +505,21 @@ export interface TrashEntry {
   purgeAt: number
   /** Deleted on another device, or by a collaborator, and arrived here by sync. */
   deletedElsewhere: boolean
+  /** On a shared desk or in an org workspace: other people can delete it too. */
+  sharedScope: boolean
 }
 
 export function listTrash(): TrashEntry[] {
   const db = getDb()
-  return listTrashedRoots(db, getActiveOrgId()).map((r: TrashedRoot) => ({
+  const orgId = getActiveOrgId()
+  return listTrashedRoots(db, orgId).map((r: TrashedRoot) => ({
     id: r.id,
     kind: r.kind,
     title: r.title,
     trashedAt: r.trashed_at,
     purgeAt: purgeAtFor(r.trashed_at, !!r.deleted_elsewhere),
-    deletedElsewhere: !!r.deleted_elsewhere
+    deletedElsewhere: !!r.deleted_elsewhere,
+    sharedScope: !!r.shared_root_id || orgId !== PERSONAL_ORG_ID
   }))
 }
 

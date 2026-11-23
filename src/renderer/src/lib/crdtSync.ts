@@ -35,6 +35,7 @@ import {
   type CrdtSocketEvent
 } from './messagingSocket'
 import { registerCrdtEmit } from './crdtBridge'
+import { noteDeletedElsewhere } from './deletedElsewhere'
 import {
   crdtWidgetsEnabled,
   crdtNodesEnabled,
@@ -1150,6 +1151,7 @@ async function applyWidgetDelete(id: string, eventTs: number): Promise<void> {
   const local = (await window.api.widgets.get(id).catch(() => null)) as { updatedAt?: number; trashedAt?: number | null } | null
   if (local && !local.trashedAt && remoteDeleteIsStale(local.updatedAt, eventTs)) return
   tombstoned.add(id)
+  noteDeletedElsewhere([{ itemType: 'widget', id }]) // read before the store drops it
   try {
     await window.api.widgets.delete(id, 'sync') // soft-delete (recoverable), matches local remove()
   } catch {
@@ -1297,6 +1299,7 @@ async function applyNodeDelete(id: string, eventTs: number): Promise<void> {
     return
   }
   tombstoned.add(id)
+  noteDeletedElsewhere([{ itemType: 'node', id }]) // read before the store drops it
   let removed: string[] = [id]
   try {
     removed = (await window.api.nodes.delete(id, 'sync')) ?? [id]
@@ -1421,6 +1424,7 @@ async function applyRowAttr(id: string, attr: string, value: unknown): Promise<v
 
 async function applyRowDelete(id: string): Promise<void> {
   tombstoned.add(id)
+  noteDeletedElsewhere([{ itemType: 'row', id }]) // read before the store drops it
   try {
     await window.api.tables.deleteRow(id, 'sync')
   } catch {
@@ -1457,6 +1461,7 @@ async function tryCreateTable(snapshot: Record<string, unknown>): Promise<boolea
 
 async function applyTableDelete(id: string): Promise<void> {
   tombstoned.add(id)
+  noteDeletedElsewhere([{ itemType: 'table', id }]) // read before the store drops it
   try {
     await window.api.tables.delete(id, 'sync')
   } catch {

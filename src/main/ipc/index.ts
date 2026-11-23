@@ -301,6 +301,12 @@ import {
   updateNode,
   ensureSharedContainer
 } from '../db/nodes'
+import {
+  listDeletedElsewhere,
+  restoreDeletedElsewhere,
+  deleteForeverDeletedElsewhere,
+  type DeletedElsewhereKind
+} from '../db/syncTrash'
 import { relateNodes, unrelateNodes, listRelatedNodeIds } from '../db/nodeRelations'
 import {
   emitObjectEvent,
@@ -1061,6 +1067,24 @@ export function registerIpcHandlers(): void {
   // Trash surfacing (lifecycle L1): the Trash view's list + subtree restore.
   ipcMain.handle('nodes:listTrash', () => listTrash())
   ipcMain.handle('nodes:restoreTree', (_e, rootId: string) => restoreTree(rootId))
+  // 4.3.55: what was deleted on another device, or by a collaborator, and reached
+  // this device by sync (db/syncTrash.ts). A document's restore and purge keep what
+  // documents:restore and documents:purge do for search and answers.
+  ipcMain.handle('trash:listDeletedElsewhere', () => listDeletedElsewhere())
+  ipcMain.handle('trash:restoreDeletedElsewhere', (_e, kind: DeletedElsewhereKind, id: string) => {
+    const r = restoreDeletedElsewhere(kind, id)
+    if (r.restored && kind === 'document') void embedDocument(id) // back into semantic search, best-effort
+    return r
+  })
+  ipcMain.handle('trash:deleteForeverDeletedElsewhere', (_e, kind: DeletedElsewhereKind, id: string) => {
+    const ok = deleteForeverDeletedElsewhere(kind, id)
+    if (ok && kind === 'document') {
+      deleteEmbedding('document', id)
+      bumpAnswerCacheVersion() // the doc set changed: invalidate cached answers
+      reindexDocumentChunks(id)
+    }
+    return ok
+  })
   ipcMain.handle('nodes:delete', (_e, id: string, origin?: WriteOrigin) => {
     const before = getNode(id)
     const removed = byOrigin(origin, () => deleteNode(id))

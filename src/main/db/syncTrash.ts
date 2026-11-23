@@ -29,19 +29,11 @@ import { restoreRow } from './tables'
 import { restoreEntryDeep, purgeEntry } from './files'
 import { restoreDocument, deleteDocument } from './documents'
 import { restoreTree } from './nodes'
+import { widgetDisplayName } from '@shared/widgetDisplayName'
+import type { WidgetKind } from '@shared/types'
 
-export type DeletedElsewhereKind = 'widget' | 'node' | 'table' | 'row' | 'timeblock' | 'file' | 'document'
-
-export interface DeletedElsewhereEntry {
-  kind: DeletedElsewhereKind
-  id: string
-  title: string
-  /** The desk, table or folder it was in; null when it stood on its own. */
-  where: string | null
-  deletedAt: number
-  /** When the purge claims it, or null for kinds that never age out. */
-  purgeAt: number | null
-}
+import type { DeletedElsewhereKind, DeletedElsewhereEntry, DeletedElsewhereRestore } from '@shared/syncTrash'
+export type { DeletedElsewhereKind, DeletedElsewhereEntry, DeletedElsewhereRestore } from '@shared/syncTrash'
 
 const TABLE_OF: Record<DeletedElsewhereKind, string> = {
   widget: 'widgets',
@@ -76,8 +68,6 @@ function rowTitle(cellsJson: unknown): string {
   return 'A row'
 }
 
-const WIDGET_KIND_NAME: Record<string, string> = { sticky: 'Sticky note', note: 'Note', checklist: 'Checklist' }
-
 export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
   const db = getDb()
   const out: DeletedElsewhereEntry[] = []
@@ -86,89 +76,104 @@ export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
   // Trash come back with it; a work widget file's instances travel with the file.
   for (const r of db
     .prepare(
-      `SELECT w.id, w.kind, w.title, w.trashed_at, n.title AS desk FROM widgets w
+      `SELECT w.id, w.kind, w.title, w.content, w.trashed_at, n.title AS desk,
+              (w.shared_root_id IS NOT NULL OR COALESCE(n.org_id, 'personal') != 'personal') AS shared_scope FROM widgets w
        LEFT JOIN nodes n ON n.id = w.task_id
        WHERE w.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('w')}
          AND (n.id IS NULL OR n.trashed_at IS NULL)
          AND NOT (w.sync_group_id LIKE 'wf:%' AND EXISTS (
            SELECT 1 FROM documents d WHERE d.id = substr(w.sync_group_id, 4) AND d.trashed_at IS NOT NULL))`
     )
-    .all() as Array<{ id: string; kind: string; title: string | null; trashed_at: number; desk: string | null }>) {
+    .all() as Array<{ id: string; kind: string; title: string | null; content: string | null; trashed_at: number; desk: string | null; shared_scope: number }>) {
     out.push({
       kind: 'widget',
       id: r.id,
-      title: cleanTitle(r.title, WIDGET_KIND_NAME[r.kind] ?? 'A widget'),
+      // Named as its frame names it on the desk (the house rule, widgetDisplayName).
+      title: widgetDisplayName({ kind: r.kind as WidgetKind, content: r.content ?? '', title: r.title ?? '' }),
       where: r.desk,
       deletedAt: r.trashed_at,
-      purgeAt: purgeAtFor(r.trashed_at, true)
+      purgeAt: purgeAtFor(r.trashed_at, true),
+      sharedScope: !!r.shared_scope
     })
   }
 
   for (const r of db
     .prepare(
-      `SELECT t.id, t.title, t.trashed_at, n.title AS desk FROM fb_tables t
+      `SELECT t.id, t.title, t.trashed_at, n.title AS desk,
+              (t.shared_root_id IS NOT NULL OR COALESCE(t.org_id, 'personal') != 'personal') AS shared_scope FROM fb_tables t
        LEFT JOIN nodes n ON n.id = t.task_id
        WHERE t.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('t')} AND (n.id IS NULL OR n.trashed_at IS NULL)`
     )
-    .all() as Array<{ id: string; title: string | null; trashed_at: number; desk: string | null }>) {
-    out.push({ kind: 'table', id: r.id, title: cleanTitle(r.title, 'A table'), where: r.desk, deletedAt: r.trashed_at, purgeAt: null })
+    .all() as Array<{ id: string; title: string | null; trashed_at: number; desk: string | null; shared_scope: number }>) {
+    out.push({ kind: 'table', id: r.id, title: cleanTitle(r.title, 'A table'), where: r.desk, deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope })
   }
 
   // A row on its own: its table is still here (rows deleted with their table come
   // back with it).
   for (const r of db
     .prepare(
-      `SELECT r.id, r.cells_json, r.trashed_at, t.title AS tbl FROM fb_rows r
+      `SELECT r.id, r.cells_json, r.trashed_at, t.title AS tbl,
+              (r.shared_root_id IS NOT NULL OR COALESCE(t.org_id, 'personal') != 'personal') AS shared_scope FROM fb_rows r
        JOIN fb_tables t ON t.id = r.table_id
        WHERE r.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('r')} AND t.trashed_at IS NULL`
     )
-    .all() as Array<{ id: string; cells_json: string | null; trashed_at: number; tbl: string | null }>) {
-    out.push({ kind: 'row', id: r.id, title: rowTitle(r.cells_json), where: cleanTitle(r.tbl, 'A table'), deletedAt: r.trashed_at, purgeAt: null })
+    .all() as Array<{ id: string; cells_json: string | null; trashed_at: number; tbl: string | null; shared_scope: number }>) {
+    out.push({ kind: 'row', id: r.id, title: rowTitle(r.cells_json), where: cleanTitle(r.tbl, 'A table'), deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope })
   }
 
   for (const r of db
-    .prepare(`SELECT id, title, trashed_at FROM time_blocks WHERE trashed_at IS NOT NULL AND ${ELSEWHERE}`)
-    .all() as Array<{ id: string; title: string | null; trashed_at: number }>) {
-    out.push({ kind: 'timeblock', id: r.id, title: cleanTitle(r.title, 'A time block'), where: null, deletedAt: r.trashed_at, purgeAt: null })
+    .prepare(
+      `SELECT id, title, trashed_at, COALESCE(org_id, 'personal') != 'personal' AS shared_scope
+       FROM time_blocks WHERE trashed_at IS NOT NULL AND ${ELSEWHERE}`
+    )
+    .all() as Array<{ id: string; title: string | null; trashed_at: number; shared_scope: number }>) {
+    out.push({ kind: 'timeblock', id: r.id, title: cleanTitle(r.title, 'A time block'), where: null, deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope })
   }
 
   // Drive files and folders: the roots of what was deleted (a folder's contents
   // come back with it). Pointers to documents are listed as the documents.
   for (const r of db
     .prepare(
-      `SELECT f.id, COALESCE(f.display_name, f.original_name) AS name, f.trashed_at, p.display_name AS pd, p.original_name AS po
+      `SELECT f.id, COALESCE(f.display_name, f.original_name) AS name, f.trashed_at, p.display_name AS pd, p.original_name AS po,
+              COALESCE(f.org_id, 'personal') != 'personal' AS shared_scope
        FROM fb_files f LEFT JOIN fb_files p ON p.id = f.parent_id
        WHERE f.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('f')} AND f.kind IN ('file','folder')
          AND (p.id IS NULL OR p.trashed_at IS NULL)`
     )
-    .all() as Array<{ id: string; name: string | null; trashed_at: number; pd: string | null; po: string | null }>) {
+    .all() as Array<{ id: string; name: string | null; trashed_at: number; pd: string | null; po: string | null; shared_scope: number }>) {
     out.push({
       kind: 'file',
       id: r.id,
       title: cleanTitle(r.name, 'A file'),
       where: r.pd ?? r.po ?? null,
       deletedAt: r.trashed_at,
-      purgeAt: purgeAtFor(r.trashed_at, true)
+      purgeAt: purgeAtFor(r.trashed_at, true),
+      sharedScope: !!r.shared_scope
     })
   }
 
   for (const r of db
-    .prepare(`SELECT id, title, trashed_at FROM documents WHERE trashed_at IS NOT NULL AND ${ELSEWHERE}`)
-    .all() as Array<{ id: string; title: string | null; trashed_at: number }>) {
-    out.push({ kind: 'document', id: r.id, title: cleanTitle(r.title, 'A document'), where: null, deletedAt: r.trashed_at, purgeAt: null })
+    .prepare(
+      `SELECT id, title, trashed_at, COALESCE(org_id, 'personal') != 'personal' AS shared_scope
+       FROM documents WHERE trashed_at IS NOT NULL AND ${ELSEWHERE}`
+    )
+    .all() as Array<{ id: string; title: string | null; trashed_at: number; shared_scope: number }>) {
+    out.push({ kind: 'document', id: r.id, title: cleanTitle(r.title, 'A document'), where: null, deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope })
   }
 
   return out.sort((a, b) => b.deletedAt - a.deletedAt)
 }
 
 function isDeletedElsewhere(kind: DeletedElsewhereKind, id: string): { trashed_at: number } | undefined {
+  // The kind arrives over IPC as a plain string and picks a table: only these.
+  if (!Object.prototype.hasOwnProperty.call(TABLE_OF, kind) || typeof id !== 'string') return undefined
   return getDb()
     .prepare(`SELECT trashed_at FROM ${TABLE_OF[kind]} WHERE id = ? AND trashed_at IS NOT NULL AND ${ELSEWHERE}`)
     .get(id) as { trashed_at: number } | undefined
 }
 
 /** Restore something deleted elsewhere. Returns the ids that came back (a desk's subtree, a table's rows). */
-export function restoreDeletedElsewhere(kind: DeletedElsewhereKind, id: string): { restored: boolean; ids: string[] } {
+export function restoreDeletedElsewhere(kind: DeletedElsewhereKind, id: string): DeletedElsewhereRestore {
   const hit = isDeletedElsewhere(kind, id)
   if (!hit) return { restored: false, ids: [] }
   const db = getDb()

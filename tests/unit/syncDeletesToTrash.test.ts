@@ -336,3 +336,31 @@ describe('Restore and Delete forever', () => {
     expect([...p.upserts, ...p.deletes].map((x) => x.id)).not.toEqual(expect.arrayContaining(['w1', 'b1', 't1']))
   })
 })
+
+describe('the IPC boundary', () => {
+  it('an unknown kind is refused, not turned into SQL', () => {
+    seed()
+    expect(trash.restoreDeletedElsewhere('widgets; DROP TABLE nodes' as never, 'w1')).toEqual({ restored: false, ids: [] })
+    expect(trash.deleteForeverDeletedElsewhere('__proto__' as never, 'w1')).toBe(false)
+    expect(row('nodes', 'd1')).toBeDefined()
+  })
+})
+
+describe('where other people can delete things, the Trash does not say "another device" alone', () => {
+  it('personal is sharedScope false; an org table and a shared desk\'s widget are true', () => {
+    seed()
+    db.prepare("UPDATE fb_tables SET org_id = 'org_team' WHERE id = 't1'").run()
+    db.prepare("UPDATE widgets SET shared_root_id = 'd1' WHERE id = 'w1'").run()
+    createTimeBlock({ id: 'b2', taskId: 'd1', title: 'Mine', startMs: Date.now() + DAY, durationMin: 15 } as never)
+    clean('time_blocks', 'b2')
+    sync.applyRemote([tombstone('table', 't1'), tombstone('widget', 'w1'), tombstone('timeblock', 'b2')])
+    const by = Object.fromEntries(trash.listDeletedElsewhere().map((e) => [e.id, e.sharedScope]))
+    expect(by).toEqual({ t1: true, w1: true, b2: false })
+  })
+
+  it('a desk in the Trash says so too', () => {
+    seed()
+    sync.applyRemote([tombstone('node', 'd1')])
+    expect(listTrash().find((x) => x.id === 'd1')).toMatchObject({ deletedElsewhere: true, sharedScope: false })
+  })
+})

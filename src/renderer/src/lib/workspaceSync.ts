@@ -12,6 +12,7 @@ import { useDocumentsStore } from '../stores/documents'
 import { useTablesStore } from '../stores/tables'
 import { useFileManagerStore } from '../stores/fileManager'
 import { useOrgStore, PERSONAL_ORG_ID } from '../stores/org'
+import { onOpenDesk, announceDeletedElsewhere } from './deletedElsewhere'
 import { setOrgWorkspaceChangedHandler, setSharedWorkspaceChangedHandler } from './messagingSocket'
 import { registerSyncNudge } from './syncNudge'
 import { syncWakeCoalescer } from './syncWakeCoalescer'
@@ -139,6 +140,25 @@ type PutResult =
   | { ok: true; rev: number }
   | { ok: false; conflict: true; item: ServerItem }
   | { ok: false; conflict: false }
+
+/**
+ * A Restore made here of something deleted elsewhere (the Trash, syncTrash.ts)
+ * meets the tombstone it answers. The delete usually reaches this device over the
+ * CRDT channel before the poll pulls the tombstone's rev, so the restore goes up
+ * at the old rev and the server answers 409 with the tombstone; server-wins would
+ * trash it again and the Restore would silently not work. The restore was made in
+ * answer to that delete, so it goes again, once, at the tombstone's rev. Anything
+ * else in conflict stays the server's: an unflagged edit, or a flagged restore
+ * that meets a live copy (restored or edited elsewhere first).
+ */
+async function restoreAnswersDelete(
+  u: { afterRemoteDelete?: boolean },
+  res: PutResult,
+  again: (baseRev: number) => Promise<PutResult>
+): Promise<PutResult> {
+  if (!u.afterRemoteDelete || res.ok || !res.conflict || !res.item.deleted) return res
+  return again(res.item.rev)
+}
 
 async function putItem(
   token: string,
@@ -327,14 +347,6 @@ async function downloadOrgBlob(token: string, orgId: string, id: string): Promis
   }
 }
 
-async function deleteOrgBlob(token: string, orgId: string, id: string): Promise<void> {
-  try {
-    await fetch(urlFor(`/workspace/org/files/${id}`), { method: 'DELETE', headers: orgHeaders(token, orgId) })
-  } catch {
-    // best-effort; an orphaned blob is harmless (member-gated) and prunes on org delete
-  }
-}
-
 
 // ── Personal Drive file bytes ───────────────────────────────────────────────
 // A file's metadata rides the ordinary personal sync as a 'file' item; the bytes
@@ -501,7 +513,11 @@ async function syncOrgWorkspaceOnce(token: string, orgId: string): Promise<numbe
   // ── Push local changes ──
   const pending = await window.api.workspaceSync.pendingOrg(orgId)
   for (const u of pending.upserts) {
-    const res = await putItemOrg(token, orgId, u.id, u.itemType, u.body, u.baseRev, u.teamId)
+    const res = await restoreAnswersDelete(
+      u,
+      await putItemOrg(token, orgId, u.id, u.itemType, u.body, u.baseRev, u.teamId),
+      (rev) => putItemOrg(token, orgId, u.id, u.itemType, u.body, rev, u.teamId)
+    )
     if (res.ok) {
       await window.api.workspaceSync.markPushed(u.itemType, u.id, res.rev)
       // A file's metadata is now on the server; make sure its bytes are too.
@@ -546,9 +562,11 @@ async function syncOrgWorkspaceOnce(token: string, orgId: string): Promise<numbe
       await window.api.workspaceSync.advanceBaseRev(res.item.itemType, res.item.id, res.item.rev)
     }
     if (res.ok) {
+      // The server keeps a deleted file's bytes: another member may restore it
+      // from their Trash (syncTrash.ts), and a member who never opened it has no
+      // bytes of their own to put back. The signal sweeps the bytes of file
+      // tombstones older than 30 days (4.3.55; until then: on org delete).
       await window.api.workspaceSync.markPushed(d.itemType, d.id, res.rev || d.baseRev)
-      // Reclaim the server blob when a file is tombstoned (best-effort).
-      if (d.itemType === 'file') await deleteOrgBlob(token, orgId, d.id)
     }
   }
 
@@ -562,7 +580,9 @@ async function syncOrgWorkspaceOnce(token: string, orgId: string): Promise<numbe
   }
   let applied = 0
   if (pulled.items.length > 0) {
+    const gone = onOpenDesk(pulled.items.filter((i) => i.deleted))
     const r = await window.api.workspaceSync.applyRemoteOrg(pulled.items, orgId)
+    announceDeletedElsewhere(gone)
     applied = r.applied
     // Metadata for pulled files has landed; fetch the bytes for any we don't have
     // yet so the file opens and the brain can read it on the next ingest.
@@ -693,7 +713,12 @@ async function syncSharedWorkspaceOnce(token: string): Promise<number> {
   const pending = await window.api.workspaceSync.pendingShared()
   for (const u of pending.upserts) {
     if (!u.rootId) continue
-    const res = await putItemShared(token, u.id, u.itemType, u.body, u.baseRev, u.rootId)
+    const rootId = u.rootId
+    const res = await restoreAnswersDelete(
+      u,
+      await putItemShared(token, u.id, u.itemType, u.body, u.baseRev, rootId),
+      (rev) => putItemShared(token, u.id, u.itemType, u.body, rev, rootId)
+    )
     if (res.ok) await window.api.workspaceSync.markPushed(u.itemType, u.id, res.rev)
     else if (res.conflict) {
       await window.api.workspaceSync.applyRemoteShared([
@@ -740,7 +765,9 @@ async function syncSharedWorkspaceOnce(token: string): Promise<number> {
   for (const root of pulled.owned) await window.api.workspaceSync.adoptSharedDesk(root)
   let applied = 0
   if (pulled.items.length > 0) {
+    const gone = onOpenDesk(pulled.items.filter((i) => i.deleted))
     const r = await window.api.workspaceSync.applyRemoteShared(pulled.items, pulled.ownerHandles)
+    announceDeletedElsewhere(gone)
     applied = r.applied
   }
   await window.api.workspaceSync.setCursorShared(pulled.now)
@@ -881,7 +908,9 @@ export async function syncWorkspaceOnce(): Promise<number> {
     const pending = await window.api.workspaceSync.pending()
     let blobUploadBudget = MAX_BLOB_UPLOADS_PER_CYCLE
     for (const u of pending.upserts) {
-      const res = await putItem(token, u.id, u.itemType, u.body, u.baseRev)
+      const res = await restoreAnswersDelete(u, await putItem(token, u.id, u.itemType, u.body, u.baseRev), (rev) =>
+        putItem(token, u.id, u.itemType, u.body, rev)
+      )
       if (res.ok) {
         await window.api.workspaceSync.markPushed(u.itemType, u.id, res.rev)
         // Bounded for the same reason as the download side: a first push of a
@@ -927,7 +956,11 @@ export async function syncWorkspaceOnce(): Promise<number> {
     let applied = 0
     let failed = 0
     if (pulled.items.length > 0) {
+      // What a delete from elsewhere takes off the open desk is read before the
+      // apply, while the stores still hold it (lib/deletedElsewhere.ts).
+      const gone = onOpenDesk(pulled.items.filter((i) => i.deleted))
       const r = await window.api.workspaceSync.applyRemote(pulled.items)
+      announceDeletedElsewhere(gone)
       applied = r.applied
       failed = r.failed ?? 0
     }
