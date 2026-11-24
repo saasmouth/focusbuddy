@@ -5,6 +5,7 @@ import { crdtEmitNodeRestore, crdtEmitWidgetRestore } from '../../lib/crdtBridge
 import { clearTrashDot } from '../../lib/deletedElsewhere'
 import { useFileManagerStore } from '../../stores/fileManager'
 import { useDocumentsStore } from '../../stores/documents'
+import { restoreCloudDoc } from '../../lib/cloudDocsSync'
 import { useTimeBlockStore } from '../../stores/timeBlocks'
 import { useWorkItemStore } from '../../stores/workItems'
 import Icon from '../Icon'
@@ -118,7 +119,10 @@ export default function TrashView(): JSX.Element {
       if (r.restored) {
         if (e.kind === 'widget') crdtEmitWidgetRestore(e.id)
         if (e.kind === 'file') void useFileManagerStore.getState().refresh()
-        if (e.kind === 'document') void useDocumentsStore.getState().refresh()
+        if (e.kind === 'document') {
+          void restoreCloudDoc(e.id).catch(() => {}) // a personal document's cloud copy comes back too
+          void useDocumentsStore.getState().refresh()
+        }
         if (e.kind === 'timeblock') void useTimeBlockStore.getState().reload()
       }
       await load()

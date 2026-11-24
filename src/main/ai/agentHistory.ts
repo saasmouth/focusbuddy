@@ -25,6 +25,7 @@ import type { ActionProposal } from '@shared/types'
 import { getDb } from '../db/database'
 import { detachAndReviveWorkItemDescendants } from '../db/nodeLifecycle'
 import { workItemDetachHook } from '../db/workItems'
+import { queueTombstones } from '../db/tombstoneQueue'
 
 export interface InvocationRecord {
   id: string
@@ -315,9 +316,13 @@ export function undoLastApply(): UndoResult {
       // under this agent-created desk is detached-and-revived first — the
       // undo removes what the agent made, never the user's attention items.
       detachAndReviveWorkItemDescendants(db, [id], workItemDetachHook(db))
+      // If it reached the server, it is deleted there too (4.3.55, tombstoneQueue).
+      queueTombstones(db, 'node', [id])
+      queueTombstones(db, 'widget', (db.prepare('SELECT id FROM widgets WHERE task_id = ?').all(id) as Array<{ id: string }>).map((w) => w.id))
       // ci-delete-allowlist: agentHistory undo (§2.5.3 lock — sanctioned site 2/4)
       db.prepare('DELETE FROM nodes WHERE id = ?').run(id)
     } else if (kind === 'widget') {
+      queueTombstones(db, 'widget', [id])
       db.prepare('DELETE FROM widgets WHERE id = ?').run(id)
     } else {
       return {

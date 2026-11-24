@@ -75,12 +75,22 @@ function schema(): void {
       id TEXT PRIMARY KEY, table_id TEXT NOT NULL, cells_json TEXT NOT NULL DEFAULT '{}', sort_order INTEGER DEFAULT 0,
       created_at INTEGER, updated_at INTEGER, trashed_at INTEGER
     );
+    CREATE TABLE pending_tombstones (item_type TEXT NOT NULL, id TEXT NOT NULL, scope TEXT NOT NULL, org_id TEXT, root_id TEXT, base_rev INTEGER NOT NULL, queued_at INTEGER NOT NULL, PRIMARY KEY (item_type, id));
     CREATE TABLE canvas_snapshots (
       id TEXT PRIMARY KEY, task_id TEXT NOT NULL, at INTEGER NOT NULL, label TEXT NOT NULL DEFAULT '',
       widget_count INTEGER NOT NULL DEFAULT 0, payload TEXT NOT NULL
     );
     INSERT INTO nodes (id, title, org_id) VALUES ('deskA', 'Desk A', 'personal'), ('deskB', 'Desk B', 'personal'),
       ('deskC', 'Desk C', 'personal');
+  
+    ALTER TABLE nodes ADD COLUMN sync_rev INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE nodes ADD COLUMN needs_sync INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE widgets ADD COLUMN sync_rev INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE widgets ADD COLUMN needs_sync INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE documents ADD COLUMN sync_rev INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE documents ADD COLUMN needs_sync INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE fb_files ADD COLUMN sync_rev INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE fb_files ADD COLUMN needs_sync INTEGER NOT NULL DEFAULT 1;
   `)
 }
 

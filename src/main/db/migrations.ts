@@ -822,6 +822,18 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
     ensureColumn(db, t, 'deleted_elsewhere_at', 'INTEGER')
     ensureColumn(db, t, 'deleted_by_name', 'TEXT')
   }
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts): the kind,
+  // the id, where it syncs and its rev. Never content.
+  db.exec(`CREATE TABLE IF NOT EXISTS pending_tombstones (
+    item_type TEXT NOT NULL,
+    id TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    org_id TEXT,
+    root_id TEXT,
+    base_rev INTEGER NOT NULL,
+    queued_at INTEGER NOT NULL,
+    PRIMARY KEY (item_type, id)
+  )`)
   // Migrations completed successfully — stamp the version so the next launch
   // knows this database is already at the current schema and skips the
   // pre-upgrade snapshot until MIGRATION_VERSION is bumped again.

@@ -2,6 +2,7 @@ import { getDb } from './database'
 import { PERSONAL_ORG_ID } from './activeOrg'
 import { emitObjectEvent } from '../context/engine'
 import { pruneSharedRows } from './nodeLifecycle'
+import { pendingTombstones, queuedRev, clearTombstone } from './tombstoneQueue'
 import { normalizeAppliedWorkItem, workItemDetachHook } from './workItems'
 
 // ── Park-inbound (§2.1 receiver defensiveness; GAP-013 repair) ──────────────
@@ -474,6 +475,8 @@ export function collectPending(): { upserts: PendingUpsert[]; deletes: PendingDe
     .all(PERSONAL_ORG_ID) as Array<Record<string, unknown>>
   for (const row of rowRows) pushRow(row, 'row')
 
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts).
+  for (const t of pendingTombstones(db, 'personal')) deletes.push({ id: t.id, itemType: t.itemType, baseRev: t.baseRev })
   return { upserts, deletes }
 }
 
@@ -558,6 +561,8 @@ export function collectPendingOrg(orgId: string): {
     .all(orgId) as Array<Record<string, unknown>>
   for (const row of fileRows) pushRow(row, 'file')
 
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts).
+  for (const t of pendingTombstones(db, 'org', orgId)) deletes.push({ id: t.id, itemType: t.itemType, baseRev: t.baseRev })
   return { upserts, deletes }
 }
 
@@ -608,6 +613,8 @@ export function collectPendingShared(): { upserts: PendingUpsert[]; deletes: Pen
       .all() as Array<Record<string, unknown>>
     for (const row of rows) pushRow(row, itemType)
   }
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts).
+  for (const t of pendingTombstones(db, 'shared')) if (t.rootId) deletes.push({ id: t.id, itemType: t.itemType, baseRev: t.baseRev, rootId: t.rootId })
   return { upserts, deletes }
 }
 
@@ -739,6 +746,7 @@ export function markPushed(itemType: ItemType, id: string, rev: number): void {
        deleted_elsewhere_at = CASE WHEN trashed_at IS NULL THEN NULL ELSE deleted_elsewhere_at END
      WHERE id = ?`
   ).run(rev, id)
+  clearTombstone(db, itemType, id) // a queued tombstone that has now gone up
 }
 
 // ── Apply rows pulled from the server ────────────────────────────────────────
@@ -900,6 +908,15 @@ export function applyRemote(items: RemoteItem[]): { applied: number; failed: num
       // Forward compatibility: an item type this build does not know is
       // skipped, never a crash (a newer device may sync richer types).
       if (!table) continue
+      // A tombstone this device still owes the server for this item (a hard delete,
+      // tombstoneQueue.ts): if the server already deleted it, or holds a newer rev
+      // (restored or edited elsewhere since, which wins), the queued tombstone is
+      // dropped; at the rev we deleted, the row is not brought back.
+      const owed = queuedRev(db, item.itemType, item.id)
+      if (owed !== undefined) {
+        if (item.deleted || item.rev > owed) clearTombstone(db, item.itemType, item.id)
+        else continue
+      }
       if (item.deleted) {
         // Soft-delete locally if the row exists; keep an existing trash timestamp.
         const local = db
@@ -1090,6 +1107,15 @@ export function applyRemoteOrg(items: RemoteItem[], orgId: string): { applied: n
       // Forward compatibility: an item type this build does not know is skipped,
       // never a crash (a newer device may sync richer types).
       if (!table) continue
+      // A tombstone this device still owes the server for this item (a hard delete,
+      // tombstoneQueue.ts): if the server already deleted it, or holds a newer rev
+      // (restored or edited elsewhere since, which wins), the queued tombstone is
+      // dropped; at the rev we deleted, the row is not brought back.
+      const owed = queuedRev(db, item.itemType, item.id)
+      if (owed !== undefined) {
+        if (item.deleted || item.rev > owed) clearTombstone(db, item.itemType, item.id)
+        else continue
+      }
       if (item.deleted) {
         // Soft-delete locally if the row exists; keep an existing trash timestamp.
         const exists = db
@@ -1184,6 +1210,15 @@ export function applyRemoteShared(
     for (const item of ordered) {
       const table = TABLE[item.itemType]
       if (!table) continue
+      // A tombstone this device still owes the server for this item (a hard delete,
+      // tombstoneQueue.ts): if the server already deleted it, or holds a newer rev
+      // (restored or edited elsewhere since, which wins), the queued tombstone is
+      // dropped; at the rev we deleted, the row is not brought back.
+      const owed = queuedRev(db, item.itemType, item.id)
+      if (owed !== undefined) {
+        if (item.deleted || item.rev > owed) clearTombstone(db, item.itemType, item.id)
+        else continue
+      }
       const rootId = item.rootId ?? null
       if (!rootId) continue // a shared item must name its desk
       if (!SHARED_COL_TABLES.has(table)) continue // only desk-content tables carry the column
