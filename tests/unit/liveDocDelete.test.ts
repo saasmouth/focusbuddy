@@ -103,8 +103,29 @@ describe('a member, when the owner deletes it', () => {
     useDocCollabStore.setState({ openId: 'ldoc_1', meta: { id: 'ldoc_1', title: 'Brief' } as never, listVersion: 1, goneId: null } as never)
     // GET /livedocs/ldoc_1 answers 404: it no longer exists.
     await push('ldoc_1')
-    await vi.waitFor(() => expect(useDocCollabStore.getState()).toMatchObject({ openId: null, goneId: 'ldoc_1', listVersion: 2 }))
+    await vi.waitFor(() => expect(useDocCollabStore.getState()).toMatchObject({ openId: null, goneId: 'ldoc_1', goneReason: 'deleted', listVersion: 2 }))
     expect(useNoticeStore.getState().notice?.text).toBe('“Brief” was deleted by its owner.')
+  })
+
+  it('removed from it (403): it closes, saying access was removed, never that it was deleted', async () => {
+    // a0: the owner removing a member sends that member the same push; the
+    // document still exists, so its GET answers 403, not 404.
+    const { useDocCollabStore } = await import('@renderer/stores/docCollab')
+    useDocCollabStore.setState({ openId: 'ldoc_1', meta: { id: 'ldoc_1', title: 'Brief' } as never, listVersion: 1, goneId: null } as never)
+    replies['GET /livedocs/ldoc_1'] = respond(403, { ok: false, error: 'Not a member of this document.' })
+    await push('ldoc_1')
+    await vi.waitFor(() => expect(useDocCollabStore.getState()).toMatchObject({ openId: null, goneId: 'ldoc_1', goneReason: 'removed' }))
+    expect(useNoticeStore.getState().notice?.text).toBe('“Brief” is no longer shared with you.')
+  })
+
+  it('a server that cannot answer (5xx, offline) leaves it open', async () => {
+    const { useDocCollabStore } = await import('@renderer/stores/docCollab')
+    useDocCollabStore.setState({ openId: 'ldoc_1', meta: { id: 'ldoc_1', title: 'Brief' } as never, listVersion: 1, goneId: null } as never)
+    replies['GET /livedocs/ldoc_1'] = respond(503, { ok: false })
+    await push('ldoc_1')
+    await vi.waitFor(() => expect(useDocCollabStore.getState().listVersion).toBe(2))
+    await new Promise((r) => setTimeout(r, 10))
+    expect(useDocCollabStore.getState()).toMatchObject({ openId: 'ldoc_1', goneId: null })
   })
 
   it('a push for a document that still exists leaves the editor open (only the list is read again)', async () => {

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useAccountStore } from './account'
-import { getLiveDoc, deleteLiveDoc, liveDocStillThere, type LiveDocFull } from '../lib/docCollabClient'
+import { getLiveDoc, deleteLiveDoc, liveDocStatus, type LiveDocFull } from '../lib/docCollabClient'
 import { setDocSocketHandler, type DocSocketEvent } from '../lib/messagingSocket'
 import { useNoticeStore } from './notice'
 
@@ -22,8 +22,9 @@ interface DocCollabStore {
 
   /** Bumped when the list of live documents should be read again (CollaborationsView). */
   listVersion: number
-  /** The live document that was open when its owner deleted it (the editor says so). */
+  /** The live document that was open when its owner deleted it, or removed me from it (the editor says which). */
   goneId: string | null
+  goneReason: 'deleted' | 'removed' | null
 
   openLive: (id: string) => Promise<void>
   closeLive: () => void
@@ -38,11 +39,12 @@ export const useDocCollabStore = create<DocCollabStore>((set, get) => ({
   loading: false,
   listVersion: 0,
   goneId: null,
+  goneReason: null,
 
   openLive: async (id) => {
     const t = token()
     if (!t) return
-    set({ openId: id, loading: true, meta: null, bodyObj: null, goneId: null })
+    set({ openId: id, loading: true, meta: null, bodyObj: null, goneId: null, goneReason: null })
     const full = await getLiveDoc(t, id)
     if (!full || get().openId !== id) {
       set({ loading: false })
@@ -72,11 +74,11 @@ export const useDocCollabStore = create<DocCollabStore>((set, get) => ({
   }
 }))
 
-// A member hears that a live document changed hands or was deleted by its owner
-// (the signal's docLockChanged push; holder null when the owner deletes it, 4.3.56).
-// The list is read again either way. If it is the document open here, ask whether
-// it still exists: only a clear "no" closes it, with a word; an unreachable server
-// leaves it open.
+// A member hears that a live document was deleted by its owner, or that the owner
+// removed them from it: the signal sends the same docLockChanged push for both
+// (holder null, 4.3.56). The list is read again either way. If it is the document
+// open here, ask the server: deleted (404) and removed (403) close it, each with
+// its own true word; an unreachable or failing server leaves it open.
 export async function handleDocSocketEvent(e: DocSocketEvent): Promise<void> {
   if (e.type !== 'docLockChanged') return
   const store = useDocCollabStore
@@ -85,9 +87,14 @@ export async function handleDocSocketEvent(e: DocSocketEvent): Promise<void> {
   if (!id || store.getState().openId !== id) return
   const t = token()
   if (!t) return
-  if ((await liveDocStillThere(t, id)) !== false || store.getState().openId !== id) return
+  const status = await liveDocStatus(t, id)
+  if ((status !== 'deleted' && status !== 'removed') || store.getState().openId !== id) return
   const title = store.getState().meta?.title?.trim() || 'This shared document'
-  store.setState({ openId: null, meta: null, bodyObj: null, goneId: id })
-  useNoticeStore.getState().show({ text: `“${title}” was deleted by its owner.`, icon: 'delete' })
+  store.setState({ openId: null, meta: null, bodyObj: null, goneId: id, goneReason: status })
+  useNoticeStore.getState().show(
+    status === 'deleted'
+      ? { text: `“${title}” was deleted by its owner.`, icon: 'delete' }
+      : { text: `“${title}” is no longer shared with you.`, icon: 'group' }
+  )
 }
 setDocSocketHandler((e) => void handleDocSocketEvent(e))

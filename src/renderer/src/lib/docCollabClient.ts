@@ -219,12 +219,18 @@ export function canDeleteSharedCopy(doc: Pick<LiveDocMeta, 'id' | 'ownerAccountI
   return !!myAccountId && doc.ownerAccountId === myAccountId && doc.id.startsWith('ldoc_')
 }
 
-/** Does this live document still exist for me? null when the server could not say (offline). */
-export async function liveDocStillThere(token: string, id: string): Promise<boolean | null> {
+/**
+ * Is this live document still mine to open? The signal checks that it exists
+ * before it checks access (a0): 404/410 deleted by its owner; 403 it exists but
+ * I am no longer a member (the owner removed me); anything else, including no
+ * answer, 'unknown'.
+ */
+export async function liveDocStatus(token: string, id: string): Promise<'present' | 'deleted' | 'removed' | 'unknown'> {
   const { status } = await call('GET', `/livedocs/${id}`, token)
-  if (status === 200) return true
-  if (status === 403 || status === 404 || status === 410) return false
-  return null
+  if (status === 200) return 'present'
+  if (status === 404 || status === 410) return 'deleted'
+  if (status === 403) return 'removed'
+  return 'unknown'
 }
 
 export async function listLiveDocs(token: string): Promise<LiveDocListItem[]> {

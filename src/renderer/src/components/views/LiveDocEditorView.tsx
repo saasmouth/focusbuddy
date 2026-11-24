@@ -85,6 +85,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   const openLive = useDocCollabStore((s) => s.openLive)
   const closeLive = useDocCollabStore((s) => s.closeLive)
   const goneId = useDocCollabStore((s) => s.goneId)
+  const goneReason = useDocCollabStore((s) => s.goneReason)
   const goDocuments = useViewStore((s) => s.goDocuments)
   const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   const back = onBack ?? goDocuments
@@ -356,16 +357,18 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, comments])
 
-  // The owner stopped sharing it and deleted the shared copy while it was open here
-  // (the store heard the signal's push, 4.3.56): say so, rather than show an editor
-  // for a document that no longer exists.
+  // The owner deleted the shared copy, or removed me from it, while it was open here
+  // (the store heard the signal's push and asked, 4.3.56): say which, rather than
+  // show an editor for a document I can no longer open.
   if (goneId === liveDocId) {
     return (
       <div className="h-full flex items-center justify-center desk-paper no-tod px-6" data-testid="livedoc-gone">
         <div className="text-center max-w-sm">
           <Icon name="delete" size={28} className="text-[var(--ink-40)] mx-auto mb-3" />
           <p className="text-[13px] text-[var(--ink-70)] mb-4">
-            The owner stopped sharing this document and deleted the shared copy.
+            {goneReason === 'removed'
+              ? 'The owner removed your access to this document.'
+              : 'The owner stopped sharing this document and deleted the shared copy.'}
           </p>
           <button
             onClick={() => back()}
