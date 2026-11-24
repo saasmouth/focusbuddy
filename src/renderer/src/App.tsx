@@ -68,6 +68,7 @@ import { useNodeStore } from './stores/nodes'
 import { useTemplateStore } from './stores/templates'
 import { useVaultStore } from './stores/vault'
 import { useAccountStore } from './stores/account'
+import { repairRevokedLinks } from './stores/shares'
 import { useNoticeStore } from './stores/notice'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
@@ -316,6 +317,9 @@ export default function App(): JSX.Element {
       // we're signed in, so the very first AI call routes correctly (credits vs
       // BYOK) instead of bouncing off a dormant proxy.
       void window.api.ai.refreshCredits()
+      // Links turned off before 4.3.55 never reached the server (the revoke sent
+      // no session): send each once more, signed in (stores/shares.ts).
+      void repairRevokedLinks()
       // Multi-device sync: keep this account's tasks + canvas widgets in step with
       // its other devices. Default-on; pushes local changes and pulls remote ones.
       startWorkspaceSync()
