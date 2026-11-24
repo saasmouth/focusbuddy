@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { createServer } from 'net'
 import { gotoView, launchApp, openProduct, waitForReady } from './_helpers'
 
 // PlexiAPI verification.
@@ -88,6 +89,22 @@ test('2. create write token: revealed secret starts with plx_', async () => {
   }
 })
 
+// A port nothing is listening on, from the OS. The default (8787) is shared with
+// other tools on a developer's machine (a phone-preview server held it on the
+// release machine, 24 Nov 2026), and then "stopped" could not be told from
+// "something else answers": the test must not depend on the machine.
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer()
+    srv.once('error', reject)
+    srv.listen(0, '127.0.0.1', () => {
+      const addr = srv.address()
+      const port = typeof addr === 'object' && addr ? addr.port : 0
+      srv.close(() => resolve(port))
+    })
+  })
+}
+
 test('3-8. server on + auth + write + scope + hash + revoke + stop', async () => {
   // Combined test: start the server, exercise all security properties.
   const { window, dispose } = await launchApp()
@@ -111,7 +128,11 @@ test('3-8. server on + auth + write + scope + hash + revoke + stop', async () =>
     )
     const readSecret = (readResult as { secret: string }).secret
 
-    // --- Enable the server via the UI checkbox so the component re-renders ---
+    // --- On a port of its own, then enabled via the UI checkbox so the component re-renders ---
+    const own = await freePort()
+    const set = (await window.evaluate(async (p) => window.api.apiAccess.setPort(p), own)) as { port: number; error?: string }
+    expect(set.error).toBeUndefined()
+    expect(set.port).toBe(own)
     await window.locator('[data-testid="api-enabled"]').click()
 
     // UI should show "Running" — wait for the async IPC toggle to complete
@@ -124,6 +145,7 @@ test('3-8. server on + auth + write + scope + hash + revoke + stop', async () =>
     expect(enabledStatus.running).toBe(true)
     expect(enabledStatus.enabled).toBe(true)
     const port = enabledStatus.port
+    expect(port, 'it listens on the port the test chose').toBe(own)
     const base = `http://127.0.0.1:${port}`
 
     await expect(window.locator('[data-testid="api-base-url"]')).toContainText(`http://127.0.0.1:${port}`)
