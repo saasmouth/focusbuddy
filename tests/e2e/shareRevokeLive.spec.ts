@@ -118,3 +118,55 @@ test('a link the old app only marked off on this computer stops opening at the n
     rmSync(profile, { recursive: true, force: true })
   }
 })
+
+// A link an old app minted SIGNED OUT has no owner on the server. Before a0's
+// revoke rescue nobody could end it (a 404 to everyone, while it still opened);
+// with the rescue its token alone ends it. LIVE_SIGNAL_REVOKE_RESCUE=1 says the
+// local signal has the rescue; without it, the app must keep the link live and
+// say once that it still works, never claim it ended.
+const RESCUE = process.env.LIVE_SIGNAL_REVOKE_RESCUE === '1'
+
+test(`a link made signed out and marked off here: ${RESCUE ? 'the next launch ends it' : 'it still opens, and the app says so once'}`, async () => {
+  test.setTimeout(300_000)
+  const profile = mkdtempSync(join(tmpdir(), 'fb-revoke-anon-'))
+  const email = `revoke.anon.${Date.now()}@example.com`
+  const password = 'Test-Account-123!'
+  const token = `anon${Date.now()}${Math.random().toString(36).slice(2, 14)}`
+  // Minted with no session, as an app signed out did.
+  const minted = await fetch(`${API_BASE}/share`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token, kind: 'task', snapshot: { title: 'Old anonymous link' }, fromHandle: 'anonymous', scope: 'view', expiresAt: null })
+  })
+  expect(minted.status, 'minted signed out').toBe(200)
+  expect(await opens(token)).toBe(200)
+  let A: Launched | null = await launch('A', profile)
+  try {
+    await dismissOnboarding(A.window)
+    await signUp(A.window, email, password)
+    await dismissOnboarding(A.window)
+    await clearScrims(A.window, 'A')
+    // On this computer: the link's row, marked off by the old app.
+    await A.window.evaluate(async (t) => {
+      const api = (window as unknown as { api: typeof window.api }).api
+      const row = await api.shares.create({ token: t, kind: 'task', entityId: 'desk_old', label: 'Old anonymous link', scope: 'view', expiresAt: null, createdBy: null })
+      await api.shares.revoke(row.id)
+    }, token)
+    await A.close()
+    A = null
+
+    A = await launch('A', profile)
+    await dismissOnboarding(A.window)
+    await signIn(A.window, email, password)
+    if (RESCUE) {
+      await expect.poll(() => opens(token), { message: 'the rescue lets the next launch end it', timeout: 60_000 }).toBe(404)
+    } else {
+      await expect(A.window.getByText(/1 link you turned off still works/), 'said, once').toBeVisible({ timeout: 30_000 })
+      expect(await opens(token), 'and it really does still open').toBe(200)
+    }
+  } finally {
+    await A?.close().catch(() => undefined)
+    A = null
+    rmSync(profile, { recursive: true, force: true })
+  }
+})
