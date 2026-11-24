@@ -67,6 +67,7 @@ export default function CalculatorWidget({ widget, inline = false }: Props): JSX
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     if (expr === lastSavedRef.current) return
     lastSavedRef.current = expr
     void update(widget.id, { content: expr })

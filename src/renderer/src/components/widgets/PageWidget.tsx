@@ -203,6 +203,7 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
   // Write an edit still waiting for its timer when the page goes away
   // (lib/useSaveOnUnmount): clearing the timer alone dropped it.
   useSaveOnUnmount(() => {
+    if (readOnly) return
     if (persistTimer.current) clearTimeout(persistTimer.current)
     persistTimer.current = null
     const pending = pendingEditor.current
