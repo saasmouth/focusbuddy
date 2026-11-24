@@ -23,6 +23,10 @@ export interface MintShareInput {
   // Forward-compatible: the hosted service stores it once it understands the
   // field, and ignores it until then.
   createdBy?: string | null
+  // The desk or room the link was made from (4.3.56 on). Deleting that desk on
+  // the server ends the link at once (signal endLinksOfDeletedNode). Left out
+  // when the link is not of a desk; a re-mint never blanks it.
+  rootId?: string
 }
 
 export interface ShareRecipientDto {

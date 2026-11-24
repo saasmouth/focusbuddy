@@ -21,6 +21,22 @@ function getShareService(): ShareService | null {
   return svc
 }
 
+// The desk or room a link is of, so deleting it ends the link (owner, 24 Nov
+// 2026: deleting a desk or room ends its links at once; the signal does it when
+// the desk's delete arrives). A desk or room: itself. Deleting a room trashes
+// every desk under it, and each of those deletes ends that desk's own links. A
+// widget: the desk it is on, which takes it when deleted. Documents, document
+// folders and Drive files are not desks: none.
+async function shareRootId(kind: ShareableKind, entityId: string): Promise<string | undefined> {
+  if (kind === 'task' || kind === 'folder') return entityId
+  if (kind !== 'widget') return undefined
+  try {
+    return (await window.api.widgets.get(entityId))?.taskId || undefined
+  } catch {
+    return undefined // not found: the link is still made, and ends at revoke or expiry
+  }
+}
+
 interface SharesStore {
   // Outgoing shares — links I've minted for my own entities.
   outgoing: ShareLink[]
@@ -152,6 +168,7 @@ export const useSharesStore = create<SharesStore>((set, get) => ({
     const service = getShareService()
     if (service && snapshot !== undefined) {
       try {
+        const rootId = await shareRootId(kind, entityId)
         await service.mint(
           {
             token,
@@ -160,7 +177,8 @@ export const useSharesStore = create<SharesStore>((set, get) => ({
             fromHandle: fromHandle ?? 'anonymous',
             scope,
             expiresAt: expiresAt ?? null,
-            createdBy: createdBy ?? null
+            createdBy: createdBy ?? null,
+            ...(rootId ? { rootId } : {})
           },
           useAccountStore.getState().sessionToken
         )
