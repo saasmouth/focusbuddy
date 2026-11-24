@@ -160,3 +160,25 @@ test('NG-7 a page route that continue()s a production URL still cannot reach it 
   // and not a server: it never got as far as a connection.
   expect((await failed).failure()?.errorText).toBe('net::ERR_NAME_NOT_RESOLVED')
 })
+
+test('NG-8 a renderer request made as the app is disposed is cancelled at the session and kept as teardown, never a failure', async () => {
+  // Found in the 4.3.54 RC: a signed-in spec's sync timer fired while dispose()
+  // closed the app. The request reached the session layer with NO webContents
+  // (the window already gone), so the spec's route could not answer it, and the
+  // guard failed the spec although its route covered that host.
+  const l = await boot()
+  const api = new URL(ACTIVE.api)
+  // While the app is up, the spec's own route answers, as a signed-in spec's does.
+  await l.window.route((u) => u.origin === api.origin, (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
+  const url = `${ACTIVE.api}/workspace/shared/sync?while=closing`
+  await l.window.evaluate((u) => {
+    setInterval(() => void fetch(u).catch(() => undefined), 2)
+  }, url)
+  launched = null
+  await l.dispose()
+  // Made as the window went away: cancelled at the session (nothing left), recorded as teardown.
+  expect(l.netGuard.teardown.map((t) => `${t.stack} ${t.url}`)).toContain(`session ${url}`)
+  // And not a violation: no layer counted it against the spec.
+  expect(l.netGuard.violations.filter((v) => v.url === url)).toEqual([])
+})
+

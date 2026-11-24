@@ -196,6 +196,21 @@ if (electron && electron.app) {
 
   // Set by the test side once context.route is installed (launchGuarded).
   let routesReady = false
+  // Set by the test side when dispose() begins closing the app (and by
+  // before-quit, for any other way out): requests after this from a window that
+  // is already gone are teardown, not a spec reaching for production.
+  let closing = false
+  globalThis.__plexiiNetGuardClosing = () => {
+    closing = true
+    return true
+  }
+  try {
+    app.on('before-quit', () => {
+      closing = true
+    })
+  } catch {
+    /* no app here: dispose() still sets it */
+  }
   globalThis.__plexiiNetGuardRoutesReady = () => {
     routesReady = true
     return true
@@ -224,7 +239,16 @@ if (electron && electron.app) {
         // The context route sees this next and decides (see the header).
         return callback({})
       }
-      record({ stack: 'session', url: details.url, resourceType: details.resourceType })
+      // A renderer request (xhr) with NO webContents once the app is closing
+      // is the window going away under a request it had just made (the sync
+      // timer of a signed-in spec, say): the routes that would have answered it
+      // can no longer apply. It is still cancelled here, so nothing leaves; it
+      // is recorded as teardown, and does not fail the spec. Anything else at
+      // shutdown (main-process net.fetch is 'other', a socket, a request from a
+      // window that is still there) is a violation as before. Found in the
+      // 4.3.54 RC (liteRoomV2 LV-1; netGuard.spec NG-8 reproduces it).
+      const teardown = closing && !details.webContents && details.resourceType === 'xhr'
+      record({ stack: 'session', url: details.url, resourceType: details.resourceType, ...(teardown ? { teardown: true } : {}) })
       callback(allow ? {} : { cancel: true })
     })
     // Electron keeps ONE onBeforeRequest listener per session; a later call
