@@ -176,7 +176,9 @@ console.log('PROBE=' + JSON.stringify({
   adhoc: c.mac.identity === null,
   envPassword: 'APPLE_APP_SPECIFIC_PASSWORD' in process.env,
   optPassword: 'appleIdPassword' in o,
-  keychainProfile: o.keychainProfile || null
+  keychainProfile: o.keychainProfile || null,
+  // electron-builder's real choice, minus the password's value (fake here anyway).
+  options: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, k === 'appleIdPassword' ? '<set>' : v]))
 }))`
 
 // argv as the electron-builder CLI would see it: [node, cli, ...flags].
@@ -189,13 +191,15 @@ function builder(env: NodeJS.ProcessEnv, flags: string[] = ['--mac']) {
 describe('electron-builder.cjs', () => {
   it('password AND a stored profile: notarize gets the profile; the password is gone from the builder', () => {
     const r = builder(envWith(PASSWORD_SET, ['plexii-notary']))
-    expect(r.probe, r.out).toEqual({
+    expect(r.probe, r.out).toMatchObject({
       notarize: true,
       adhoc: false,
       envPassword: false,
       optPassword: false,
       keychainProfile: 'plexii-notary'
     })
+    // Exactly what @electron/notarize is handed: no Apple ID, no password, no team.
+    expect(r.probe.options).toEqual({ tool: 'notarytool', appPath: '/x.app', keychainProfile: 'plexii-notary' })
   })
 
   it('a profile alone signs and notarises (not ad-hoc)', () => {
