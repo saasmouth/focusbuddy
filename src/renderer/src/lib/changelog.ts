@@ -38,6 +38,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.55',
+    date: '2026-11-24T04:10:00Z',
+    title: 'PlexiiDesk 4.3.55 — what is deleted on another device waits in your Trash',
+    tag: 'feature',
+    summary:
+      'When something is deleted on another of your devices, or by someone you work with, it now waits in this device\'s Trash for 30 days, and you can bring it back everywhere.',
+    highlights: [
+      'Trash now lists what was deleted on your other devices or by people you work with: work widgets, tables, rows, time blocks, files and Office documents, with where each one was. It keeps them for 30 days.',
+      'Restore brings it back on all your devices, and for the people you share it with. Delete for good removes only the copy on this device.',
+      'If something on the desk you have open is deleted somewhere else, a short message says so, with Restore, and Trash in the side menu shows a dot until you open it.',
+      'In an organisation\'s workspace, Trash shows who deleted it.',
+      'Turning off a share link now really stops it working. Some links you turned off before this update could still be opened: Plexii turns them off the next time you sign in, and tells you if one still works.'
+    ]
+  },
+  {
     version: '4.3.54',
     date: '2026-11-20T06:00:00Z',
     title: 'PlexiiDesk 4.3.54 — open Plexii files from Finder, and edits are kept when a work widget closes',
