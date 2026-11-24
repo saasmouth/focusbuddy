@@ -45,6 +45,7 @@ export default function ColorWidget({ widget, inline = false }: Props): JSX.Elem
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     if (color === lastSavedRef.current) return
     lastSavedRef.current = color
     void update(widget.id, { content: color })

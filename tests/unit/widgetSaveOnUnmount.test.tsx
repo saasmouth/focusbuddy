@@ -46,6 +46,7 @@ import ShapeWidget from '../../src/renderer/src/components/widgets/ShapeWidget'
 import CustomBlockWidget from '../../src/renderer/src/components/widgets/CustomBlockWidget'
 import PageWidget from '../../src/renderer/src/components/widgets/PageWidget'
 import type { Widget } from '../../src/shared/types'
+import { WidgetReadOnlyContext } from '../../src/renderer/src/lib/widgetSurface'
 
 let root: Root
 let host: HTMLElement
@@ -153,3 +154,29 @@ describe('nothing pending, nothing written; the debounce is unchanged', () => {
     expect(update).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('read-only (the widget host showing a file it may not change): nothing is written', () => {
+  // 9e, 2026-11-24: 4.3.54's save-on-close met the host's read-only mode in
+  // these six widgets. A read-only widget shows no controls, so no edit is
+  // pending; but a widget also writes its content back in its own normalised
+  // form (a card adds the fields it lacks), and that must not happen to a file
+  // the reader may only look at -- neither after the debounce nor on close.
+  const readOnly = (el: JSX.Element): JSX.Element => <WidgetReadOnlyContext.Provider value={true}>{el}</WidgetReadOnlyContext.Provider>
+  const cases: Array<[string, JSX.Element]> = [
+    ['card', <CardWidget key="c" widget={widget('card', JSON.stringify({ title: 'Plan' }))} />],
+    ['calculator', <CalculatorWidget key="k" widget={widget('calculator', '1+')} />],
+    ['color', <ColorWidget key="o" widget={widget('color', '')} />],
+    ['shape', <ShapeWidget key="s" widget={widget('shape', JSON.stringify({ label: 'Box' }))} />],
+    ['form block', <CustomBlockWidget key="f" widget={widget('custom', JSON.stringify({ fields: [] }))} />],
+    ['page', <PageWidget key="p" widget={widget('page', '')} />]
+  ]
+  for (const [name, el] of cases) {
+    it(`a read-only ${name} writes nothing, after its debounce or when it closes`, () => {
+      mount(readOnly(el))
+      act(() => vi.advanceTimersByTime(1000))
+      unmountAtOnce()
+      expect(update, `${name} wrote while read-only`).not.toHaveBeenCalled()
+    })
+  }
+})
+

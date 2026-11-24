@@ -260,11 +260,11 @@ That is expected, and PlexiiLite discloses it.
 (an Ollama server) on every page that showed a calculator, a chart, a task list
 and ten other kinds (1a found it). The search index did it: opening a file
 saves it into the page's database, and a save embeds the document for search,
-which with no key asks for a model on this computer. The host build now swaps
-`src/main/ai/localModel.ts` for `src/web/worker/main/hostLocalModel.ts`
-(`HOST_MODULE_SWAPS` in `vite.widgethost.config.ts`), which has no model and
-nowhere to ask, so the host carries no local-model client at all. Search keeps
-to keywords; nothing is faked. The share app keeps its client.
+which with no key asks for a model on this computer. The browser builds now
+swap `src/main/ai/localModel.ts` for `src/web/worker/main/localModel.ts`
+(`MODULE_SWAPS` in `vite.web.config.ts`, which the host's build inherits), so
+neither the host nor the share app carries a local-model client at all. Search
+keeps to keywords; nothing is faked.
 
 `tests/widget-host/network.spec.ts` checks this:
 

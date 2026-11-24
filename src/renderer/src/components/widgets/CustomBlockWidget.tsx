@@ -99,6 +99,9 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
   useEffect(() => subscribe(() => forceTpl((n) => n + 1)), [])
 
   useEffect(() => {
+    // Read-only (the widget host showing a file it may not change): never
+    // written, not even in this widget's own normalised form.
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     const h = window.setTimeout(() => {
@@ -106,10 +109,11 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
       void update(widget.id, { content: next })
     }, 300)
     return () => window.clearTimeout(h)
-  }, [data, widget.id, update])
+  }, [data, widget.id, update, readOnly])
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     lastSaved.current = next
