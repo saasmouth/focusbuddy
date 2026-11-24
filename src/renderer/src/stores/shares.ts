@@ -9,6 +9,7 @@ import { generateShareToken } from '../lib/shareTokens'
 import { ShareService, type ShareRecipientDto } from '../lib/shareService'
 import { signalConfig } from '../lib/signalConfig'
 import { useAccountStore } from './account'
+import { useNoticeStore } from './notice'
 
 // ShareService singleton — null in local-mock dev mode (no server),
 // instantiated in prod / when explicitly configured. Created lazily so
@@ -34,6 +35,126 @@ async function shareRootId(kind: ShareableKind, entityId: string): Promise<strin
     return (await window.api.widgets.get(entityId))?.taskId || undefined
   } catch {
     return undefined // not found: the link is still made, and ends at revoke or expiry
+  }
+}
+
+// ── Ending a link on the server ────────────────────────────────────────────
+// Up to 4.3.54 a revoke sent no session, the server (owner-only since 8 Sept
+// 2026) refused it, and the app listed the link as off while it still opened.
+// Now a link is listed as off only once the server has ended it.
+
+export type LinkEndResult = { ok: true } | { ok: false; error: string }
+
+type EndOutcome = 'ended' | 'local' | 'notOurs' | 'otherAccount' | 'refused' | 'unreachable' | 'signIn'
+
+// Links whose end the server has confirmed (never asked again), and links
+// already said to still work after a 404 (said once; still tried each launch,
+// since the server may later let this account end them). Per device.
+const REPAIRED_KEY = 'plexii.shares.revokeRepaired'
+const STILL_OPEN_SAID_KEY = 'plexii.shares.revokeStillOpenSaid'
+
+function readTokens(key: string): Set<string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) ?? '[]')
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+function writeTokens(key: string, tokens: Set<string>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify([...tokens]))
+  } catch {
+    /* storage unavailable: the repair sends again next launch, which is harmless */
+  }
+}
+function noteEnded(token: string): void {
+  const done = readTokens(REPAIRED_KEY)
+  done.add(token)
+  writeTokens(REPAIRED_KEY, done)
+}
+
+async function endOnServer(link: Pick<ShareLink, 'token' | 'createdBy'>): Promise<EndOutcome> {
+  const service = getShareService()
+  if (!service) return 'local' // no server configured (local development): nothing hosted to end
+  const { sessionToken, account } = useAccountStore.getState()
+  // Made by another account on this computer: only that account can end it, and
+  // asking as this one would get a 404 that looks like success. Wait for it.
+  if (sessionToken && link.createdBy && account?.handle && link.createdBy !== account.handle) return 'otherAccount'
+  const res = await service.revoke(link.token, sessionToken ?? null)
+  if (res.ok) return 'ended'
+  if (res.status === 0) return 'unreachable'
+  if (res.status === 401) return 'signIn'
+  if (res.status !== 404) return 'refused'
+  const gone = await service.isGone(link.token)
+  return gone === true ? 'ended' : gone === false ? 'notOurs' : 'unreachable'
+}
+
+function stillWorks(out: EndOutcome, link: Pick<ShareLink, 'expiresAt'>): string {
+  switch (out) {
+    case 'signIn':
+      return 'Sign in to stop sharing this link. Until then it still works.'
+    case 'otherAccount':
+      return 'Another account on this computer made this link. Sign in as that account to turn it off. Until then it still works.'
+    case 'unreachable':
+      return 'Plexii could not reach the server, so this link still works. Try again when you are online.'
+    case 'notOurs': {
+      const until =
+        link.expiresAt != null
+          ? ` It stops working on ${new Date(link.expiresAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}.`
+          : ''
+      return `This link can't be turned off from this account, so it still works.${until}`
+    }
+    default:
+      return 'The server did not turn this link off, so it still works. Try again in a moment.'
+  }
+}
+
+let repairing = false
+
+/**
+ * Re-send, signed in, the revokes the app made before 4.3.55, which the server
+ * refused. Once per link: an ended link (200, or 404 with the link gone) is done;
+ * any other answer is tried again next launch, never marked done. A link that
+ * still opens after a 404 is not this account's to end: it is said once and not
+ * retried. Runs at sign-in (App.tsx).
+ */
+export async function repairRevokedLinks(): Promise<void> {
+  if (repairing || !getShareService() || !useAccountStore.getState().sessionToken) return
+  repairing = true
+  try {
+    const rows = await window.api.shares.listAll()
+    const done = readTokens(REPAIRED_KEY)
+    const said = readTokens(STILL_OPEN_SAID_KEY)
+    let stillOpen = 0
+    for (const r of rows) {
+      if (!r.revoked || done.has(r.token)) continue
+      const out = await endOnServer(r)
+      if (out === 'ended') done.add(r.token)
+      else if (out === 'notOurs' && !said.has(r.token)) {
+        said.add(r.token)
+        stillOpen++
+      } else if (out === 'signIn') break // this session no longer counts: the next sign-in tries again
+      // anything else (refused, unreachable, another account's): tried again next launch
+    }
+    writeTokens(REPAIRED_KEY, done)
+    writeTokens(STILL_OPEN_SAID_KEY, said)
+    if (stillOpen > 0) {
+      useNoticeStore.getState().show(
+        {
+          text:
+            stillOpen === 1
+              ? "1 link you turned off still works. The server won't let this account end it yet; Plexii tries again each time you open it."
+              : `${stillOpen} links you turned off still work. The server won't let this account end them yet; Plexii tries again each time you open it.`,
+          icon: 'link_off'
+        },
+        12_000
+      )
+    }
+  } catch {
+    /* nothing sent is marked done: the next launch tries again */
+  } finally {
+    repairing = false
   }
 }
 
@@ -78,14 +199,29 @@ interface SharesStore {
   // remote is configured) or treats the token as opaque (local-mock).
   // Adds the resolved item to the inbox + local DB.
   acceptByToken: (token: string) => Promise<SharedItem>
-  revoke: (id: string) => Promise<void>
+  // Turn a link off. Listed as off only once the server has ended it; otherwise
+  // the link stays live and the result says why, in words to show.
+  revoke: (id: string) => Promise<LinkEndResult>
   // Change a share's scope (e.g. downgrade a meeting-scoped collaborate grant to
   // read-only when the meeting ends). Updates the local row and, when the remote
   // snapshot + handle are supplied, re-upserts the same token on the server so
   // the change reaches recipients too.
   setScope: (id: string, scope: ShareScope, remote?: { snapshot: unknown; fromHandle: string }) => Promise<void>
-  remove: (id: string) => Promise<void>
+  // Remove a link from the list. A live one is turned off first; one the server
+  // will not end is not removed, since it would go on working out of sight.
+  remove: (id: string) => Promise<LinkEndResult>
   removeFromInbox: (id: string) => Promise<void>
+}
+
+// The link by id, reading the list first if it has not been read yet.
+async function findLink(id: string): Promise<ShareLink | null> {
+  const st = useSharesStore.getState()
+  let found = st.outgoing.find((s) => s.id === id) ?? null
+  if (!found) {
+    await st.refresh()
+    found = useSharesStore.getState().outgoing.find((s) => s.id === id) ?? null
+  }
+  return found
 }
 
 export const useSharesStore = create<SharesStore>((set, get) => ({
@@ -226,24 +362,15 @@ export const useSharesStore = create<SharesStore>((set, get) => ({
     return item
   },
   revoke: async (id) => {
-    const target = get().outgoing.find((s) => s.id === id) ?? null
+    const target = await findLink(id)
+    if (!target) return { ok: false, error: 'That link is no longer in the list.' }
+    if (target.revoked) return { ok: true }
+    const out = await endOnServer(target)
+    if (out !== 'ended' && out !== 'local') return { ok: false, error: stillWorks(out, target) }
+    if (out === 'ended') noteEnded(target.token)
     await window.api.shares.revoke(id)
-    set({
-      outgoing: get().outgoing.map((s) =>
-        s.id === id ? { ...s, revoked: true } : s
-      )
-    })
-    // Best-effort remote revoke. Local row is already marked revoked
-    // either way; the share manager UI shows the audit trail.
-    const service = getShareService()
-    if (service && target) {
-      try {
-        await service.revoke(target.token)
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[SharesStore] remote revoke failed:', err)
-      }
-    }
+    set({ outgoing: get().outgoing.map((s) => (s.id === id ? { ...s, revoked: true } : s)) })
+    return { ok: true }
   },
   setScope: async (id, scope, remote) => {
     const updated = await window.api.shares.setScope(id, scope)
@@ -272,8 +399,20 @@ export const useSharesStore = create<SharesStore>((set, get) => ({
     }
   },
   remove: async (id) => {
+    const target = await findLink(id)
+    // Ask the server unless it has already confirmed this link ended: a live link,
+    // or one listed as off by an app that never reached the server.
+    if (target && !readTokens(REPAIRED_KEY).has(target.token)) {
+      const out = await endOnServer(target)
+      if (out === 'ended') noteEnded(target.token)
+      // Already listed as off and not this account's to end: the row is all that goes.
+      else if (!(out === 'local' || (out === 'notOurs' && target.revoked))) {
+        return { ok: false, error: stillWorks(out, target) }
+      }
+    }
     await window.api.shares.delete(id)
     set({ outgoing: get().outgoing.filter((s) => s.id !== id) })
+    return { ok: true }
   },
   removeFromInbox: async (id) => {
     await window.api.shares.removeInbox(id)
