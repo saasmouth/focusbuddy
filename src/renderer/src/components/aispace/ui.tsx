@@ -38,7 +38,8 @@ const STATUS: Record<string, { label: string; icon: string; tone: Tone }> = {
   reconnect_required: { label: 'Reconnect required', icon: 'link_off', tone: 'bad' },
   paused: { label: 'Paused', icon: 'pause_circle', tone: 'idle' },
   disconnected: { label: 'Disconnected', icon: 'power_off', tone: 'idle' },
-  // outputs
+  // outputs (an output's 'draft' is not a connection's 'Setup not finished')
+  output_draft: { label: 'Draft', icon: 'edit_note', tone: 'idle' },
   in_review: { label: 'Ready for review', icon: 'rate_review', tone: 'warn' },
   approved: { label: 'Approved', icon: 'verified', tone: 'ok' },
   changes_requested: { label: 'Changes requested', icon: 'edit', tone: 'warn' },
@@ -57,6 +58,11 @@ const STATUS: Record<string, { label: string; icon: string; tone: Tone }> = {
 
 export function statusInfo(status: string): { label: string; icon: string; tone: Tone } {
   return STATUS[status] ?? { label: status.replace(/_/g, ' '), icon: 'circle', tone: 'info' }
+}
+
+// An output's review state as a status key (its 'draft' has its own label).
+export function reviewStatus(state: string): string {
+  return state === 'draft' ? 'output_draft' : state
 }
 
 export function StatusBadge({ status, label, className = '' }: { status: string; label?: string; className?: string }): JSX.Element {
@@ -427,23 +433,34 @@ export function Inspector(props: {
 
 // Content never moves under the pointer: while the person reads, changes are
 // counted and offered; they apply when the person asks (§5 Motion).
-export function useOnRequestUpdates(load: () => Promise<void>, matches: (p: { topic: string; projectId?: string | null }) => boolean): { pending: number; apply: () => void } {
+// Events that echo the page's own load or the person's own click arrive a
+// moment later; they are not "new updates", so a short window after each
+// self-refresh is ignored.
+const SETTLE_MS = 1500
+
+export function useOnRequestUpdates(load: () => Promise<void>, matches: (p: { topic: string; projectId?: string | null }) => boolean): { pending: number; apply: () => void; reload: () => Promise<void> } {
   const [pending, setPending] = useState(0)
   const loadRef = useRef(load)
   loadRef.current = load
   const matchRef = useRef(matches)
   matchRef.current = matches
+  const quietUntil = useRef(Date.now() + SETTLE_MS)
   useEffect(() => {
     const off = window.api?.aiSpace?.onChanged?.((p) => {
+      if (Date.now() < quietUntil.current) return
       if (matchRef.current(p)) setPending((n) => n + 1)
     })
     return () => off?.()
   }, [])
-  const apply = useCallback(() => {
+  const reload = useCallback(async () => {
+    quietUntil.current = Date.now() + SETTLE_MS
     setPending(0)
-    void loadRef.current()
+    await loadRef.current()
   }, [])
-  return { pending, apply }
+  const apply = useCallback(() => {
+    void reload()
+  }, [reload])
+  return { pending, apply, reload }
 }
 
 export function NewUpdatesBar({ count, onApply }: { count: number; onApply: () => void }): JSX.Element | null {

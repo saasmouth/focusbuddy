@@ -65,7 +65,7 @@ export default function ImpactView(props: { projectId: string; onInspect: (t: In
   useEffect(() => {
     void load()
   }, [load])
-  const { pending, apply } = useOnRequestUpdates(load, (p) => (p.topic === 'event' || p.topic === 'run') && (!p.projectId || p.projectId === props.projectId))
+  const { pending, apply, reload } = useOnRequestUpdates(load, (p) => (p.topic === 'event' || p.topic === 'run') && (!p.projectId || p.projectId === props.projectId))
 
   useEffect(() => {
     if (props.focusChangeId) {
@@ -161,7 +161,8 @@ export default function ImpactView(props: { projectId: string; onInspect: (t: In
           openRef(action.target, props.onInspect)
           break
       }
-      await load()
+      // The person's own action: refresh without announcing it as new.
+      await reload()
       props.onChanged()
     } finally {
       setBusy(null)
@@ -292,7 +293,12 @@ function ImpactRowView(props: {
       props.onToggle()
     }
   }
-  const cat = row.category === 'decision_due' ? { icon: 'gavel', text: 'Decision due' } : row.category === 'conflict' ? { icon: 'priority_high', text: 'Needs attention' } : row.category === 'usable' ? { icon: 'task_alt', text: 'Ready to use' } : { icon: 'info', text: 'For your information' }
+  const possibleOnly = row.affected.length > 0 && row.affected.every((a) => a.relation === 'possible')
+  const cat = row.category === 'decision_due' ? { icon: 'gavel', text: 'Decision due' } : row.category === 'conflict' ? { icon: 'priority_high', text: 'Needs attention' } : row.category === 'usable' ? { icon: 'task_alt', text: 'Ready to use' } : possibleOnly ? { icon: 'help_center', text: 'Check possible matches' } : { icon: 'info', text: 'For your information' }
+  // The right column can name the same action twice (two possible matches):
+  // say which item each one is for.
+  const labelCount = new Map<string, number>()
+  for (const a of row.actions) labelCount.set(a.label, (labelCount.get(a.label) ?? 0) + 1)
   return (
     <div
       role="row"
@@ -336,10 +342,12 @@ function ImpactRowView(props: {
                 <button type="button" onClick={() => openRef(a.ref, props.onInspect)} className="text-[14px] font-medium text-left hover:underline underline-offset-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--accent))]">
                   {a.title}
                 </button>
-                <span className="inline-flex items-center gap-1 text-[12px] text-[var(--ink-70)]">
-                  <Icon name={STATUS_ICON[a.status]} size={13} />
-                  {STATUS_TEXT[a.status]}
-                </span>
+                {a.status !== 'possible_match' && (
+                  <span className="inline-flex items-center gap-1 text-[12px] text-[var(--ink-70)]">
+                    <Icon name={STATUS_ICON[a.status]} size={13} />
+                    {STATUS_TEXT[a.status]}
+                  </span>
+                )}
                 <RelationTag relation={a.relation} />
                 {a.preview?.versionLabel && <span className="text-[11.5px] text-[var(--ink-50)] fb-tabular">{a.preview.versionLabel}</span>}
               </div>
@@ -398,7 +406,7 @@ function ImpactRowView(props: {
             const item = row.affected.find((x) => x.actions.some((y) => y.id === a.id && y.target.id === a.target.id)) ?? null
             return (
               <QuietButton key={`${a.id}:${a.target.id}`} onClick={() => props.onAct(item, a)} disabled={props.busyKey !== null} testId={`ais-row-action-${a.id}`}>
-                {a.label}
+                {(labelCount.get(a.label) ?? 0) > 1 && item ? `${a.label}: ${item.title}` : a.label}
               </QuietButton>
             )
           })}

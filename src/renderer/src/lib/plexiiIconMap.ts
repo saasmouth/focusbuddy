@@ -507,6 +507,10 @@ const VIEW_ENTITY: Record<string, EntityRef> = {
   collaborations: { kind: 'tool', id: 'collaborations' },
   'people-map': { kind: 'tool', id: 'people-map' },
   shared: { kind: 'tool', id: 'shared' },
+  // AI Space reuses the Agents and Agentic Ops owner icons until it has its
+  // own (new owner art is generated on the owner's say-so).
+  aispace: place('brain-agents'),
+  airuns: place('brain-ops'),
   plexidesk: { kind: 'app', id: 'plexidesk' },
   plexibrain: { kind: 'app', id: 'plexibrain' }
 }

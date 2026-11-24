@@ -57,7 +57,7 @@ export default function AiSpaceHome(): JSX.Element {
     void load()
   }, [load])
 
-  const { pending, apply } = useOnRequestUpdates(load, (p) => p.topic === 'event' || p.topic === 'run' || p.topic === 'context')
+  const { pending, apply, reload } = useOnRequestUpdates(load, (p) => p.topic === 'event' || p.topic === 'run' || p.topic === 'context')
 
   if (!aiSpaceAvailable()) {
     return <EmptyState icon="desktop_mac" title="AI Space is in the Plexii desktop app" body="Your AI projects and connections stay on your Mac, so they aren’t available here." testId="ais-home-unavailable" />
@@ -94,9 +94,9 @@ export default function AiSpaceHome(): JSX.Element {
           const name = await promptText({ title: 'New work workspace', label: 'Name (e.g. your company or a client)', confirmLabel: 'Create' })
           if (name && name.trim()) {
             await window.api.aiSpace.createWorkspace('work', name.trim())
-            await load()
+            await reload()
           }
-        }} afterChange={load} />}
+        }} afterChange={reload} />}
         {data && <p className="mt-2 text-[12px] text-[var(--ink-50)] inline-flex items-center gap-1"><Icon name="lock" size={13} />{data.storageNote}</p>}
         {error && (
           <p role="alert" className="mt-4 text-[13px] text-[color:var(--ais-bad)]">
@@ -249,7 +249,7 @@ export default function AiSpaceHome(): JSX.Element {
 
         {data && data.projects.length > 0 && <SearchBox data={data} />}
 
-        {data && <CaptureBox data={data} onDone={load} />}
+        {data && <CaptureBox data={data} onDone={reload} />}
 
         {data && data.sharedIn.length > 0 && (
           <Section title="Shared into this workspace" testId="ais-home-shared">
@@ -469,7 +469,8 @@ function SearchBox({ data }: { data: HomeData }): JSX.Element {
     else if (h.type === 'decision') openProject(p, { tab: 'overview', item: { type: 'decision', id: h.id } })
     else openProject(p, { tab: 'overview' })
   }
-  const field = 'fb-field h-9 rounded-lg px-2 text-[13px] bg-[var(--surface-sunken)] border border-[var(--edge-soft)]'
+  // w-auto: the house field class is full width; filters sit on one line.
+  const field = 'fb-field w-auto h-9 rounded-lg px-2 text-[13px] bg-[var(--surface-sunken)] border border-[var(--edge-soft)]'
   const ICON: Record<SearchHitData['type'], string> = { project: 'auto_awesome', task: 'checklist', thread: 'forum', output: 'description', decision: 'gavel' }
   return (
     <Section title="Search" testId="ais-home-search">

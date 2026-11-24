@@ -313,8 +313,8 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           <div className="w-6 h-px bg-[var(--edge-soft)] shrink-0 my-1" />
 
           <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home} entity={{ kind: 'place', id: 'home' }}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
-          {showAiSpace && <CollapsedNavIcon icon="auto_awesome" label="AI Space" tone={AREA_TONES.aispace} active={viewIsActive({ kind: 'aispace' })} onClick={() => { setActive(null); goAiSpace() }} />}
-          {showAiSpace && <CollapsedNavIcon icon="list_alt" label="Runs" tone={AREA_TONES.airuns} active={viewIsActive({ kind: 'airuns' })} onClick={() => { setActive(null); goAiRuns() }} />}
+          {showAiSpace && <CollapsedNavIcon icon="auto_awesome" label="AI Space" tone={AREA_TONES.aispace} entity={viewKindEntity('aispace') ?? undefined} active={viewIsActive({ kind: 'aispace' })} onClick={() => { setActive(null); goAiSpace() }} />}
+          {showAiSpace && <CollapsedNavIcon icon="list_alt" label="Runs" tone={AREA_TONES.airuns} entity={viewKindEntity('airuns') ?? undefined} active={viewIsActive({ kind: 'airuns' })} onClick={() => { setActive(null); goAiRuns() }} />}
           {/* Monochrome by plexidesk-75's rail rule: no tone, accent only when active. */}
           <CollapsedNavIcon icon="notifications" label="Focus"    tone={AREA_TONES.attention} entity={{ kind: 'place', id: 'focus' }}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms} entity={{ kind: 'place', id: 'rooms' }}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
@@ -429,6 +429,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             <NavRow
               icon="auto_awesome"
               label="AI Space"
+              entity={viewKindEntity('aispace') ?? undefined}
               tone={AREA_TONES.aispace}
               active={viewIsActive({ kind: 'aispace' })}
               testid="nav-aispace"
@@ -442,6 +443,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
             <NavRow
               icon="list_alt"
               label="Runs"
+              entity={viewKindEntity('airuns') ?? undefined}
               tone={AREA_TONES.airuns}
               active={viewIsActive({ kind: 'airuns' })}
               testid="nav-airuns"

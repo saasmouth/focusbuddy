@@ -9,7 +9,7 @@ import type { OutputWithMeta, ProjectViewData, VersionMeta } from '@shared/aispa
 import type { AiOutput, AiWorkspace, OutputKind, OutputVersion, RecordRef } from '@shared/aispace/model'
 import { OUTPUT_KINDS, OUTPUT_KIND_LABEL } from '@shared/aispace/model'
 import { diffLines, sharedHeadings } from '../../lib/aiSpaceDiff'
-import { EmptyState, LinkButton, PrimaryButton, QuietButton, StatusBadge, announce, authorLabel, fmtAgo, fmtWhen } from './ui'
+import { EmptyState, LinkButton, PrimaryButton, QuietButton, StatusBadge, announce, authorLabel, fmtAgo, fmtWhen, reviewStatus } from './ui'
 import { useNoticeStore } from '../../stores/notice'
 
 const KIND_ICON: Record<OutputKind, string> = {
@@ -94,7 +94,7 @@ function OutputCard({ o, view, onOpen, selected }: { o: OutputWithMeta; view: Pr
           <span className="text-[14px] font-medium truncate">{o.title}</span>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-[var(--ink-60)]">
-          <StatusBadge status={o.reviewState} />
+          <StatusBadge status={reviewStatus(o.reviewState)} />
           {v && <span className="fb-tabular">Latest v{v.n}</span>}
           {o.approved && <span className="fb-tabular">Approved v{o.approved.n}</span>}
           {o.publishedVersionId && <span>Published</span>}
@@ -198,7 +198,7 @@ export function OutputInspectorBody(props: {
   return (
     <div data-testid="ais-output-inspector" className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
-        <StatusBadge status={output.reviewState} />
+        <StatusBadge status={reviewStatus(output.reviewState)} />
         <span className="text-[var(--ink-60)]">{OUTPUT_KIND_LABEL[output.kind]}</span>
       </div>
       <div className="grid grid-cols-3 gap-2 text-[12px]" aria-label="Pointers">

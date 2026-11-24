@@ -22,7 +22,7 @@ import ImpactView, { type InspectTarget } from './ImpactView'
 import NewProjectDialog from './NewProjectDialog'
 import BranchReview from './BranchReview'
 import { OutputInspectorBody, OutputsGrid, Preview } from './OutputsPanel'
-import { Announcer, EmptyState, Inspector, Kbd, LinkButton, PrimaryButton, QuietButton, Section, StatusBadge, Tabs, announce, authorLabel, fmtAgo, fmtMoney, fmtWhen, useWideLayout } from './ui'
+import { Announcer, EmptyState, Inspector, Kbd, LinkButton, PrimaryButton, QuietButton, Section, StatusBadge, Tabs, announce, authorLabel, fmtAgo, fmtMoney, fmtWhen, reviewStatus, useWideLayout } from './ui'
 
 const RunInspector = lazy(() => import('./RunInspector'))
 
@@ -366,7 +366,7 @@ function Overview(props: { view: ProjectViewData; onInspect: (t: InspectTarget) 
                 <Preview kind={curMeta.kind} v={curMeta.latest} />
                 <div className="px-4 py-3 flex flex-wrap items-center gap-2">
                   <span className="text-[15px] font-medium">{curMeta.title}</span>
-                  <StatusBadge status={curMeta.reviewState} />
+                  <StatusBadge status={reviewStatus(curMeta.reviewState)} />
                   <span className="text-[12px] text-[var(--ink-50)]">{cur.why}</span>
                 </div>
               </button>
@@ -1063,7 +1063,7 @@ function ManagerPane({ project, view, onInspect }: { project: AiProject; view: P
         <h2 id={hid} className="text-[15px] font-semibold">
           Project Manager
         </h2>
-        <p className="text-[12px] text-[var(--ink-50)]">{conn ? `${conn.alias} · ${mgr?.model ?? project.defaultModel ?? ''}` : 'Answers from your records. Set a default model to chat.'}</p>
+        <p className="text-[12px] text-[var(--ink-50)]">{conn ? `${conn.alias} · ${conn.models.find((m) => m.id === (mgr?.model ?? project.defaultModel))?.label ?? mgr?.model ?? project.defaultModel ?? ''}` : 'Answers from your records. Set a default model to chat.'}</p>
       </header>
       <ol ref={listRef} className="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-3" aria-label="Conversation">
         {(data?.messages ?? []).length === 0 && <li className="text-[13px] text-[var(--ink-60)]">Ask what changed, what to do next, or to plan the work.</li>}
