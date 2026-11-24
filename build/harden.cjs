@@ -157,10 +157,11 @@ exports.default = async function afterPack(context) {
   // credentials electron-builder signs properly after this hook, and ad-hoc
   // signing here would stomp that signature and break notarisation — the same
   // reasoning the old hook carried, preserved.
-  const hasNotaryCreds =
-    !!process.env.APPLE_TEAM_ID &&
-    ((!!process.env.APPLE_API_KEY && !!process.env.APPLE_API_KEY_ID && !!process.env.APPLE_API_ISSUER) ||
-      (!!process.env.APPLE_ID && !!process.env.APPLE_APP_SPECIFIC_PASSWORD))
+  // Decided by scripts/notary-auth.cjs, the same as electron-builder.cjs: by the
+  // time this hook runs the config has already applied it (a keychain profile,
+  // no password), so an inline APPLE_ID check here would read "no credentials"
+  // and ad-hoc sign a build that is about to be notarised.
+  const hasNotaryCreds = require('../scripts/notary-auth.cjs').resolveNotaryAuth(process.env).mode !== 'none'
   if (hasNotaryCreds) {
     // eslint-disable-next-line no-console
     console.log('[harden] Developer ID credentials present — leaving signing to electron-builder')
