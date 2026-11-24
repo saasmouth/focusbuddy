@@ -77,7 +77,9 @@ export default function ImpactView(props: { projectId: string; onInspect: (t: In
   const rows = useMemo(() => {
     if (!data) return []
     const all = data.result.rows
-    return scope === 'all' ? all : all.filter((r) => r.category !== 'info' || r.change.id === props.focusChangeId)
+    // Minor = a change that affected nothing. A possible match is never
+    // minor: it waits for the person to confirm or dismiss it.
+    return scope === 'all' ? all : all.filter((r) => r.category !== 'info' || r.affected.length > 0 || r.change.id === props.focusChangeId)
   }, [data, scope, props.focusChangeId])
 
   const historical = asOf !== null

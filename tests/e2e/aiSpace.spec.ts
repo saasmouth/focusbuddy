@@ -76,7 +76,9 @@ test('a key is checked read-only, a project runs a task, and the result is revie
     await expect(page.getByTestId('ais-output-card')).toContainText('Site hero', { timeout: 15_000 })
     await page.getByTestId('ais-output-card').first().click()
     await expect(page.getByTestId('ais-output-inspector')).toBeVisible()
-    await expect(page.getByTestId('ais-output-inspector')).toContainText('14-day free trial')
+    // A site's preview is a sandboxed, dated rendering: the text is inside its frame.
+    await expect(page.getByTestId('ais-output-inspector')).toContainText('not the live site')
+    await expect(page.frameLocator('iframe[title="Site preview v1"]').locator('body')).toContainText('14-day free trial')
     await page.getByTestId('ais-approve-version').click()
     await expect(page.getByTestId('ais-output-inspector')).toContainText('Approved')
 

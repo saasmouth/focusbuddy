@@ -267,6 +267,7 @@ export default function AiSpaceDeskView({ taskId: deskId }: { taskId: string }):
         expanded={expanded}
         onToggleExpand={() => setExpanded((v) => !v)}
         docked={docked}
+        targetKey={inspect ? `${inspect.kind}:${inspect.id}` : ''}
         testId="ais-inspector"
       >
         {inspect?.kind === 'output' && (

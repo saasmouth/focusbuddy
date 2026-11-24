@@ -754,7 +754,9 @@ export function createAiSpaceStore(db: SqlDb, opts: StoreOptions = {}) {
   }
 
   function listMessages(threadId: string, limit = 200): AiMessage[] {
-    return all(`SELECT * FROM (SELECT * FROM ais_messages WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?) ORDER BY created_at, rowid`, threadId, limit).map(toMessage)
+    // The subquery names its rowid: better-sqlite3 (the app) refuses an outer
+    // `rowid` on a subquery, while node:sqlite (unit tests) allowed it.
+    return all(`SELECT * FROM (SELECT *, rowid AS _rid FROM ais_messages WHERE thread_id = ? ORDER BY created_at DESC, _rid DESC LIMIT ?) ORDER BY created_at, _rid`, threadId, limit).map(toMessage)
   }
 
   // Start and capture (§1): a pasted link becomes a Linked thread; selected

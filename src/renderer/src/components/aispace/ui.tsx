@@ -244,6 +244,23 @@ export function Announcer(): JSX.Element {
 // ── Inspector (360 px; docks wide, overlays narrow; slides from the right) ────
 
 const WIDTH_KEY = 'fb.aispace.inspectorWidth'
+
+// What opened the inspector, so Escape can return there. A click doesn't
+// always focus a button (macOS convention), so the last element pressed is
+// remembered as a fallback for document.activeElement.
+let lastPressed: Element | null = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', (e) => {
+    lastPressed = e.target instanceof Element ? e.target : null
+  }, true)
+}
+
+function opener(): HTMLElement | null {
+  const active = document.activeElement
+  if (active instanceof HTMLElement && active !== document.body) return active
+  const pressed = lastPressed?.closest('button, a[href], [tabindex], input, select, textarea, [role="button"], [role="row"]')
+  return pressed instanceof HTMLElement ? pressed : null
+}
 const MIN_W = 300
 const MAX_W = 720
 
@@ -278,22 +295,33 @@ export function Inspector(props: {
   actions?: ReactNode
   // Docked inspectors push the workspace; overlays float above it.
   docked: boolean
+  // Identifies the item shown, so re-pointing an open inspector re-records
+  // what opened it.
+  targetKey?: string
 }): JSX.Element | null {
   const [width, setWidth] = useState(loadWidth)
   const panelRef = useRef<HTMLDivElement>(null)
   const returnTo = useRef<HTMLElement | null>(null)
   const hid = useId()
 
+  // Remember what opened it, every time the item shown changes: an open
+  // inspector can be re-pointed (a run, then an output) and Escape must return
+  // to whatever opened the CURRENT item, not the first one.
   useEffect(() => {
     if (!props.open) return
-    returnTo.current = document.activeElement as HTMLElement | null
+    returnTo.current = opener()
     const t = setTimeout(() => panelRef.current?.querySelector<HTMLElement>('[data-autofocus], h2')?.focus(), 30)
-    return () => {
-      clearTimeout(t)
-      // Restore focus to whatever opened the inspector.
+    return () => clearTimeout(t)
+  }, [props.open, props.targetKey])
+
+  // Restore focus only when it actually closes.
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (wasOpen.current && !props.open) {
       const back = returnTo.current
       if (back && document.contains(back)) setTimeout(() => back.focus(), 0)
     }
+    wasOpen.current = props.open
   }, [props.open])
 
   useEffect(() => {
