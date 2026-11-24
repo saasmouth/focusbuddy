@@ -189,6 +189,44 @@ export async function ensureOrgLiveDoc(
   }
 }
 
+/**
+ * Owner only: stop sharing a live document and erase its shared copy on our
+ * server at once: its text, edit log, comments, files and members (4.3.56; the
+ * signal's DELETE /livedocs/:id). A document saved on a device is not touched.
+ * 200 also when it is already gone, so a retry is safe; 403 for anyone but the
+ * owner; 409 for an organisation document's live room, which follows that
+ * document's own delete.
+ */
+export async function deleteLiveDoc(
+  token: string,
+  id: string
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const { status, json } = await call<{ ok: boolean; error?: string }>('DELETE', `/livedocs/${id}`, token)
+  if (json?.ok) return { ok: true }
+  return {
+    ok: false,
+    status,
+    error: json?.error ?? (status === 0 ? 'Could not reach the server. Try again when you are online.' : 'The shared copy could not be deleted.')
+  }
+}
+
+/**
+ * Offer "Stop sharing and delete the shared copy" only to the owner of a personal
+ * live document (ldoc_ ids, POST /livedocs). An organisation document's live room
+ * carries the org document's own id and follows that document's delete.
+ */
+export function canDeleteSharedCopy(doc: Pick<LiveDocMeta, 'id' | 'ownerAccountId'>, myAccountId: string | null | undefined): boolean {
+  return !!myAccountId && doc.ownerAccountId === myAccountId && doc.id.startsWith('ldoc_')
+}
+
+/** Does this live document still exist for me? null when the server could not say (offline). */
+export async function liveDocStillThere(token: string, id: string): Promise<boolean | null> {
+  const { status } = await call('GET', `/livedocs/${id}`, token)
+  if (status === 200) return true
+  if (status === 403 || status === 404 || status === 410) return false
+  return null
+}
+
 export async function listLiveDocs(token: string): Promise<LiveDocListItem[]> {
   const { json } = await call<{ ok: boolean; docs?: LiveDocListItem[] }>('GET', '/livedocs', token)
   return json?.ok ? json.docs ?? [] : []

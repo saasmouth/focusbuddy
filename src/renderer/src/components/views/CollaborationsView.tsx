@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useViewStore } from '../../stores/view'
 import { useAccountStore } from '../../stores/account'
 import { useSignInPrompt } from '../../stores/signInPrompt'
-import { listLiveDocs, type LiveDocListItem } from '../../lib/docCollabClient'
+import { listLiveDocs, canDeleteSharedCopy, type LiveDocListItem } from '../../lib/docCollabClient'
+import { useDocCollabStore } from '../../stores/docCollab'
+import { confirmDialog } from '../plexi/PromptDialog'
 import { convertLiveCanvasToDesk } from '../../lib/liveCanvasMigrate'
 import Icon from '../Icon'
 import { PlexiiChipIcon } from '../PlexiiIcon'
@@ -63,10 +65,29 @@ export default function CollaborationsView(): JSX.Element {
     setLoading(false)
   }
 
+  // Read again when the store says so: the owner deleted a shared copy here, or a
+  // push said one changed (stores/docCollab).
+  const listVersion = useDocCollabStore((s) => s.listVersion)
+  const deleteShared = useDocCollabStore((s) => s.deleteShared)
   useEffect(() => {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }, [token, listVersion])
+
+  // Owner only: stop sharing and erase the shared copy on our server (4.3.56).
+  async function deleteSharedCopy(d: LiveDocListItem): Promise<void> {
+    const title = d.title || `Untitled ${kindMeta(d.docType).label.toLowerCase()}`
+    const sure = await confirmDialog({
+      title: `Stop sharing “${title}” and delete the shared copy?`,
+      body: 'Everyone you shared it with loses it at once, and its text, comments and files are erased from our server. A copy saved on this device is not touched.',
+      confirmLabel: 'Stop sharing and delete',
+      danger: true
+    })
+    if (!sure) return
+    setErr(null)
+    const r = await deleteShared(d.id)
+    if (!r.ok) setErr(r.error)
+  }
 
   async function open(d: LiveDocListItem): Promise<void> {
     if (d.docType === 'canvas') {
@@ -163,6 +184,21 @@ export default function CollaborationsView(): JSX.Element {
                       {meta.label} · {relTime(d.updatedAt)}
                     </div>
                   </div>
+                  {canDeleteSharedCopy(d, account?.id) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void deleteSharedCopy(d)
+                      }}
+                      className="icon-btn shrink-0"
+                      title="Stop sharing and delete the shared copy"
+                      aria-label={`Stop sharing ${d.title || 'this'} and delete the shared copy`}
+                      data-testid={`collaboration-delete-${d.id}`}
+                    >
+                      <Icon name="delete" size={15} />
+                    </button>
+                  )}
                   <Icon name="chevron_right" size={16} className="text-[var(--ink-30)] shrink-0" />
                 </div>
               )

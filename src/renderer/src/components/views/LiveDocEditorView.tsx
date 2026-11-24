@@ -84,6 +84,7 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
   const loading = useDocCollabStore((s) => s.loading)
   const openLive = useDocCollabStore((s) => s.openLive)
   const closeLive = useDocCollabStore((s) => s.closeLive)
+  const goneId = useDocCollabStore((s) => s.goneId)
   const goDocuments = useViewStore((s) => s.goDocuments)
   const openObjectChannel = useMessagingStore((s) => s.openObjectChannel)
   const back = onBack ?? goDocuments
@@ -354,6 +355,28 @@ export default function LiveDocEditorView({ liveDocId, onBack }: Props): JSX.Ele
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, comments])
+
+  // The owner stopped sharing it and deleted the shared copy while it was open here
+  // (the store heard the signal's push, 4.3.56): say so, rather than show an editor
+  // for a document that no longer exists.
+  if (goneId === liveDocId) {
+    return (
+      <div className="h-full flex items-center justify-center desk-paper no-tod px-6" data-testid="livedoc-gone">
+        <div className="text-center max-w-sm">
+          <Icon name="delete" size={28} className="text-[var(--ink-40)] mx-auto mb-3" />
+          <p className="text-[13px] text-[var(--ink-70)] mb-4">
+            The owner stopped sharing this document and deleted the shared copy.
+          </p>
+          <button
+            onClick={() => back()}
+            className="inline-flex items-center h-8 px-3 mx-auto fb-btn-surface fb-press fb-t-label text-[var(--ink-70)] hover:text-[var(--ink-100)]"
+          >
+            <span>Back</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (loading || !meta || meta.id !== liveDocId) {
     return (
