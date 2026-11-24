@@ -20,7 +20,7 @@ import { useOrgStore } from '@renderer/stores/org'
 import { useDocumentsStore } from '@renderer/stores/documents'
 import { setCloudDocsEnabled, pullCloudDocs } from '@renderer/lib/cloudDocsSync'
 
-type Call = { url: string; method: string }
+type Call = { url: string; method: string; body?: Record<string, unknown> }
 let calls: Call[]
 let offline = false
 const doc = { id: 'doc1', docType: 'doc', title: 'Brief', body: { type: 'doc' }, archived: false, createdAt: 1, updatedAt: 2 }
@@ -34,10 +34,11 @@ beforeEach(() => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
-      calls.push({ url: String(url), method: String(init.method ?? 'GET') })
+      calls.push({ url: String(url), method: String(init.method ?? 'GET'), body: init.body ? JSON.parse(String(init.body)) : undefined })
       if (offline) throw new TypeError('Failed to fetch')
       if (String(url).includes('/documents/sync')) return json({ ok: true, documents: [], now: 5 })
-      if (init.method === 'PUT') return json({ ok: true, document: { ...doc, rev: 7, deleted: false } })
+      if (init.method === 'PUT') return json({ ok: true, document: { ...doc, rev: 9, deleted: false } })
+      if (init.method === 'DELETE') return json({ ok: true, document: { ...doc, rev: 8, deleted: true } })
       return json({ ok: true })
     })
   )
@@ -134,5 +135,57 @@ describe('a cloud delete pulled from another device', () => {
     await pullCloudDocs()
     const api = (window as unknown as { api: { documents: { delete: ReturnType<typeof vi.fn> } } }).api
     expect(api.documents.delete).toHaveBeenCalledWith('doc1', 'sync')
+  })
+})
+
+describe('a restore is explicit: it goes up at the tombstone\'s rev (the signal refuses a blind revive)', () => {
+  // a0, 24 Nov 2026: the signal's cloud_documents guard refuses an upsert with no
+  // baseRev over a tombstone; an explicit restore carries the tombstone's rev.
+  const putBody = (): Record<string, unknown> | undefined => calls.find((c) => c.method === 'PUT' && c.url.includes('/documents/doc1'))?.body
+
+  it('after our own delete: the rev the delete returned', async () => {
+    await useDocumentsStore.getState().remove('doc1')
+    await vi.waitFor(() => expect(cloudCalls('DELETE')).toHaveLength(1))
+    await useDocumentsStore.getState().restore('doc1')
+    await vi.waitFor(() => expect(putBody()).toMatchObject({ baseRev: 8 }))
+  })
+
+  it('after a delete pulled from another device: that tombstone\'s rev', async () => {
+    const { restoreCloudDoc } = await import('@renderer/lib/cloudDocsSync')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        calls.push({ url: String(url), method: String(init.method ?? 'GET'), body: init.body ? JSON.parse(String(init.body)) : undefined })
+        if (String(url).includes('/documents/sync')) return json({ ok: true, documents: [{ ...doc, rev: 4, deleted: true }], now: 9 })
+        return json({ ok: true, document: { ...doc, rev: 5, deleted: false } })
+      })
+    )
+    await pullCloudDocs()
+    await restoreCloudDoc('doc1')
+    expect(putBody()).toMatchObject({ baseRev: 4 })
+  })
+
+  it('a conflict that answers with a tombstone puts it back in the Trash, never writes the tombstone over the document', async () => {
+    const { pushCloudDoc } = await import('@renderer/lib/cloudDocsSync')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ ok: false, conflict: true, document: { ...doc, title: '', body: {}, rev: 12, deleted: true } }), { status: 409 }))
+    )
+    const api = (window as unknown as { api: { documents: Record<string, ReturnType<typeof vi.fn>> } }).api
+    api.documents.upsert = vi.fn(async () => undefined)
+    await pushCloudDoc(doc as never)
+    expect(api.documents.upsert).not.toHaveBeenCalled()
+    expect(api.documents.delete).toHaveBeenCalledWith('doc1', 'sync')
+  })
+})
+
+describe('Delete forever', () => {
+  it('sends the delete if it has not gone, then forgets the rev (nothing can restore it now)', async () => {
+    useDocumentsStore.setState({ trashed: [doc] } as never)
+    const api = (window as unknown as { api: { documents: Record<string, ReturnType<typeof vi.fn>> } }).api
+    api.documents.purge = vi.fn(async () => true)
+    await useDocumentsStore.getState().purge('doc1')
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem('fb.clouddocs.revs') ?? '{}')).not.toHaveProperty('doc1'))
+    expect(cloudCalls('DELETE')).toEqual([expect.stringContaining('/documents/doc1')])
   })
 })

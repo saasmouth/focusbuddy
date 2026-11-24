@@ -105,7 +105,9 @@ export async function putCloudDoc(
 }
 
 // Tombstone the document so the delete propagates to the account's other devices.
-export async function deleteCloudDoc(token: string, id: string): Promise<boolean> {
-  const { json } = await call<{ ok: boolean }>('DELETE', `/documents/${id}`, token)
-  return !!json?.ok
+// Returns the tombstone's rev, or null when the delete did not go (offline, or
+// refused). A restore goes up at that rev: the signal refuses a blind revive.
+export async function deleteCloudDoc(token: string, id: string): Promise<number | null> {
+  const { json } = await call<{ ok: boolean; document?: CloudDocument }>('DELETE', `/documents/${id}`, token)
+  return json?.ok ? (json.document?.rev ?? 0) : null
 }
