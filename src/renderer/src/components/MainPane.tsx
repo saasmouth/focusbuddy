@@ -19,6 +19,9 @@ import type { View } from '../stores/view'
 const ConnectedAppView = lazy(() => import('./views/ConnectedAppView'))
 const VaultView = lazy(() => import('./views/VaultView'))
 const CalendarView = lazy(() => import('./views/CalendarView'))
+const AiSpaceHome = lazy(() => import('./aispace/AiSpaceHome'))
+const RunsView = lazy(() => import('./aispace/RunsView'))
+const ConnectionsView = lazy(() => import('./aispace/ConnectionsView'))
 const FlowView = lazy(() => import('./views/FlowView'))
 const InboxView = lazy(() => import('./views/InboxView'))
 const MailView = lazy(() => import('./views/MailView'))
@@ -79,7 +82,9 @@ function MainPaneSurface(): JSX.Element {
   // stack under it and double the motion. Every other view unravels in.
   if (view.kind === 'home') return renderView(view)
   return (
-    <PageEnter id={JSON.stringify(view)}>
+    // Selecting a run or a connection opens a side panel on the same page; it
+    // must not replay the page's entrance.
+    <PageEnter id={view.kind === 'connections' || view.kind === 'airuns' ? view.kind : JSON.stringify(view)}>
       <Suspense fallback={<RouteLoading />}>{renderView(view)}</Suspense>
     </PageEnter>
   )
@@ -124,6 +129,12 @@ function renderView(view: View): JSX.Element {
       return <VaultView />
     case 'calendar':
       return <CalendarView />
+    case 'aispace':
+      return <AiSpaceHome />
+    case 'airuns':
+      return <RunsView runId={view.runId} />
+    case 'connections':
+      return <ConnectionsView connectionId={view.connectionId} />
     case 'messages':
       return <FlowView />
     case 'inbox':

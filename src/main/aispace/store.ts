@@ -817,6 +817,17 @@ export function createAiSpaceStore(db: SqlDb, opts: StoreOptions = {}) {
     })
   }
 
+  // Undo for filing: the capture goes back to the inbox, history kept.
+  function unfileThread(threadId: string, actor = 'user:me'): AiThread {
+    return tx(() => {
+      const th = getThread(threadId)
+      if (!th || !th.projectId) throw new NotFoundError('Filed chat')
+      run(`UPDATE ais_threads SET project_id = NULL WHERE id = ?`, threadId)
+      appendEvent({ workspaceId: th.workspaceId, projectId: th.projectId, actor, kind: 'thread.captured', subject: { type: 'thread', id: threadId, label: th.title }, summary: `Moved “${th.title}” back to the inbox.`, data: { unfiled: true } })
+      return getThread(threadId)!
+    })
+  }
+
   // ── Runs ────────────────────────────────────────────────────────────────────
 
   interface CreateRunInput {
@@ -1380,6 +1391,18 @@ export function createAiSpaceStore(db: SqlDb, opts: StoreOptions = {}) {
     })
   }
 
+  // Undo for dismissing: the suggestion is pending again (and an Impact match
+  // the person dismissed shows again).
+  function reopenSuggestion(id: string, actor = 'user:me'): AiSuggestion {
+    return tx(() => {
+      const s = getSuggestion(id)
+      if (!s) throw new NotFoundError('Suggestion')
+      run(`UPDATE ais_suggestions SET status = 'pending', resolved_at = NULL WHERE id = ?`, id)
+      appendEvent({ workspaceId: wsOfProject(s.projectId), projectId: s.projectId, actor, kind: 'suggestion.resolved', subject: { type: 'suggestion', id }, refs: [s.target], summary: `Reopened: ${s.proposedAction}`, data: { status: 'pending' } })
+      return getSuggestion(id)!
+    })
+  }
+
   // ── Branches ────────────────────────────────────────────────────────────────
 
   // A branch starts from a named snapshot of the brief and the current output
@@ -1625,6 +1648,7 @@ export function createAiSpaceStore(db: SqlDb, opts: StoreOptions = {}) {
     listMessages,
     captureChat,
     fileThread,
+    unfileThread,
     createRun,
     getRun,
     listRuns,
@@ -1660,6 +1684,7 @@ export function createAiSpaceStore(db: SqlDb, opts: StoreOptions = {}) {
     getSuggestion,
     listSuggestions,
     resolveSuggestion,
+    reopenSuggestion,
     createBranch,
     getBranch,
     listBranches,

@@ -46,7 +46,7 @@ export function registerAiSpaceIpc(): void {
   ipcMain.handle('aispace:setProjectDefault', async (_e, projectId: string, connectionId: string | null, model: string | null) => (await svc()).setProjectDefault(projectId, connectionId, model))
 
   // ── Tasks and agents ────────────────────────────────────────────────────────
-  ipcMain.handle('aispace:createTask', async (_e, input: { projectId: string; title: string; outcome?: string; deliverableKind?: OutputKind | null; assignee?: string | null; parentTaskId?: string | null; scheduledAt?: number | null; dependsOn?: string[] }) => {
+  ipcMain.handle('aispace:createTask', async (_e, input: { projectId: string; title: string; outcome?: string; deliverableKind?: OutputKind | null; assignee?: string | null; parentTaskId?: string | null; scheduledAt?: number | null; dependsOn?: string[]; branchId?: string | null }) => {
     const s = await svc()
     s.inContext(input.projectId)
     return s.store.createTask(input)
@@ -100,6 +100,14 @@ export function registerAiSpaceIpc(): void {
       }
       throw e
     }
+  })
+  ipcMain.handle('aispace:getVersion', async (_e, versionId: string) => {
+    const s = await svc()
+    const v = s.store.getVersion(versionId)
+    const o = v ? s.store.getOutput(v.outputId) : null
+    if (!v || !o) return null
+    s.inContext(o.projectId)
+    return { version: v, output: o }
   })
   ipcMain.handle('aispace:listVersions', async (_e, outputId: string) => {
     const s = await svc()
@@ -191,6 +199,19 @@ export function registerAiSpaceIpc(): void {
     const s = await svc()
     s.inContext(projectId)
     return s.store.fileThread(threadId, projectId)
+  })
+  ipcMain.handle('aispace:unfileThread', async (_e, threadId: string) => {
+    const s = await svc()
+    const t = s.store.getThread(threadId)
+    if (!t || !s.ctx().workspaceIds.includes(t.workspaceId)) throw new Error('Chat not found.')
+    return s.store.unfileThread(threadId)
+  })
+  ipcMain.handle('aispace:reopenSuggestion', async (_e, id: string) => {
+    const s = await svc()
+    const sg = s.store.getSuggestion(id)
+    if (!sg) throw new Error('Suggestion not found.')
+    s.inContext(sg.projectId)
+    return s.store.reopenSuggestion(id)
   })
   ipcMain.handle('aispace:listMessages', async (_e, threadId: string) => {
     const s = await svc()
@@ -350,7 +371,21 @@ export function registerAiSpaceIpc(): void {
     }
     return s.testConnection(id)
   })
-  ipcMain.handle('aispace:replaceKey', async (_e, id: string, secret: string, mode: string) => (await svc()).replaceKey(id, secret, mode === 'reconnect' ? 'reconnect' : 'rotate'))
+  ipcMain.handle('aispace:replaceKey', async (_e, id: string, secret: string, mode: string) => {
+    const s = await svc()
+    const c = s.conns.getConnection(id)
+    if (!c) throw new Error('Connection not found.')
+    const m = mode === 'reconnect' ? 'reconnect' : 'rotate'
+    if (c.kind === 'app_api') {
+      const r = await (await tools()).replaceToken(id, secret, m)
+      return r.ok ? { ok: true, connection: s.connectionCard(r.connection), confirmed: r.confirmed } : r
+    }
+    if (c.kind === 'mcp') {
+      const r = await (await mcp()).replaceBearer(id, secret)
+      return r.ok ? { ok: true, connection: s.connectionCard(s.conns.getConnection(id)!), confirmed: [r.detail] } : { ok: false, detail: r.detail }
+    }
+    return s.replaceKey(id, secret, m)
+  })
   ipcMain.handle('aispace:pauseConnection', async (_e, id: string) => (await svc()).pause(id))
   ipcMain.handle('aispace:resumeConnection', async (_e, id: string) => (await svc()).resume(id))
   ipcMain.handle('aispace:disconnect', async (_e, id: string) => {
@@ -363,7 +398,7 @@ export function registerAiSpaceIpc(): void {
     const s = await svc()
     return s.connectionCard(s.conns.updateConnection(id, { alias: alias.trim() || 'Connection', billedTo: billedTo?.trim() || null }))
   })
-  ipcMain.handle('aispace:setGrant', async (_e, input: { connectionId: string; projectId: string; agentIds?: string[]; actions: GrantAction[]; dataFilters?: string[]; approval?: ApprovalLevel; expiresAt?: number | null }) => (await svc()).setGrant(input))
+  ipcMain.handle('aispace:setGrant', async (_e, input: { connectionId: string; projectId: string; agentIds?: string[]; role?: 'use' | 'manage'; actions: GrantAction[]; dataFilters?: string[]; approval?: ApprovalLevel; expiresAt?: number | null }) => (await svc()).setGrant(input))
   ipcMain.handle('aispace:revokeGrant', async (_e, grantId: string) => {
     const s = await svc()
     s.conns.revokeGrant(grantId, 'user:me')

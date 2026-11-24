@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from '../Icon'
 import { useDeskViewStore, resolveDeskView, type DeskViewMode } from '../../stores/deskView'
+import { aiSpaceAvailable } from '../../lib/aiSpaceAvailable'
 
 // Spec §3.4 — a dedicated Views control that shows a visual PREVIEW per view
 // (not a text-only menu), names each one, marks the active one, supports keyboard
@@ -106,8 +107,22 @@ const VIEWS: ViewDef[] = [
   { mode: 'list', label: 'List', icon: 'view_list', Preview: RowsPreview },
   { mode: 'table', label: 'Table', icon: 'table_rows', Preview: TablePreview },
   { mode: 'gallery', label: 'Gallery', icon: 'grid_view', Preview: GalleryPreview },
-  { mode: 'compact', label: 'Compact', icon: 'density_small', Preview: CompactPreview }
+  { mode: 'compact', label: 'Compact', icon: 'density_small', Preview: CompactPreview },
+  // AI Space on this Desk (docs/ai-space). Desktop only: see aiSpaceAvailable.
+  { mode: 'ai', label: 'AI Space', icon: 'auto_awesome', Preview: AiPreview }
 ]
+
+function AiPreview(): JSX.Element {
+  return (
+    <svg viewBox="0 0 80 52" className="w-full h-full" aria-hidden="true">
+      <rect x="8" y="8" width="44" height="36" rx="3" className="fill-[var(--surface-sunken)] stroke-[var(--edge-firm)]" strokeWidth="1" />
+      <rect x="56" y="8" width="16" height="36" rx="3" className="fill-[var(--surface-sunken)] stroke-[var(--edge-firm)]" strokeWidth="1" />
+      {[14, 22, 30].map((y) => (
+        <rect key={y} x="13" y={y} width="34" height="4" rx="2" className="fill-[var(--edge-firm)]" />
+      ))}
+    </svg>
+  )
+}
 
 export default function ViewSelector({ taskId }: { taskId: string }): JSX.Element | null {
   const defaults = useDeskViewStore((s) => s.defaults)
@@ -116,7 +131,8 @@ export default function ViewSelector({ taskId }: { taskId: string }): JSX.Elemen
   const active: DeskViewMode = useDeskViewStore((s) => resolveDeskView(s, taskId))
   // A share link held to one view: there is nothing to switch to.
   const locked = useDeskViewStore((s) => s.locked[taskId] !== undefined)
-  const current = VIEWS.find((v) => v.mode === active) ?? VIEWS[0]
+  const views = VIEWS.filter((v) => v.mode !== 'ai' || aiSpaceAvailable())
+  const current = views.find((v) => v.mode === active) ?? views[0]
 
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -156,9 +172,9 @@ export default function ViewSelector({ taskId }: { taskId: string }): JSX.Elemen
   function onMenuKey(e: React.KeyboardEvent<HTMLDivElement>): void {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
     e.preventDefault()
-    const idx = VIEWS.findIndex((v) => v.mode === active)
-    const next = e.key === 'ArrowRight' ? (idx + 1) % VIEWS.length : (idx - 1 + VIEWS.length) % VIEWS.length
-    setMode(taskId, VIEWS[next].mode)
+    const idx = views.findIndex((v) => v.mode === active)
+    const next = e.key === 'ArrowRight' ? (idx + 1) % views.length : (idx - 1 + views.length) % views.length
+    setMode(taskId, views[next].mode)
   }
 
   // After every hook: the rules of hooks hold whether or not it renders.
@@ -195,7 +211,7 @@ export default function ViewSelector({ taskId }: { taskId: string }): JSX.Elemen
             Views
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {VIEWS.map((v) => {
+            {views.map((v) => {
               const isActive = v.mode === active
               const isDefault = defaults[taskId] === v.mode
               return (

@@ -71,6 +71,10 @@ export type View =
   | { kind: 'api' }
   | { kind: 'marketplace' }
   | { kind: 'mdext'; path: string }
+  // AI Space (docs/ai-space): the cross-project home, all runs, Connections.
+  | { kind: 'aispace' }
+  | { kind: 'airuns'; runId?: string }
+  | { kind: 'connections'; connectionId?: string }
 
 interface ViewStore {
   view: View
@@ -107,6 +111,9 @@ interface ViewStore {
   goTrash: () => void
   goAttention: (filter?: AttentionFilter) => void
   goCalendar: () => void
+  goAiSpace: () => void
+  goAiRuns: (runId?: string) => void
+  goConnections: (connectionId?: string) => void
   goProject: (projectId: string) => void
   goTask: (taskId: string) => void
   goConnectedApp: (appId: string) => void
@@ -255,6 +262,9 @@ export const useViewStore = create<ViewStore>((set, get) => {
     goTrash: () => commit({ kind: 'trash' }),
     goAttention: (filter) => commit({ kind: 'attention', filter }),
     goCalendar: () => commit({ kind: 'calendar' }),
+    goAiSpace: () => commit({ kind: 'aispace' }),
+    goAiRuns: (runId) => commit(runId ? { kind: 'airuns', runId } : { kind: 'airuns' }),
+    goConnections: (connectionId) => commit(connectionId ? { kind: 'connections', connectionId } : { kind: 'connections' }),
     goProject: (projectId) => commit({ kind: 'project-dashboard', projectId }),
     goTask: (taskId) => commit({ kind: 'task', taskId }),
     goConnectedApp: (appId) => commit({ kind: 'connected-app', appId }),

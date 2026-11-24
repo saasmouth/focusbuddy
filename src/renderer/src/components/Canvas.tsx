@@ -1,6 +1,6 @@
 import { patternOffset, patternScale } from '../lib/deskPattern'
 import { useAssistantChrome } from '../stores/assistantChrome'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense as AiSuspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveShortcutToKind } from '../lib/keymap'
 import { quickAddAllowed, deepActiveElement, keyEventTarget } from '../lib/quickAddFocus'
 import { deleteKeyAllowed, isDeleteKey } from '../lib/deleteKey'
@@ -40,6 +40,7 @@ import DeskGallery from './DeskGallery'
 import ColumnsView from './ColumnsView'
 import DeskDataViews, { type DataLayout } from './views/DeskDataViews'
 import WorkcentreView from './views/WorkcentreView'
+const AiSpaceDeskView = lazy(() => import('./aispace/AiSpaceDeskView'))
 import WebLayer from './browser/WebLayer'
 import { useDeskViewStore, resolveDeskView } from '../stores/deskView'
 import ZoomControls from './ZoomControls'
@@ -3083,6 +3084,14 @@ export default function Canvas(): JSX.Element {
           )}
           {dataLayout && activeTaskId && (
             <DeskDataViews taskId={activeTaskId} widgets={widgets} layout={dataLayout} />
+          )}
+          {/* AI Space on this Desk: a full-height surface over the canvas, like Columns. */}
+          {deskViewMode === 'ai' && activeTaskId && (
+            <div className="absolute inset-y-0 right-0 left-[var(--fb-dock-inset,0px)] z-[60]" data-testid="aispace-host" data-desk-view-host="">
+              <AiSuspense fallback={null}>
+                <AiSpaceDeskView taskId={activeTaskId} />
+              </AiSuspense>
+            </div>
           )}
           {/* Spatial-link overlay renders in screen-space, OUTSIDE the
               transformed container. It reads each linked widget's actual

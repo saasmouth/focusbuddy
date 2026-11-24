@@ -42,6 +42,24 @@ out" in practice means the gate itself, or after signing out.
 | Stripe Checkout / Billing Portal | Opened in the system browser from a URL our server returns | When the person upgrades or buys credits | Yes (user action). No Stripe code in the app |
 | `redirector.gvt1.com` (Windows) | Spell-check dictionaries, Electron's default on Windows/Linux | When an editable field first spell-checks | Not verified at runtime (tested on macOS, which uses the system checker) |
 
+### AI Space + Connections (branch `ai-space`, not yet released)
+
+Every destination below is one the person added in **Connections**, reached
+only through `src/main/aispace/net.ts` (https only; credentials pinned to the
+one approved origin; private and link-local addresses refused; cross-origin
+redirects refused; a loopback MCP address only when the person typed it). None
+of it goes to Plexii's servers, and nothing here syncs: projects, runs, usage
+and the run log stay in the local database, keys in
+`userData/connection-secrets.json` (safeStorage).
+
+| Host | Purpose | When | Can the person turn it off? |
+|---|---|---|---|
+| `api.anthropic.com` | A Connections key's read-only check (`GET /v1/models`, free); model runs on that key | Adding or testing a connection; a run the person starts; the Project Manager's replies on the project default; **automatic draft fixes** after an approved input changes, only for work that recorded using it and only when Project settings › "Agents may draft fixes" is on (on by default once a project has a default model) | Pause or disconnect the connection; remove the project's grant; turn off automatic drafts per project |
+| `api.openai.com` | The same for an OpenAI key; background runs are polled every 15 s until they finish (and once after launch for any still open) | As above; polling only while a background run is open | As above. Disconnecting stops polling (the run shows "Status unavailable") |
+| MCP servers the person adds, and their sign-in servers | Unauthenticated probe on "Check this server"; OAuth discovery, dynamic registration and token exchange (consent opens in the system browser; the redirect comes back to `127.0.0.1` on a random port); `initialize`, `tools/list`, `resources/list`, `tools/call` | Adding, checking or re-signing in; a tool call the person runs or approves | Disconnect (deletes Plexii's tokens); remove grants |
+| `api.notion.com` | A Notion integration token's check (`/v1/users/me` + a 1-result search) and approved operations (search, read a page, create a draft page) | Adding or testing; each operation run (writes always ask first unless the grant says otherwise) | Disconnect; remove grants |
+| Chat links (`chatgpt.com`, `claude.ai`, `gemini.google.com`, `perplexity.ai`) | Not contacted by Plexii. "Open original" hands the link to the default browser | When the person clicks | Yes (user action) |
+
 Not found anywhere in the app: Sentry, Electron `crashReporter.start`, Google
 Analytics, Mixpanel, Segment, Amplitude, PostHog, Plausible, Stripe.js, any ad or
 remarketing SDK. The app has no `/growth`, `/lifecycle` or `/events` endpoint

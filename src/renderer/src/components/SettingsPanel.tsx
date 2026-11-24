@@ -52,6 +52,8 @@ import BrowsingConsentSection from './settings/BrowsingConsentSection'
 import BackupSection from './settings/BackupSection'
 import NavigationSection from './settings/NavigationSection'
 import PrivacyHelpSection from './settings/PrivacyHelpSection'
+import ConnectionsSection from './settings/ConnectionsSection'
+import { aiSpaceAvailable } from '../lib/aiSpaceAvailable'
 
 interface Props {
   mode: ThemeMode
@@ -78,12 +80,14 @@ interface Props {
 // decides which ones render for the active tab. Organisation, Templates and the
 // account/user settings all live here, which is the consolidation the roster
 // asked for.
-export type SettingsTab = 'appearance' | 'account' | 'organisation' | 'ai' | 'templates' | 'data' | 'advanced'
+export type SettingsTab = 'appearance' | 'account' | 'organisation' | 'ai' | 'connections' | 'templates' | 'data' | 'advanced'
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'palette' },
   { id: 'account', label: 'Account', icon: 'person' },
   { id: 'organisation', label: 'Organisation', icon: 'apartment' },
   { id: 'ai', label: 'AI', icon: 'auto_awesome' },
+  // AI Space Connections: desktop only (its records stay on this Mac).
+  ...(aiSpaceAvailable() ? [{ id: 'connections' as const, label: 'Connections', icon: 'hub' }] : []),
   { id: 'templates', label: 'Templates', icon: 'dashboard_customize' },
   { id: 'data', label: 'Data', icon: 'cloud_sync' },
   { id: 'advanced', label: 'Advanced', icon: 'tune' }
@@ -402,6 +406,15 @@ export default function SettingsPanel({
             <AutonomySection />
             <BrowsingConsentSection />
           </>
+        )}
+
+        {tab === 'connections' && (
+          <ConnectionsSection
+            onManage={() => {
+              useViewStore.getState().goConnections()
+              onClose()
+            }}
+          />
         )}
 
         {tab === 'templates' && <TemplatesSection />}

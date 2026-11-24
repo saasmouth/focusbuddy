@@ -16,6 +16,7 @@ import { useCapabilityStore } from '../stores/capabilities'
 
 import { chimeIn } from '../lib/audioBeep'
 import { AREA_TONES, attentionFilterTone } from '../lib/areaTones'
+import { aiSpaceAvailable } from '../lib/aiSpaceAvailable'
 import NewNodeDialog from './NewNodeDialog'
 import AISetupDialog from './AISetupDialog'
 import AddConnectedAppDialog from './AddConnectedAppDialog'
@@ -65,6 +66,9 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   const goDesks = useViewStore((s) => s.goDesks)
   const goShared = useViewStore((s) => s.goShared)
   const goTrash = useViewStore((s) => s.goTrash)
+  const goAiSpace = useViewStore((s) => s.goAiSpace)
+  const goAiRuns = useViewStore((s) => s.goAiRuns)
+  const showAiSpace = aiSpaceAvailable()
   const goAttention = useViewStore((s) => s.goAttention)
   const activeAttentionFilter = useViewStore((st) =>
     st.view.kind === 'attention' ? st.view.filter : undefined
@@ -309,6 +313,8 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           <div className="w-6 h-px bg-[var(--edge-soft)] shrink-0 my-1" />
 
           <CollapsedNavIcon icon="plexii:home"  label="Home"         tone={AREA_TONES.home} entity={{ kind: 'place', id: 'home' }}  active={viewIsActive({ kind: 'home' })}       onClick={() => { setActive(null); goHome() }} />
+          {showAiSpace && <CollapsedNavIcon icon="auto_awesome" label="AI Space" tone={AREA_TONES.aispace} active={viewIsActive({ kind: 'aispace' })} onClick={() => { setActive(null); goAiSpace() }} />}
+          {showAiSpace && <CollapsedNavIcon icon="list_alt" label="Runs" tone={AREA_TONES.airuns} active={viewIsActive({ kind: 'airuns' })} onClick={() => { setActive(null); goAiRuns() }} />}
           {/* Monochrome by plexidesk-75's rail rule: no tone, accent only when active. */}
           <CollapsedNavIcon icon="notifications" label="Focus"    tone={AREA_TONES.attention} entity={{ kind: 'place', id: 'focus' }}  active={viewIsActive({ kind: 'attention' })} onClick={() => { setActive(null); goAttention() }} />
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms} entity={{ kind: 'place', id: 'rooms' }}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
@@ -417,6 +423,34 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
               goHome()
             }}
           />
+          {/* AI Space (docs/ai-space): what AI work changed across projects,
+              and every run. Desktop only; added beside Home, nothing moved. */}
+          {showAiSpace && (
+            <NavRow
+              icon="auto_awesome"
+              label="AI Space"
+              tone={AREA_TONES.aispace}
+              active={viewIsActive({ kind: 'aispace' })}
+              testid="nav-aispace"
+              onClick={() => {
+                setActive(null)
+                goAiSpace()
+              }}
+            />
+          )}
+          {showAiSpace && (
+            <NavRow
+              icon="list_alt"
+              label="Runs"
+              tone={AREA_TONES.airuns}
+              active={viewIsActive({ kind: 'airuns' })}
+              testid="nav-airuns"
+              onClick={() => {
+                setActive(null)
+                goAiRuns()
+              }}
+            />
+          )}
           {/* Attention — what needs you, top-level by design (S6): the
               surface's whole job is being one glance away. */}
           <div className="fb-nav-item fb-nav-group pr-1 mb-0.5">

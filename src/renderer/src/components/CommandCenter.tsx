@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useNodeStore } from '../stores/nodes'
 import { useRelatedDesksStore } from '../stores/relatedDesks'
 import { useViewStore } from '../stores/view'
+import { aiSpaceAvailable } from '../lib/aiSpaceAvailable'
 import { useFilesPanelStore } from '../stores/filesPanel'
 import { useWidgetStore } from '../stores/widgets'
 import type { WidgetKind, SearchHit } from '@shared/types'
@@ -461,6 +462,48 @@ export default function CommandCenter({
         closePalette()
       }
     })
+    // AI Space (docs/ai-space): desktop only.
+    if (aiSpaceAvailable()) {
+      items.push({
+        id: 'go-aispace',
+        label: 'AI Space',
+        hint: 'What your AI work changed and what needs you',
+        icon: 'auto_awesome',
+        kind: 'action',
+        score: q === '' ? 66 : matchScore('ai space projects agents home impact', q),
+        run: () => {
+          setActive(null)
+          useViewStore.getState().goAiSpace()
+          closePalette()
+        }
+      })
+      items.push({
+        id: 'go-airuns',
+        label: 'Runs',
+        hint: 'Every AI run and where it stands',
+        icon: 'list_alt',
+        kind: 'action',
+        score: q === '' ? 40 : matchScore('runs ai jobs agents status', q),
+        run: () => {
+          setActive(null)
+          useViewStore.getState().goAiRuns()
+          closePalette()
+        }
+      })
+      items.push({
+        id: 'manage-connections',
+        label: 'Manage connections',
+        hint: 'AI accounts, API keys, MCP servers, app APIs',
+        icon: 'hub',
+        kind: 'action',
+        score: q === '' ? 38 : matchScore('connections api keys mcp manage accounts openai anthropic claude chatgpt notion', q),
+        run: () => {
+          setActive(null)
+          useViewStore.getState().goConnections()
+          closePalette()
+        }
+      })
+    }
     items.push({
       id: 'go-vault',
       label: 'PlexiiVault',

@@ -30,6 +30,7 @@ import type { McpCatalogueEntry } from './catalogue'
 export interface RunSummary {
   id: string
   projectId: string
+  aiTaskId: string | null
   projectTitle: string
   title: string
   status: RunStatus

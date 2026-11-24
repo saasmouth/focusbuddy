@@ -1,0 +1,68 @@
+/* AI Space + Connections: status tones and motion (SPEC-AI-SPACE.md §4, §5).
+   Status always pairs icon + text; these tones only reinforce it. Defined on
+   :root and redefined under .dark so every theme (dark, futuristic, atelier,
+   gemstone all carry .dark) gets readable contrast from one definition. */
+:root {
+  --ais-ok: oklch(52% 0.13 155);
+  --ais-warn: oklch(58% 0.14 70);
+  --ais-bad: oklch(55% 0.19 25);
+}
+.dark {
+  --ais-ok: oklch(78% 0.14 155);
+  --ais-warn: oklch(82% 0.13 80);
+  --ais-bad: oklch(74% 0.15 25);
+}
+
+/* Inspector: slides from the right (180–220 ms); as a sheet on touch. */
+@keyframes ais-slide-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes ais-sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+/* A version row that just changed: one brief highlight, then calm. */
+@keyframes ais-flash {
+  0% { background: rgb(var(--accent) / 0.16); }
+  100% { background: transparent; }
+}
+.ais-flash { animation: ais-flash 900ms var(--ease-glide, ease-out) 1; }
+
+/* Card → full preview (240–300 ms). */
+@keyframes ais-grow {
+  from { transform: scale(0.97); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+.ais-grow { animation: ais-grow 260ms var(--ease-glide, ease-out) 1; }
+
+/* Inline expansion of an Impact row (180–220 ms). */
+@keyframes ais-expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.ais-expand { animation: ais-expand 200ms var(--ease-glide, ease-out) 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ais-flash, .ais-grow, .ais-expand { animation: none; }
+  [data-testid='ais-inspector'] { animation: none !important; }
+}
+
+/* 44 px touch targets on coarse pointers. */
+@media (pointer: coarse) {
+  .ais-touch button, .ais-touch [role='tab'], .ais-touch a { min-height: 44px; }
+}
+
+/* Touch: the inspector arrives as a sheet from the bottom. */
+@media (pointer: coarse) and (max-width: 900px) {
+  [data-testid='ais-inspector'][data-docked='false'] {
+    top: auto !important;
+    left: 0 !important;
+    width: auto !important;
+    height: 78vh;
+    border-left: 0;
+    border-top: 1px solid var(--edge-soft);
+    border-radius: 16px 16px 0 0;
+    animation: ais-sheet-in 220ms var(--ease-glide, ease-out) 1;
+  }
+}

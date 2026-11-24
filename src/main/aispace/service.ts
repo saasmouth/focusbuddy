@@ -247,6 +247,7 @@ export function createAiSpaceService(deps: ServiceDeps) {
     return {
       id: r.id,
       projectId: r.projectId,
+      aiTaskId: r.aiTaskId,
       projectTitle: p?.title ?? '',
       title: t?.title ?? target?.title ?? firstWords(r.manifest.instruction, 60),
       status: r.status,
@@ -513,7 +514,7 @@ export function createAiSpaceService(deps: ServiceDeps) {
     return { connection: connectionCard(conns.getConnection(id)!), affected: impactBefore }
   }
 
-  function setGrant(input: { connectionId: string; projectId: string; agentIds?: string[]; actions: GrantAction[]; dataFilters?: string[]; approval?: ApprovalLevel; expiresAt?: number | null }) {
+  function setGrant(input: { connectionId: string; projectId: string; agentIds?: string[]; role?: 'use' | 'manage'; actions: GrantAction[]; dataFilters?: string[]; approval?: ApprovalLevel; expiresAt?: number | null }) {
     inContext(input.projectId)
     return conns.setGrant(input)
   }
@@ -560,7 +561,7 @@ export function createAiSpaceService(deps: ServiceDeps) {
       sourceEventId: `match:${changeId}`
     })
     store.resolveSuggestion(suggestion.id, related ? 'acted' : 'dismissed', 'user:me')
-    return { ok: true }
+    return { ok: true, suggestionId: suggestion.id }
   }
 
   // ── Search ──────────────────────────────────────────────────────────────────

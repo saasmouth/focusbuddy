@@ -264,6 +264,27 @@ export function createMcpHost(deps: McpHostDeps) {
     }
   }
 
+  // Swap the pasted token of a bearer-token server, then check it.
+  async function replaceBearer(connectionId: string, token: string): Promise<{ ok: boolean; detail: string }> {
+    const c = conns.getConnection(connectionId)
+    if (!c || c.config.authMode !== 'bearer') return { ok: false, detail: 'This server signs in through the browser; use Reconnect instead.' }
+    const t = token.trim()
+    if (!t) return { ok: false, detail: 'Paste the new token.' }
+    const old = vault.get(vaultRef.key(connectionId))
+    vault.set(vaultRef.key(connectionId), t)
+    await dropClient(connectionId)
+    const r = await refreshTools(connectionId)
+    if (!r.ok) {
+      // The new token didn't work: put the old one back rather than leave a broken one.
+      if (old) vault.set(vaultRef.key(connectionId), old)
+      await dropClient(connectionId)
+      return { ok: false, detail: `The new token didn’t work: ${r.detail}` }
+    }
+    conns.updateConnection(connectionId, { hasSecret: true, secretHint: `…${t.slice(-4)}` })
+    deps.store.appendEvent({ workspaceId: c.workspaceId, projectId: null, actor: 'user:me', kind: 'connection.rotated', subject: { type: 'connection', id: connectionId, label: c.alias }, summary: `Replaced the token for ${c.alias} (…${t.slice(-4)}).`, data: {}, visibility: 'workspace' })
+    return { ok: true, detail: r.detail }
+  }
+
   async function test(connectionId: string): Promise<{ confirmed: string[] }> {
     const r = await refreshTools(connectionId)
     return { confirmed: [r.detail] }
@@ -294,5 +315,5 @@ export function createMcpHost(deps: McpHostDeps) {
     return deps.card(connectionId)
   }
 
-  return { inspect, add, authorize, refreshTools, test, forget, caller }
+  return { inspect, add, authorize, refreshTools, replaceBearer, test, forget, caller }
 }

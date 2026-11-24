@@ -31,17 +31,26 @@ Mutation proofs run so far: Impact (inferred matches off; revision detection
 off), coordinator (no follow-up bound; possible matches acted on), runner
 (recovery skipped). Each went red and back to green.
 
+## Renderer (built; unit-tested with a mocked window.api)
+
+| Piece | Files | Tests |
+|---|---|---|
+| Shared UI (status, inspector, tabs, announcer, on-request updates) | `components/aispace/ui.tsx`, `aispace.css` | via screens |
+| Navigation: views `aispace`, `airuns`, `connections`; Desk mode `ai`; sidebar rows; palette | `stores/view.ts`, `stores/deskView.ts`, `MainPane.tsx`, `ViewSelector.tsx`, `Canvas.tsx`, `Sidebar.tsx`, `nav/AreaAccordion.tsx`, `lib/areaTones.ts`, `CommandCenter.tsx` | sideMenuTones, plexiiHubNav |
+| Home | `components/aispace/AiSpaceHome.tsx`, `NewProjectDialog.tsx` | `aispaceScreens.test.tsx` |
+| Desk AI view (Overview, Tasks, Outputs, Impact, Manager pane, inspector, ⌘⇧K, ?) | `AiSpaceDeskView.tsx`, `Composer.tsx`, `OutputsPanel.tsx`, `ImpactView.tsx` | `aispaceScreens.test.tsx` |
+| Undo (reorder, filing, match judgement) | store `unfileThread`, `reopenSuggestion` | `aispaceUndo.test.ts` |
+| Connections screen (helper) | `ConnectionsView.tsx`, `connections/*`, `settings/ConnectionsSection.tsx` | `aispaceConnectionsView*.test.tsx` |
+| Runs + run inspector (helper) | `RunsView.tsx`, `RunInspector.tsx`, `runs/*` | `aispaceRuns*.test.tsx` |
+| E2E (written, NOT yet run: waiting for d0's window) | `tests/e2e/aiSpace.spec.ts` | 3 specs, `--list` OK |
+
 ## Next
 
-1. Service layer wiring connections management (add/test/rotate/reconnect/
-   pause/disconnect), tool invocation (MCP + app API) with policy, home
-   aggregation. Register schema in `migrations.ts`.
-2. IPC `aispace:*` + preload `aiSpace` + derive scripts + web channel map +
-   readOnly FEATURE_NAMESPACES.
-3. Renderer: stores; views `aispace` (Home) and `airuns` (Runs) and
-   `connections`; Desk view mode `ai` (Overview/Tasks/Outputs/Impact + PM pane
-   + inspector); Settings tab; palette entries; shortcuts.
-4. network-inventory.md rows; e2e spec (headless); gates.
+1. Integrate the two helpers' screens; typecheck all configs; hooks lint;
+   all AI Space unit tests + IPC guards; commit.
+2. When d0 clears the window: full vitest, then build + `tests/e2e/aiSpace.spec.ts`
+   (headless), then the affected existing e2e (desk view modes, sidebar).
+3. Owner list (see the final report): live provider checks, privacy wording.
 
 ## Rules from d0 for this branch
 

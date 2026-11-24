@@ -111,6 +111,28 @@ export function createToolGateway(deps: ToolGatewayDeps) {
     return { connection: conns.recordCheck(c.id, check.capabilities, { identity: check.identity, providerOrg: check.providerOrg }), confirmed: [check.detail] }
   }
 
+  // Rotate or reconnect an app token: verify the new one first, and only
+  // switch when it belongs to the same workspace (a different one becomes a
+  // separate connection).
+  async function replaceToken(connectionId: string, token: string, mode: 'rotate' | 'reconnect') {
+    const c = conns.getConnection(connectionId)
+    if (!c) throw new Error('Connection not found.')
+    const adapter = adapterFor(c.providerId)
+    if (!adapter) throw new Error('This app can’t be connected yet.')
+    const t = token.trim()
+    if (!t) return { ok: false as const, detail: 'Paste the new token.' }
+    const check = await verifyConnection({ adapter, connectionId, secret: t, allowLoopback: loopbackAllowedByEnv(), fetchImpl: deps.appOptions?.(c.providerId)?.fetchImpl })
+    if (!check.ok) return { ok: false as const, detail: `The new token didn’t pass its check: ${check.detail}` }
+    if (c.identity && check.identity && c.identity !== check.identity) {
+      return { ok: false as const, detail: 'That token belongs to a different workspace, so it can’t replace this one. Add it as a separate connection instead.', separate: { providerId: c.providerId, identity: check.identity } }
+    }
+    broker.store(c.id, t)
+    conns.updateConnection(c.id, { hasSecret: true, secretHint: `…${t.slice(-4)}` })
+    store.appendEvent({ workspaceId: c.workspaceId, projectId: null, actor: 'user:me', kind: 'connection.rotated', subject: { type: 'connection', id: c.id, label: c.alias }, summary: `${mode === 'rotate' ? 'Replaced the token for' : 'Reconnected'} ${c.alias} (…${t.slice(-4)}).`, data: { mode }, visibility: 'workspace' })
+    const after = conns.recordCheck(c.id, check.capabilities, { identity: check.identity ?? c.identity, providerOrg: check.providerOrg ?? c.providerOrg })
+    return { ok: true as const, connection: after, confirmed: [check.detail, c.identity && check.identity ? 'Same workspace as before.' : 'The workspace could not be compared.'] }
+  }
+
   function inputHash(operationId: string, input: unknown): string {
     return createHash('sha256').update(operationId).update('\u0000').update(JSON.stringify(input ?? null)).digest('hex').slice(0, 24)
   }
@@ -251,7 +273,7 @@ export function createToolGateway(deps: ToolGatewayDeps) {
     return n
   }
 
-  return { syncAppOperations, addAppApi, testAppApi, call, approve, decline, reconcile, recoverOnStartup }
+  return { syncAppOperations, addAppApi, testAppApi, replaceToken, call, approve, decline, reconcile, recoverOnStartup }
 }
 
 export type ToolGateway = ReturnType<typeof createToolGateway>

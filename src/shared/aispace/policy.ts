@@ -121,25 +121,24 @@ export function canInvoke(
   }
   checks.push({ name: 'Operation known', ok: true, detail: `${op.title} (${op.classification}).` })
 
-  if (op.reviewState !== 'approved') {
-    checks.push({ name: 'Operation reviewed', ok: false, detail: 'Its definition changed and needs review.' })
-    return decide(checks, 'operation_needs_review', `${op.title} changed since it was approved. Review it first.`)
-  }
-  if (op.classification === 'unknown') {
-    checks.push({ name: 'Operation classified', ok: false, detail: 'Not yet classified as read or write.' })
-    return decide(checks, 'operation_needs_review', `${op.title} hasn’t been classified as read or write yet.`)
-  }
-
+  // On the grant at all? The most basic question comes first.
   const grant = activeGrant(input.grants, input.connection.id, input.project.id, input.now)!
   const action = grant.actions.find((a) => a.operationId === op.id)
+  if (!action) {
+    checks.push({ name: 'Action granted', ok: false, detail: 'Not on the project’s grant.' })
+    return decide(checks, 'operation_not_granted', `This project isn’t allowed to run ${op.title}.`)
+  }
+
+  if (op.reviewState !== 'approved' || op.classification === 'unknown') {
+    const never = op.classification === 'unknown'
+    checks.push({ name: 'Operation reviewed', ok: false, detail: never ? 'Nobody has said yet whether it reads or changes data.' : 'Its definition changed since it was approved.' })
+    return decide(checks, 'operation_needs_review', never ? `${op.title} hasn’t been reviewed yet. Review it first.` : `${op.title} changed since it was approved. Review it first.`)
+  }
+
   const needsWrite = op.classification === 'write'
-  const granted = Boolean(action && (!needsWrite || action.mode === 'write'))
-  checks.push({
-    name: 'Action granted',
-    ok: granted,
-    detail: granted ? `Granted for ${action!.mode}.` : needsWrite && action ? 'Granted for reading only.' : 'Not on the project’s grant.'
-  })
-  if (!granted) return decide(checks, 'operation_not_granted', `This project isn’t allowed to run ${op.title}.`)
+  const granted = !needsWrite || action.mode === 'write'
+  checks.push({ name: 'Action granted', ok: granted, detail: granted ? `Granted for ${action.mode}.` : 'Granted for reading only.' })
+  if (!granted) return decide(checks, 'operation_not_granted', `This project may only read with ${op.title}, not change data.`)
 
   // Writes take an approval unless the grant says this exact action is automatic.
   if (needsWrite && grant.approval === 'ask_each_time' && !input.approval) {

@@ -1,0 +1,34 @@
+/* Runs list: stable columns that follow the list's own width, not the window's,
+   so the columns hold when the inspector docks beside the list (§4 Desktop grid).
+   Narrow: status and time on one line, the run below, connection and model last. */
+.ais-runs-list {
+  container-type: inline-size;
+  container-name: ais-runs;
+}
+
+.ais-run-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'status time'
+    'main main'
+    'conn model';
+  column-gap: 16px;
+  row-gap: 4px;
+  align-items: start;
+}
+.ais-run-status { grid-area: status; }
+.ais-run-main { grid-area: main; }
+.ais-run-conn { grid-area: conn; }
+.ais-run-model { grid-area: model; text-align: right; }
+.ais-run-time { grid-area: time; text-align: right; }
+.ais-runs-head { display: none; }
+
+@container ais-runs (min-width: 760px) {
+  .ais-run-grid {
+    grid-template-columns: 152px minmax(0, 1fr) minmax(0, 184px) minmax(0, 128px) 136px;
+    grid-template-areas: 'status main conn model time';
+  }
+  .ais-run-model { text-align: left; }
+  .ais-runs-head { display: grid; }
+}

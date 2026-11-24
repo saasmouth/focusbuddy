@@ -14,7 +14,8 @@ import { DESK_DEFAULT_VIEW_KEY, DESK_VIEW_KEY } from '../lib/deskLocalPrefs'
 // views of the same objects (spec §3.4); workcentre = the dashboard, every object a
 // resizable tile showing its full content (owner, 4.3.41). Timeline/Calendar are
 // intentionally not modeled here — they suit time-bound events, not arbitrary desk objects.
-export type DeskViewMode = 'canvas' | 'columns' | 'workcentre' | 'list' | 'table' | 'gallery' | 'compact'
+// 'ai' = AI Space on this Desk (docs/ai-space): Overview, Tasks, Outputs, Impact.
+export type DeskViewMode = 'canvas' | 'columns' | 'workcentre' | 'list' | 'table' | 'gallery' | 'compact' | 'ai'
 
 const KEY = DESK_VIEW_KEY
 const DEFAULT_KEY = DESK_DEFAULT_VIEW_KEY

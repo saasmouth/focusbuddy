@@ -713,7 +713,9 @@ function buildChangeRow(
       seen.add(`output:${out.id}`)
       // A person's judgement on this match wins: dismissed disappears,
       // confirmed becomes a recorded link with the person as the evidence.
-      const judged = state.suggestions.find((sg) => sg.target.id === out.id && sg.sourceEventId === `match:${change.id}` && sg.status !== 'pending')
+      const judged = state.suggestions
+        .filter((sg) => sg.target.id === out.id && sg.sourceEventId === `match:${change.id}` && sg.status !== 'pending')
+        .sort((a, b) => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0))[0]
       if (judged?.status === 'dismissed') continue
       if (judged?.status === 'acted') {
         const confirmed = outputItem(state, idx, out, 'recorded', 'stale', `${out.title} still says ${hit.matched}.`, [

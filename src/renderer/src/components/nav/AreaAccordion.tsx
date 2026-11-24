@@ -35,6 +35,7 @@ import { useCapabilityStore } from '../../stores/capabilities'
 import { useOrgStore, PERSONAL_ORG_ID } from '../../stores/org'
 import AddConnectedAppDialog from '../AddConnectedAppDialog'
 import { AREA_TONES } from '../../lib/areaTones'
+import { aiSpaceAvailable } from '../../lib/aiSpaceAvailable'
 import { computeEntitlement } from '../../lib/entitlementReason'
 import { SEGMENT_APPS, type SegmentAppMeta } from '../../lib/segmentApps'
 import { DRAG_MIME } from '../../lib/widgetCatalog'
@@ -102,7 +103,10 @@ const DESK_VIEWS: {
   { kind: 'rooms', label: 'Rooms', icon: 'meeting_room', tone: AREA_TONES.rooms, go: (v) => v.goRooms() },
   { kind: 'desks', label: 'Desks', icon: 'desk', tone: AREA_TONES.desks, go: (v) => v.goDesks() },
   { kind: 'shared', label: 'Shared Desks', icon: 'folder_shared', tone: AREA_TONES.shared, go: (v) => v.goShared() },
-  { kind: 'trash', label: 'Trash', icon: 'delete', tone: AREA_TONES.trash, go: (v) => v.goTrash() }
+  { kind: 'trash', label: 'Trash', icon: 'delete', tone: AREA_TONES.trash, go: (v) => v.goTrash() },
+  // AI Space (docs/ai-space); hidden outside the desktop app below.
+  { kind: 'aispace', label: 'AI Space', icon: 'auto_awesome', tone: AREA_TONES.aispace, go: (v) => v.goAiSpace() },
+  { kind: 'airuns', label: 'Runs', icon: 'list_alt', tone: AREA_TONES.airuns, go: (v) => v.goAiRuns() }
 ]
 
 type SectionId = 'desk' | 'apps' | 'widgets' | 'connected' | 'people' | 'brain'
@@ -505,7 +509,7 @@ export default function AreaAccordion({
             onClick={() => useViewStore.getState().goHome()}
             testid="nav-plexidesk-home"
           />
-          {DESK_VIEWS.map((d) => (
+          {DESK_VIEWS.filter((d) => (d.kind !== 'aispace' && d.kind !== 'airuns') || aiSpaceAvailable()).map((d) => (
             <Row
               key={d.kind}
               label={d.label}

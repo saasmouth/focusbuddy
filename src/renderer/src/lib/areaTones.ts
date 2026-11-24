@@ -24,6 +24,9 @@ export type AreaId =
   | 'desks'
   | 'shared'
   | 'trash'
+  // AI Space (docs/ai-space): the cross-project home and all runs
+  | 'aispace'
+  | 'airuns'
   // Desk area — Attention's six state/due filters
   | 'attention-open'
   | 'attention-due-today'
@@ -55,6 +58,10 @@ export const AREA_TONES: Record<AreaId, string> = {
   // Trash is the one deliberately drab entry. It is a destination you need to
   // find, not one to draw the eye, and a coloured bin competes with real work.
   trash: 'text-slate-500',
+  // AI Space takes fuchsia: the one hue no other place uses, so AI work reads
+  // as its own area; Runs is its quieter companion.
+  aispace: 'text-fuchsia-500',
+  airuns: 'text-fuchsia-400',
 
   // ── Desk: Attention's filters ─────────────────────────────────────────────
   // These used to share one hue, which made six different questions look like

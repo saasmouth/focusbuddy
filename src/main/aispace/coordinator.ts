@@ -176,7 +176,10 @@ export function createCoordinator(deps: CoordinatorDeps) {
     const words = tokenSet(`${src.title} ${src.content}`)
     for (const req of store.listRequests(projectId)) {
       if (req.status !== 'open') continue
-      if (!req.topics.some((t) => topicMatches(t, words))) continue
+      // At least two of its topics (or its only one) must appear, so one
+      // generic word can't answer an unrelated question.
+      const hits = req.topics.filter((t) => topicMatches(t, words)).length
+      if (hits === 0 || hits < Math.min(2, req.topics.length)) continue
       store.supplyRequest(req.id, src.id, MANAGER)
       deliver(req.id, e.id)
     }
