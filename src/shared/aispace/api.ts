@@ -39,6 +39,8 @@ export interface RunSummary {
   connectionAlias: string | null
   provider: string | null
   model: string | null
+  // The model's display name, from main's model list (Claude names come from the router).
+  modelLabel: string | null
   billedTo: string | null
   externalId: string | null
   lastConfirmedStep: string

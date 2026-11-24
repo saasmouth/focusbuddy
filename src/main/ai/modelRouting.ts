@@ -26,6 +26,15 @@ export const MODEL_HAIKU = 'claude-haiku-5-5'
 export const MODEL_SONNET = 'claude-sonnet-5-5'
 export const MODEL_OPUS = 'claude-opus-5-5'
 
+// The Claude models a Connections key can be asked to run (AI Space,
+// docs/ai-space). Listed here, from the constants above, so model ids live in
+// one place and move with the router (tests/unit/modelRouting.test.ts).
+export const CONNECTION_CLAUDE_MODELS: ReadonlyArray<{ id: string; label: string; maxOutputTokens: number }> = [
+  { id: MODEL_SONNET, label: 'Claude Sonnet 5.5', maxOutputTokens: 16000 },
+  { id: MODEL_OPUS, label: 'Claude Opus 5.5', maxOutputTokens: 16000 },
+  { id: MODEL_HAIKU, label: 'Claude Haiku 5.5', maxOutputTokens: 8000 }
+]
+
 /**
  * The most a model can write in one reply: 128K output tokens on every model
  * above (and on the GPT-5 family the OpenAI source maps to). Calls that must

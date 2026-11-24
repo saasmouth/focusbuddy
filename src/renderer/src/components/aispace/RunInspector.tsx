@@ -327,8 +327,8 @@ export default function RunInspector(props: RunInspectorProps): JSX.Element {
               <Fact label="Connection">{alias ?? 'No connection'}</Fact>
               <Fact label="Provider">{providerName(provider)}</Fact>
               <Fact label="Model">
-                {modelLabel(provider, manifest.model ?? run.model)}
-                {(manifest.model ?? run.model) && modelLabel(provider, manifest.model ?? run.model) !== (manifest.model ?? run.model) && <span className="block text-[12px] text-[var(--ink-50)]">{manifest.model ?? run.model}</span>}
+                {modelLabel(provider, manifest.model ?? run.model, run.modelLabel)}
+                {(manifest.model ?? run.model) && modelLabel(provider, manifest.model ?? run.model, run.modelLabel) !== (manifest.model ?? run.model) && <span className="block text-[12px] text-[var(--ink-50)]">{manifest.model ?? run.model}</span>}
               </Fact>
               <Fact label="Paid by" testId="ais-run-payer">
                 {payerText(manifest.billedTo ?? run.billedTo)}

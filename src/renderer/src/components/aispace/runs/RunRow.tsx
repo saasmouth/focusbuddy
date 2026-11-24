@@ -60,7 +60,7 @@ const RunRow = forwardRef<HTMLButtonElement, RunRowProps>(function RunRow({ run:
           </span>
         </span>
         <span className="ais-run-model min-w-0 text-[13px] text-[var(--ink-80)] truncate" title={r.model ?? undefined}>
-          {modelLabel(r.provider, r.model)}
+          {modelLabel(r.provider, r.model, r.modelLabel)}
         </span>
         <span className="ais-run-time fb-tabular text-[12px] text-[var(--ink-60)] whitespace-nowrap" title={t.title}>
           <span className="block">{t.primary}</span>

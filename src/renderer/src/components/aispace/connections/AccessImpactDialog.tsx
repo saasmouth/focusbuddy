@@ -131,7 +131,7 @@ export default function AccessImpactDialog(props: { request: ImpactRequest; onCl
           onClick={() => void confirm()}
           disabled={!impact || busy}
           data-testid="conn-impact-confirm"
-          className={`inline-flex items-center justify-center gap-1.5 min-h-[32px] px-3.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--accent))] motion-safe:transition-colors motion-safe:duration-150 ${request.danger ? 'bg-[color:var(--ais-bad)] hover:brightness-110' : 'bg-[rgb(var(--accent))] hover:bg-[rgb(var(--accent-hover,var(--accent)))]'}`}
+          className={`inline-flex items-center justify-center gap-1.5 min-h-[32px] px-3.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--accent))] motion-safe:transition-colors motion-safe:duration-150 ${request.danger ? 'bg-[color:var(--ais-bad)] hover:brightness-110' : 'bg-[rgb(var(--accent))] hover:bg-accent-hover'}`}
         >
           {busy ? 'Working…' : request.confirmLabel}
         </button>

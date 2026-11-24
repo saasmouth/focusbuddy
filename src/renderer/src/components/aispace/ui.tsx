@@ -95,7 +95,7 @@ export function PrimaryButton(props: { children: ReactNode; onClick?: () => void
       disabled={props.disabled}
       title={props.title}
       data-testid={props.testId}
-      className="inline-flex items-center justify-center gap-1.5 min-h-[32px] px-3.5 rounded-lg bg-[rgb(var(--accent))] text-white text-[13px] font-medium hover:bg-[rgb(var(--accent-hover,var(--accent)))] disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--accent))] motion-safe:transition-colors motion-safe:duration-150"
+      className="inline-flex items-center justify-center gap-1.5 min-h-[32px] px-3.5 rounded-lg bg-[rgb(var(--accent))] text-white text-[13px] font-medium hover:bg-accent-hover disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--accent))] motion-safe:transition-colors motion-safe:duration-150"
     >
       {props.children}
     </button>

@@ -9,7 +9,7 @@ import type { SqlDb } from '../db/eventStore'
 import type { AccessContext, AiProject, AiRun, OutputKind, RecordRef, RunStatus, WorkspaceKind } from '@shared/aispace/model'
 import type { Connection, ConnectionKind, GrantAction, ApprovalLevel, CapabilityHealth } from '@shared/aispace/connections'
 import { redactSecrets, secretHintOf, payerLabel } from '@shared/aispace/connections'
-import { addableProviders, providerById, providerForChatUrl, PROVIDERS, MCP_CATALOGUE } from '@shared/aispace/catalogue'
+import { addableProviders, providerById, providerForChatUrl, MCP_CATALOGUE } from '@shared/aispace/catalogue'
 import { computeImpact, stateAsOf } from '@shared/aispace/impact'
 import { buildReturnBrief, type NeedsYou, type ReturnBrief } from '@shared/aispace/brief'
 import { createAiSpaceStore, type AiSpaceStore } from './store'
@@ -21,6 +21,7 @@ import { createCoordinator, type Coordinator } from './coordinator'
 import { createModelAdapter, isModelProviderId, type ModelAdapter } from './providers'
 import { ProviderError } from './providers/types'
 import { loopbackAllowedByEnv } from './net'
+import { providerModels, providersWithModels } from './models'
 import type { AccessImpactData, AddConnectionResult, CaptureResultData, CatalogueData, ConnectionCard, ConnectionDetailData, HomeData, ImpactResponse, ProjectViewData, RunDetailData, RunSummary, SearchHitData, StartRunResponse, TestConnectionResult } from '@shared/aispace/api'
 
 export interface ServiceDeps {
@@ -256,6 +257,7 @@ export function createAiSpaceService(deps: ServiceDeps) {
       connectionAlias: r.manifest.connectionAlias,
       provider: r.manifest.provider,
       model: r.manifest.model,
+      modelLabel: r.manifest.model ? providerModels(r.manifest.provider ?? '').find((m) => m.id === r.manifest.model)?.label ?? null : null,
       billedTo: r.manifest.billedTo,
       externalId: r.externalId,
       lastConfirmedStep: r.lastConfirmedStep,
@@ -346,13 +348,13 @@ export function createAiSpaceService(deps: ServiceDeps) {
       keySettingsUrl: def?.keySettingsUrl ?? null,
       billingUrl: def?.billingUrl ?? null,
       certification: def?.certification ?? null,
-      defaultModel: c.config?.defaultModel ?? def?.models[0]?.id ?? null,
-      models: def?.models ?? []
+      defaultModel: c.config?.defaultModel ?? providerModels(c.providerId)[0]?.id ?? null,
+      models: providerModels(c.providerId)
     }
   }
 
   function catalogue(): CatalogueData {
-    return { providers: PROVIDERS, addable: addableProviders().map((p) => p.id), mcp: MCP_CATALOGUE }
+    return { providers: providersWithModels(), addable: addableProviders().map((p) => p.id), mcp: MCP_CATALOGUE }
   }
 
   function listConnections(filter: { kind?: ConnectionKind; includeDisconnected?: boolean } = {}): ConnectionCard[] {
@@ -415,7 +417,7 @@ export function createAiSpaceService(deps: ServiceDeps) {
     if (!secret) throw new Error('Paste the API key.')
     const check = await verifyModelKey(input.providerId, secret)
     if (!check.ok) return { ok: false as const, detail: check.detail || 'The key didn’t pass its check.', confirmed: [] as string[] }
-    const c = conns.addConnection({ workspaceId: input.workspaceId, providerId: def.id, kind: 'model_api', alias: input.alias || `${def.group}`, credentialOwner: 'You', billedTo: input.billedTo ?? check.providerOrg ?? null, config: { defaultModel: input.defaultModel ?? def.models[0]?.id ?? null } })
+    const c = conns.addConnection({ workspaceId: input.workspaceId, providerId: def.id, kind: 'model_api', alias: input.alias || `${def.group}`, credentialOwner: 'You', billedTo: input.billedTo ?? check.providerOrg ?? null, config: { defaultModel: input.defaultModel ?? providerModels(def.id)[0]?.id ?? null } })
     broker.store(c.id, secret)
     conns.updateConnection(c.id, { hasSecret: true, secretHint: secretHintOf(secret) })
     const after = conns.recordCheck(c.id, check.capabilities, { identity: check.identity, providerOrg: check.providerOrg })

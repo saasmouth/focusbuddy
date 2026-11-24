@@ -127,7 +127,7 @@ export function Preview({ kind, v, compact, full }: { kind: OutputKind; v: Versi
       <div className="border border-[var(--edge-soft)] rounded-lg overflow-hidden">
         <div className="px-3 py-1.5 text-[11.5px] text-[var(--ink-60)] bg-[var(--surface-sunken)] border-b border-[var(--edge-hairline)]">Preview of v{v.n}, saved {fmtWhen(v.createdAt)} — not the live site</div>
         {/* No scripts, no same-origin: a static, dated rendering only. */}
-        <iframe title={`Site preview v${v.n}`} sandbox="" srcDoc={text} className="w-full h-[420px] bg-white" />
+        <iframe title={`Site preview v${v.n}`} sandbox="" referrerPolicy="no-referrer" srcDoc={text} className="w-full h-[420px] bg-white" />
       </div>
     )
   }

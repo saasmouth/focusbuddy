@@ -19,6 +19,7 @@
 // Plexii's run ledger records the key before dispatch and reconciles by id.
 
 import { providerById } from '@shared/aispace/catalogue'
+import { providerModels } from '../models'
 import type { CapabilityHealth } from '@shared/aispace/connections'
 import {
   type AdapterOptions,
@@ -126,7 +127,7 @@ export function createOpenAIAdapter(opts: AdapterOptions = {}): ModelAdapter {
   const runTimeout = opts.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS
   const idleMs = opts.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_MS
   const def = providerById(PROVIDER)
-  const catalogue = def?.models ?? []
+  const catalogue = def ? providerModels(def.id) : []
   const declared = def?.declaredCapabilities ?? ['run_model', 'track_run', 'cancel_run', 'resume_run']
 
   const headers = (secret: string, json = true): Record<string, string> => ({

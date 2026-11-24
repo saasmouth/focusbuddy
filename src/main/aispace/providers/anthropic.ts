@@ -13,6 +13,7 @@
 // adapter claims no duplicate protection. Plexii's run ledger provides it.
 
 import { providerById } from '@shared/aispace/catalogue'
+import { providerModels } from '../models'
 import type { CapabilityHealth } from '@shared/aispace/connections'
 import { PRICING, estimateCostMicros as claudeCostMicros } from '../../ai/aiCost'
 import {
@@ -89,7 +90,7 @@ export function createAnthropicAdapter(opts: AdapterOptions = {}): ModelAdapter 
   const runTimeout = opts.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS
   const idleMs = opts.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_MS
   const def = providerById(PROVIDER)
-  const catalogue = def?.models ?? []
+  const catalogue = def ? providerModels(def.id) : []
   const declared = def?.declaredCapabilities ?? ['run_model']
 
   const headers = (secret: string): Record<string, string> => ({

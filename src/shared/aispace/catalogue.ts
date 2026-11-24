@@ -28,12 +28,9 @@ export const PROVIDERS: ProviderDefinition[] = [
     adapterVersion: '1.0.0',
     auth: ['api_key'],
     accountDiscovery: true,
-    models: [
-      { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', modalities: TEXT_IMAGE, usdPerMInput: null, usdPerMOutput: null, maxOutputTokens: 16000 },
-      { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', modalities: TEXT_IMAGE, usdPerMInput: null, usdPerMOutput: null, maxOutputTokens: 16000 },
-      { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', modalities: TEXT_IMAGE, usdPerMInput: null, usdPerMOutput: null, maxOutputTokens: 8000 },
-      { id: 'claude-fable-5-2', label: 'Claude Fable 5.2', modalities: TEXT_IMAGE, usdPerMInput: null, usdPerMOutput: null, maxOutputTokens: 16000 }
-    ],
+    // Filled in main from CONNECTION_CLAUDE_MODELS in src/main/ai/modelRouting.ts,
+    // the one place Claude model ids live (src/main/aispace/models.ts).
+    models: [],
     streaming: true,
     maxTaskDuration: 'Minutes while Plexii is open',
     usageReporting: 'per_request',

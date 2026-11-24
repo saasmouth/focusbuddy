@@ -25,8 +25,11 @@ export function providerDestination(providerId: string | null | undefined): stri
   return providerId ? providerById(providerId)?.dataDestination ?? null : null
 }
 
-export function modelLabel(providerId: string | null | undefined, model: string | null | undefined): string {
+// `known` is the label main sent with the run (Claude names live in main's
+// router); the shared catalogue covers the other providers.
+export function modelLabel(providerId: string | null | undefined, model: string | null | undefined, known?: string | null): string {
   if (!model) return 'No model'
+  if (known) return known
   const m = providerId ? providerById(providerId)?.models.find((x) => x.id === model) : undefined
   return m?.label ?? model
 }

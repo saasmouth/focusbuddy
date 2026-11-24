@@ -509,7 +509,9 @@ export default function AreaAccordion({
             onClick={() => useViewStore.getState().goHome()}
             testid="nav-plexidesk-home"
           />
-          {DESK_VIEWS.filter((d) => (d.kind !== 'aispace' && d.kind !== 'airuns') || aiSpaceAvailable()).map((d) => (
+          {DESK_VIEWS.map((d) =>
+            // AI Space rows are desktop only.
+            (d.kind === 'aispace' || d.kind === 'airuns') && !aiSpaceAvailable() ? null : (
             <Row
               key={d.kind}
               label={d.label}
@@ -520,7 +522,8 @@ export default function AreaAccordion({
               onClick={() => d.go(useViewStore.getState())}
               testid={`nav-desk-${d.kind}`}
             />
-          ))}
+            )
+          )}
           {/* A hairline between "places in the desk area" and "apps of the
               desk area" — they route differently and reading as one list made
               Trash look like a sibling of Plans. */}
