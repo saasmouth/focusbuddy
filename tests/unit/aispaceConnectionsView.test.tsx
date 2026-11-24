@@ -23,7 +23,8 @@ import { useViewStore } from '../../src/renderer/src/stores/view'
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const FAKE_KEY = 'sk-ant-api03-TESTKEY-not-a-real-one-9f8e7d6c5b4a'
+// Key-shaped (so redaction is exercised) but never a real provider prefix.
+const FAKE_KEY = 'sk-ant-test-TESTKEY-not-a-real-one-9f8e7d6c5b4a'
 const FAKE_TOKEN = 'lin_oauth_FAKE_TOKEN_0123456789abcdef'
 const T0 = Date.now() - 2 * 60 * 60 * 1000
 
