@@ -86,7 +86,12 @@ export const MODULE_SWAPS: Record<string, string> = {
   // that is a public page probing the visitor's own computer: the share page
   // did it when a visitor dragged a calculator onto a desk (search embeds the
   // new file). The browser has no local model, so it has no client either.
-  'src/main/ai/localModel.ts': 'src/web/worker/main/localModel.ts'
+  'src/main/ai/localModel.ts': 'src/web/worker/main/localModel.ts',
+  // Agentic Ops embeds a console on localhost:8765 and first asks it whether it
+  // is running. PlexiiBrain › Ops is in the share page's side menu, so a visitor
+  // who clicked it had their browser ask their own computer. The browser has no
+  // such console, so it has no client: a page that says where Ops runs.
+  'src/renderer/src/components/views/AgenticOpsView.tsx': 'src/web/views/AgenticOpsView.tsx'
 }
 
 // Path aliases plus the Node-module shims. Exported for the same test.

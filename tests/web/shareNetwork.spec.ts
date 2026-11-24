@@ -112,7 +112,25 @@ test('a visitor drags a calculator onto the desk: no request to a local AI serve
   expect(offPage(seen), 'a request off the page').toEqual([])
 })
 
-test('the built share app carries no local AI client', () => {
+test('a visitor opens PlexiiBrain › Agentic Ops: nothing is asked of their own computer', async ({ page, context }) => {
+  // Ops embeds a console on localhost:8765 on the desktop, and asked it whether
+  // it was running as soon as it opened, from the visitor's own browser too.
+  const seen = await watch(context)
+  await openDesk(page)
+  await page.locator('[data-testid="nav-plexibrain-ops"]').first().click()
+  await settle(seen)
+
+  const own = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0'])
+  expect(seen.off.filter((r) => own.has(r.url.hostname)).map((r) => r.url.href), "a request to the visitor's own computer").toEqual([])
+  expect(offPage(seen), 'a request off the page').toEqual([])
+  // And the visitor is told what Ops is and where it runs, with the one door
+  // out of a shared desk: the desktop app.
+  await expect(page.getByText('Agentic Ops runs on your computer')).toBeVisible()
+  await page.getByRole('button', { name: 'Get Plexii for your computer' }).click()
+  await expect(page.getByText('Download this desk on Plexii').first()).toBeVisible()
+})
+
+test('the built share app carries no client for a service on the visitor\'s computer', () => {
   const files: string[] = []
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir)) {
@@ -123,9 +141,9 @@ test('the built share app carries no local AI client', () => {
   }
   walk(OUT)
   expect(files.length).toBeGreaterThan(5)
-  // The address the client asked, and its model list. (Settings › AI still
-  // names "localhost:11434" in its text, for the desktop app; that is copy, not
-  // a request.)
-  const hits = files.filter((p) => /http:\/\/localhost:11434|\/api\/tags/.test(readFileSync(p, 'utf8'))).map((p) => p.slice(OUT.length + 1))
+  // The addresses the desktop's clients ask: Ollama and its model list, and the
+  // Agentic Ops console. (Settings › AI still names "localhost:11434" in its
+  // text, for the desktop app; that is copy, not a request.)
+  const hits = files.filter((p) => /http:\/\/localhost:11434|\/api\/tags|localhost:8765/.test(readFileSync(p, 'utf8'))).map((p) => p.slice(OUT.length + 1))
   expect(hits).toEqual([])
 })
