@@ -95,20 +95,39 @@ export interface OrgSsoConfig {
   connectionId: string
   domain: string
   createdAt: number
+  /** When the org proved it owns `domain` by DNS; null until then, and SSO is off (signal sso.ts). */
+  verifiedAt?: number | null
 }
 
-// Returns whether the server can do SSO at all (creds present) and this org's
-// config if set.
+/** The DNS TXT record that proves the domain: plexii-verify=<token> on the domain (or alsoAt). */
+export interface OrgSsoRecord {
+  type: 'TXT'
+  name: string
+  value: string
+  alsoAt: string
+}
+
+/** What a save or Check now found (POST /orgs/:id/sso/verify). */
+export interface OrgSsoCheck {
+  verified: boolean
+  verifiedAt: number | null
+  reason?: 'record_not_found' | 'dns_unavailable' | 'no_config'
+  message: string
+  record?: OrgSsoRecord | null
+}
+
+// Returns whether the server can do SSO at all (creds present), this org's
+// config if set, and the DNS record that proves its domain.
 export async function getSso(
   token: string,
   id: string
-): Promise<{ configured: boolean; config: OrgSsoConfig | null }> {
-  const { json } = await call<{ ok: boolean; configured?: boolean; config?: OrgSsoConfig | null }>(
+): Promise<{ configured: boolean; config: OrgSsoConfig | null; verification: OrgSsoRecord | null }> {
+  const { json } = await call<{ ok: boolean; configured?: boolean; config?: OrgSsoConfig | null; verification?: OrgSsoRecord | null }>(
     'GET',
     `/orgs/${id}/sso`,
     token
   )
-  return { configured: !!json?.configured, config: json?.config ?? null }
+  return { configured: !!json?.configured, config: json?.config ?? null, verification: json?.verification ?? null }
 }
 
 export async function setSso(
@@ -116,9 +135,16 @@ export async function setSso(
   id: string,
   connectionId: string,
   domain: string
-): Promise<{ ok: boolean; error?: string }> {
-  const { json } = await call<{ ok: boolean; error?: string }>('PUT', `/orgs/${id}/sso`, token, { connectionId, domain })
-  return { ok: !!json?.ok, error: json?.error }
+): Promise<{ ok: boolean; error?: string; verification?: OrgSsoCheck }> {
+  const { json } = await call<{ ok: boolean; error?: string; verification?: OrgSsoCheck }>('PUT', `/orgs/${id}/sso`, token, { connectionId, domain })
+  return { ok: !!json?.ok, error: json?.error, verification: json?.verification }
+}
+
+/** Check now: signal looks the domain's TXT record up again. */
+export async function verifySso(token: string, id: string): Promise<OrgSsoCheck> {
+  const { json } = await call<{ ok: boolean; error?: string; verification?: OrgSsoCheck }>('POST', `/orgs/${id}/sso/verify`, token)
+  if (json?.ok && json.verification) return json.verification
+  return { verified: false, verifiedAt: null, message: json?.error ?? 'Plexii could not check the record. Try again in a moment.' }
 }
 
 export async function clearSso(token: string, id: string): Promise<void> {
