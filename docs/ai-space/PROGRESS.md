@@ -63,6 +63,9 @@ settings guards); node, web and webruntime typecheck clean; hooks lint clean.
    (headless, launchGuarded), then the affected existing e2e (desk view
    selector, sidebar, settings, palette).
 3. Look at every screen in the built app (headless captures).
+3b. Re-push `ai-space` WITH the pre-push hook on (no SKIP_MERGE_CHECK) so the
+   branch head has passed merge-check. d0 allowed the one-time skip for
+   e9d91b1c only, never for main.
 4. Owner items: live provider checks (a few cents), certify one real remote MCP
    server, the privacy page wording, and "should automatic draft fixes default
    on?" (currently OFF: an explicit per-project opt-in since `822aea4a`).
