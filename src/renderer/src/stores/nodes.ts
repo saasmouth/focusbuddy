@@ -18,6 +18,7 @@ import { useCapabilityStore } from './capabilities'
 import { promptUpgrade } from './upgradePrompt'
 import { useMessagingStore } from './messaging'
 import { useContextHealthStore } from './contextHealth'
+import { endLinksOfDeletedDesks } from '../lib/deskLinksEnd'
 
 // The multiple_desks capability caps how many DESKS a tier may have. Thrown by
 // create() when a free user would exceed it — callers that don't catch it
@@ -246,6 +247,10 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
       activeTaskId: ids.includes(get().activeTaskId ?? '') ? null : get().activeTaskId
     })
     nudgeSync()
+    // On a device that keeps its workspace local, nothing tells the server this
+    // desk is gone, so its links would go on working: the app ends the ones it
+    // made (lib/deskLinksEnd; a no-op wherever the delete syncs).
+    if (target) void endLinksOfDeletedDesks(target, ids)
     // Best-effort: archive the deleted room/desk's chat channel (keeps history,
     // hides it from lists). No-op if the object never had a channel.
     if (target) {
@@ -276,9 +281,11 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     // caller's job to exclude (D1); the db layer refuses them anyway.
     const targets = get().nodes.filter((n) => rootIds.includes(n.id))
     const allIds: string[] = []
+    const trashedBy = new Map<string, string[]>()
     for (const root of rootIds) {
       const ids = await window.api.nodes.delete(root)
       allIds.push(...ids)
+      trashedBy.set(root, ids)
     }
     if (!allIds.length) return
     crdtEmitNodeDelete(allIds)
@@ -287,6 +294,8 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
       activeTaskId: allIds.includes(get().activeTaskId ?? '') ? null : get().activeTaskId
     })
     nudgeSync()
+    // As in remove(): links end with their desk where the delete cannot say so.
+    for (const t of targets) void endLinksOfDeletedDesks(t, trashedBy.get(t.id) ?? [])
     for (const t of targets) {
       void useMessagingStore
         .getState()
