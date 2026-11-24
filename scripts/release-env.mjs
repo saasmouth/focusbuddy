@@ -22,7 +22,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const envPath = join(root, '.env')
+// RELEASE_ENV_FILE points at another file (the tests use an empty one, so they
+// never read the real credentials).
+const envPath = process.env.RELEASE_ENV_FILE || join(root, '.env')
 
 /** Only these are read. Anything else in .env is none of this script's business. */
 const WANTED = new Set([
@@ -32,6 +34,10 @@ const WANTED = new Set([
   'APPLE_API_KEY',
   'APPLE_API_KEY_ID',
   'APPLE_API_ISSUER',
+  // The notarytool keychain profile (stored once; see scripts/notary-auth.cjs).
+  // Optional: the stored default "plexii-notary" is found without it.
+  'APPLE_KEYCHAIN_PROFILE',
+  'APPLE_KEYCHAIN',
   // The update-feed credentials. release-mac.sh REFUSES to finish without
   // R2_BUCKET, because uploading to the GitHub release alone leaves every
   // installed mac client being told the previous version is current — that is
@@ -103,64 +109,44 @@ Object.assign(env, {
 // Names only, never values.
 console.log(`apple credentials loaded from .env: ${found.sort().join(' ') || 'NONE'}`)
 
-// Which notarisation path this build will take, and the cost of the older one.
+// Which notarisation path this build will take — decided by
+// scripts/notary-auth.cjs, which every signing gate shares.
 //
 // notarytool takes its credentials as ARGUMENTS. On the app-specific-password
-// path that means the password itself appears in the process's command line,
-// where `ps` shows it to anything running as this user for as long as
-// notarisation takes — minutes, on a multi-GB upload. It was observed in this
-// repo's own build that way, which is how this warning came to exist. The App
-// Store Connect API key path passes a FILE PATH instead (--key), so no secret
-// is ever on a command line.
+// path that put the password itself on the process's command line, where `ps`
+// shows it to anything running as this user for the minutes notarisation
+// takes; on 2026-11-25 it had been read into two agent sessions' output. A
+// keychain profile puts only its NAME there. And because electron-builder 26
+// takes the password path whenever APPLE_ID or APPLE_APP_SPECIFIC_PASSWORD is
+// set (before a key or a profile), the child gets the resolved environment:
+// with a profile or a key, both are REMOVED from it, not merely outranked.
 //
-// Both paths are loaded above, and electron-builder prefers the API key when
-// it is present, so this is a notice rather than a gate: nothing here changes
-// which path is taken, it just stops the weaker one being the silent default.
-//
-// Each set must be COMPLETE to say anything. An earlier version of this notice
-// checked only APPLE_ID and the password, and announced "notarisation:
-// app-specific password" on a machine with no APPLE_TEAM_ID — directly under
-// its own line saying no credentials were found and the build would be ad-hoc.
-// A warning that contradicts the line above it teaches people to ignore both.
-const hasApiKey = ['APPLE_API_KEY', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER'].every((k) => env[k])
-const hasPassword = ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'].every(
-  (k) => env[k]
-)
-if (!hasApiKey && !hasPassword) {
+// The old path is the explicit fallback: NOTARY_PASSWORD_IN_ARGV=1, loudly.
+// With neither a profile nor that, a password alone stops here.
+const { resolveNotaryAuth } = createRequire(import.meta.url)('./notary-auth.cjs')
+const auth = resolveNotaryAuth(env)
+if (auth.fatal) {
+  console.error(`FATAL: ${auth.fatal}`)
+  process.exit(1)
+}
+if (auth.mode === 'none') {
   // Judged on the environment the build will actually run with, not on what
-  // .env contributed. The old warning keyed off .env alone, so it announced
-  // "no Apple credentials found" on a machine that had a complete set
-  // inherited from the shell — and would have said it just as loudly if the
-  // build were about to notarise successfully.
+  // .env contributed.
   const partial = [...WANTED].filter((k) => env[k])
   console.log(
-    'WARNING: no COMPLETE Apple credential set, so this build will be ad-hoc signed and NOT notarised.'
+    'WARNING: no notarisation credentials, so a mac build will be ad-hoc signed and NOT notarised\n' +
+      '  (electron-builder.cjs refuses that unless SKIP_SIGNING_CHECK=1).'
   )
-  if (partial.length) {
-    console.log(`  present but not enough: ${partial.sort().join(' ')}`)
-    console.log(
-      '  need either APPLE_API_KEY + APPLE_API_KEY_ID + APPLE_API_ISSUER (preferred),\n' +
-        '  or APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID.'
-    )
-  }
-} else if (hasApiKey) {
-  console.log('notarisation: App Store Connect API key (no secret on any command line)')
-} else if (hasPassword) {
-  console.log('notarisation: app-specific password (complete set)')
-  console.log(
-    '  NOTE: notarytool receives this password as a command-line argument, so it is\n' +
-      '  visible in `ps` to any process running as you while notarisation runs. To avoid\n' +
-      '  that, create an App Store Connect API key and put APPLE_API_KEY (the .p8 path),\n' +
-      '  APPLE_API_KEY_ID and APPLE_API_ISSUER in .env instead; electron-builder prefers\n' +
-      '  them automatically and the existing password entries can then be removed and\n' +
-      '  revoked.'
-  )
+  if (partial.length) console.log(`  present but not enough: ${partial.sort().join(' ')}`)
+} else {
+  console.log(auth.summary)
 }
+for (const w of auth.warnings) console.log(w)
 
 const [cmd, ...args] = process.argv.slice(2)
 if (!cmd) {
   console.error('usage: node scripts/release-env.mjs <command> [args...]')
   process.exit(2)
 }
-const r = spawnSync(cmd, args, { cwd: root, env, stdio: 'inherit', shell: false })
+const r = spawnSync(cmd, args, { cwd: root, env: auth.env, stdio: 'inherit', shell: false })
 process.exit(r.status ?? 1)

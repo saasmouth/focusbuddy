@@ -68,12 +68,22 @@ if [ "$BUILD" = "1" ]; then
   echo "[install-local] building ${VERSION} (signed + notarised) → ${LOG}"
   # Never /dev/null: a build that skips notarisation still produces an app, and
   # the only notice you get is in the output.
+  #
+  # Credentials: release-env.mjs resolves them through scripts/notary-auth.cjs.
+  # With the notarytool keychain profile ("plexii-notary", stored once in the
+  # login keychain) the build is handed the profile and NOT APPLE_ID or the
+  # app-specific password, so notarytool's command line never carries the
+  # password (`ps` shows any process's arguments to every other process).
+  #
+  # electron-builder.cjs now refuses a mac build with no credentials, so the
+  # ad-hoc build --allow-adhoc asks for has to be said on purpose.
+  if [ "$ALLOW_ADHOC" = "1" ]; then export SKIP_SIGNING_CHECK=1; fi
   if ! node scripts/release-env.mjs npm run dist > "$LOG" 2>&1; then
     echo "[install-local] BUILD FAILED — last 40 lines of ${LOG}:" >&2
     tail -40 "$LOG" >&2
     exit 1
   fi
-  grep -E "no Apple credentials|notarization|signing " "$LOG" | tail -5 || true
+  grep -E "notarisation:|no notarisation credentials|notarization|signing " "$LOG" | tail -5 || true
 fi
 
 # electron-builder writes to release/mac, release/mac-arm64 or
@@ -177,9 +187,9 @@ if [ "$SIGNED_OK" != "1" ]; then
     echo "               entitlements differ from the released app. --allow-adhoc was given." >&2
   else
     echo "[install-local] REFUSING: this bundle is not Developer ID signed and notarised." >&2
-    echo "               Apple credentials come from .env via scripts/release-env.mjs:" >&2
-    echo "               APPLE_TEAM_ID plus either APPLE_API_KEY/_ID/_ISSUER or" >&2
-    echo "               APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD. The Developer ID" >&2
+    echo "               Notarisation uses the notarytool keychain profile plexii-notary" >&2
+    echo "               (or APPLE_KEYCHAIN_PROFILE, or an APPLE_API_KEY/_ID/_ISSUER set)," >&2
+    echo "               resolved by scripts/notary-auth.cjs via release-env.mjs. The Developer ID" >&2
     echo "               Application identity must be in the login keychain, and the" >&2
     echo "               keychain unlocked." >&2
     echo "               Pass --allow-adhoc to install it anyway on an unprovisioned machine." >&2

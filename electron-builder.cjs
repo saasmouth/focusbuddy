@@ -35,17 +35,60 @@
 // names are published alongside them as aliases, because the auto-update URL
 // compiled into shipped clients is built from the old pattern.
 
-// Notarisation can authenticate two ways, both of which electron-builder reads
-// from the environment and passes to notarytool:
+// Notarisation authenticates one of three ways, decided in ONE place,
+// scripts/notary-auth.cjs, which release-env.mjs, require-signing-env.mjs and
+// build/harden.cjs also use:
 //   - App Store Connect API key: APPLE_API_KEY (path to the .p8), APPLE_API_KEY_ID,
-//     APPLE_API_ISSUER  (preferred — no app-specific password to rotate); or
-//   - Apple ID + app-specific password: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD.
-// Either way APPLE_TEAM_ID pins the team. Signing itself uses the Developer ID
-// Application identity in the keychain (auto-picked, or pinned via CSC_NAME).
-const hasNotaryCreds =
-  !!process.env.APPLE_TEAM_ID &&
-  ((!!process.env.APPLE_API_KEY && !!process.env.APPLE_API_KEY_ID && !!process.env.APPLE_API_ISSUER) ||
-    (!!process.env.APPLE_ID && !!process.env.APPLE_APP_SPECIFIC_PASSWORD))
+//     APPLE_API_ISSUER;
+//   - a notarytool keychain profile: APPLE_KEYCHAIN_PROFILE, or the stored
+//     default "plexii-notary" (this Mac's releases);
+//   - Apple ID + app-specific password: only with NOTARY_PASSWORD_IN_ARGV=1,
+//     because notarytool receives that password as a COMMAND-LINE ARGUMENT that
+//     any process on the Mac can read with ps.
+//
+// applyNotaryAuth edits THIS process's environment, which is the one
+// @electron/notarize reads: electron-builder 26 takes the password path
+// whenever APPLE_ID or APPLE_APP_SPECIFIC_PASSWORD is set, before it looks at a
+// key or a profile, so with a profile or a key both are DELETED here. It throws
+// (the build stops before packaging) when the password is all there is.
+// Signing itself uses the Developer ID Application identity in the keychain
+// (auto-picked, or pinned via CSC_NAME).
+//
+// Only under electron-builder itself (argv[1] names it) is the decision
+// APPLIED and a refusal thrown. Anything that only loads this file to read it
+// (the unit tests, release scripts) gets the same decision without either: the
+// session shells export APPLE_ID and the password, and a test reading the
+// config's file associations must not fail over notarisation.
+const underBuilder = /electron-builder/.test(process.argv[1] || '')
+const { applyNotaryAuth, resolveNotaryAuth } = require('./scripts/notary-auth.cjs')
+const notaryAuth = underBuilder ? applyNotaryAuth(process.env) : resolveNotaryAuth(process.env)
+const hasNotaryCreds = notaryAuth.mode !== 'none'
+if (underBuilder) {
+  console.log(`[electron-builder] ${notaryAuth.summary}`)
+  for (const w of notaryAuth.warnings) console.warn(w)
+}
+
+// A mac build with NO credentials used to come out ad-hoc signed and exit 0:
+// right names, right sizes, rejected by Gatekeeper on someone else's Mac. That
+// now needs saying on purpose (SKIP_SIGNING_CHECK=1, as require-signing-env.mjs
+// takes it; install-local.sh --allow-adhoc sets it). Windows and Linux builds
+// never notarise, so they are not stopped; nor is a file that only reads this.
+const platformFlags = process.argv.slice(2)
+const buildsMac =
+  underBuilder &&
+  (platformFlags.some((a) => a === '--mac' || a === '-m' || a === '--macos') ||
+    (process.platform === 'darwin' &&
+      !platformFlags.some((a) => ['--win', '-w', '--windows', '--linux', '-l'].includes(a))))
+if (!hasNotaryCreds && buildsMac && process.env.SKIP_SIGNING_CHECK !== '1') {
+  throw new Error(
+    '[electron-builder] REFUSING a mac build with no notarisation credentials: it would be ad-hoc\n' +
+      'signed and Gatekeeper would reject it. Build through scripts/release-env.mjs (it loads them),\n' +
+      'or set SKIP_SIGNING_CHECK=1 to build ad-hoc on purpose.'
+  )
+}
+if (!hasNotaryCreds && buildsMac) {
+  console.warn('[electron-builder] SKIP_SIGNING_CHECK=1: building AD-HOC on purpose (not notarised).')
+}
 
 const macSigning = hasNotaryCreds
   ? {
@@ -63,8 +106,8 @@ const macSigning = hasNotaryCreds
       // schema to a boolean and reads the team from APPLE_TEAM_ID instead —
       // 25 accepted the object but already warned about it. Passing the old
       // shape to 26 fails validation outright, before packaging starts.
-      // `hasNotaryCreds` above is what guarantees APPLE_TEAM_ID is set, so
-      // this branch is only taken when there is a team to read.
+      // With a keychain profile the team comes from the profile; with a key
+      // or the password, notary-auth.cjs requires APPLE_TEAM_ID.
       notarize: true
     }
   : {
