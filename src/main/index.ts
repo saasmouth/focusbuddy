@@ -17,6 +17,8 @@ import { localOnlyActive } from './ai/local/providerRouter'
 import { autoBackupOnLaunch } from './db/backup'
 import { registerIpcHandlers } from './ipc'
 import { initLocalAi, registerLocalAiIpc } from './ai/local/localAiService'
+import { registerAiSpaceIpc } from './aispace/ipc'
+import { recoverAiSpaceOnLaunch, disposeAiSpace } from './aispace/index'
 import { attachAppTextMenu, attachWebContextMenu, registerWebMenuIpc, setWebMenuDeskSource } from './webContextMenu'
 import { listNodes } from './db/nodes'
 import { runWidgetFileBackfill, setWidgetFileResolvers } from './db/widgetFiles'
@@ -965,6 +967,10 @@ app.whenReady().then(() => {
   setDocTextResolvers(mainWidgetResolvers)
   registerIpcHandlers()
   registerLocalAiIpc()
+  // AI Space + Connections. Recovery waits a few seconds so launch stays fast;
+  // it only runs when AI Space has ever been used (its tables exist).
+  registerAiSpaceIpc()
+  setTimeout(() => void recoverAiSpaceOnLaunch(), 4000)
   registerMdExternal()
   // The notification substrate's scheduler (Attention S4): app-start sweep +
   // 30s cadence; durable rows mean scheduled banners survive restarts.
@@ -1288,6 +1294,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', (event) => {
+  // Stop AI Space timers; background runs at providers keep going and are
+  // picked up by id on the next launch.
+  disposeAiSpace()
   // Flush every browser and connected-app cookie store first, bounded so a
   // stuck store can never hold quitting hostage (sessionPersistence.ts). The
   // quit is deferred once, then re-issued; the second pass lands below.

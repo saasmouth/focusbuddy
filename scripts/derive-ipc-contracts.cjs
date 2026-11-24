@@ -1,6 +1,6 @@
 // Derive an ArgSpec registry from the real handler signatures.
 const fs = require('fs')
-const FILES = ['src/main/ipc/index.ts', 'src/main/mdExternal.ts', 'src/main/activityTracker.ts']
+const FILES = ['src/main/ipc/index.ts', 'src/main/mdExternal.ts', 'src/main/activityTracker.ts', 'src/main/aispace/ipc.ts']
 function parse() {
   const sigs = {}
   for (const f of FILES) {

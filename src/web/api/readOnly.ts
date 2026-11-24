@@ -233,6 +233,15 @@ const FEATURE_NAMESPACES = new Set([
   'guestCapture', 'settings'
 ])
 
+/**
+ * Never reachable from a share window, not even to read: AI Space projects,
+ * runs, outputs, decisions, usage and Connections are the owner's alone and
+ * stay on their Mac (docs/ai-space/DESIGN.md). Checked before every other rule,
+ * because "asking is always fine" would otherwise let a read through the day a
+ * browser handler exists. Refused quietly: there is nothing to offer a visitor.
+ */
+export const PRIVATE_NAMESPACES: ReadonlySet<string> = new Set(['aispace'])
+
 /** Outward namespaces a visitor reaches on purpose: refused, and the gate. */
 const OUTWARD_ON_PURPOSE = new Set([
   'account', 'billing', 'org', 'orgs', 'admin', 'teams', 'scim', 'apiKeys', 'sso', 'invites', 'contacts',
@@ -285,6 +294,8 @@ const AUTOMATIC: CallContext = { userActed: false, adding: false, ownWidget: () 
 /** Decide one call from a share window, made at the moment `ctx` describes. */
 export function decideCall(channel: string, args: unknown[], ctx: CallContext = AUTOMATIC): CallDecision {
   const ns = namespaceOf(channel)
+
+  if (PRIVATE_NAMESPACES.has(ns)) return { allowed: false, args, why: 'That is not something a shared desk can do.' }
 
   // The share page's own work: unpacking the desk ('shares:importBundle') and
   // replacing, removing or exporting one link's copy ('shareCopy:*',

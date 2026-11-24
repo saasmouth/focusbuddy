@@ -100,7 +100,10 @@ export function providerChoice(): AiProviderChoice {
 // ── Grants ──────────────────────────────────────────────────────────────────
 
 export interface CloudGrant {
-  reason: 'consent' | 'feature-route' | 'key-test'
+  // 'connection-run': an AI Space run the person started (or approved) on a
+  // connection they added, after the composer showed provider, account, payer
+  // and destination. It is an explicit choice, like the key test.
+  reason: 'consent' | 'feature-route' | 'key-test' | 'connection-run'
   feature?: AiFeature
 }
 

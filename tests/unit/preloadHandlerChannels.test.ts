@@ -37,7 +37,9 @@ const HANDLER_FILES = [
   // Settings → AI → Local on this device (registerLocalAiIpc).
   'src/main/ai/local/localAiService.ts',
   // The web right-click menu's surface registry (registerWebMenuIpc).
-  'src/main/webContextMenu.ts'
+  'src/main/webContextMenu.ts',
+  // AI Space + Connections (registerAiSpaceIpc).
+  'src/main/aispace/ipc.ts'
 ]
 
 const registered = new Set(
