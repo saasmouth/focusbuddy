@@ -57,6 +57,7 @@ import {
   type HandoffOutcome, type Installers
 } from './api/deskHandoff'
 import { SHARE_GATE_EVENT, type ShareGateDetail } from '@renderer/lib/shareGate'
+import { shareSignupUrl, trackDownloadClick, trackShareView } from './api/shareTracking'
 
 // plexii.app has no DNS, so this button went to a browser error page for every
 // visitor who opened the web runtime without a live share link — the one
@@ -523,9 +524,14 @@ type Carry =
  * promising it.
  */
 function GateModal({
-  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onClose, senderKeepsIt = false
+  what, platform, installers, downloadUrl, downloadStarted, carry, onOpenInPlexii, onRetryCarry, onDownload, onDownloadLink, signupUrl, onClose,
+  senderKeepsIt = false
 }: {
   what: string
+  /** A press of a link to the download page, for the desk share tracker. */
+  onDownloadLink: () => void
+  /** The website's sign-up, carrying this link (?share=), offered to phones. */
+  signupUrl: string | null
   /** The sender did not let this desk be copied: it stays on the page. */
   senderKeepsIt?: boolean
   platform: ReturnType<typeof visitorPlatform>
@@ -563,7 +569,13 @@ function GateModal({
         {platform === 'phone' ? (
           <div style={S.gateStep}>
             <div style={S.gateStepText}>Plexii runs on Mac and Windows. Send yourself the download link and open it on your computer.</div>
-            <a style={S.primary} href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener" data-testid="share-gate-phone">Send me the download link</a>
+            <a style={S.primary} href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener" onClick={onDownloadLink} data-testid="share-gate-phone">Send me the download link</a>
+            {/* A phone cannot install Plexii, but it can start the free trial
+                (sign-up is the trial, never a checkout); the link carries this
+                desk's link so the sign-up is credited to it. */}
+            {signupUrl && (
+              <a style={S.linkButton} href={signupUrl} target="_blank" rel="noopener" data-testid="share-gate-signup">Or create your account now</a>
+            )}
           </div>
         ) : downloadUrl && computer ? (
           <div style={S.gateStatus} data-testid="share-gate-download">
@@ -573,7 +585,7 @@ function GateModal({
         ) : (
           <div style={S.gateStep}>
             <div style={S.gateStepText}>Plexii runs on Mac and Windows.</div>
-            <a style={S.primary} href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener" data-testid="share-gate-download-page">Download Plexii</a>
+            <a style={S.primary} href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener" onClick={onDownloadLink} data-testid="share-gate-download-page">Download Plexii</a>
           </div>
         )}
 
@@ -744,6 +756,9 @@ function Boot(): React.JSX.Element {
       // land on its home view and show an empty workspace.
       setShareDeskId(offer.rootId)
       setState({ kind: 'offer', offer })
+      // A visitor, for the desk share tracker: once per tab session, first
+      // party, fire and forget (api/shareTracking.ts).
+      trackShareView(token, visitorPlatform())
       // A returning visitor goes straight back to the desk. Making somebody
       // re-accept a desk they are in the middle of reading is a door that
       // locks behind them -- and that holds when the desk behind the link was
@@ -951,7 +966,14 @@ function Boot(): React.JSX.Element {
     } catch {
       /* this visit remembers it in state */
     }
-  }, [downloadUrl])
+    // Counted after the download has started, and never in its way.
+    if (token) trackDownloadClick(token, platform)
+  }, [downloadUrl, token, platform])
+
+  // A press of a link to the download page (a phone, or no installer to start).
+  const downloadLinkPressed = useCallback(() => {
+    if (token) trackDownloadClick(token, platform)
+  }, [token, platform])
 
   const send = useCallback(async (): Promise<Carry> => {
     if (state.kind !== 'ready' || !token || !link || !carryOffered.current) return { kind: 'off' }
@@ -1066,6 +1088,8 @@ function Boot(): React.JSX.Element {
           onOpenInPlexii={openInPlexii}
           onRetryCarry={() => void send()}
           onDownload={download}
+          onDownloadLink={downloadLinkPressed}
+          signupUrl={token ? shareSignupUrl(token) : null}
           onClose={() => setGate(null)}
           senderKeepsIt={senderKeepsIt}
         />

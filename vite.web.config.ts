@@ -81,7 +81,12 @@ export const MODULE_SWAPS: Record<string, string> = {
   // Privacy switches live in a JSON file in Electron's userData. Reached through
   // the Background AI gate; it pulled Electron's npm stub (which calls
   // child_process and fs at load) into the Worker.
-  'src/main/privacyPrefs.ts': 'src/web/worker/main/privacyPrefs.ts'
+  'src/main/privacyPrefs.ts': 'src/web/worker/main/privacyPrefs.ts',
+  // The local-model client asks an Ollama server on localhost:11434. From a tab
+  // that is a public page probing the visitor's own computer: the share page
+  // did it when a visitor dragged a calculator onto a desk (search embeds the
+  // new file). The browser has no local model, so it has no client either.
+  'src/main/ai/localModel.ts': 'src/web/worker/main/localModel.ts'
 }
 
 // Path aliases plus the Node-module shims. Exported for the same test.

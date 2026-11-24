@@ -51,6 +51,21 @@ npm run web:dev        # vite dev server
 `window.api` path -> IPC channel map, so a channel renamed on the desktop cannot
 silently stop working here.
 
+## Nothing on the visitor's computer
+
+A tab talks to Signal and to the app's own files, and to nothing on the
+computer it runs on. The desktop's local-model client asks an Ollama server on
+`localhost:11434`; the share page asked it from visitors' browsers whenever a
+visitor dragged a work widget such as a calculator onto a desk (search embeds
+the new file). It is swapped out of the browser build (`MODULE_SWAPS`,
+`worker/main/localModel.ts`): a tab has no local model and no client for one.
+
+`npm run test:web` opens a desk link on the built app (`out/web`) with every
+request watched, the Worker's included. It answers the link's three calls to
+Signal itself (preview, visit count, bundle) and refuses everything else. It
+fails on any other request, on any request to port 11434 after a calculator is
+dragged on, and if the build contains an Ollama address.
+
 ## Many tabs, one database
 
 OPFS access handles are exclusive: the tab that opens the workspace holds it,
