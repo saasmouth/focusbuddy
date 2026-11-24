@@ -48,6 +48,8 @@ import { RowMenu, useRowMenu } from './useRowMenu'
 import { appTileMenuItems, navRowMenuItems } from '../../lib/navRowMenu'
 import WidgetsSection from './WidgetsSection'
 import { CONNECTED_APP_DRAG_MIME } from '../Sidebar'
+import { useTrashDot } from '../../lib/deletedElsewhere'
+import { TrashDot } from './TrashDot'
 
 /**
  * Which Office keys are Plexii's own applications.
@@ -332,7 +334,8 @@ function Row({
   entity,
   active,
   onClick,
-  testid
+  testid,
+  dot
 }: {
   label: string
   icon: string
@@ -343,6 +346,8 @@ function Row({
   active: boolean
   onClick: () => void
   testid?: string
+  /** The Trash's dot (lib/deletedElsewhere.ts). */
+  dot?: boolean
 }): JSX.Element {
   // A place: its menu is what a click does (lib/navRowMenu).
   const { open, menu } = useRowMenu()
@@ -370,6 +375,7 @@ function Row({
         {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} tileSize={22} fallback={icon} fallbackFilled /> : <Icon name={icon} size={17} filled />}
       </span>
       <span className="min-w-0 truncate text-left whitespace-nowrap">{label}</span>
+      {dot && <TrashDot />}
     </button>
     {menu}
     </>
@@ -388,6 +394,7 @@ export default function AreaAccordion({
 }: {
   deskSlot?: React.ReactNode
 } = {}): JSX.Element {
+  const trashDot = useTrashDot((s) => s.on)
   const [open, setOpen] = useState<Record<SectionId, boolean>>(readOpen)
   useEffect(() => {
     try {
@@ -515,6 +522,7 @@ export default function AreaAccordion({
               active={activeArea === d.kind}
               onClick={() => d.go(useViewStore.getState())}
               testid={`nav-desk-${d.kind}`}
+              dot={d.kind === 'trash' && trashDot}
             />
           ))}
           {/* A hairline between "places in the desk area" and "apps of the

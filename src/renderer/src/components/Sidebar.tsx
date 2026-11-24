@@ -43,6 +43,8 @@ import {
 // MIME used when dragging a Connected App row from the sidebar onto the canvas.
 // The Canvas drop handler reads this to spawn a webview widget bound to the app.
 import { CONNECTED_APP_DRAG_MIME } from '../lib/connectedAppDrag'
+import { useTrashDot } from '../lib/deletedElsewhere'
+import { TrashDot } from './nav/TrashDot'
 export { CONNECTED_APP_DRAG_MIME } from '../lib/connectedAppDrag'
 
 interface Props {
@@ -65,6 +67,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
   const goDesks = useViewStore((s) => s.goDesks)
   const goShared = useViewStore((s) => s.goShared)
   const goTrash = useViewStore((s) => s.goTrash)
+  const trashDot = useTrashDot((s) => s.on)
   const goAttention = useViewStore((s) => s.goAttention)
   const activeAttentionFilter = useViewStore((st) =>
     st.view.kind === 'attention' ? st.view.filter : undefined
@@ -314,7 +317,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
           <CollapsedNavIcon icon="meeting_room"  label="Rooms"        tone={AREA_TONES.rooms} entity={{ kind: 'place', id: 'rooms' }}     active={viewIsActive({ kind: 'rooms' })}      onClick={() => { setActive(null); goRooms() }} />
           <CollapsedNavIcon icon="desk"          label="Desks"        tone={AREA_TONES.desks} entity={{ kind: 'place', id: 'desks' }}    active={viewIsActive({ kind: 'desks' })}      onClick={() => { setActive(null); goDesks() }} />
           <CollapsedNavIcon icon="folder_shared" label="Shared Desks" entity={{ kind: 'tool', id: 'shared' }} tone={AREA_TONES.shared} active={viewIsActive({ kind: 'shared' })}    onClick={() => { setActive(null); goShared() }} />
-          <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.trash} entity={{ kind: 'place', id: 'trash' }}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} />
+          <CollapsedNavIcon icon="delete"        label="Trash"        tone={AREA_TONES.trash} entity={{ kind: 'place', id: 'trash' }}  active={viewIsActive({ kind: 'trash' })}     onClick={() => { setActive(null); goTrash() }} dot={trashDot} />
           {/* DEC-020: Plans / Desks (flat) / Calendar tabs retired — Attention
               absorbed them (feeders carry desk + plan due dates). The views
               stay reachable via the ⌘K palette; engines untouched (DEC-009). */}
@@ -530,6 +533,7 @@ export default function Sidebar({ collapsed, onToggle, glass = false }: Props = 
                 entity={viewKindEntity('trash') ?? undefined}
                 tone={AREA_TONES.trash}
                 active={viewIsActive({ kind: 'trash' })}
+                dot={trashDot}
                 onClick={() => {
                   setActive(null)
                   goTrash()
@@ -666,6 +670,8 @@ interface CollapsedNavIconProps {
   onClick: () => void
   /** The entity this opens, when it has a Plexii icon of its own (lib/plexiiIconMap). */
   entity?: EntityRef
+  /** The Trash's dot (lib/deletedElsewhere.ts). */
+  dot?: boolean
 }
 
 /** The rail icon's look, shared with the Widgets rail group so the two match. */
@@ -677,7 +683,7 @@ function railIconClass(active: boolean, tone?: string): string {
   }`
 }
 
-function CollapsedNavIcon({ icon, label, tone, active, onClick, entity }: CollapsedNavIconProps): JSX.Element {
+function CollapsedNavIcon({ icon, label, tone, active, onClick, entity, dot }: CollapsedNavIconProps): JSX.Element {
   // Coloured, matching the expanded NavRow — which is what the prop's own
   // comment above always claimed, while the code voided it. The rail is the
   // same menu at a narrower width, so a destination cannot change colour just
@@ -691,13 +697,14 @@ function CollapsedNavIcon({ icon, label, tone, active, onClick, entity }: Collap
       onClick={onClick}
       onContextMenu={(e) => open(e, () => navRowMenuItems(onClick))}
       title={label}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 fb-press ${
+      className={`relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 fb-press ${
         active
           ? 'bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent))]'
           : `${tone ?? 'text-[var(--ink-50)]'} hover:bg-[var(--surface-sunken)]`
       }`}
     >
       {entity ? <PlexiiIcon kind={entity.kind} id={entity.id} size={18} fallback={icon} fallbackFilled /> : <Icon name={icon} size={16} filled />}
+      {dot && <TrashDot className="absolute top-1 right-1" />}
     </button>
     {menu}
     </>
@@ -712,12 +719,14 @@ interface NavRowProps {
   active: boolean
   onClick: () => void
   badge?: string
+  /** A quiet dot instead of a count (the Trash's, lib/deletedElsewhere.ts). */
+  dot?: boolean
   testid?: string
   /** The entity this row opens, when it has a Plexii icon of its own (lib/plexiiIconMap). */
   entity?: EntityRef
 }
 
-function NavRow({ icon, label, tone, active, onClick, badge, testid, entity }: NavRowProps): JSX.Element {
+function NavRow({ icon, label, tone, active, onClick, badge, dot, testid, entity }: NavRowProps): JSX.Element {
   // COLOURED, and filled rather than outlined.
   //
   // This reverses an earlier decision in this same component, so both sides are
@@ -765,6 +774,7 @@ function NavRow({ icon, label, tone, active, onClick, badge, testid, entity }: N
       {badge && (
         <span className="ml-auto text-[10px] fb-tabular text-[var(--ink-50)]">{badge}</span>
       )}
+      {dot && !badge && <TrashDot />}
     </button>
     {menu}
     </>

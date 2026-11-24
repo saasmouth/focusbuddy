@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
+import type { DeletedElsewhereEntry } from '@shared/syncTrash'
 import { useNodeStore } from '../../stores/nodes'
-import { crdtEmitNodeRestore } from '../../lib/crdtBridge'
+import { crdtEmitNodeRestore, crdtEmitWidgetRestore } from '../../lib/crdtBridge'
+import { clearTrashDot } from '../../lib/deletedElsewhere'
+import { useFileManagerStore } from '../../stores/fileManager'
+import { useDocumentsStore } from '../../stores/documents'
+import { useTimeBlockStore } from '../../stores/timeBlocks'
 import { useWorkItemStore } from '../../stores/workItems'
 import Icon from '../Icon'
 import { confirmPermanentDelete, tombstonePurged } from '../../lib/deleteDeskFlow'
@@ -16,6 +21,13 @@ import { promptText, confirmDialog } from '../plexi/PromptDialog'
 // OS "empty trash" shape): typed-name confirmation, immediate hard-delete,
 // memory purged. The auto-purge keeps memory; only the explicit permanent
 // delete erases it — stated in the header copy.
+//
+// 4.3.55: what was deleted on another device, or by someone you work with, is
+// here too (main/db/syncTrash.ts). Rooms and desks in the list above, labelled;
+// everything else (widgets, tables, rows, time blocks, Drive files, documents) in
+// its own list below, with where it was. Kept 30 days, not 7. Restore puts it back
+// on every device; Delete for good only removes the copy kept here, because it is
+// already deleted everywhere else. Opening the Trash clears the side menu's dot.
 
 interface TrashEntry {
   id: string
@@ -23,6 +35,31 @@ interface TrashEntry {
   title: string
   trashedAt: number
   purgeAt: number
+  deletedElsewhere?: boolean
+  sharedScope?: boolean
+  deletedBy?: string | null
+}
+
+// Where it was deleted, said plainly. Where others can delete it too (a shared
+// desk, an org workspace), "another device" alone would not be the whole truth.
+function deletedWhere(sharedScope?: boolean, deletedBy?: string | null): string {
+  if (deletedBy) return `Deleted by ${deletedBy}`
+  return sharedScope ? 'Deleted on another device or by someone you work with' : 'Deleted on another device'
+}
+
+function ago(at: number): string {
+  const days = Math.floor((Date.now() - at) / (24 * 60 * 60 * 1000))
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
+}
+
+const ELSEWHERE_ICON: Record<DeletedElsewhereEntry['kind'], string> = {
+  widget: 'widgets',
+  node: 'desk',
+  table: 'table',
+  row: 'table_rows',
+  timeblock: 'event',
+  file: 'description',
+  document: 'article'
 }
 
 function daysLeft(purgeAt: number): string {
@@ -35,6 +72,7 @@ function daysLeft(purgeAt: number): string {
 export default function TrashView(): JSX.Element {
   const refreshNodes = useNodeStore((s) => s.refresh)
   const [entries, setEntries] = useState<TrashEntry[] | null>(null)
+  const [elsewhere, setElsewhere] = useState<DeletedElsewhereEntry[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
 
   // DEC-022 selection mode, Trash edition: grab groups and restore or
@@ -62,10 +100,49 @@ export default function TrashView(): JSX.Element {
     } catch {
       setEntries([])
     }
+    try {
+      setElsewhere(await window.api.trash.listDeletedElsewhere())
+    } catch {
+      setElsewhere([])
+    }
   }
   useEffect(() => {
+    clearTrashDot() // the Trash is open: the side menu's dot has done its job
     void load()
   }, [])
+
+  async function restoreElsewhere(e: DeletedElsewhereEntry): Promise<void> {
+    setBusyId(e.id)
+    try {
+      const r = await window.api.trash.restoreDeletedElsewhere(e.kind, e.id)
+      if (r.restored) {
+        if (e.kind === 'widget') crdtEmitWidgetRestore(e.id)
+        if (e.kind === 'file') void useFileManagerStore.getState().refresh()
+        if (e.kind === 'document') void useDocumentsStore.getState().refresh()
+        if (e.kind === 'timeblock') void useTimeBlockStore.getState().reload()
+      }
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function deleteElsewhereForGood(e: DeletedElsewhereEntry): Promise<void> {
+    const sure = await confirmDialog({
+      title: `Delete “${e.title}” for good?`,
+      body: 'It is already deleted on your other devices. This removes the copy kept here, and it cannot be undone.',
+      confirmLabel: 'Delete for good',
+      danger: true
+    })
+    if (!sure) return
+    setBusyId(e.id)
+    try {
+      await window.api.trash.deleteForeverDeletedElsewhere(e.kind, e.id)
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   async function restore(id: string): Promise<void> {
     setBusyId(id)
@@ -169,7 +246,8 @@ export default function TrashView(): JSX.Element {
               Deleted rooms and desks stay here for 7 days, then purge automatically — what
               Plexii learned from them stays either way. Restoring brings everything back
               exactly as it was. “Delete permanently” erases the item AND its memory, right
-              now; attention items always survive and move to your Attention page.
+              now; attention items always survive and move to your Attention page. Anything
+              deleted on another device, or by someone you work with, stays for 30 days.
             </p>
           </div>
           {entries != null && entries.length > 0 && !selecting && (
@@ -226,7 +304,7 @@ export default function TrashView(): JSX.Element {
             </button>
           </div>
         )}
-        {entries === null ? null : entries.length === 0 ? (
+        {entries === null ? null : entries.length === 0 && elsewhere.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Icon name="delete" size={28} className="text-[var(--ink-30)] mb-3" />
             <div className="fb-t-label text-[var(--ink-50)]">Trash is empty</div>
@@ -234,7 +312,7 @@ export default function TrashView(): JSX.Element {
               Nothing is waiting to be purged.
             </div>
           </div>
-        ) : (
+        ) : entries.length === 0 ? null : (
           <div className="rounded-xl border border-[var(--edge-soft)] divide-y divide-[var(--edge-soft)] overflow-hidden">
             {entries.map((e) => (
               <div
@@ -267,7 +345,10 @@ export default function TrashView(): JSX.Element {
                   <div className="fb-t-label text-[var(--ink-100)] truncate">
                     {e.title || (e.kind === 'folder' ? 'Untitled room' : 'Untitled desk')}
                   </div>
-                  <div className="fb-t-body text-[var(--ink-50)]">{daysLeft(e.purgeAt)}</div>
+                  <div className="fb-t-body text-[var(--ink-50)]">
+                    {e.deletedElsewhere ? `${deletedWhere(e.sharedScope, e.deletedBy)} · ` : ''}
+                    {daysLeft(e.purgeAt)}
+                  </div>
                 </div>
                 {!selecting && (
                   <>
@@ -294,6 +375,52 @@ export default function TrashView(): JSX.Element {
               </div>
             ))}
           </div>
+        )}
+
+        {elsewhere.length > 0 && (
+          <section className="mt-8" data-testid="trash-deleted-elsewhere">
+            <h2 className="fb-t-label text-[var(--ink-70)] mb-2">Deleted elsewhere</h2>
+            <div className="rounded-xl border border-[var(--edge-soft)] divide-y divide-[var(--edge-soft)] overflow-hidden">
+              {elsewhere.map((e) => (
+                <div
+                  key={`${e.kind}:${e.id}`}
+                  className="flex items-center gap-3 px-4 py-3 bg-[var(--surface-raised)]"
+                  data-testid={`trash-elsewhere-${e.id}`}
+                >
+                  <Icon name={ELSEWHERE_ICON[e.kind]} size={18} className="text-[var(--ink-50)] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="fb-t-label text-[var(--ink-100)] truncate">
+                      {e.title}
+                      {e.where ? <span className="text-[var(--ink-50)] font-normal"> · {e.where}</span> : null}
+                    </div>
+                    <div className="fb-t-body text-[var(--ink-50)]">
+                      {deletedWhere(e.sharedScope, e.deletedBy)} {ago(e.deletedAt)}
+                      {e.purgeAt != null ? ` · ${daysLeft(e.purgeAt)}` : ''}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => void restoreElsewhere(e)}
+                    disabled={busyId === e.id}
+                    data-testid={`trash-elsewhere-restore-${e.id}`}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 fb-btn-surface fb-press fb-t-label text-[var(--ink-70)] hover:text-[var(--ink-100)] disabled:opacity-50"
+                  >
+                    <Icon name="restore_from_trash" size={15} />
+                    {busyId === e.id ? 'Working…' : 'Restore'}
+                  </button>
+                  <button
+                    onClick={() => void deleteElsewhereForGood(e)}
+                    disabled={busyId === e.id}
+                    title="Remove the copy kept on this device"
+                    data-testid={`trash-elsewhere-delete-${e.id}`}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 fb-btn-surface fb-press fb-t-label text-[var(--danger,#c0392b)] hover:opacity-80 disabled:opacity-50"
+                  >
+                    <Icon name="delete_forever" size={15} />
+                    Delete for good
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>

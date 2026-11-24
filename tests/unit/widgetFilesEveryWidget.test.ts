@@ -60,12 +60,12 @@ function schema(): void {
       trashed_at INTEGER, status TEXT, pinned INTEGER DEFAULT 0, pinned_screen_x INTEGER, pinned_screen_y INTEGER,
       parent_section_id TEXT, layout TEXT, archived INTEGER DEFAULT 0, source_app_id TEXT, mode TEXT, pinned_zone TEXT,
       living_query TEXT, living_generated_at INTEGER, living_paused INTEGER DEFAULT 0, sync_group_id TEXT,
-      shared_root_id TEXT
+      shared_root_id TEXT, deleted_elsewhere_at INTEGER
     );
     CREATE TABLE fb_files (
       id TEXT PRIMARY KEY, original_name TEXT, mime_type TEXT, size_bytes INTEGER, ext TEXT, created_at INTEGER,
       parent_id TEXT, kind TEXT, display_name TEXT, updated_at INTEGER, doc_id TEXT, doc_type TEXT, sort_order INTEGER,
-      trashed_at INTEGER, org_id TEXT, stored_path TEXT
+      trashed_at INTEGER, org_id TEXT, stored_path TEXT, deleted_elsewhere_at INTEGER
     );
     CREATE TABLE fb_tables (
       id TEXT PRIMARY KEY, task_id TEXT, title TEXT NOT NULL DEFAULT 'Untitled',

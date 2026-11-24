@@ -28,7 +28,9 @@ import type { CallContext } from './shareGate'
 const OUTWARD = new Set<string>([
   'account', 'billing', 'org', 'orgs', 'admin', 'teams', 'scim', 'apiKeys',
   'sso', 'invites', 'contacts', 'messaging', 'presence', 'crdt', 'workspace',
-  'sign', 'crash', 'telemetry', 'activity'
+  'sign', 'crash', 'telemetry', 'activity',
+  // 4.3.55: the viewer's own Trash of things deleted elsewhere is not a share's to touch.
+  'trash'
 ])
 
 /** Read-only exceptions inside those namespaces: asking is fine, acting is not. */
