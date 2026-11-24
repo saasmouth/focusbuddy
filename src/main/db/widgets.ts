@@ -7,6 +7,7 @@ import { WIDGET_FILE_GROUP_PREFIX } from '@shared/widgetFiles'
 import { clampToKindMin } from '@shared/widgetSizing'
 import type { Widget, WidgetDraft, WidgetPatch } from '@shared/types'
 import { OWN_TRASH_RETENTION_MS, pastRetentionSql, purgeCutoffs } from './trashRetention'
+import { queueTombstones } from './tombstoneQueue'
 
 interface WidgetRow {
   id: string
@@ -436,12 +437,14 @@ export function purgeTrashedWidgets(maxAgeMs = OWN_TRASH_RETENTION_MS): void {
   // Except the instances a trashed work widget file took with it: restoring the
   // file from Trash puts them back where they were, for as long as the file
   // sits in Trash (documents have no age-out). Purging the file purges them.
-  db.prepare(
-    `DELETE FROM widgets WHERE trashed_at IS NOT NULL AND ${pastRetentionSql()}
+  const which = `trashed_at IS NOT NULL AND ${pastRetentionSql()}
        AND NOT (sync_group_id LIKE 'wf:%' AND EXISTS (
          SELECT 1 FROM documents d
           WHERE d.id = substr(widgets.sync_group_id, 4) AND d.trashed_at = widgets.trashed_at))`
-  ).run(elsewhereCutoff, cutoff)
+  // A trash whose delete never went up owes the server its tombstone (4.3.55).
+  const ids = (db.prepare(`SELECT id FROM widgets WHERE ${which}`).all(elsewhereCutoff, cutoff) as Array<{ id: string }>).map((r) => r.id)
+  queueTombstones(db, 'widget', ids)
+  db.prepare(`DELETE FROM widgets WHERE ${which}`).run(elsewhereCutoff, cutoff)
 }
 
 export function bringToFront(id: string): Widget | null {

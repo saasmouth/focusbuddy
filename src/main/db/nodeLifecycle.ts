@@ -14,6 +14,7 @@
 // both satisfy LifecycleDb structurally. Callers own transactions.
 
 import { deletedElsewhereSql, pastRetentionSql } from './trashRetention'
+import { queueTombstones } from './tombstoneQueue'
 
 export interface LifecycleDb {
   prepare(sql: string): {
@@ -272,6 +273,16 @@ export function purgeExpiredTrash(
   if (!targets.length) return { purged: 0, revived: 0 }
   const rootIds = targets.map((t) => t.id)
   const revived = detachAndReviveWorkItemDescendants(d, rootIds, hook)
+  // A trash whose delete never went up (an offline device, or one keeping its
+  // workspace local), and the widgets the delete takes by cascade, which were
+  // never tombstoned at all: queue them before the rows go (4.3.55).
+  queueTombstones(d, 'node', rootIds)
+  const widgetsOf = d.prepare('SELECT id FROM widgets WHERE task_id = ?')
+  queueTombstones(
+    d,
+    'widget',
+    rootIds.flatMap((id) => (widgetsOf.all(id) as Array<{ id: string }>).map((w) => w.id))
+  )
   // ci-delete-allowlist: purgeExpiredTrash (§2.5.3 lock — sanctioned site 1/4)
   const del = d.prepare('DELETE FROM nodes WHERE id = ? AND trashed_at IS NOT NULL')
   let purged = 0
@@ -329,6 +340,10 @@ export function purgeDeskPermanently(
   // Explicit per-row delete, leaves first — never trusts the FK cascade
   // (foreign_keys pragma state differs across connections), and is idempotent
   // when the pragma IS on and the root delete already cascaded.
+  // The server still holds these live (a live desk, or a trash whose delete has not
+  // gone up, and its widgets): queue their tombstones before the rows go (4.3.55).
+  queueTombstones(d, 'node', remaining)
+  queueTombstones(d, 'widget', widgetIds)
   // ci-delete-allowlist: purgeDeskPermanently (§2.5.3 lock — sanctioned site 4/4, DEC-021)
   const del = d.prepare('DELETE FROM nodes WHERE id = ?')
   let purgedNodes = 0

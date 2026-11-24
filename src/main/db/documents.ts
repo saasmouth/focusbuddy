@@ -21,6 +21,7 @@ import { drawDocCompatibility, refusesDrawDocOverwrite } from '@shared/draw/comp
 import { declaredSchema, normalizeDrawDoc } from '@shared/draw/normalize'
 import { brandHeadingStyles } from '@shared/brandKit'
 import { getBrandKit, hasBrandKit } from './brandKit'
+import { queueTombstones } from './tombstoneQueue'
 
 // Office documents store — CRUD for standalone doc / sheet / slides files. The
 // body is persisted as a JSON string; the shape depends on doc_type and is
@@ -433,6 +434,14 @@ export function restoreDocument(id: string): boolean {
 export function deleteDocument(id: string): boolean {
   const db = getDb()
   const widgetDoc = isWidgetDoc(db, id)
+  // An org document whose delete never went up, and a work widget file's trashed
+  // instances, still owe the server their tombstones (4.3.55). (A personal
+  // document's cloud copy is deleted by lib/cloudDocsSync.)
+  queueTombstones(db, 'document', [id])
+  if (widgetDoc) {
+    const inst = db.prepare('SELECT id FROM widgets WHERE sync_group_id = ? AND trashed_at IS NOT NULL').all(`wf:${id}`) as Array<{ id: string }>
+    queueTombstones(db, 'widget', inst.map((w) => w.id))
+  }
   const info = db.prepare('DELETE FROM documents WHERE id = ?').run(id)
   if (info.changes > 0) {
     // A purged work widget file's trashed instances go with it; nothing can

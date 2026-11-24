@@ -11,6 +11,7 @@ import type { FbFile, FileEntry } from '@shared/fields'
 // both sides only call each other at runtime.
 import { updateWidgetFile } from './widgetFiles'
 import { OWN_TRASH_RETENTION_MS, pastRetentionSql, purgeCutoffs } from './trashRetention'
+import { queueTombstones } from './tombstoneQueue'
 
 interface FileRow {
   id: string
@@ -576,6 +577,7 @@ export function purgeEntry(id: string): boolean {
       void fileBlobs.remove(r.id, r.ext)
     }
   }
+  queueTombstones(db, 'file', ids) // a delete that never went up still goes (4.3.55)
   const del = db.prepare('DELETE FROM fb_files WHERE id = ?')
   db.transaction(() => {
     for (const i of ids) del.run(i)
@@ -626,6 +628,7 @@ export function purgeOldTrash(maxAgeMs = OWN_TRASH_RETENTION_MS): void {
       void fileBlobs.remove(r.id, r.ext)
     }
   }
+  queueTombstones(db, 'file', rows.map((r) => r.id)) // a delete that never went up still goes (4.3.55)
   const del = db.prepare('DELETE FROM fb_files WHERE id = ?')
   db.transaction(() => {
     for (const r of rows) del.run(r.id)
