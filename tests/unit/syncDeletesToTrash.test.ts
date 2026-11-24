@@ -354,7 +354,8 @@ describe('where other people can delete things, the Trash does not say "another 
     createTimeBlock({ id: 'b2', taskId: 'd1', title: 'Mine', startMs: Date.now() + DAY, durationMin: 15 } as never)
     clean('time_blocks', 'b2')
     sync.applyRemote([tombstone('table', 't1'), tombstone('widget', 'w1'), tombstone('timeblock', 'b2')])
-    const by = Object.fromEntries(trash.listDeletedElsewhere().map((e) => [e.id, e.sharedScope]))
+    const all = [...trash.listDeletedElsewhere('personal'), ...trash.listDeletedElsewhere('org_team')]
+    const by = Object.fromEntries(all.map((e) => [e.id, e.sharedScope]))
     expect(by).toEqual({ t1: true, w1: true, b2: false })
   })
 
@@ -418,5 +419,16 @@ describe('"Deleted by Sam Lee": an org delete names who made it (display name fr
     seed()
     sync.applyRemoteOrg([orgTombstone('node', 'd1', 9, 'Sam Lee')], 'org_team')
     expect(listTrash().find((x) => x.id === 'd1')).toMatchObject({ deletedElsewhere: true, deletedBy: 'Sam Lee' })
+  })
+})
+
+describe('the Trash shows the workspace you are in', () => {
+  it('"Deleted elsewhere" lists only the active workspace\'s items, like the rooms and desks above it', () => {
+    seed()
+    db.prepare("UPDATE fb_tables SET org_id = 'org_team' WHERE id = 't1'").run()
+    db.prepare("UPDATE documents SET org_id = 'org_team' WHERE id = 'doc1'").run()
+    sync.applyRemote([tombstone('table', 't1'), tombstone('document', 'doc1'), tombstone('timeblock', 'b1'), tombstone('widget', 'w1')])
+    expect(trash.listDeletedElsewhere('personal').map((e) => e.id).sort()).toEqual(['b1', 'w1'])
+    expect(trash.listDeletedElsewhere('org_team').map((e) => e.id).sort()).toEqual(['doc1', 't1'])
   })
 })

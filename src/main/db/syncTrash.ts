@@ -23,6 +23,7 @@
 // deleted elsewhere; tables, rows, time blocks and documents never aged out and
 // still do not.
 import { getDb } from './database'
+import { getActiveOrgId } from './activeOrg'
 import { deletedElsewhereSql, purgeAtFor } from './trashRetention'
 import { restoreWidget } from './widgets'
 import { restoreRow } from './tables'
@@ -68,7 +69,8 @@ function rowTitle(cellsJson: unknown): string {
   return 'A row'
 }
 
-export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
+/** What was deleted elsewhere in one workspace (the active one, as the Trash shows its rooms and desks). */
+export function listDeletedElsewhere(orgId: string = getActiveOrgId()): DeletedElsewhereEntry[] {
   const db = getDb()
   const out: DeletedElsewhereEntry[] = []
 
@@ -81,10 +83,11 @@ export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
        LEFT JOIN nodes n ON n.id = w.task_id
        WHERE w.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('w')}
          AND (n.id IS NULL OR n.trashed_at IS NULL)
+         AND COALESCE(n.org_id, 'personal') = @org
          AND NOT (w.sync_group_id LIKE 'wf:%' AND EXISTS (
            SELECT 1 FROM documents d WHERE d.id = substr(w.sync_group_id, 4) AND d.trashed_at IS NOT NULL))`
     )
-    .all() as Array<{ id: string; kind: string; title: string | null; content: string | null; trashed_at: number; desk: string | null; shared_scope: number; deleted_by: string | null }>) {
+    .all({ org: orgId }) as Array<{ id: string; kind: string; title: string | null; content: string | null; trashed_at: number; desk: string | null; shared_scope: number; deleted_by: string | null }>) {
     out.push({
       kind: 'widget',
       id: r.id,
@@ -103,9 +106,10 @@ export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
       `SELECT t.id, t.title, t.trashed_at, n.title AS desk, t.deleted_by_name AS deleted_by,
               (t.shared_root_id IS NOT NULL OR COALESCE(t.org_id, 'personal') != 'personal') AS shared_scope FROM fb_tables t
        LEFT JOIN nodes n ON n.id = t.task_id
-       WHERE t.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('t')} AND (n.id IS NULL OR n.trashed_at IS NULL)`
+       WHERE t.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('t')} AND (n.id IS NULL OR n.trashed_at IS NULL)
+         AND COALESCE(t.org_id, 'personal') = @org`
     )
-    .all() as Array<{ id: string; title: string | null; trashed_at: number; desk: string | null; shared_scope: number; deleted_by: string | null }>) {
+    .all({ org: orgId }) as Array<{ id: string; title: string | null; trashed_at: number; desk: string | null; shared_scope: number; deleted_by: string | null }>) {
     out.push({ kind: 'table', id: r.id, title: cleanTitle(r.title, 'A table'), where: r.desk, deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope, deletedBy: r.deleted_by ?? null })
   }
 
@@ -116,18 +120,19 @@ export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
       `SELECT r.id, r.cells_json, r.trashed_at, t.title AS tbl, r.deleted_by_name AS deleted_by,
               (r.shared_root_id IS NOT NULL OR COALESCE(t.org_id, 'personal') != 'personal') AS shared_scope FROM fb_rows r
        JOIN fb_tables t ON t.id = r.table_id
-       WHERE r.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('r')} AND t.trashed_at IS NULL`
+       WHERE r.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('r')} AND t.trashed_at IS NULL
+         AND COALESCE(t.org_id, 'personal') = @org`
     )
-    .all() as Array<{ id: string; cells_json: string | null; trashed_at: number; tbl: string | null; shared_scope: number; deleted_by: string | null }>) {
+    .all({ org: orgId }) as Array<{ id: string; cells_json: string | null; trashed_at: number; tbl: string | null; shared_scope: number; deleted_by: string | null }>) {
     out.push({ kind: 'row', id: r.id, title: rowTitle(r.cells_json), where: cleanTitle(r.tbl, 'A table'), deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope, deletedBy: r.deleted_by ?? null })
   }
 
   for (const r of db
     .prepare(
       `SELECT id, title, trashed_at, COALESCE(org_id, 'personal') != 'personal' AS shared_scope, deleted_by_name AS deleted_by
-       FROM time_blocks WHERE trashed_at IS NOT NULL AND ${ELSEWHERE}`
+       FROM time_blocks WHERE trashed_at IS NOT NULL AND ${ELSEWHERE} AND COALESCE(org_id, 'personal') = @org`
     )
-    .all() as Array<{ id: string; title: string | null; trashed_at: number; shared_scope: number; deleted_by: string | null }>) {
+    .all({ org: orgId }) as Array<{ id: string; title: string | null; trashed_at: number; shared_scope: number; deleted_by: string | null }>) {
     out.push({ kind: 'timeblock', id: r.id, title: cleanTitle(r.title, 'A time block'), where: null, deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope, deletedBy: r.deleted_by ?? null })
   }
 
@@ -139,9 +144,10 @@ export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
               COALESCE(f.org_id, 'personal') != 'personal' AS shared_scope, f.deleted_by_name AS deleted_by
        FROM fb_files f LEFT JOIN fb_files p ON p.id = f.parent_id
        WHERE f.trashed_at IS NOT NULL AND ${ELSEWHERE_OF('f')} AND f.kind IN ('file','folder')
-         AND (p.id IS NULL OR p.trashed_at IS NULL)`
+         AND (p.id IS NULL OR p.trashed_at IS NULL)
+         AND COALESCE(f.org_id, 'personal') = @org`
     )
-    .all() as Array<{ id: string; name: string | null; trashed_at: number; pd: string | null; po: string | null; shared_scope: number; deleted_by: string | null }>) {
+    .all({ org: orgId }) as Array<{ id: string; name: string | null; trashed_at: number; pd: string | null; po: string | null; shared_scope: number; deleted_by: string | null }>) {
     out.push({
       kind: 'file',
       id: r.id,
@@ -157,9 +163,9 @@ export function listDeletedElsewhere(): DeletedElsewhereEntry[] {
   for (const r of db
     .prepare(
       `SELECT id, title, trashed_at, COALESCE(org_id, 'personal') != 'personal' AS shared_scope, deleted_by_name AS deleted_by
-       FROM documents WHERE trashed_at IS NOT NULL AND ${ELSEWHERE}`
+       FROM documents WHERE trashed_at IS NOT NULL AND ${ELSEWHERE} AND COALESCE(org_id, 'personal') = @org`
     )
-    .all() as Array<{ id: string; title: string | null; trashed_at: number; shared_scope: number; deleted_by: string | null }>) {
+    .all({ org: orgId }) as Array<{ id: string; title: string | null; trashed_at: number; shared_scope: number; deleted_by: string | null }>) {
     out.push({ kind: 'document', id: r.id, title: cleanTitle(r.title, 'A document'), where: null, deletedAt: r.trashed_at, purgeAt: null, sharedScope: !!r.shared_scope, deletedBy: r.deleted_by ?? null })
   }
 
