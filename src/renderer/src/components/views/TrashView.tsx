@@ -37,11 +37,13 @@ interface TrashEntry {
   purgeAt: number
   deletedElsewhere?: boolean
   sharedScope?: boolean
+  deletedBy?: string | null
 }
 
 // Where it was deleted, said plainly. Where others can delete it too (a shared
 // desk, an org workspace), "another device" alone would not be the whole truth.
-function deletedWhere(sharedScope?: boolean): string {
+function deletedWhere(sharedScope?: boolean, deletedBy?: string | null): string {
+  if (deletedBy) return `Deleted by ${deletedBy}`
   return sharedScope ? 'Deleted on another device or by someone you work with' : 'Deleted on another device'
 }
 
@@ -344,7 +346,7 @@ export default function TrashView(): JSX.Element {
                     {e.title || (e.kind === 'folder' ? 'Untitled room' : 'Untitled desk')}
                   </div>
                   <div className="fb-t-body text-[var(--ink-50)]">
-                    {e.deletedElsewhere ? `${deletedWhere(e.sharedScope)} · ` : ''}
+                    {e.deletedElsewhere ? `${deletedWhere(e.sharedScope, e.deletedBy)} · ` : ''}
                     {daysLeft(e.purgeAt)}
                   </div>
                 </div>
@@ -392,7 +394,7 @@ export default function TrashView(): JSX.Element {
                       {e.where ? <span className="text-[var(--ink-50)] font-normal"> · {e.where}</span> : null}
                     </div>
                     <div className="fb-t-body text-[var(--ink-50)]">
-                      {deletedWhere(e.sharedScope)} {ago(e.deletedAt)}
+                      {deletedWhere(e.sharedScope, e.deletedBy)} {ago(e.deletedAt)}
                       {e.purgeAt != null ? ` · ${daysLeft(e.purgeAt)}` : ''}
                     </div>
                   </div>

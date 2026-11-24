@@ -193,7 +193,10 @@ export function asSyncApply<T>(write: () => T): T {
   const now = Date.now()
   SYNC_TABLES.forEach((table, i) => {
     // Stamped while the row is still dirty, so the stamp trips no *_mark_dirty trigger.
-    const stamp = db.prepare(`UPDATE ${table} SET deleted_elsewhere_at = ? WHERE id = ? AND trashed_at IS NOT NULL`)
+    // Who is not known on this channel: a name left from an earlier delete must not stay.
+    const stamp = db.prepare(
+      `UPDATE ${table} SET deleted_elsewhere_at = ?, deleted_by_name = NULL WHERE id = ? AND trashed_at IS NOT NULL`
+    )
     for (const t of trashed) if (t.tbl === table) stamp.run(now, t.id)
     const clean = db.prepare(`UPDATE ${table} SET needs_sync = 0 WHERE id = ?`)
     for (const id of dirtyIds(table)) if (!before[i].has(id)) clean.run(id)
@@ -245,6 +248,8 @@ export interface RemoteItem {
   deleted: boolean
   teamId?: string | null
   rootId?: string | null
+  /** On an org tombstone: who deleted it, by display name (the signal's withDeleterNames). */
+  deletedByName?: string | null
 }
 
 // Tables that carry a shared_root_id column (the desk-scope discriminator). Used to
@@ -303,9 +308,10 @@ const SYNC_COLS = new Set([
   'shared_root_id',
   '__shared_root_id',
   'body_rev',
-  // This device's own knowledge that a delete reached it by sync (syncTrash.ts):
-  // never pushed, and never written from an incoming body.
-  'deleted_elsewhere_at'
+  // This device's own knowledge that a delete reached it by sync, and who made it
+  // when an org pull says (syncTrash.ts): never pushed, never written from a body.
+  'deleted_elsewhere_at',
+  'deleted_by_name'
 ])
 
 /**
@@ -844,13 +850,28 @@ function isPendingRestore(
 // elsewhere (another device, or a collaborator): it is stamped at the same moment,
 // so the Trash lists it and keeps it 30 days (syncTrash.ts). A row this device had
 // already trashed keeps its own delete, time and all.
-function writeTombstone(db: ReturnType<typeof getDb>, table: SyncTable, id: string, rev: number): void {
+//
+// `by` is who deleted it, by display name, which only an org pull carries. A fresh
+// stamp takes it (or none); a row already stamped from elsewhere (the CRDT channel
+// got there first) gains it; this device's own delete never does.
+function writeTombstone(db: ReturnType<typeof getDb>, table: SyncTable, id: string, rev: number, by: string | null = null): void {
   db.prepare(
     `UPDATE ${table} SET trashed_at = COALESCE(trashed_at, @now),
        deleted_elsewhere_at = CASE WHEN trashed_at IS NULL THEN @now ELSE deleted_elsewhere_at END,
+       deleted_by_name = CASE
+         WHEN trashed_at IS NULL THEN @by
+         WHEN deleted_elsewhere_at IS NOT NULL AND deleted_elsewhere_at >= trashed_at THEN COALESCE(@by, deleted_by_name)
+         ELSE deleted_by_name END,
        sync_rev = @rev, needs_sync = 0
      WHERE id = @id`
-  ).run({ now: Date.now(), rev, id })
+  ).run({ now: Date.now(), rev, id, by })
+}
+
+// A display name from the signal, kept as a name and nothing more.
+function deleterName(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.replace(/\s+/g, ' ').trim()
+  return s && !s.includes('@') ? s.slice(0, 80) : null
 }
 
 export function applyRemote(items: RemoteItem[]): { applied: number; failed: number } {
@@ -1075,7 +1096,7 @@ export function applyRemoteOrg(items: RemoteItem[], orgId: string): { applied: n
           .prepare(`SELECT trashed_at, needs_sync, deleted_elsewhere_at FROM ${table} WHERE id = ?`)
           .get(item.id) as { trashed_at: number | null; needs_sync: number; deleted_elsewhere_at: number | null } | undefined
         if (exists && !isPendingRestore(exists)) {
-          writeTombstone(db, table, item.id, item.rev)
+          writeTombstone(db, table, item.id, item.rev, deleterName(item.deletedByName))
           applied++
           changes.push({ id: item.id, itemType: item.itemType, deleted: true, deskId: null })
         }

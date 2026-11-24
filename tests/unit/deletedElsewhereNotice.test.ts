@@ -115,6 +115,26 @@ describe('the notice and the dot', () => {
     useOrgStore.setState({ activeOrgId: null, orgs: [] } as never)
   })
 
+  it('when the org pull says who, the notice says who', () => {
+    announceDeletedElsewhere([{ kind: 'widget', id: 'w1', title: 'Budget', by: 'Sam Lee' }])
+    expect(useNoticeStore.getState().notice?.text).toBe('“Budget” was deleted by Sam Lee.')
+    announceDeletedElsewhere([
+      { kind: 'widget', id: 'w1', title: 'Budget', by: 'Sam Lee' },
+      { kind: 'table', id: 't1', title: 'Suppliers', by: 'Sam Lee' }
+    ])
+    expect(useNoticeStore.getState().notice?.text).toBe('2 things on this desk were deleted by Sam Lee.')
+    // Two different people, or one unknown: no name rather than half of one.
+    announceDeletedElsewhere([
+      { kind: 'widget', id: 'w1', title: 'Budget', by: 'Sam Lee' },
+      { kind: 'table', id: 't1', title: 'Suppliers' }
+    ])
+    expect(useNoticeStore.getState().notice?.text).toBe('2 things on this desk were deleted on another device.')
+  })
+
+  it('onOpenDesk carries the name a pulled tombstone brings', () => {
+    expect(onOpenDesk([{ itemType: 'widget', id: 'w1', deletedByName: 'Sam Lee' }])).toEqual([{ kind: 'widget', id: 'w1', title: 'Budget', by: 'Sam Lee' }])
+  })
+
   it('nothing to say, nothing shown', () => {
     announceDeletedElsewhere([])
     expect(useNoticeStore.getState().notice).toBeNull()
@@ -166,5 +186,41 @@ describe('a pulled tombstone for something on the open desk is announced', () =>
     await syncWorkspaceOnce()
     useAccountStore.setState({ sessionToken: null })
     expect(useNoticeStore.getState().notice?.text).toBe('“Budget” was deleted on another device.')
+  })
+})
+
+describe('an org pull that says who deleted it names them in the notice', () => {
+  it('the org poll path', async () => {
+    const json = (b: Record<string, unknown>): Response => new Response(JSON.stringify(b), { status: 200 })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        String(url).includes('/workspace/org/sync')
+          ? json({ ok: true, items: [{ id: 'w1', itemType: 'widget', rev: 9, deleted: true, body: { id: 'w1' }, deletedByName: 'Sam Lee' }], now: 2 })
+          : json({ ok: true, items: [], now: 1, roots: [], owned: [] })
+      )
+    )
+    const none = async (): Promise<{ upserts: never[]; deletes: never[] }> => ({ upserts: [], deletes: [] })
+    const ws = {
+      pending: vi.fn(none), pendingShared: vi.fn(none), pendingOrg: vi.fn(none),
+      getCursor: vi.fn(async () => 0), getCursorShared: vi.fn(async () => 0), getCursorOrg: vi.fn(async () => 0),
+      setCursor: vi.fn(async () => undefined), setCursorShared: vi.fn(async () => undefined), setCursorOrg: vi.fn(async () => undefined),
+      markPushed: vi.fn(async () => undefined), advanceBaseRev: vi.fn(async () => undefined),
+      applyRemote: vi.fn(async () => ({ applied: 0, failed: 0 })), applyRemoteShared: vi.fn(async () => ({ applied: 0 })),
+      // 0 applied: the store refresh after an apply is not what this is about.
+      applyRemoteOrg: vi.fn(async () => ({ applied: 0 })),
+      localSharedRoots: vi.fn(async () => []), pruneSharedDesk: vi.fn(async () => 0), adoptSharedDesk: vi.fn(),
+      filesMissingBytes: vi.fn(async () => []), hasLocalFileBytes: vi.fn(async () => true)
+    }
+    ;(window as unknown as { api: unknown }).api = { trash: trashApi, workspaceSync: ws }
+    localStorage.setItem('fb.sync.repull.4351', '1')
+    useAccountStore.setState({ sessionToken: 'tok' })
+    useOrgStore.setState({ activeOrgId: 'org_team', orgs: [{ id: 'org_team', name: 'Team' }] } as never)
+    await syncWorkspaceOnce()
+    useAccountStore.setState({ sessionToken: null })
+    useOrgStore.setState({ activeOrgId: null, orgs: [] } as never)
+    expect(useNoticeStore.getState().notice?.text).toBe('“Budget” was deleted by Sam Lee.')
+    // ...and main was handed the name to keep.
+    expect(ws.applyRemoteOrg.mock.calls[0][0]).toEqual([expect.objectContaining({ id: 'w1', deletedByName: 'Sam Lee' })])
   })
 })

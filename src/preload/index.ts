@@ -187,7 +187,7 @@ const api = {
     // Trash surfacing (lifecycle L1): trashed roots + days-remaining, and
     // lossless subtree restore.
     listTrash: (): Promise<
-      Array<{ id: string; kind: string; title: string; trashedAt: number; purgeAt: number; deletedElsewhere: boolean; sharedScope: boolean }>
+      Array<{ id: string; kind: string; title: string; trashedAt: number; purgeAt: number; deletedElsewhere: boolean; sharedScope: boolean; deletedBy: string | null }>
     > => ipcRenderer.invoke('nodes:listTrash'),
     restoreTree: (rootId: string): Promise<string[]> =>
       ipcRenderer.invoke('nodes:restoreTree', rootId),

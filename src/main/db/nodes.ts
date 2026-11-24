@@ -507,6 +507,8 @@ export interface TrashEntry {
   deletedElsewhere: boolean
   /** On a shared desk or in an org workspace: other people can delete it too. */
   sharedScope: boolean
+  /** Who deleted it, by display name, when an org pull said. */
+  deletedBy: string | null
 }
 
 export function listTrash(): TrashEntry[] {
@@ -519,7 +521,8 @@ export function listTrash(): TrashEntry[] {
     trashedAt: r.trashed_at,
     purgeAt: purgeAtFor(r.trashed_at, !!r.deleted_elsewhere),
     deletedElsewhere: !!r.deleted_elsewhere,
-    sharedScope: !!r.shared_root_id || orgId !== PERSONAL_ORG_ID
+    sharedScope: !!r.shared_root_id || orgId !== PERSONAL_ORG_ID,
+    deletedBy: r.deleted_by ?? null
   }))
 }
 

@@ -34,6 +34,8 @@ export interface DeletedHere {
   kind: DeletedElsewhereKind
   id: string
   title: string
+  /** Who deleted it, by display name, when an org pull said (the signal's withDeleterNames). */
+  by?: string
 }
 
 const DOT_KEY = 'fb.trash.deletedElsewhereDot'
@@ -68,7 +70,7 @@ function rowTitle(cells: Record<string, unknown> | undefined): string {
 }
 
 /** What a delete from elsewhere takes off the desk on screen, if anything. Call it before the stores drop it. */
-export function onOpenDesk(items: ReadonlyArray<{ itemType: string; id: string }>): DeletedHere[] {
+export function onOpenDesk(items: ReadonlyArray<{ itemType: string; id: string; deletedByName?: string | null }>): DeletedHere[] {
   const view = useViewStore.getState().view
   if (view.kind !== 'task') return []
   const deskId = view.taskId
@@ -94,7 +96,13 @@ export function onOpenDesk(items: ReadonlyArray<{ itemType: string; id: string }
       }
     }
   }
-  return out
+  // An org tombstone names who deleted it.
+  const by = new Map(
+    items
+      .filter((i) => typeof i.deletedByName === 'string' && i.deletedByName.trim())
+      .map((i) => [i.id, (i.deletedByName as string).trim()] as const)
+  )
+  return out.map((h) => (by.has(h.id) ? { ...h, by: by.get(h.id) } : h))
 }
 
 // On a shared desk, or in an org workspace, someone else may have deleted it: then
@@ -139,7 +147,10 @@ export function announceDeletedElsewhere(hits: DeletedHere[]): void {
   if (!hits.length) return
   writeDot(true)
   useTrashDot.setState({ on: true })
-  const by = othersCanDelete() ? 'on another device or by someone you work with' : 'on another device'
+  // Named when the org pull said who, and it was the same person for all of it;
+  // two people, or one unknown, gets no name rather than half of one.
+  const named = hits[0].by && hits.every((h) => h.by === hits[0].by) ? hits[0].by : null
+  const by = named ? `by ${named}` : othersCanDelete() ? 'on another device or by someone you work with' : 'on another device'
   const one = hits.length === 1 ? hits[0] : null
   useNoticeStore.getState().show({
     text: one ? `“${one.title}” was deleted ${by}.` : `${hits.length} things on this desk were deleted ${by}.`,

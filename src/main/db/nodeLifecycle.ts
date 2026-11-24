@@ -167,6 +167,8 @@ export interface TrashedRoot {
   /** 1 when this root's trash came from elsewhere (trashRetention.ts). */
   deleted_elsewhere: number
   shared_root_id: string | null
+  /** Who deleted it, when an org pull said (only while deleted_elsewhere). */
+  deleted_by: string | null
 }
 
 /** Trashed ROOTS: trashed rows whose parent is missing, live, or itself not
@@ -176,7 +178,8 @@ export interface TrashedRoot {
 export function listTrashedRoots(d: LifecycleDb, orgId: string): TrashedRoot[] {
   return d
     .prepare(
-      `SELECT n.id, n.kind, n.title, n.trashed_at, n.parent_id, n.shared_root_id, ${deletedElsewhereSql('n.')} AS deleted_elsewhere FROM nodes n
+      `SELECT n.id, n.kind, n.title, n.trashed_at, n.parent_id, n.shared_root_id, ${deletedElsewhereSql('n.')} AS deleted_elsewhere,
+              CASE WHEN ${deletedElsewhereSql('n.')} THEN n.deleted_by_name END AS deleted_by FROM nodes n
        LEFT JOIN nodes p ON p.id = n.parent_id
        WHERE n.trashed_at IS NOT NULL AND n.org_id = ? AND n.kind != 'work_item'
          AND (n.parent_id IS NULL OR p.id IS NULL OR p.trashed_at IS NULL)

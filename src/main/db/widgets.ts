@@ -36,6 +36,7 @@ interface WidgetRow {
   updated_at: number
   archived: number | null
   sync_group_id: string | null
+  trashed_at?: number | null
 }
 
 function rowToWidget(row: WidgetRow): Widget {
@@ -66,7 +67,10 @@ function rowToWidget(row: WidgetRow): Widget {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     archived: row.archived === 1,
-    syncGroupId: row.sync_group_id ?? null
+    syncGroupId: row.sync_group_id ?? null,
+    // Only when it is in the Trash, so a live widget's shape (shares, exports,
+    // snapshots) is exactly what it was. crdtSync's stale-delete check reads it.
+    ...(row.trashed_at != null ? { trashedAt: row.trashed_at } : {})
   }
 }
 

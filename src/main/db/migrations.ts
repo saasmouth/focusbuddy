@@ -816,8 +816,11 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
   // keep it 30 days (syncTrash.ts). This is this device's knowledge, not the
   // item's: it never travels (SYNC_COLS in workspaceSync.ts). Additive and
   // nullable, so no MIGRATION_VERSION bump, as with the columns added since v3.
+  // deleted_by_name: who, when an org pull says (the signal's display name for the
+  // deleter, never an email); also this device's knowledge only.
   for (const t of ['nodes', 'widgets', 'time_blocks', 'documents', 'fb_tables', 'fb_rows', 'fb_files']) {
     ensureColumn(db, t, 'deleted_elsewhere_at', 'INTEGER')
+    ensureColumn(db, t, 'deleted_by_name', 'TEXT')
   }
   // Migrations completed successfully — stamp the version so the next launch
   // knows this database is already at the current schema and skips the

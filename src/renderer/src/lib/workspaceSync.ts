@@ -71,6 +71,8 @@ interface ServerItem {
   deleted: boolean
   teamId?: string | null
   rootId?: string | null
+  /** On an org tombstone: who deleted it, by display name (the signal's withDeleterNames). */
+  deletedByName?: string | null
 }
 
 // ── Pulling every page ───────────────────────────────────────────────────────

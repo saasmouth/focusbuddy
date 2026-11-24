@@ -364,3 +364,59 @@ describe('where other people can delete things, the Trash does not say "another 
     expect(listTrash().find((x) => x.id === 'd1')).toMatchObject({ deletedElsewhere: true, sharedScope: false })
   })
 })
+
+describe('a widget read by id says whether it is in the Trash', () => {
+  // crdtSync's applyWidgetDelete reads local.trashedAt to decide whether a delete
+  // is stale; without it the check was vacuous (it always read undefined).
+  it('trashedAt when trashed, and no such key on a live widget (its shape everywhere else is unchanged)', async () => {
+    seed()
+    const { getWidget } = await import('../../src/main/db/widgets')
+    expect(getWidget('w1')).not.toHaveProperty('trashedAt')
+    deleteWidget('w1')
+    const t = row('widgets', 'w1').trashed_at
+    expect(getWidget('w1')?.trashedAt).toBe(t)
+  })
+})
+
+describe('"Deleted by Sam Lee": an org delete names who made it (display name from the signal)', () => {
+  const orgTombstone = (itemType: string, id: string, rev: number, deletedByName: string | null) =>
+    ({ id, itemType, body: { id }, rev, deleted: true, deletedByName }) as never
+
+  it('the org pull keeps the name; the Trash shows it; it never travels', () => {
+    seed()
+    sync.applyRemoteOrg([orgTombstone('widget', 'w1', 9, 'Sam Lee'), orgTombstone('table', 't1', 9, null)], 'org_team')
+    const by = Object.fromEntries(trash.listDeletedElsewhere().map((e) => [e.id, e.deletedBy]))
+    expect(by).toMatchObject({ w1: 'Sam Lee', t1: null })
+    trash.restoreDeletedElsewhere('widget', 'w1')
+    expect(sync.collectPendingOrg('personal').upserts.concat(sync.collectPending().upserts).find((u) => u.id === 'w1')?.body).not.toHaveProperty('deleted_by_name')
+  })
+
+  it('a personal pull never names anyone', () => {
+    seed()
+    sync.applyRemote([{ ...(tombstone('widget', 'w1') as object), deletedByName: 'Someone' } as never])
+    expect(trash.listDeletedElsewhere().find((e) => e.id === 'w1')?.deletedBy).toBeNull()
+  })
+
+  it('a delete first seen on the CRDT channel gets its name when the pull brings it', () => {
+    seed()
+    sync.byOrigin('sync', () => deleteWidget('w1'))
+    expect(trash.listDeletedElsewhere().find((e) => e.id === 'w1')?.deletedBy).toBeNull()
+    sync.applyRemoteOrg([orgTombstone('widget', 'w1', 9, 'Sam Lee')], 'org_team')
+    expect(trash.listDeletedElsewhere().find((e) => e.id === 'w1')?.deletedBy).toBe('Sam Lee')
+  })
+
+  it('a later delete by someone not yet known does not keep the old name', () => {
+    seed()
+    sync.applyRemoteOrg([orgTombstone('widget', 'w1', 9, 'Sam Lee')], 'org_team')
+    trash.restoreDeletedElsewhere('widget', 'w1')
+    sync.markPushed('widget', 'w1', 10)
+    sync.byOrigin('sync', () => deleteWidget('w1'))
+    expect(trash.listDeletedElsewhere().find((e) => e.id === 'w1')?.deletedBy).toBeNull()
+  })
+
+  it('a desk in the Trash says who too', () => {
+    seed()
+    sync.applyRemoteOrg([orgTombstone('node', 'd1', 9, 'Sam Lee')], 'org_team')
+    expect(listTrash().find((x) => x.id === 'd1')).toMatchObject({ deletedElsewhere: true, deletedBy: 'Sam Lee' })
+  })
+})

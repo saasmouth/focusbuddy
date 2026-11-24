@@ -17,6 +17,8 @@ export interface DeletedElsewhereEntry {
    * workspace), so "on another device" alone would not be the whole truth.
    */
   sharedScope: boolean
+  /** Who deleted it, by display name, when an org pull said; null otherwise. */
+  deletedBy: string | null
 }
 
 export interface DeletedElsewhereRestore {
