@@ -27,6 +27,7 @@ import { useNodeStore } from '../../stores/nodes'
 import { useWidgetStore } from '../../stores/widgets'
 import { recordAction, recordActionWithToast, useActionHistory } from '../../stores/actionHistory'
 import { pastedListItems, type PastedItem } from '../../lib/pasteLines'
+import { readingControl, useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // The desk's own tasks, on the desk.
 //
@@ -744,6 +745,10 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
   const model = useMemo(() => parseOwn(widget.content), [widget.content])
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
+  // A viewer (read-only, lib/widgetSurface): the tasks, which are done and when
+  // they are due, and the Active / Done / All view (a reading control; read-only
+  // never saves). Nothing to tick, rename, date, delete or add.
+  const readOnly = useWidgetReadOnly()
 
   // The latest model, for saves made later (an undo) by closures of an older render.
   const modelRef = useRef(model)
@@ -796,6 +801,7 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
           {TABS.map(([f, label]) => (
             <button
               key={f}
+              {...readingControl}
               onClick={() => save({ filter: f })}
               className={`px-2 py-0.5 rounded-full text-[11px] transition-colors ${
                 f === model.filter ? 'bg-accent/10 text-accent font-medium' : 'text-[var(--ink-50)] hover:text-[var(--ink-80)]'
@@ -823,6 +829,17 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                 className="group flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-[var(--surface-sunken)]"
                 data-testid="own-task-row"
               >
+                {readOnly ? (
+                  <span
+                    role="img"
+                    aria-label={i.done ? 'Done' : 'Not done'}
+                    className={`shrink-0 w-4 h-4 rounded-full border inline-flex items-center justify-center ${
+                      i.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-[var(--edge-firm)]'
+                    }`}
+                  >
+                    {i.done && <Icon name="check" size={11} />}
+                  </span>
+                ) : (
                 <button
                   onClick={() => patchItem(i.id, { done: !i.done }, i.done ? `Reopen “${i.title}”` : `Complete “${i.title}”`)}
                   className={`shrink-0 w-4 h-4 rounded-full border inline-flex items-center justify-center ${
@@ -833,7 +850,8 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                 >
                   {i.done && <Icon name="check" size={11} />}
                 </button>
-                {editing === i.id ? (
+                )}
+                {editing === i.id && !readOnly ? (
                   <input
                     autoFocus
                     defaultValue={i.title}
@@ -850,17 +868,21 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                   />
                 ) : (
                   <span
-                    onDoubleClick={(e) => {
+                    onDoubleClick={readOnly ? undefined : (e) => {
                       // Edits the task; the widget's own double-click (Focus Mode) is not also run.
                       e.stopPropagation()
                       setEditing(i.id)
                     }}
                     className={`flex-1 min-w-0 truncate text-[12.5px] ${i.done ? 'line-through text-[var(--ink-40)]' : 'text-[var(--ink-90)]'}`}
-                    title="Double-click to edit"
+                    title={readOnly ? i.title : 'Double-click to edit'}
                   >
                     {i.title}
                   </span>
                 )}
+                {readOnly ? (
+                  i.dueAt ? <span className="shrink-0 text-[10px] text-[var(--ink-50)] tabular-nums" title="Due date">{toDateInput(i.dueAt)}</span> : null
+                ) : (
+                <>
                 <input
                   type="date"
                   value={toDateInput(i.dueAt)}
@@ -878,10 +900,13 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
                 >
                   <Icon name="close" size={13} />
                 </button>
+                </>
+                )}
               </div>
             ))
           )}
         </div>
+        {!readOnly && (
         <div className="px-2 pb-2">
           <input
             value={draft}
@@ -901,6 +926,7 @@ function OwnTaskList({ widget }: { widget: Widget }): JSX.Element {
             className="fb-field w-full h-7 text-[12px] px-2"
           />
         </div>
+        )}
       </div>
     </WidgetFrame>
   )

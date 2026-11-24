@@ -20,7 +20,7 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
  * data layer imports './database' relatively from 50 files, so the swap has to
  * happen after resolution, on the file that resolution arrived at.
  */
-function swapModules(map: Record<string, string>): Plugin {
+export function swapModules(map: Record<string, string>): Plugin {
   const resolved = Object.entries(map).map(([from, to]) => [resolve(__dirname, from), resolve(__dirname, to)] as const)
   return {
     name: 'plexii-swap-modules',

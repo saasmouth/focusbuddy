@@ -23,6 +23,8 @@ import { confirmDialog } from '../plexi/PromptDialog'
 import AnsweredBy from '../ai/AnsweredBy'
 import { WIDGET_LINK_OPTIONS } from './widgetLink'
 import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
+import { inWidgetHost, offeredHere } from '../../lib/widgetHost'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 function formatAge(ts: number | null): string {
   if (!ts) return 'never'
@@ -102,9 +104,11 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
   }
 
   const pasteRef = useRef<(e: ClipboardEvent) => boolean>(() => false)
+  // A viewer (read-only, lib/widgetSurface) reads the page; it never edits it.
+  const readOnly = useWidgetReadOnly()
   const editor = useEditor(
     {
-      editable: !isLiving,
+      editable: !isLiving && !readOnly,
       extensions: [
         StarterKit.configure({
           // Keep StarterKit defaults; everything from heading 1-3 to code blocks works out of the box.
@@ -126,7 +130,9 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
         Placeholder.configure({
           placeholder: isLiving
             ? 'Living page — set a query above to populate this.'
-            : 'Start writing… press / for blocks, or click AI draft above'
+            : inWidgetHost()
+              ? 'Start writing… press / for blocks'
+              : 'Start writing… press / for blocks, or click AI draft above'
         })
       ],
       content: tryParseContent(widget.content),
@@ -378,7 +384,9 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
           onConvertToManual={() => void convertToManual()}
         />
       )}
-      {!isLiving && (
+      {/* Both of its controls need Plexii itself -- the AI, and a canvas for a
+          living page to summarise -- so the widget host (lib/widgetHost) has none. */}
+      {!isLiving && !inWidgetHost() && (
         <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_60%,transparent)] shrink-0">
           <button
             onClick={() => {
@@ -494,17 +502,22 @@ export default function PageWidget({ widget, inline = false }: Props): JSX.Eleme
             label="Divider"
             onClick={() => applyBlock(() => editor?.chain().focus().setHorizontalRule().run())}
           />
-          <div className="my-1 border-t border-[var(--edge-soft)]" />
-          <SlashItem
-            icon="auto_awesome"
-            label="AI prompt"
-            shortcut="/ai"
-            onClick={() => {
-              removeSlashTrigger()
-              setSlashOpen(false)
-              setAiOpen(true)
-            }}
-          />
+          {/* No AI in the widget host (lib/widgetHost). */}
+          {offeredHere('page-ai-prompt') && (
+            <>
+              <div className="my-1 border-t border-[var(--edge-soft)]" />
+              <SlashItem
+                icon="auto_awesome"
+                label="AI prompt"
+                shortcut="/ai"
+                onClick={() => {
+                  removeSlashTrigger()
+                  setSlashOpen(false)
+                  setAiOpen(true)
+                }}
+              />
+            </>
+          )}
         </div>
       )}
 

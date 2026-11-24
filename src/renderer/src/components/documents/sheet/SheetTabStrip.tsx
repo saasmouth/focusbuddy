@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import type { SheetBodyV2 } from '@shared/types'
 import Icon from '../../Icon'
+import { readingControl } from '../../../lib/widgetSurface'
 
 interface Props {
   body: SheetBodyV2
@@ -11,9 +12,11 @@ interface Props {
   onAdd: () => void
   onRename: (index: number, name: string) => void
   onDelete: (index: number) => void
+  /** Read-only: switching sheets only (a reading control); no add, rename or delete. */
+  readOnly?: boolean
 }
 
-export default function SheetTabStrip({ body, onSwitch, onAdd, onRename, onDelete }: Props): JSX.Element {
+export default function SheetTabStrip({ body, onSwitch, onAdd, onRename, onDelete, readOnly = false }: Props): JSX.Element {
   const active = body.activeSheet ?? 0
   const [editing, setEditing] = useState<number | null>(null)
 
@@ -22,15 +25,16 @@ export default function SheetTabStrip({ body, onSwitch, onAdd, onRename, onDelet
       {body.sheets.map((s, i) => (
         <div
           key={s.id}
+          {...(readOnly ? readingControl : {})}
           className={`group inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] cursor-pointer ${
             i === active
               ? 'fb-card fb-press text-accent font-medium'
               : 'text-[var(--ink-50)] hover:bg-[var(--surface-sunken)]'
           }`}
           onClick={() => onSwitch(i)}
-          onDoubleClick={() => setEditing(i)}
+          onDoubleClick={readOnly ? undefined : () => setEditing(i)}
         >
-          {editing === i ? (
+          {editing === i && !readOnly ? (
             <input
               autoFocus
               defaultValue={s.name}
@@ -47,7 +51,7 @@ export default function SheetTabStrip({ body, onSwitch, onAdd, onRename, onDelet
           ) : (
             <span>{s.name}</span>
           )}
-          {body.sheets.length > 1 && (
+          {body.sheets.length > 1 && !readOnly && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -61,9 +65,11 @@ export default function SheetTabStrip({ body, onSwitch, onAdd, onRename, onDelet
           )}
         </div>
       ))}
-      <button onClick={onAdd} className="icon-btn" title="Add sheet">
-        <Icon name="add" size={15} />
-      </button>
+      {!readOnly && (
+        <button onClick={onAdd} className="icon-btn" title="Add sheet">
+          <Icon name="add" size={15} />
+        </button>
+      )}
     </div>
   )
 }

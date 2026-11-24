@@ -32,6 +32,7 @@ import type { Commands } from './commands'
 import type { Tool } from './DiagramEditor'
 import { ARROW_LABEL, ArrowPreview, DASHES, FONTS, common } from './parts'
 import FontPicker from '../editor/FontPicker'
+import { inWidgetHost } from '../../../lib/widgetHost'
 
 // PlexiiDiagrams on the office shell (SPEC §6.1): the ToolRail items and every
 // ContextBar tab. Owner ruling D1 removed the right Inspector, so every control
@@ -316,7 +317,7 @@ const insertTab: BarTab<DCtx> = {
         <BarDialogButton icon="database" label="From a Plexii table" onOpen={() => c.openDialog('data')} testid="diagram-data" />
         <BarDialogButton icon="widgets" label="Work widget" onOpen={() => c.openDialog('data-widgets')} testid="diagram-insert-widget" />
         <BarDialogButton icon="code" label="Mermaid" onOpen={() => c.openDialog('mermaid')} testid="diagram-insert-mermaid" />
-        <BarButton icon="auto_awesome" label="AI diagram" onClick={() => c.sidePane !== 'ai' && c.toggleSidePane('ai')} controls={SIDE_PANE_DOM_ID} testid="diagram-insert-ai" />
+        {!inWidgetHost() && <BarButton icon="auto_awesome" label="AI diagram" onClick={() => c.sidePane !== 'ai' && c.toggleSidePane('ai')} controls={SIDE_PANE_DOM_ID} testid="diagram-insert-ai" />}
         {!c.singlePage && (
           <>
             <BarSep />

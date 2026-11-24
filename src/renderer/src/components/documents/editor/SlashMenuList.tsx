@@ -10,6 +10,8 @@ export interface SlashItem {
   title: string
   subtitle: string
   icon: string
+  /** The ribbon command this item is, when it is one; asked of offeredHere() like the ribbon's button. */
+  commandId?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   command: (props: { editor: any; range: any }) => void
 }

@@ -1,0 +1,12 @@
+/* The widget host fills its page: PlexiiLite's tile is the frame. */
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--surface-raised, #fff); overflow: hidden; }
+.plexii-widget-host-box { position: fixed; inset: 0; }
+.plexii-widget-host-problem {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  margin: 0; padding: 16px; text-align: center; font: 13px/1.4 var(--font-sans, system-ui, sans-serif);
+  color: var(--ink-70, #555);
+}
+/* Read-only (signed out in PlexiiLite): shown, never edited. inputGuard.ts refuses
+   the gestures; this stops the page looking as if it would take them. */
+#root[data-readonly='true'], #root[data-readonly='true'] * { cursor: default !important; caret-color: transparent !important; }

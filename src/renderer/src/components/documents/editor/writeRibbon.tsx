@@ -20,6 +20,7 @@ import { barProps, readOnlySafeOf, type OfficeCommand } from '../../../lib/menus
 import type { WriteCommands } from './writeCommands'
 import { caretFontSize } from './fontSize'
 import type { HeadingStyle, HeadingStyles, PageOrientation, PaperSize } from './headingStyles'
+import { offeredHere } from '../../../lib/widgetHost'
 
 // PlexiiWrite on the office shell (SPEC §6.2): the ToolRail items and every
 // ContextBar tab. Owner ruling D1 moved the formatting row's controls into
@@ -132,7 +133,8 @@ function cmdToggle(c: WCtx, id: string, extra: Partial<Parameters<typeof BarTogg
 }
 
 /** A ribbon button rendered from the registry. */
-function cmdButton(c: WCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element {
+function cmdButton(c: WCtx, id: string, extra: Partial<Parameters<typeof BarButton>[0]> = {}): JSX.Element | null {
+  if (!offeredHere(id)) return null
   const k = cmd(c, id)
   return <BarButton {...barProps(k)} onClick={k.run} {...extra} />
 }
@@ -354,15 +356,17 @@ const reviewTab: BarTab<WCtx> = {
       <BarButton icon="done_all" label="Accept all changes" disabled={!c.hasTracked} disabledReason="No tracked changes." onClick={c.acceptAll} testid="doc-accept-all" />
       <BarButton icon="close" label="Reject all changes" disabled={!c.hasTracked} disabledReason="No tracked changes." onClick={c.rejectAll} testid="doc-reject-all" />
       <BarSep />
-      <BarToggle
-        icon="comment"
-        label="Comments"
-        pressed={c.sidePane === 'comments'}
-        onChange={() => c.toggleSidePane('comments')}
-        controls={SIDE_PANE_DOM_ID}
-        readOnlySafe
-        testid="doc-comments-toggle"
-      />
+      {offeredHere('doc-comments') && (
+        <BarToggle
+          icon="comment"
+          label="Comments"
+          pressed={c.sidePane === 'comments'}
+          onChange={() => c.toggleSidePane('comments')}
+          controls={SIDE_PANE_DOM_ID}
+          readOnlySafe
+          testid="doc-comments-toggle"
+        />
+      )}
       <BarToggle
         icon="toc"
         label="Outline"

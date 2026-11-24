@@ -103,6 +103,7 @@ import { barProps, ctxRow } from '../../lib/menus/officeCommand'
 import { runCommandKey } from '../../lib/menus/commandKeys'
 import { buildDesignCommands, type DesignCommands } from './design/designCommands'
 import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
+import { readingControl } from '../../lib/widgetSurface'
 
 // PlexiDesign — the on-platform design studio. A design is a single arbitrary-size
 // canvas of the same elements a slide uses, so this editor reuses the proven slide
@@ -542,7 +543,13 @@ export default function DesignEditor({
     if (i < 0 || i >= ps.length || i === (d.activePage ?? 0)) return
     const saved = syncActivePage(d)
     const target = saved.pages![i]
-    commit({ ...saved, activePage: i, elements: target.elements, background: target.background })
+    const next = { ...saved, activePage: i, elements: target.elements, background: target.background }
+    if (readOnly) {
+      // Going to another page is reading: a reader looks at it, and it is not
+      // recorded (commit refuses every change when read-only), as a sheet's tabs.
+      designRef.current = next
+      setDesign(next)
+    } else commit(next)
     setSelectedIds([])
   }
   function addPage(): void {
@@ -1694,6 +1701,7 @@ export default function DesignEditor({
   const sidePanes: SidePane[] = [
     {
       id: 'assist',
+      ai: true,
       title: 'PlexiiAssist',
       icon: 'auto_awesome',
       testid: 'design-ai-panel',
@@ -1714,6 +1722,7 @@ export default function DesignEditor({
   // rail's last item.
   sidePanes.push({
     id: 'generate',
+    ai: true,
     title: 'AI design',
     icon: 'auto_awesome',
     testid: 'design-generate-pane',
@@ -1977,6 +1986,7 @@ export default function DesignEditor({
                 return (
                   <div key={pg.id} className="relative group/pg shrink-0">
                     <button
+                      {...(readOnly ? readingControl : {})}
                       onClick={() => goToPage(i)}
                       data-testid={`design-page-${i}`}
                       className={`h-7 min-w-7 px-2 rounded text-[12px] border ${
@@ -1987,7 +1997,7 @@ export default function DesignEditor({
                       {pageNumberOf(design, i)}
                       {pgMaster && <span className="ml-0.5 text-[9px] opacity-60">{pgMaster.name.replace(/^Master\s*/, '')}</span>}
                     </button>
-                    {pages.length > 1 && (
+                    {pages.length > 1 && !readOnly && (
                       <button
                         onClick={() => deletePage(i)}
                         data-testid={`design-page-delete-${i}`}
@@ -1997,6 +2007,7 @@ export default function DesignEditor({
                         <Icon name="close" size={9} />
                       </button>
                     )}
+                    {!readOnly && (
                     <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -2008,6 +2019,7 @@ export default function DesignEditor({
                       >
                         <Icon name="file_copy" size={9} />
                       </button>
+                    )}
                   </div>
                 )
               })}
@@ -2018,6 +2030,7 @@ export default function DesignEditor({
               old version of this: an unbordered, low-contrast "+ Page" at the
               end of a strip that, on a single-page design, had nothing else in
               it at all (see withPages). */}
+          {!readOnly && (
           <button
             onClick={addPage}
             data-testid="design-page-add"
@@ -2026,6 +2039,7 @@ export default function DesignEditor({
           >
             <Icon name="add" size={14} /> Add page
           </button>
+          )}
         </div>
     </>
   )

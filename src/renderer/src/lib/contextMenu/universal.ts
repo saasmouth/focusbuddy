@@ -53,6 +53,7 @@ import {
   addManyToFocusLabel,
   removeOrDeleteManyLabel
 } from './labels'
+import { inWidgetHost } from '../widgetHost'
 
 type Suppress = Partial<Record<UniversalKey, boolean>>
 
@@ -271,6 +272,8 @@ export function buildArrange(ctx: MenuContext, s: Suppress): MenuContribution[] 
 // ── Group 4, Plexii (AI assist ▸ is added by the resolver from aiAssist.ts) ─
 export function buildPlexii(ctx: MenuContext, s: Suppress): MenuContribution[] {
   if (ctx.object.type !== 'widget') return []
+  // Save as snippet and Ask PlexiiAssist both need Plexii itself (lib/widgetHost).
+  if (inWidgetHost()) return []
   const out: MenuContribution[] = []
   if (ctx.frame?.onSaveAsSnippet && !s.snippet) {
     out.push({

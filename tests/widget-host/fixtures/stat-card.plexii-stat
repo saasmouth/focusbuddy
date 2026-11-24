@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.stat-card",
+  "version": 1,
+  "title": "Test stat-card",
+  "kind": "stat-card",
+  "content": "{\"series\":[]}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

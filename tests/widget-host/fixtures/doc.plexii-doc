@@ -1,0 +1,15 @@
+{
+  "type": "plexii.document.doc",
+  "version": 1,
+  "title": "Test doc",
+  "docType": "doc",
+  "body": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "paragraph"
+      }
+    ]
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

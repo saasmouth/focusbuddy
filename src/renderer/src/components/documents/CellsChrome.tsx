@@ -137,6 +137,7 @@ export default function CellsChrome(props: CellsChromeProps): JSX.Element {
     () => [
       {
         id: 'ai',
+        ai: true,
         title: 'PlexiiAssist',
         icon: 'auto_awesome',
         tabTestid: 'sheet-tab-ai',

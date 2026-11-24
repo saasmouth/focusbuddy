@@ -50,6 +50,7 @@ import { BarButton, ContextBar, OfficeShellLayout, ShellPanel, ShellSidePane, SI
 import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
 import { deleteObjects, mapObjects } from '@shared/draw/ops/objects'
 import { useDeskEditorScope } from '../../lib/deskEditorScope'
+import { inWidgetHost } from '../../lib/widgetHost'
 
 // PlexiiDraw -- the vector + painting studio. This file is only the HOST: it
 // mounts the editor (documents/draw/editor), wires real services into it
@@ -831,14 +832,17 @@ export default function DrawStudio({ content, title, onChange, onDesk = false, f
             rightSlot={
               <>
                 <RightSlot ctx={ctx} />
-                <BarButton
-                  icon="right_panel_open"
-                  label={sidePane ? 'Hide PlexiiAssist' : 'Generate with AI'}
-                  onClick={() => setSidePane(sidePane ? null : 'ai')}
-                  controls={SIDE_PANE_DOM_ID}
-                  readOnlySafe
-                  testid="draw-sidepane-toggle"
-                />
+                {/* Its only pane is the AI's: nothing to open in the widget host (lib/widgetHost). */}
+                {!inWidgetHost() && (
+                  <BarButton
+                    icon="right_panel_open"
+                    label={sidePane ? 'Hide PlexiiAssist' : 'Generate with AI'}
+                    onClick={() => setSidePane(sidePane ? null : 'ai')}
+                    controls={SIDE_PANE_DOM_ID}
+                    readOnlySafe
+                    testid="draw-sidepane-toggle"
+                  />
+                )}
               </>
             }
           />
@@ -861,7 +865,7 @@ export default function DrawStudio({ content, title, onChange, onDesk = false, f
         rightPane={
           <ShellSidePane
             testid="draw-sidepane"
-            panes={[{ id: 'ai', title: 'PlexiiAssist', icon: 'auto_awesome', testid: 'draw-ai-pane', render: () => <AiSidePane ctx={ctx} /> }]}
+            panes={[{ id: 'ai', ai: true, title: 'PlexiiAssist', icon: 'auto_awesome', testid: 'draw-ai-pane', render: () => <AiSidePane ctx={ctx} /> }]}
             activeId={sidePane}
             onChange={setSidePane}
           />
@@ -874,7 +878,8 @@ export default function DrawStudio({ content, title, onChange, onDesk = false, f
       <div className="shrink min-h-0 overflow-y-auto" data-testid="draw-notices" style={inset ? { paddingLeft: inset } : undefined}>
         {state.readOnly && <ReadOnlyBanner compat={state.compat} />}
 
-        <KeysNotice ctx={ctx} />
+        {/* Which keys moved is news to someone who edits; read-only there is nothing to press. */}
+        {!readOnly && <KeysNotice ctx={ctx} />}
 
         <IsolationBar ctx={ctx} />
       </div>

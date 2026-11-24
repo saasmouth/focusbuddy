@@ -36,6 +36,7 @@ import WidgetFrame from './WidgetFrame'
 import Icon from '../Icon'
 import { useTablesStore } from '../../stores/tables'
 import { useWidgetStore } from '../../stores/widgets'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // PlexiDash chart widget. Binds to a Table (the typed fb_tables store), reads its
 // real rows, and renders an aggregated bar / line / area / pie / KPI view. The
@@ -81,6 +82,9 @@ export default function ChartWidget({ widget }: Props): JSX.Element {
   // store's source of record (not fabricated) and refreshed when the picker opens.
   const [allTables, setAllTables] = useState<FbTable[]>([])
   const [editing, setEditing] = useState(false)
+  // A viewer (read-only, lib/widgetSurface): the chart and its title. The data
+  // panel never opens, and no control to change the chart is drawn.
+  const readOnly = useWidgetReadOnly()
 
   const loadTableList = async (): Promise<void> => {
     const list = await window.api.tables.list().catch(() => [] as FbTable[])
@@ -90,11 +94,11 @@ export default function ChartWidget({ widget }: Props): JSX.Element {
   // Open the editor by default on a brand-new, unbound chart so the first thing
   // the user sees is "pick your data", not an empty canvas.
   useEffect(() => {
-    if (!config.tableId) {
+    if (!config.tableId && !readOnly) {
       setEditing(true)
       void loadTableList()
     }
-  }, [config.tableId])
+  }, [config.tableId, readOnly])
 
   // Pull the bound table's schema + rows into the store so they render live and
   // update when the underlying data changes.
@@ -143,6 +147,10 @@ export default function ChartWidget({ widget }: Props): JSX.Element {
         {/* Toolbar: title, type quick-switch, edit toggle. */}
         <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[var(--edge-soft)]">
           <Icon name={CHART_TYPE_ICONS[config.type]} size={15} className="text-indigo-500 shrink-0" />
+          {readOnly ? (
+            <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-[var(--ink-90)]">{config.title ?? ''}</span>
+          ) : (
+          <>
           <input
             value={config.title ?? ''}
             onChange={(e) => save({ ...config, title: e.target.value })}
@@ -163,9 +171,11 @@ export default function ChartWidget({ widget }: Props): JSX.Element {
             <Icon name="tune" size={12} />
             <span>Data</span>
           </button>
+          </>
+          )}
         </div>
 
-        {editing && (
+        {editing && !readOnly && (
           <ChartConfigPanel
             config={config}
             tables={allTables}
@@ -175,7 +185,7 @@ export default function ChartWidget({ widget }: Props): JSX.Element {
         )}
 
         <div className="flex-1 min-h-0 p-2">
-          <ChartCanvas config={config} columns={columns} computed={computed} />
+          <ChartCanvas config={config} columns={columns} computed={computed} readOnly={readOnly} />
         </div>
       </div>
     </WidgetFrame>
@@ -187,17 +197,20 @@ export default function ChartWidget({ widget }: Props): JSX.Element {
 function ChartCanvas({
   config,
   columns,
-  computed
+  computed,
+  readOnly = false
 }: {
   config: ChartConfig
   columns: FieldDefinition[]
   computed: ReturnType<typeof computeChartData>
+  /** A viewer has no Data panel, so the empty states do not point at one. */
+  readOnly?: boolean
 }): JSX.Element {
   if (!config.tableId) {
-    return <EmptyState icon="add_chart" text="Pick a table and a value to chart in the Data panel." />
+    return <EmptyState icon="add_chart" text={readOnly ? 'This chart has no data yet.' : 'Pick a table and a value to chart in the Data panel.'} />
   }
   if (config.series.length === 0) {
-    return <EmptyState icon="functions" text="Add at least one value series in the Data panel." />
+    return <EmptyState icon="functions" text={readOnly ? 'This chart has no values yet.' : 'Add at least one value series in the Data panel.'} />
   }
   // Applies to KPI too: a metric over a table with no rows shows the honest
   // empty state rather than a bold "0" that reads like a real measured value.

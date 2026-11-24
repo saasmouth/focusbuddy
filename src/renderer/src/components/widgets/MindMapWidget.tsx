@@ -16,6 +16,8 @@ import { applyProposal } from '../../lib/actionExecutor'
 import { resolveGoToTarget, goToTarget } from '../../lib/goToTarget'
 import { catalogFor, entriesByCategory } from '../../lib/widgetCatalog'
 import { setOrigin } from '../../lib/nodeCanvasOrigin'
+import { inWidgetHost } from '../../lib/widgetHost'
+import { readingControl, useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // AI mind-mapper widget — Phase 1 + Phase 2 (this file).
 //
@@ -268,6 +270,10 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
   // The agent-creation wizard is a modal; the slug is the suggested
   // starting point when the user first opens it.
   const [agentWizardOpen, setAgentWizardOpen] = useState(false)
+  // A viewer (read-only, lib/widgetSurface): the map, and moving around it (the
+  // breadcrumb is a reading control). The node inspector never opens, even
+  // when the file was saved with a node selected.
+  const readOnly = useWidgetReadOnly()
   // The "Add tool" picker for node-attached widgets.
   const [toolPickerOpen, setToolPickerOpen] = useState(false)
 
@@ -1201,6 +1207,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
                   <Icon name="chevron_right" size={11} className="text-[var(--ink-40)]" />
                 )}
                 <button
+                  {...readingControl}
                   onClick={() => drillUp(b.id)}
                   disabled={i === breadcrumb.length - 1}
                   className={`px-1 py-0.5 rounded ${
@@ -1389,7 +1396,7 @@ export default function MindMapWidget({ widget, inline = false }: Props): JSX.El
           })}
         </svg>
       </div>
-      {selected && (
+      {selected && !readOnly && (
         <SidePanel
           node={selected}
           isRoot={selected.id === state.root.id}
@@ -1583,15 +1590,18 @@ function SidePanel({
           </div>
         )}
         <div className="space-y-1.5">
-          <button
-            onClick={onExpand}
-            disabled={busy === 'expand'}
-            className="w-full text-[11px] px-2 py-1.5 rounded-md bg-accent text-white hover:opacity-90 inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
-            data-testid="mindmap-expand"
-          >
-            <Icon name="auto_awesome" size={12} />
-            {busy === 'expand' ? 'Expanding…' : 'AI Expand (+ branches)'}
-          </button>
+          {/* No AI in the widget host (lib/widgetHost). */}
+          {!inWidgetHost() && (
+            <button
+              onClick={onExpand}
+              disabled={busy === 'expand'}
+              className="w-full text-[11px] px-2 py-1.5 rounded-md bg-accent text-white hover:opacity-90 inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+              data-testid="mindmap-expand"
+            >
+              <Icon name="auto_awesome" size={12} />
+              {busy === 'expand' ? 'Expanding…' : 'AI Expand (+ branches)'}
+            </button>
+          )}
           {/* Manual node creation. Add child = subordinate; Add
               sibling = peer at the same level. Sibling is disabled
               for the root (it has no parent). */}
@@ -1615,6 +1625,9 @@ function SidePanel({
               Sibling
             </button>
           </div>
+          {/* A canvas and a task live on a desk; the widget host has none (lib/widgetHost). */}
+          {!inWidgetHost() && (
+          <>
           <button
             onClick={onExplore}
             className="w-full text-[11px] px-2 py-1.5 rounded-md bg-[rgb(var(--accent))] text-white hover:opacity-90 inline-flex items-center justify-center gap-1.5"
@@ -1637,6 +1650,8 @@ function SidePanel({
             <Icon name="task_alt" size={12} />
             Convert to task
           </button>
+          </>
+          )}
           <button
             onClick={onDelete}
             disabled={isRoot}
@@ -1679,6 +1694,10 @@ function SidePanel({
           </div>
         )}
 
+        {/* Tools attached to a node spawn on the desk's canvas, and agents are
+            Plexii's: neither is in the widget host (lib/widgetHost). */}
+        {!inWidgetHost() && (
+        <>
         {/* Phase 2B — attached widgets */}
         <div className="pt-3 border-t border-[var(--edge-soft)]">
           <div className="flex items-center justify-between mb-1.5">
@@ -1875,6 +1894,8 @@ function SidePanel({
             </button>
           )}
         </div>
+        </>
+        )}
 
         {errorMsg && (
           <div className="text-[10px] text-rose-500 leading-snug whitespace-pre-wrap">

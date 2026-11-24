@@ -17,6 +17,7 @@ import { useWidgetChrome, useWidgetRemovable, useWidgetSurface } from '../../lib
 import { type CtxMenuItem } from '../CanvasContextMenu'
 import UnifiedWidgetMenu from '../contextMenu/UnifiedWidgetMenu'
 import WidgetSetupAffordance from './WidgetSetupAffordance'
+import { inWidgetHost } from '../../lib/widgetHost'
 import { useAutoGrowHeight } from '../../lib/useAutoGrowHeight'
 import { useChatStore, NEW_CHAT_KEY } from '../../stores/chat'
 import { useAssistantChrome } from '../../stores/assistantChrome'
@@ -1689,6 +1690,9 @@ export default function WidgetFrame({
           // editable field or selected text (lib/contextMenu/bodyTarget.ts has
           // the one precedence rule). Before this, 30+ kinds were silent here.
           onContextMenu={(e) => {
+            // The widget menu is the desk's (make a task, share, duplicate,
+            // archive, AI): none of it exists in the widget host.
+            if (inWidgetHost()) return
             if (bodyMenuTarget(e, bodyRef.current) !== 'widget') return
             e.preventDefault()
             e.stopPropagation()
@@ -1699,7 +1703,8 @@ export default function WidgetFrame({
           <FrameCallbacksProvider value={frameCallbacks}>
             <FrameRowsProvider value={menuContributions}>{children}</FrameRowsProvider>
           </FrameCallbacksProvider>
-          <WidgetSetupAffordance widget={widget} />
+          {/* No AI in the widget host (lib/widgetHost): nothing to set up with. */}
+          {!inWidgetHost() && <WidgetSetupAffordance widget={widget} />}
         </div>
       </div>
       {headerCtxMenu && (
