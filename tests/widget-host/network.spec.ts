@@ -6,7 +6,7 @@
 // and Background AI tasks off the embedder asks for a model on this computer.
 // The request never left the machine, but it is AI machinery running inside
 // PlexiiLite, which shows no AI. The host build now has no local-model client
-// at all (vite.widgethost.config.ts, src/web/worker/main/hostLocalModel.ts).
+// at all (MODULE_SWAPS in vite.web.config.ts, src/web/worker/main/localModel.ts).
 //
 // Each kind's example file is opened, saved and left to settle while every
 // request is watched, the Worker's included. None is let out: requests to the
