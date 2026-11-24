@@ -169,18 +169,35 @@ export class ShareService {
     }
   }
 
-  // Owner revokes a share. The hosted side stops resolving it but the
-  // local share_links row stays (marked revoked) so the share manager
-  // shows the audit history.
-  async revoke(token: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/share/${encodeURIComponent(token)}`, {
-      method: 'DELETE'
-    })
-    if (!res.ok && res.status !== 404) {
-      const detail = await safeText(res)
-      throw new Error(
-        `Share service rejected revoke (${res.status}): ${detail}`
-      )
+  // Owner ends a share. Since signal v123 (8 Sept 2026) the server ends a share
+  // only for its owner, signed in (up to 4.3.54 the app sent no session, and
+  // every revoke was refused with 401). A link made signed out has no owner and
+  // ends with its token alone (a0's revoke rescue), so this sends the session
+  // when there is one and goes without otherwise. 401: it needs its account's
+  // session. 404 is ambiguous on purpose: gone already, or not this account's
+  // (the server will not tell a stranger that a link exists); isGone tells them
+  // apart. Never throws: status 0 means the server could not be reached.
+  async revoke(token: string, sessionToken: string | null): Promise<{ ok: true } | { ok: false; status: number }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/share/${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+        headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
+      })
+      return res.ok ? { ok: true } : { ok: false, status: res.status }
+    } catch {
+      return { ok: false, status: 0 }
+    }
+  }
+
+  // Whether a link no longer opens, read without counting a view (?meta=1).
+  // true: gone (404/410); false: it still opens; null: no answer.
+  async isGone(token: string): Promise<boolean | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/share/${encodeURIComponent(token)}?meta=1`)
+      if (res.status === 404 || res.status === 410) return true
+      return res.ok ? false : null
+    } catch {
+      return null
     }
   }
 }

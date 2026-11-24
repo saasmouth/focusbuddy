@@ -1,5 +1,6 @@
 import type { ShareableKind } from '@shared/types'
 import { useSharesStore } from '../stores/shares'
+import { useNoticeStore } from '../stores/notice'
 import { useNodeStore } from '../stores/nodes'
 import { useAccountStore } from '../stores/account'
 import { useMeetingRoomStore } from '../stores/meetingRoom'
@@ -313,7 +314,10 @@ async function applyMeetingEndDowngrades(): Promise<void> {
   for (const p of shareQueue) {
     try {
       if (p.after === 'revoke') {
-        await shares.revoke(p.shareId)
+        // The meeting's link ends with it. If the server does not end it, say so:
+        // it still works, and the person can turn it off in Share.
+        const r = await shares.revoke(p.shareId)
+        if (!r.ok) useNoticeStore.getState().show({ text: `A link from the meeting was not turned off. ${r.error}`, icon: 'link' }, 12_000)
       } else {
         await shares.setScope(p.shareId, 'view', { snapshot: p.snapshot, fromHandle: p.fromHandle })
       }
