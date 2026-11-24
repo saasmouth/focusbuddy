@@ -56,19 +56,32 @@ off), coordinator (no follow-up bound; possible matches acted on), runner
 Gates at `832e6d9c`: 407 tests in 20 files green (AI Space + IPC, side-menu,
 settings guards); node, web and webruntime typecheck clean; hooks lint clean.
 
-## Next (needs d0's machine window)
+## Test slot (11-24, after 9e's 4.3.55 RC) — DONE
 
-1. Full `vitest` (the whole repo).
-2. `npm run build`, then `npx playwright test tests/e2e/aiSpace.spec.ts`
-   (headless, launchGuarded), then the affected existing e2e (desk view
-   selector, sidebar, settings, palette).
-3. Look at every screen in the built app (headless captures).
-3b. Re-push `ai-space` WITH the pre-push hook on (no SKIP_MERGE_CHECK) so the
-   branch head has passed merge-check. d0 allowed the one-time skip for
-   e9d91b1c only, never for main.
-4. Owner items: live provider checks (a few cents), certify one real remote MCP
-   server, the privacy page wording, and "should automatic draft fixes default
-   on?" (currently OFF: an explicit per-project opt-in since `822aea4a`).
+1. Full vitest: first run found 4 house-guard failures on new code (model ids
+   outside the router, a bare var(--accent), the accordion's DESK_VIEWS.map
+   literal, an iframe without a referrer policy) → fixed (`a89cb8f3`); rerun
+   1032 files, 15270 passed, 0 failed.
+2. Build + `tests/e2e/aiSpace.spec.ts`: found 3 real bugs (outer `rowid` on a
+   subquery breaks better-sqlite3; possible-match changes hidden by default;
+   focus not returned after Escape when the inspector was re-pointed) → fixed
+   (`8df9f415`); 3/3.
+3. Affected e2e (11 specs): side-menu icon guard and floating sidebar failed
+   on the new rows' generic icons → owner icons (`2d939fa0`); whole set 41
+   passed, 2 skipped (pre-existing skips).
+4. Headless captures of every screen, light and dark: fixed "Draft" shown as
+   "Setup not finished", "New updates" echo noise, doubled labels, model id
+   in the Manager pane, filter layout (`2d939fa0`).
+5. Re-push with the pre-push hook ON (merge-check: typecheck + unit tests).
+
+## Owner items
+
+- Live provider checks with your keys (a few cents).
+- Certify one real remote MCP server (one sign-in).
+- Privacy page wording for Connections before any release.
+- Should automatic draft fixes default on? (currently OFF, per-project opt-in)
+- Dedicated side-menu art for AI Space and Runs (they reuse Agents and
+  Agentic Ops for now).
 
 ## Rules from d0 for this branch
 
