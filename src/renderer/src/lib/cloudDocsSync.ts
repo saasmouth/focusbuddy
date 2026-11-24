@@ -135,7 +135,9 @@ export function planFromChanges(changes: CloudDocument[]): SyncAction[] {
 // Apply one cloud document to the local store + rev map.
 async function applyLocal(action: SyncAction): Promise<void> {
   if (action.kind === 'delete') {
-    await window.api.documents.delete(action.id)
+    // Deleted on another device: origin 'sync', so it is kept clean and stamped as
+    // deleted elsewhere (the Trash's "Deleted elsewhere" list, 4.3.55).
+    await window.api.documents.delete(action.id, 'sync')
     forgetRev(action.id)
     return
   }
@@ -155,6 +157,7 @@ async function applyLocal(action: SyncAction): Promise<void> {
 export async function pullCloudDocs(): Promise<number> {
   const t = token()
   if (!cloudDocsEnabled() || !t || !docScopeIsPersonal()) return 0
+  await drainCloudDeletes() // deletes that could not go when they were made
   const res = await syncCloudDocs(t, getCursor())
   if (!res) return 0 // offline / transport failure — keep cursor, retry later
   for (const action of planFromChanges(res.documents)) await applyLocal(action)
@@ -187,12 +190,62 @@ export async function pushCloudDoc(doc: FbDocument): Promise<{ conflictedTo?: Fb
   return {}
 }
 
-// Mirror a local delete to the cloud (tombstone).
+// Mirror a local delete to the cloud (tombstone). Since 4.3.55 this goes when a
+// document is moved to Trash, not only on "Delete forever": the owner's rule is
+// that our server erases what you delete 30 days after you delete it, and the
+// signal counts from its tombstone. When it cannot go now (offline, signed out,
+// or "Keep this device local"), the id waits in PENDING_DELETES_KEY (ids only,
+// on this device) and goes with the next pull once sync is on. A document this
+// device never had in the cloud (no known rev) has nothing to delete there.
+const PENDING_DELETES_KEY = 'fb.clouddocs.pendingDeletes'
+function readPendingDeletes(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(PENDING_DELETES_KEY) ?? '[]') as unknown
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+function writePendingDeletes(ids: string[]): void {
+  try {
+    if (ids.length) localStorage.setItem(PENDING_DELETES_KEY, JSON.stringify(ids))
+    else localStorage.removeItem(PENDING_DELETES_KEY)
+  } catch {
+    /* storage unavailable: the next delete or purge tries again */
+  }
+}
+const dropPendingDelete = (id: string): void => writePendingDeletes(readPendingDeletes().filter((x) => x !== id))
+
 export async function pushCloudDelete(id: string): Promise<void> {
+  if (!docScopeIsPersonal()) return // org documents: the org workspace loop
+  const hadCloudCopy = knownRev(id) !== undefined || readPendingDeletes().includes(id)
+  const t = token()
+  if (cloudDocsEnabled() && t && (await deleteCloudDoc(t, id).catch(() => false))) {
+    forgetRev(id)
+    dropPendingDelete(id)
+    return
+  }
+  if (hadCloudCopy && !readPendingDeletes().includes(id)) writePendingDeletes([...readPendingDeletes(), id])
+}
+
+/** Send the deletes that could not go when they were made (pushCloudDelete). */
+export async function drainCloudDeletes(): Promise<void> {
   const t = token()
   if (!cloudDocsEnabled() || !t || !docScopeIsPersonal()) return
-  await deleteCloudDoc(t, id)
-  forgetRev(id)
+  for (const id of readPendingDeletes()) {
+    if (await deleteCloudDoc(t, id).catch(() => false)) {
+      forgetRev(id)
+      dropPendingDelete(id)
+    }
+  }
+}
+
+/** A personal document came back out of the Trash: put its cloud copy back. */
+export async function restoreCloudDoc(id: string): Promise<void> {
+  if (!docScopeIsPersonal()) return
+  dropPendingDelete(id) // never sent: the cloud copy is still there
+  const doc = await window.api.documents.get(id)
+  if (doc) await pushCloudDoc(doc)
 }
 
 initPreviewGuard()
