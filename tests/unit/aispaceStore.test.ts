@@ -334,3 +334,36 @@ describe('value matching', () => {
     expect(hit.excerpt.startsWith('…')).toBe(true)
   })
 })
+
+describe('Impact: inputs more than one version behind', () => {
+  it('flags work made from brief v1 when v3 is approved, under both changes, grouped into one revision', () => {
+    const { store, clock, work } = setup()
+    const p = store.createProject({ workspaceId: work.id, title: 'Launch', brief: '14 days' })
+    const brief = store.getOutput(p.briefOutputId!)!
+    const b1 = brief.latestVersionId!
+    const hero = store.createOutput({ projectId: p.id, kind: 'document', title: 'Hero' })
+    const r = store.createRun({ projectId: p.id, kind: 'model', manifest: manifest([{ type: 'version', id: b1, versionId: b1 }]), idempotencyKey: 'h' }).run
+    store.addVersion({ outputId: hero.id, content: 'Start a 14-day trial', author: 'agent:W', runId: r.id })
+    store.setRunStatus(r.id, 'succeeded', 'Done')
+    store.approveVersion(hero.id, store.getOutput(hero.id)!.latestVersionId!)
+    const change = (value: string, prev: string) => {
+      clock.advance(60_000)
+      const d = store.recordDecision({ projectId: p.id, topic: 'trial', title: `Trial is ${value}`, value })
+      store.setDecisionPrevious(d.id, prev)
+      store.approveDecision(d.id)
+      const v = store.addVersion({ outputId: brief.id, content: value, author: 'user:me', sources: [{ type: 'decision', id: d.id }] })
+      store.approveVersion(brief.id, v.id)
+      return d
+    }
+    const d2 = change('30 days', '14 days')
+    const d3 = change('45 days', '30 days')
+    const res = computeImpact(store.loadProjectState(p.id))
+    for (const d of [d2, d3]) {
+      const item = res.rows.find((x) => x.change.id === `chg_${d.id}`)!.affected.find((a) => a.ref.id === hero.id)
+      expect(item?.relation, d.title).toBe('recorded')
+      expect(item?.status).toBe('stale')
+    }
+    const rev = res.proposedRevisions.find((x) => x.outputId === hero.id)!
+    expect(rev.contributingChangeIds.sort()).toEqual([`chg_${d2.id}`, `chg_${d3.id}`].sort())
+  })
+})

@@ -46,9 +46,13 @@ what was chosen and why, so a reviewer can disagree with the reason.
 
 ## Automation (the spec's "first decision to revisit")
 
-- Automatic draft fixes only for **recorded** dependants, only when the
-  project's authority allows drafts, within budget, at most
-  `maxAutoFollowUps` per change (default 3). They create **draft versions**;
+- Automatic draft fixes are **off by default** (d0, 2026-11-24: an AI call
+  nobody started would send project content and spend money). A person turns
+  them on per project after seeing the provider, account, payer and what is
+  sent. When on: only for **recorded** dependants, within budget, at most
+  `maxAutoFollowUps` per change (default 3). The same switch gates the
+  requester's automatic redraft when evidence arrives. Test: a new project
+  with a default model makes zero provider calls until it is turned on. They create **draft versions**;
   approving, publishing and sending always need a person. A second
   disagreement on a topic stops automatic follow-ups on that topic.
 - Only a person approves a decision (`approveDecision` refuses agents).

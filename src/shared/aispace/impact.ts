@@ -337,10 +337,14 @@ export function computeImpact(state: ProjectState, opts: ImpactOptions = {}): Im
       if (!out) continue
       const prev = v.parentVersionId ? idx.version.get(v.parentVersionId) : null
       if (prev && (out.role === 'brief' || out.approvedVersionId === v.id)) {
-        changed.push({
-          from: { type: 'version', id: prev.id, label: `${out.title} v${prev.n}` },
-          to: { type: 'version', id: v.id, label: `${out.title} v${v.n}` }
-        })
+        // Every earlier version is superseded, not only the parent: work made
+        // from v1 is still on an old input after v3 is approved.
+        for (const older of state.versions.filter((x) => x.outputId === v.outputId && x.n < v.n)) {
+          changed.push({
+            from: { type: 'version', id: older.id, label: `${out.title} v${older.n}` },
+            to: { type: 'version', id: v.id, label: `${out.title} v${v.n}` }
+          })
+        }
         absorbedVersionIds.add(v.id)
       }
     }
@@ -383,12 +387,12 @@ export function computeImpact(state: ProjectState, opts: ImpactOptions = {}): Im
       at: e.at,
       eventSeq: e.seq,
       source: { type: 'version', id: v.id, label: `${out.title} v${v.n}` },
-      changed: [
-        {
-          from: { type: 'version', id: from.id, label: `${out.title} v${from.n}` },
-          to: { type: 'version', id: v.id, label: `${out.title} v${v.n}` }
-        }
-      ]
+      changed: state.versions
+        .filter((x) => x.outputId === out.id && x.n < v.n)
+        .map((older) => ({
+          from: { type: 'version' as const, id: older.id, label: `${out.title} v${older.n}` },
+          to: { type: 'version' as const, id: v.id, label: `${out.title} v${v.n}` }
+        }))
     }
     rows.push(buildChangeRow(state, idx, change, null, soonMs))
   }

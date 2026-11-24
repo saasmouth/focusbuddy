@@ -419,3 +419,33 @@ describe('Branch review (exercise branches)', () => {
     expect(tid('ais-branch-conflict')).toBeNull()
   })
 })
+
+describe('automatic drafts opt-in', () => {
+  it('is off by default, and turning it on first says where, as whom and what gets sent', async () => {
+    const pv = projectView({ project: { ...projectView().project, authority: { draftRevisions: false, maxAutoFollowUps: 3 } } })
+    const update = vi.fn(async () => pv.project)
+    apiMock({
+      projectForDesk: vi.fn(async () => pv.project),
+      projectView: vi.fn(async () => pv),
+      getContext: vi.fn(async () => ({ workspaces: [pv.workspace!], active: ['ws_w'] })),
+      managerThread: vi.fn(async () => ({ thread: { id: 'thr_m' }, messages: [] })),
+      markProjectViewed: vi.fn(async () => {}),
+      updateProject: update
+    })
+    act(() => root.render(<AiSpaceDeskView taskId="desk_1" />))
+    await flush()
+    const box = tid<HTMLInputElement>('ais-authority-drafts')!
+    expect(box.checked).toBe(false)
+    dialogs.confirm.mockImplementation(async () => false)
+    await click(box)
+    const asked = dialogs.confirm.mock.calls[0][0] as { body: string }
+    expect(asked.body).toContain('SaaSMouth Claude')
+    expect(asked.body).toContain('sent to api.anthropic.com')
+    expect(asked.body).toContain('paid by SaaSMouth')
+    expect(asked.body).toContain('the new input and the current version of that output')
+    expect(update).not.toHaveBeenCalled()
+    dialogs.confirm.mockImplementation(async () => true)
+    await click(tid('ais-authority-drafts'))
+    expect(update).toHaveBeenCalledWith('prj_1', { authority: { draftRevisions: true, maxAutoFollowUps: 3 } })
+  })
+})

@@ -65,7 +65,11 @@ export interface ProjectAuthority {
   maxAutoFollowUps: number
 }
 
-export const DEFAULT_AUTHORITY: ProjectAuthority = { draftRevisions: true, maxAutoFollowUps: 3 }
+// Automatic drafts are OFF until the person opts in per project: they are AI
+// calls nobody started, sending project content to a provider and spending
+// money. Egress happens only on a user action or a run the person started or
+// approved (house rule; d0 2026-11-24).
+export const DEFAULT_AUTHORITY: ProjectAuthority = { draftRevisions: false, maxAutoFollowUps: 3 }
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 

@@ -308,6 +308,8 @@ describe('Project Manager coordination', () => {
     const p = w.store.createProject({ workspaceId: ws.id, title: 'Launch' })
     const c = addReadyConnection(w, ws.id)
     w.conns.setGrant({ connectionId: c.id, projectId: p.id, actions: [{ operationId: 'model:*', mode: 'read' }] })
+    // The person opted in to automatic drafts for this project.
+    w.store.updateProject(p.id, { authority: { draftRevisions: true, maxAutoFollowUps: 3 } })
     const writer = w.store.createAgent({ projectId: p.id, name: 'Writer', role: 'writer', connectionId: c.id, model: 'm' })
     const task = w.store.createTask({ projectId: p.id, title: 'Case study', assignee: writer.id })
     const out = w.store.createOutput({ projectId: p.id, kind: 'document', title: 'Case study', aiTaskId: task.id })
@@ -377,7 +379,7 @@ describe('agent needs information', () => {
     const p = w.store.createProject({ workspaceId: ws.id, title: 'Launch' })
     const c = addReadyConnection(w, ws.id)
     w.conns.setGrant({ connectionId: c.id, projectId: p.id, actions: [{ operationId: 'model:*', mode: 'read' }] })
-    w.store.updateProject(p.id, { defaultConnectionId: c.id, defaultModel: 'm' })
+    w.store.updateProject(p.id, { defaultConnectionId: c.id, defaultModel: 'm', authority: { draftRevisions: true, maxAutoFollowUps: 3 } })
     const writer = w.store.createAgent({ projectId: p.id, name: 'Writer', role: 'writer', connectionId: c.id, model: 'm' })
     const task = w.store.createTask({ projectId: p.id, title: 'Case study', assignee: writer.id })
     w.adapter.next.push(async () => result('Agencies cut onboarding time.\n\nNEEDS INFO: What churn reduction did the client see after onboarding?'))
@@ -413,5 +415,56 @@ describe('agent needs information', () => {
     expect(run.status).toBe('waiting')
     expect(run.statusDetail).toContain('Which plan names are final?')
     expect(w.store.listVersions(run.manifest.targetOutputId!)).toHaveLength(0)
+  })
+})
+
+describe('automatic drafts are opt-in (no AI call the person did not start)', () => {
+  it('a new project with a default model makes ZERO provider calls after an approved change until the person turns drafts on', async () => {
+    const w = world()
+    const [ws] = w.store.ensureDefaultWorkspaces()
+    // A fresh project: authority left at its default.
+    const p = w.store.createProject({ workspaceId: ws.id, title: 'Launch', brief: 'Offer a 14-day trial.' })
+    expect(w.store.getProject(p.id)!.authority.draftRevisions).toBe(false)
+    const c = addReadyConnection(w, ws.id)
+    w.conns.setGrant({ connectionId: c.id, projectId: p.id, actions: [{ operationId: 'model:*', mode: 'read' }] })
+    w.store.updateProject(p.id, { defaultConnectionId: c.id, defaultModel: 'm' })
+    const writer = w.store.createAgent({ projectId: p.id, name: 'Writer', role: 'writer', connectionId: c.id, model: 'm' })
+    const brief = w.store.getOutput(p.briefOutputId!)!
+    const b1 = brief.latestVersionId!
+    // Work that recorded using brief v1 (made by a run the person started).
+    const task = w.store.createTask({ projectId: p.id, title: 'Hero', assignee: writer.id })
+    w.runner.startRun({ projectId: p.id, connectionId: c.id, model: 'm', instruction: 'Write the hero', inputs: [{ type: 'version', id: b1, versionId: b1 }], aiTaskId: task.id, agentId: writer.id, newOutput: { kind: 'document', title: 'Hero' } })
+    await settle()
+    for (const o of w.store.listOutputs(p.id)) if (o.latestVersionId) w.store.approveVersion(o.id, o.latestVersionId)
+    // An open question too, so the evidence path is exercised as well.
+    w.store.openRequest({ projectId: p.id, aiTaskId: task.id, requestedBy: `agent:${writer.id}`, recipient: 'user', question: 'What churn reduction did they see?', topics: ['churn', 'reduction'] })
+    const callsAfterUserRun = w.adapter.calls.length
+    expect(callsAfterUserRun).toBe(1)
+
+    // The change: nothing the person started from here on.
+    w.advance(60_000)
+    const d = w.store.recordDecision({ projectId: p.id, topic: 'trial', title: 'Trial is 30 days', value: '30 days' })
+    w.store.setDecisionPrevious(d.id, '14 days')
+    w.store.approveDecision(d.id)
+    const b2 = w.store.addVersion({ outputId: brief.id, content: 'Offer a 30-day trial.', author: 'user:me', sources: [{ type: 'decision', id: d.id }] })
+    w.store.approveVersion(brief.id, b2.id)
+    w.store.addSource({ projectId: p.id, workspaceId: ws.id, kind: 'note', title: 'QBR', content: 'Churn reduction was 50%.' })
+    await settle()
+    await settle()
+    expect(w.adapter.calls.length).toBe(callsAfterUserRun) // ZERO automatic provider calls
+    expect(w.store.listRuns({ workspaceIds: [ws.id] }, { projectId: p.id }).filter((r) => r.kind === 'revision')).toHaveLength(0)
+    // The suggestion still waits for the person, so nothing is lost.
+    expect(w.store.listSuggestions(p.id).length).toBeGreaterThan(0)
+
+    // The person opts in: the next approved change drafts a fix.
+    w.store.updateProject(p.id, { authority: { draftRevisions: true, maxAutoFollowUps: 3 } })
+    w.advance(60_000)
+    const d2 = w.store.recordDecision({ projectId: p.id, topic: 'trial', title: 'Trial is 45 days', value: '45 days' })
+    w.store.approveDecision(d2.id)
+    const b3 = w.store.addVersion({ outputId: brief.id, content: 'Offer a 45-day trial.', author: 'user:me', sources: [{ type: 'decision', id: d2.id }] })
+    w.store.approveVersion(brief.id, b3.id)
+    await settle()
+    await settle()
+    expect(w.adapter.calls.length).toBeGreaterThan(callsAfterUserRun)
   })
 })

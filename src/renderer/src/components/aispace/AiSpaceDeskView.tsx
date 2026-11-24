@@ -664,13 +664,28 @@ function SettingsCard({ view, onRefresh }: { view: ProjectViewData; onRefresh: (
             checked={p.authority.draftRevisions}
             data-testid="ais-authority-drafts"
             onChange={async (e) => {
-              await window.api.aiSpace.updateProject(p.id, { authority: { ...p.authority, draftRevisions: e.target.checked } })
+              const on = e.target.checked
+              if (on) {
+                // Opting in sends project content to a provider without a
+                // click each time, so say exactly where, as whom and what.
+                const agentConns = view.agents.map((a) => view.eligibleConnections.find((c) => c.id === (a.connectionId ?? p.defaultConnectionId))).filter((c): c is NonNullable<typeof c> => Boolean(c))
+                const conns = [...new Map(agentConns.map((c) => [c.id, c])).values()]
+                const where = conns.length ? conns.map((c) => `${c.alias} (${c.providerName}, sent to ${c.dataDestination ?? c.providerName}, paid by ${c.payer})`).join('; ') : 'no model is set yet, so nothing can be sent until you choose one'
+                const ok = await confirmDialog({
+                  title: 'Let agents draft fixes on their own?',
+                  body: `When an approved input changes (a decision or the brief), agents will draft new versions of the work that recorded using the old one, without asking each time. Each draft sends the new input and the current version of that output to: ${where}. At most ${p.authority.maxAutoFollowUps} drafts per change, within this project's budget. Drafts never approve, publish or send anything.`,
+                  confirmLabel: 'Turn on'
+                })
+                if (!ok) return
+              }
+              await window.api.aiSpace.updateProject(p.id, { authority: { ...p.authority, draftRevisions: on } })
+              announce(on ? 'Automatic drafts are on for this project.' : 'Automatic drafts are off.')
               await onRefresh()
             }}
           />
           <span>
-            Agents may draft fixes on their own when an approved input changes
-            <span className="block text-[12px] text-[var(--ink-50)]">Only for work that recorded using it, at most {p.authority.maxAutoFollowUps} per change. Approving, publishing and sending always wait for you.</span>
+            Let agents draft fixes on their own
+            <span className="block text-[12px] text-[var(--ink-50)]">Off by default. When on: after an approved change, agents draft new versions of work that used the old input, at most {p.authority.maxAutoFollowUps} per change. Each draft is an AI call on this project’s model. Approving, publishing and sending always wait for you.</span>
           </span>
         </label>
       </div>
