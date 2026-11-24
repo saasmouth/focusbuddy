@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { DocType, DocumentMeta, FbDocument } from '@shared/types'
-import { pullCloudDocs, pushCloudDoc, pushCloudDelete, restoreCloudDoc } from '../lib/cloudDocsSync'
+import { pullCloudDocs, pushCloudDoc, pushCloudDelete, restoreCloudDoc, purgeCloudDoc } from '../lib/cloudDocsSync'
 import { sameDocBody } from '../lib/docBodyEqual'
 import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
@@ -512,7 +512,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   purge: async (id) => {
     await window.api.documents.purge(id)
-    void pushCloudDelete(id).catch(() => {})
+    void purgeCloudDoc(id).catch(() => {})
     await get().refreshTrashed()
   }
 }))

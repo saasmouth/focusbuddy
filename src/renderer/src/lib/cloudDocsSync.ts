@@ -136,9 +136,9 @@ export function planFromChanges(changes: CloudDocument[]): SyncAction[] {
 async function applyLocal(action: SyncAction): Promise<void> {
   if (action.kind === 'delete') {
     // Deleted on another device: origin 'sync', so it is kept clean and stamped as
-    // deleted elsewhere (the Trash's "Deleted elsewhere" list, 4.3.55).
+    // deleted elsewhere (the Trash's "Deleted elsewhere" list, 4.3.55). Its rev is
+    // kept (the caller records the tombstone's), for a restore.
     await window.api.documents.delete(action.id, 'sync')
-    forgetRev(action.id)
     return
   }
   const d = action.doc
@@ -161,6 +161,9 @@ export async function pullCloudDocs(): Promise<number> {
   const res = await syncCloudDocs(t, getCursor())
   if (!res) return 0 // offline / transport failure — keep cursor, retry later
   for (const action of planFromChanges(res.documents)) await applyLocal(action)
+  // A document deleted elsewhere keeps the tombstone's rev here, so a restore from
+  // the Trash goes up at it (an explicit restore; the signal refuses a blind one).
+  for (const d of res.documents) if (d.deleted) recordRev(d.id, d.rev)
   setCursor(res.now)
   return res.documents.length
 }
@@ -182,6 +185,13 @@ export async function pushCloudDoc(doc: FbDocument): Promise<{ conflictedTo?: Fb
     return {}
   }
   if (res.conflict) {
+    // Deleted on the server since: it goes back to the Trash here. A tombstone is
+    // never written over the document (its body may already be erased).
+    if (res.document.deleted) {
+      await applyLocal({ kind: 'delete', id: doc.id })
+      recordRev(doc.id, res.document.rev)
+      return {}
+    }
     // Server is newer — take it (server-wins) and apply locally.
     await applyLocal({ kind: 'upsert', doc: res.document })
     const local = await window.api.documents.get(doc.id)
@@ -220,8 +230,9 @@ export async function pushCloudDelete(id: string): Promise<void> {
   if (!docScopeIsPersonal()) return // org documents: the org workspace loop
   const hadCloudCopy = knownRev(id) !== undefined || readPendingDeletes().includes(id)
   const t = token()
-  if (cloudDocsEnabled() && t && (await deleteCloudDoc(t, id).catch(() => false))) {
-    forgetRev(id)
+  const rev = cloudDocsEnabled() && t ? await deleteCloudDoc(t, id).catch(() => null) : null
+  if (rev !== null) {
+    if (rev > 0) recordRev(id, rev) // the tombstone's: a restore goes up at it
     dropPendingDelete(id)
     return
   }
@@ -233,14 +244,28 @@ export async function drainCloudDeletes(): Promise<void> {
   const t = token()
   if (!cloudDocsEnabled() || !t || !docScopeIsPersonal()) return
   for (const id of readPendingDeletes()) {
-    if (await deleteCloudDoc(t, id).catch(() => false)) {
-      forgetRev(id)
+    const rev = await deleteCloudDoc(t, id).catch(() => null)
+    if (rev !== null) {
+      if (rev > 0) recordRev(id, rev)
       dropPendingDelete(id)
     }
   }
 }
 
-/** A personal document came back out of the Trash: put its cloud copy back. */
+/**
+ * "Delete forever": the cloud delete goes (or waits, as pushCloudDelete's do), and
+ * once it has gone the kept rev goes too: nothing can restore the document now.
+ */
+export async function purgeCloudDoc(id: string): Promise<void> {
+  await pushCloudDelete(id)
+  if (!readPendingDeletes().includes(id)) forgetRev(id)
+}
+
+/**
+ * A personal document came back out of the Trash: put its cloud copy back. It
+ * goes up at the tombstone's rev (kept by pushCloudDelete or the pull), which is
+ * what makes it an explicit restore: the signal refuses a blind revive.
+ */
 export async function restoreCloudDoc(id: string): Promise<void> {
   if (!docScopeIsPersonal()) return
   dropPendingDelete(id) // never sent: the cloud copy is still there
