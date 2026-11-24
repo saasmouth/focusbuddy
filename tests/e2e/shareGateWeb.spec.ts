@@ -13,7 +13,7 @@
 // The share page is the real web build, opened in headless Chromium at its real
 // address with Signal and the download host answered locally
 // (_shareWebHarness.ts). Build it first:  VITE_WEB_BASE=/share/ npm run web:build
-import { test, expect } from '@playwright/test'
+import { test, expect, type Locator } from '@playwright/test'
 import {
   assertWebBuild, openShareWeb, openTheDesk, DESK_ID, LIVE_TOKEN, MAC_INSTALLER, ROOM_TOKEN, STICKY_ID, TOKEN, type ShareWeb
 } from './_shareWebHarness'
@@ -26,6 +26,19 @@ test.afterEach(async () => {
 })
 
 const gate = (w: ShareWeb) => w.page.locator('[data-testid="share-gate"]')
+
+// A box read twice, 150 ms apart, the same both times: the element has come to rest.
+async function restingBox(el: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  let last = await el.boundingBox()
+  const deadline = Date.now() + 10_000
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 150))
+    const next = await el.boundingBox()
+    if (last && next && JSON.stringify(last) === JSON.stringify(next)) return next
+    if (Date.now() > deadline) throw new Error(`never came to rest (last ${JSON.stringify(next)})`)
+    last = next
+  }
+}
 /** Every page error. The gate's own refusals are absorbed by the page (boot.tsx), so none are expected. */
 const realErrors = (w: ShareWeb) => w.errors
 const widgetCount = (w: ShareWeb) => w.page.locator('[data-canvas-surface] [data-widget-id]').count()
@@ -255,7 +268,11 @@ test('SG-9 a live web view link opens the full app, to look at; its gate is "Dow
 
   // Moving a note: the gate, and the note stays where it was.
   const note = page.locator(`[data-widget-id="${STICKY_ID}"]`).first()
-  const before = (await note.boundingBox())!
+  // Measured once it has come to rest: the desk is still settling when the page
+  // first shows it, and a box read mid-settle (y 155.6 to 158.1, never the same
+  // twice) made this fail on main as well as on the release, the note itself
+  // never having moved (24 Nov 2026).
+  const before = await restingBox(note)
   const grab = page.locator(`[data-widget-id="${STICKY_ID}"] [data-testid="widget-grab"]`).first()
   const g = (await grab.boundingBox())!
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2)
