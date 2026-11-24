@@ -7,19 +7,21 @@
 //
 // The page cannot see a click inside the frame, but it does see focus move
 // into it: the window blurs while the frame becomes document.activeElement.
-// That move counts as the person's own when the pointer is over the frame (a
-// click), unless it comes right after the frame loaded (a drop leaves the
-// pointer over the new widget), or when they just pressed Tab. Otherwise focus
-// goes back to where it was.
+// Up to 4.3.55 that move counted as the person's only when the pointer was over
+// the frame. But the PDF viewer is a frame in its own process, and no pointer
+// event over it reaches the page (1a measured it in PlexiiLite, 24 Nov 2026), so
+// a real click looked like the viewer's own grab and was undone: typing into a
+// PDF went to the desk. So it goes by time, as PlexiiLite's guard does: the
+// viewer's grab comes right after it loads (134 to 150 ms), so a move within
+// the window after a load is the frame's own and goes back; any later move is
+// the person's (a click, or Tab at any time).
 
-/** How long after a frame loads a focus move under the pointer still counts as the frame's own. */
-export const SELF_FOCUS_WINDOW_MS = 1500
+/** How long after a frame loads a focus move into it counts as the frame's own. */
+export const SELF_FOCUS_WINDOW_MS = 2000
 /** A Tab this recent explains a focus move into the frame. */
 export const TAB_WINDOW_MS = 500
 
 export interface FocusMove {
-  /** Whether the pointer is over the frame. */
-  pointerOver: boolean
   /** Milliseconds since the frame loaded. */
   msSinceLoad: number
   /** Milliseconds since the last Tab key. */
@@ -29,7 +31,6 @@ export interface FocusMove {
 /** Whether a focus move into the frame was the frame's own doing, not the person's. */
 export function isSelfFocus(m: FocusMove): boolean {
   if (m.msSinceTab < TAB_WINDOW_MS) return false
-  if (!m.pointerOver) return true
   return m.msSinceLoad < SELF_FOCUS_WINDOW_MS
 }
 
@@ -39,7 +40,6 @@ export function guardFrameFocus(frame: HTMLIFrameElement, now: () => number = ()
   const win = doc.defaultView
   if (!win) return () => undefined
   let loadedAt = now()
-  let pointerOver = false
   let tabAt = -Infinity
   // Whether the frame already holds focus (so a window blur is the app losing
   // focus, not focus moving into the frame).
@@ -50,12 +50,6 @@ export function guardFrameFocus(frame: HTMLIFrameElement, now: () => number = ()
 
   const onLoad = (): void => {
     loadedAt = now()
-  }
-  const onEnter = (): void => {
-    pointerOver = true
-  }
-  const onLeave = (): void => {
-    pointerOver = false
   }
   const onKey = (e: KeyboardEvent): void => {
     if (e.key === 'Tab') tabAt = now()
@@ -78,7 +72,7 @@ export function guardFrameFocus(frame: HTMLIFrameElement, now: () => number = ()
     if (doc.activeElement !== frame) return
     if (holds) return
     const t = now()
-    if (!isSelfFocus({ pointerOver, msSinceLoad: t - loadedAt, msSinceTab: t - tabAt })) {
+    if (!isSelfFocus({ msSinceLoad: t - loadedAt, msSinceTab: t - tabAt })) {
       holds = true
       return
     }
@@ -96,8 +90,6 @@ export function guardFrameFocus(frame: HTMLIFrameElement, now: () => number = ()
   }
 
   frame.addEventListener('load', onLoad)
-  frame.addEventListener('pointerenter', onEnter)
-  frame.addEventListener('pointerleave', onLeave)
   doc.addEventListener('keydown', onKey, true)
   doc.addEventListener('focusout', onFocusOut, true)
   doc.addEventListener('focusin', onFocusIn, true)
@@ -105,8 +97,6 @@ export function guardFrameFocus(frame: HTMLIFrameElement, now: () => number = ()
   win.addEventListener('blur', onBlur)
   return () => {
     frame.removeEventListener('load', onLoad)
-    frame.removeEventListener('pointerenter', onEnter)
-    frame.removeEventListener('pointerleave', onLeave)
     doc.removeEventListener('keydown', onKey, true)
     doc.removeEventListener('focusout', onFocusOut, true)
     doc.removeEventListener('focusin', onFocusIn, true)

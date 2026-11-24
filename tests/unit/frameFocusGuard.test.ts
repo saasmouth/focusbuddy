@@ -4,17 +4,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { guardFrameFocus, isSelfFocus, SELF_FOCUS_WINDOW_MS, TAB_WINDOW_MS } from '../../src/renderer/src/lib/frameFocusGuard'
 
 describe('whose focus move it was', () => {
-  it('nobody pointing at the frame: its own', () => {
-    expect(isSelfFocus({ pointerOver: false, msSinceLoad: 60_000, msSinceTab: Infinity })).toBe(true)
+  it('right after the frame loads: its own (the PDF viewer grabs focus 134 to 150 ms after load)', () => {
+    expect(isSelfFocus({ msSinceLoad: 150, msSinceTab: Infinity })).toBe(true)
   })
-  it('the pointer over it, long after it loaded: a click, the person’s', () => {
-    expect(isSelfFocus({ pointerOver: true, msSinceLoad: SELF_FOCUS_WINDOW_MS + 1, msSinceTab: Infinity })).toBe(false)
-  })
-  it('the pointer over it right after it loaded (a drop leaves it there): its own', () => {
-    expect(isSelfFocus({ pointerOver: true, msSinceLoad: 150, msSinceTab: Infinity })).toBe(true)
+  it('later: the person’s, a click (no pointer event reaches the page over the PDF viewer, so time decides)', () => {
+    expect(isSelfFocus({ msSinceLoad: SELF_FOCUS_WINDOW_MS + 1, msSinceTab: Infinity })).toBe(false)
   })
   it('just after a Tab: the person’s', () => {
-    expect(isSelfFocus({ pointerOver: false, msSinceLoad: 150, msSinceTab: TAB_WINDOW_MS - 1 })).toBe(false)
+    expect(isSelfFocus({ msSinceLoad: 150, msSinceTab: TAB_WINDOW_MS - 1 })).toBe(false)
   })
 })
 
@@ -69,15 +66,23 @@ describe('the guard', () => {
     expect(document.activeElement).not.toBe(frame)
   })
 
-  it('a click into the frame (pointer over it, after it loaded) keeps focus there', async () => {
+  it('a click into the frame after it loaded keeps focus there, with no pointer event at all (as over the PDF viewer)', async () => {
     clock += SELF_FOCUS_WINDOW_MS + 500
-    frame.dispatchEvent(new Event('pointerenter'))
     await frameTakesFocus()
     expect(document.activeElement).toBe(frame)
     // The app losing focus while the frame holds it is not a move: left alone.
     window.dispatchEvent(new Event('blur'))
     await new Promise((r) => setTimeout(r, 5))
     expect(document.activeElement).toBe(frame)
+  })
+
+  it('the frame loading again (a new file) is watched again', async () => {
+    clock += SELF_FOCUS_WINDOW_MS + 5_000
+    frame.dispatchEvent(new Event('load'))
+    note.focus()
+    clock += 150
+    await frameTakesFocus()
+    expect(document.activeElement).toBe(note)
   })
 
   it('Tab into the frame keeps focus there', async () => {
