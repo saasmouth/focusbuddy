@@ -49,7 +49,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Restore brings it back on all your devices, and for the people you share it with. Delete for good removes only the copy on this device.',
       'If something on the desk you have open is deleted somewhere else, a short message says so, with Restore, and Trash in the side menu shows a dot until you open it.',
       'In an organisation\'s workspace, Trash shows who deleted it.',
-      'Turning off a share link now really stops it working. Some links you turned off before this update could still be opened: Plexii turns them off the next time you sign in, and tells you if one still works.'
+      'Turning off a share link now really stops it working. Some links you turned off before this update could still be opened: Plexii turns them off the next time you sign in, and tells you if one still works.',
+      'Starting a desk no longer sends it to AI unless Background AI tasks is on.'
     ]
   },
   {
