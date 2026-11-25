@@ -283,21 +283,31 @@ test('FP-5 too narrow to pin: a sheet over the content, nothing overflows', asyn
   await expect(flyout).toHaveAttribute('data-sheet', 'true')
   await expect(window.locator('[data-testid="files-dock-slot"]')).toHaveAttribute('data-reserved', '0')
   // NW-1: nothing in the editor's chain is wider than the window or scrolls the page sideways.
-  const overflow = await window.evaluate(() => ({
-    doc: document.documentElement.scrollWidth - window.innerWidth,
-    body: document.body.scrollWidth - window.innerWidth,
-    wide: Array.from(document.querySelectorAll('[data-testid="doc-rail"]')).map((el) => {
-      let n: HTMLElement | null = el as HTMLElement
-      let worst = 0
-      while (n && n !== document.body) {
-        worst = Math.max(worst, n.getBoundingClientRect().right - window.innerWidth)
-        n = n.parentElement
-      }
-      return worst
-    })
-  }))
+  // Compare like with like. At a fractional zoom the window is a fractional
+  // number of CSS px (860 device px at 1.8 is 955.56): innerWidth rounds that
+  // DOWN (955) while body.scrollWidth rounds it (956), so "body.scrollWidth -
+  // innerWidth" read 1 with nothing overflowing. Body's content is measured
+  // against body's own box, and edges against the window's exact width.
+  const overflow = await window.evaluate(() => {
+    const vw = document.documentElement.getBoundingClientRect().width
+    return {
+      doc: document.documentElement.scrollWidth - window.innerWidth,
+      body: document.body.scrollWidth - document.body.clientWidth,
+      bodyBox: document.body.getBoundingClientRect().right - vw,
+      wide: Array.from(document.querySelectorAll('[data-testid="doc-rail"]')).map((el) => {
+        let n: HTMLElement | null = el as HTMLElement
+        let worst = 0
+        while (n && n !== document.body) {
+          worst = Math.max(worst, n.getBoundingClientRect().right - vw)
+          n = n.parentElement
+        }
+        return worst
+      })
+    }
+  })
   expect(overflow.doc).toBeLessThanOrEqual(0)
   expect(overflow.body).toBeLessThanOrEqual(0)
+  expect(overflow.bodyBox).toBeLessThanOrEqual(0.5)
   for (const w of overflow.wide) expect(w).toBeLessThanOrEqual(1)
 })
 
