@@ -7,6 +7,7 @@ import { useWidgetStore } from '../../stores/widgets'
 import { compact, delta } from '../../lib/sparkline'
 import type { FbRow } from '@shared/fields'
 import { computeMetric, formatMetricValue, type MetricBinding } from '@shared/metricBinding'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 /**
  * Live rows for every table any cell is bound to.
@@ -107,8 +108,12 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
   const model = useMemo(() => parse(widget.content), [widget.content])
   const update = useWidgetStore((s) => s.update)
   const rowsByTable = useBoundRows(model.cells)
+  // A viewer (read-only, lib/widgetSurface): the figures only. A cell's editor
+  // can be open in the file itself (editingCell is saved), so read-only never
+  // opens it; no tune buttons, no "Add a number".
+  const readOnly = useWidgetReadOnly()
 
-  const editingCell = model.editingCell ?? null
+  const editingCell = readOnly ? null : model.editingCell ?? null
   const setEditingCell = (i: number | null): void => {
     void update(widget.id, { content: JSON.stringify({ ...model, editingCell: i }) })
   }
@@ -171,6 +176,7 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
           <div className="text-[10px] text-[var(--ink-40)] leading-snug max-w-[220px]">
             A few numbers that are read together, each with the readings behind it.
           </div>
+          {!readOnly && (
           <button
             type="button"
             onClick={addCell}
@@ -179,6 +185,7 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
           >
             Add a number
           </button>
+          )}
         </div>
       </WidgetFrame>
     )
@@ -201,6 +208,7 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
               <div key={c.label + i} className="group/cell bg-[var(--surface-raised)] px-2.5 py-2">
                 <div className="flex items-center gap-1">
                   <span className="fb-t-caption truncate text-[var(--ink-50)]">{c.label}</span>
+                  {!readOnly && (
                   <button
                     type="button"
                     onClick={() => setEditingCell(i)}
@@ -209,6 +217,7 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
                   >
                     <Icon name="tune" size={11} />
                   </button>
+                  )}
                 </div>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-[19px] leading-none font-semibold text-[var(--ink-100)] tracking-tight">
@@ -232,6 +241,7 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
           })}
         </div>
 
+        {!readOnly && (
         <button
           type="button"
           onClick={addCell}
@@ -240,6 +250,7 @@ export default function MetricsWidget({ widget }: { widget: Widget }): JSX.Eleme
         >
           + Add a number
         </button>
+        )}
 
         {model.bars && model.bars.length > 0 && (
           <div className="px-2.5 pt-2.5 pb-2">

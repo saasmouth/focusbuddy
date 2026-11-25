@@ -68,6 +68,8 @@ import { useNodeStore } from './stores/nodes'
 import { useTemplateStore } from './stores/templates'
 import { useVaultStore } from './stores/vault'
 import { useAccountStore } from './stores/account'
+import { repairRevokedLinks } from './stores/shares'
+import { listenThenTake, listenThenTakeAll } from './lib/listenThenTake'
 import { useNoticeStore } from './stores/notice'
 import { installInboxPoller } from './lib/inboxPoller'
 import { startWorkspaceSync, stopWorkspaceSync } from './lib/workspaceSync'
@@ -316,6 +318,9 @@ export default function App(): JSX.Element {
       // we're signed in, so the very first AI call routes correctly (credits vs
       // BYOK) instead of bouncing off a dormant proxy.
       void window.api.ai.refreshCredits()
+      // Links turned off before 4.3.55 never reached the server (the revoke sent
+      // no session): send each once more, signed in (stores/shares.ts).
+      void repairRevokedLinks()
       // Multi-device sync: keep this account's tasks + canvas widgets in step with
       // its other devices. Default-on; pushes local changes and pulls remote ones.
       startWorkspaceSync()
@@ -347,16 +352,13 @@ export default function App(): JSX.Element {
   // about, naming the account the server says the token is (lib/authHandoff.ts).
   // The cold-launch path used to adopt silently, as "the user's own login
   // returning": a link that launches the app is no such proof (2026-11-20).
-  useEffect(() => {
-    let detach: (() => void) | null = null
-    async function consumeAndSubscribe(): Promise<void> {
-      const pending = await window.api.auth.getPending()
-      if (pending) void receiveAuthHandoff(pending, adoptHandoff)
-      detach = window.api.auth.onIncomingToken((handoff) => void receiveAuthHandoff(handoff, adoptHandoff))
-    }
-    void consumeAndSubscribe()
-    return () => { detach?.() }
-  }, [adoptHandoff])
+  //
+  // Main keeps each handoff until a window takes it; listen first, then take
+  // (lib/listenThenTake), or one arriving in between is lost.
+  useEffect(
+    () => listenThenTake(window.api.auth.onIncomingToken, window.api.auth.getPending, (handoff) => receiveAuthHandoff(handoff, adoptHandoff)),
+    [adoptHandoff]
+  )
 
   // Auth step 2 (2026-11-20): what main says about an auth link that was not a
   // sign-in to adopt. A refused code link is one alert; a /start (the website's
@@ -377,13 +379,7 @@ export default function App(): JSX.Element {
         await window.api.files.openExternal(url)
       }
     }
-    void api
-      .takeNotices()
-      .then((waiting) => {
-        for (const n of waiting) void receiveAuthNotice(n, deps)
-      })
-      .catch(() => {})
-    return api.onNotice((n) => void receiveAuthNotice(n, deps))
+    return listenThenTakeAll(api.onNotice, api.takeNotices, (n) => receiveAuthNotice(n, deps))
   }, [])
 
   // Share deep link (plexii://share?token=...) from the "Open in PlexiDesk"
@@ -391,65 +387,38 @@ export default function App(): JSX.Element {
   // the app, exactly as the paste-a-link flow does. Same drain-pending +
   // subscribe pattern as the auth handoff.
   useEffect(() => {
-    let detach: (() => void) | null = null
-    async function run(): Promise<void> {
-      const accept = async (token: string): Promise<void> => {
-        try {
-          const { useSharesStore } = await import('./stores/shares')
-          await useSharesStore.getState().acceptByToken(token)
-        } catch {
-          /* non-fatal — the item is also in the server inbox */
-        }
+    const accept = async (token: string): Promise<void> => {
+      try {
+        const { useSharesStore } = await import('./stores/shares')
+        await useSharesStore.getState().acceptByToken(token)
+      } catch {
+        /* non-fatal — the item is also in the server inbox */
       }
-      const pendingToken = await window.api.share.getPending()
-      if (pendingToken) await accept(pendingToken)
-      detach = window.api.share.onIncomingToken((t) => void accept(t))
     }
-    void run()
-    return () => {
-      detach?.()
-    }
+    return listenThenTake(window.api.share.onIncomingToken, window.api.share.getPending, accept)
   }, [])
 
   // Meeting-join deep link (plexii://meet?room=...) from an invite email → open
   // the meeting view and join that room. Same drain-pending + subscribe pattern.
   useEffect(() => {
-    let detach: (() => void) | null = null
-    async function run(): Promise<void> {
-      const join = async (roomId: string): Promise<void> => {
-        try {
-          const { joinMeetingRoom } = await import('./lib/startMeeting')
-          await joinMeetingRoom(roomId, 'Meeting')
-        } catch {
-          /* non-fatal — the user can join from the calendar block instead */
-        }
+    const join = async (roomId: string): Promise<void> => {
+      try {
+        const { joinMeetingRoom } = await import('./lib/startMeeting')
+        await joinMeetingRoom(roomId, 'Meeting')
+      } catch {
+        /* non-fatal — the user can join from the calendar block instead */
       }
-      const pendingRoom = await window.api.meet.getPending()
-      if (pendingRoom) await join(pendingRoom)
-      detach = window.api.meet.onIncomingRoom((r) => void join(r))
     }
-    void run()
-    return () => {
-      detach?.()
-    }
+    return listenThenTake(window.api.meet.onIncomingRoom, window.api.meet.getPending, join)
   }, [])
 
   // External markdown deep link (plexii://edit-md?path=...) from the ops
   // console: open the file as a PlexiDocs surface (ws-v-3).
   useEffect(() => {
-    let detach: (() => void) | undefined
     const openPath = (p: string): void => {
       useViewStore.getState().go({ kind: 'mdext', path: p })
     }
-    const run = async (): Promise<void> => {
-      const pending = await window.api.mdext.getPending()
-      if (pending) openPath(pending)
-      detach = window.api.mdext.onIncomingPath(openPath)
-    }
-    void run()
-    return () => {
-      detach?.()
-    }
+    return listenThenTake(window.api.mdext.onIncomingPath, window.api.mdext.getPending, openPath)
   }, [])
 
   // First launch after an update → show the "What's new" modal once for this

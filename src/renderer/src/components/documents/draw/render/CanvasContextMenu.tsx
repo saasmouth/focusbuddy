@@ -9,6 +9,7 @@ import Icon from '../../../Icon'
 import { commandById } from '../commands/registry'
 import { commandShortcutLabel } from '../commands/keys'
 import type { EditorCtx } from '../editor/types'
+import { offeredHere } from '../../../../lib/widgetHost'
 
 /** The commands, in groups (a separator between groups); ids that are not registered are left out. */
 export const CANVAS_MENU: string[][] = [
@@ -38,7 +39,7 @@ export function canvasMenuEntries(ctx: EditorCtx): Array<CanvasMenuEntry | 'sep'
     const items: CanvasMenuEntry[] = []
     for (const id of group) {
       const c = commandById(id)
-      if (!c) continue
+      if (!c || !offeredHere(id)) continue
       const label = id === 'edit.copySvgCode' ? 'Copy As SVG Code' : c.label
       const shortcut = commandShortcutLabel(id) ?? c.shortcut
       const enabled = c.enabled ? c.enabled(ctx) : true

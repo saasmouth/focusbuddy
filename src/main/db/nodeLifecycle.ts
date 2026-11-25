@@ -13,6 +13,9 @@
 // Electron-free: production passes better-sqlite3, tests pass node:sqlite —
 // both satisfy LifecycleDb structurally. Callers own transactions.
 
+import { deletedElsewhereSql, pastRetentionSql } from './trashRetention'
+import { queueTombstones } from './tombstoneQueue'
+
 export interface LifecycleDb {
   prepare(sql: string): {
     run(...args: unknown[]): unknown
@@ -162,6 +165,11 @@ export interface TrashedRoot {
   title: string
   trashed_at: number
   parent_id: string | null
+  /** 1 when this root's trash came from elsewhere (trashRetention.ts). */
+  deleted_elsewhere: number
+  shared_root_id: string | null
+  /** Who deleted it, when an org pull said (only while deleted_elsewhere). */
+  deleted_by: string | null
 }
 
 /** Trashed ROOTS: trashed rows whose parent is missing, live, or itself not
@@ -171,7 +179,8 @@ export interface TrashedRoot {
 export function listTrashedRoots(d: LifecycleDb, orgId: string): TrashedRoot[] {
   return d
     .prepare(
-      `SELECT n.id, n.kind, n.title, n.trashed_at, n.parent_id FROM nodes n
+      `SELECT n.id, n.kind, n.title, n.trashed_at, n.parent_id, n.shared_root_id, ${deletedElsewhereSql('n.')} AS deleted_elsewhere,
+              CASE WHEN ${deletedElsewhereSql('n.')} THEN n.deleted_by_name END AS deleted_by FROM nodes n
        LEFT JOIN nodes p ON p.id = n.parent_id
        WHERE n.trashed_at IS NOT NULL AND n.org_id = ? AND n.kind != 'work_item'
          AND (n.parent_id IS NULL OR p.id IS NULL OR p.trashed_at IS NULL)
@@ -252,16 +261,28 @@ export function pruneSharedRows(
 export function purgeExpiredTrash(
   d: LifecycleDb,
   cutoffMs: number,
-  hook?: DetachHook
+  hook?: DetachHook,
+  /** Cutoff for nodes deleted elsewhere (kept 30 days, trashRetention.ts); defaults to cutoffMs. */
+  elsewhereCutoffMs: number = cutoffMs
 ): { purged: number; revived: number } {
   const targets = d
     .prepare(
-      "SELECT id FROM nodes WHERE trashed_at IS NOT NULL AND trashed_at < ? AND kind != 'work_item'"
+      `SELECT id FROM nodes WHERE trashed_at IS NOT NULL AND ${pastRetentionSql()} AND kind != 'work_item'`
     )
-    .all(cutoffMs) as Array<{ id: string }>
+    .all(elsewhereCutoffMs, cutoffMs) as Array<{ id: string }>
   if (!targets.length) return { purged: 0, revived: 0 }
   const rootIds = targets.map((t) => t.id)
   const revived = detachAndReviveWorkItemDescendants(d, rootIds, hook)
+  // A trash whose delete never went up (an offline device, or one keeping its
+  // workspace local), and the widgets the delete takes by cascade, which were
+  // never tombstoned at all: queue them before the rows go (4.3.55).
+  queueTombstones(d, 'node', rootIds)
+  const widgetsOf = d.prepare('SELECT id FROM widgets WHERE task_id = ?')
+  queueTombstones(
+    d,
+    'widget',
+    rootIds.flatMap((id) => (widgetsOf.all(id) as Array<{ id: string }>).map((w) => w.id))
+  )
   // ci-delete-allowlist: purgeExpiredTrash (§2.5.3 lock — sanctioned site 1/4)
   const del = d.prepare('DELETE FROM nodes WHERE id = ? AND trashed_at IS NOT NULL')
   let purged = 0
@@ -319,6 +340,10 @@ export function purgeDeskPermanently(
   // Explicit per-row delete, leaves first — never trusts the FK cascade
   // (foreign_keys pragma state differs across connections), and is idempotent
   // when the pragma IS on and the root delete already cascaded.
+  // The server still holds these live (a live desk, or a trash whose delete has not
+  // gone up, and its widgets): queue their tombstones before the rows go (4.3.55).
+  queueTombstones(d, 'node', remaining)
+  queueTombstones(d, 'widget', widgetIds)
   // ci-delete-allowlist: purgeDeskPermanently (§2.5.3 lock — sanctioned site 4/4, DEC-021)
   const del = d.prepare('DELETE FROM nodes WHERE id = ?')
   let purgedNodes = 0

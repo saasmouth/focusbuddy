@@ -19,6 +19,7 @@ import {
 import { purgeMemoryForSubjects, type MemoryPurgeSummary } from './memoryPurge'
 import { nodesTableAcceptsWorkItems } from './migrateNodesKind'
 import { workItemDetachHook } from './workItems'
+import { OWN_TRASH_RETENTION_MS, purgeAtFor, purgeCutoffs } from './trashRetention'
 import type { FbNode, NodeDraft, NodePatch } from '@shared/types'
 
 /** R006: work_item creation is refused at the db chokepoint only when the
@@ -441,13 +442,14 @@ export function restoreNodes(ids: string[]): boolean {
 
 // Permanently remove nodes trashed longer than maxAgeMs (default 7 days). The
 // hard DELETE cascades their descendants + widgets. Runs once per session.
-export function purgeTrashedNodes(maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
+export function purgeTrashedNodes(maxAgeMs = OWN_TRASH_RETENTION_MS): void {
   const db = getDb()
-  const cutoff = Date.now() - maxAgeMs
+  // A desk or room deleted elsewhere is kept 30 days (trashRetention.ts).
+  const [elsewhereCutoff, cutoff] = purgeCutoffs(Date.now(), maxAgeMs)
   // Delegated to the lifecycle module (§2.5.2/§2.5.3): work_items are never
   // purge targets, their descendants are detached-and-revived before any
   // delete, and every delete re-checks liveness per id in-statement.
-  const result = db.transaction(() => purgeExpiredTrash(db, cutoff, workItemDetachHook(db)))()
+  const result = db.transaction(() => purgeExpiredTrash(db, cutoff, workItemDetachHook(db), elsewhereCutoff))()
   if (result.revived > 0) {
     // eslint-disable-next-line no-console
     console.warn(`[purgeTrashedNodes] revived ${result.revived} work item(s) at purge (detached)`)
@@ -499,20 +501,28 @@ export interface TrashEntry {
   kind: string
   title: string
   trashedAt: number
-  /** Epoch ms when the 7-day purge claims it. */
+  /** Epoch ms when the purge claims it: 7 days, or 30 when it was deleted elsewhere. */
   purgeAt: number
+  /** Deleted on another device, or by a collaborator, and arrived here by sync. */
+  deletedElsewhere: boolean
+  /** On a shared desk or in an org workspace: other people can delete it too. */
+  sharedScope: boolean
+  /** Who deleted it, by display name, when an org pull said. */
+  deletedBy: string | null
 }
-
-const PURGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 export function listTrash(): TrashEntry[] {
   const db = getDb()
-  return listTrashedRoots(db, getActiveOrgId()).map((r: TrashedRoot) => ({
+  const orgId = getActiveOrgId()
+  return listTrashedRoots(db, orgId).map((r: TrashedRoot) => ({
     id: r.id,
     kind: r.kind,
     title: r.title,
     trashedAt: r.trashed_at,
-    purgeAt: r.trashed_at + PURGE_WINDOW_MS
+    purgeAt: purgeAtFor(r.trashed_at, !!r.deleted_elsewhere),
+    deletedElsewhere: !!r.deleted_elsewhere,
+    sharedScope: !!r.shared_root_id || orgId !== PERSONAL_ORG_ID,
+    deletedBy: r.deleted_by ?? null
   }))
 }
 

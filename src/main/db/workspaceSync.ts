@@ -2,6 +2,7 @@ import { getDb } from './database'
 import { PERSONAL_ORG_ID } from './activeOrg'
 import { emitObjectEvent } from '../context/engine'
 import { pruneSharedRows } from './nodeLifecycle'
+import { pendingTombstones, queuedRev, clearTombstone } from './tombstoneQueue'
 import { normalizeAppliedWorkItem, workItemDetachHook } from './workItems'
 
 // ── Park-inbound (§2.1 receiver defensiveness; GAP-013 repair) ──────────────
@@ -151,8 +152,34 @@ function dirtyIds(table: SyncTable): Set<string> {
   return new Set(rows.map((r) => r.id))
 }
 
+// A delete that came over the CRDT channel was made elsewhere (another device, or
+// a collaborator): every row the write trashed is stamped deleted_elsewhere_at, so
+// the Trash lists it and keeps it 30 days (syncTrash.ts). "The write trashed it"
+// has to be exact, not a guess from timestamps: a sync edit to a row this device
+// trashed itself, even in the same millisecond, must stay this device's delete.
+// So a TEMP trigger per table (this connection only, never in the file) logs each
+// row whose trashed_at goes from empty to set, and asSyncApply reads the log around
+// its write. Own deletes between sync writes land in the log too; the next sync
+// write clears it before it starts.
+const trashLogReady = new WeakSet<object>()
+function ensureTrashLog(): void {
+  const db = getDb()
+  if (trashLogReady.has(db)) return
+  db.exec('CREATE TEMP TABLE IF NOT EXISTS sync_trash_log (tbl TEXT NOT NULL, id TEXT NOT NULL)')
+  for (const table of SYNC_TABLES) {
+    db.exec(
+      `CREATE TEMP TRIGGER IF NOT EXISTS ${table}_sync_trash_log AFTER UPDATE OF trashed_at ON ${table}
+       WHEN OLD.trashed_at IS NULL AND NEW.trashed_at IS NOT NULL
+       BEGIN INSERT INTO sync_trash_log (tbl, id) VALUES ('${table}', NEW.id); END`
+    )
+  }
+  trashLogReady.add(db)
+}
+
 export function asSyncApply<T>(write: () => T): T {
   const before = SYNC_TABLES.map(dirtyIds)
+  ensureTrashLog()
+  getDb().exec('DELETE FROM sync_trash_log')
   const out = write()
   if (out && typeof (out as { then?: unknown }).then === 'function') {
     // Not reachable today; if a write ever turns async, say so loudly rather than
@@ -162,7 +189,16 @@ export function asSyncApply<T>(write: () => T): T {
     return out
   }
   const db = getDb()
+  const trashed = db.prepare('SELECT tbl, id FROM sync_trash_log').all() as Array<{ tbl: string; id: string }>
+  db.exec('DELETE FROM sync_trash_log')
+  const now = Date.now()
   SYNC_TABLES.forEach((table, i) => {
+    // Stamped while the row is still dirty, so the stamp trips no *_mark_dirty trigger.
+    // Who is not known on this channel: a name left from an earlier delete must not stay.
+    const stamp = db.prepare(
+      `UPDATE ${table} SET deleted_elsewhere_at = ?, deleted_by_name = NULL WHERE id = ? AND trashed_at IS NOT NULL`
+    )
+    for (const t of trashed) if (t.tbl === table) stamp.run(now, t.id)
     const clean = db.prepare(`UPDATE ${table} SET needs_sync = 0 WHERE id = ?`)
     for (const id of dirtyIds(table)) if (!before[i].has(id)) clean.run(id)
   })
@@ -191,6 +227,11 @@ export interface PendingUpsert {
   // Per-desk scope carried alongside the body: the desk root id this item belongs
   // to, for items on the ACL-scoped shared path. Absent for personal/org items.
   rootId?: string | null
+  // A Restore made here of something deleted elsewhere (syncTrash.ts). If this
+  // device has not pulled the tombstone's rev yet, the server answers 409 with the
+  // tombstone; the restore was made in answer to that delete, so the push goes
+  // again at the tombstone's rev (restoreBeatsTombstone in the renderer).
+  afterRemoteDelete?: boolean
 }
 export interface PendingDelete {
   id: string
@@ -208,6 +249,8 @@ export interface RemoteItem {
   deleted: boolean
   teamId?: string | null
   rootId?: string | null
+  /** On an org tombstone: who deleted it, by display name (the signal's withDeleterNames). */
+  deletedByName?: string | null
 }
 
 // Tables that carry a shared_root_id column (the desk-scope discriminator). Used to
@@ -265,7 +308,11 @@ const SYNC_COLS = new Set([
   '__team_id',
   'shared_root_id',
   '__shared_root_id',
-  'body_rev'
+  'body_rev',
+  // This device's own knowledge that a delete reached it by sync, and who made it
+  // when an org pull says (syncTrash.ts): never pushed, never written from a body.
+  'deleted_elsewhere_at',
+  'deleted_by_name'
 ])
 
 /**
@@ -288,6 +335,12 @@ function bodyRevBump(cols: readonly string[], writing: readonly string[]): strin
 function tableCols(table: SyncTable): string[] {
   const db = getDb()
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name)
+}
+
+// A live row still stamped deleted_elsewhere_at was restored here after a delete
+// made elsewhere, and that restore has not gone up yet (markPushed clears it).
+function restoreFlag(row: Record<string, unknown>): { afterRemoteDelete?: true } {
+  return row.trashed_at == null && row.deleted_elsewhere_at != null ? { afterRemoteDelete: true } : {}
 }
 
 function bodyFromRow(row: Record<string, unknown>): Record<string, unknown> {
@@ -362,7 +415,7 @@ export function collectPending(): { upserts: PendingUpsert[]; deletes: PendingDe
     const id = String(row.id)
     const baseRev = Number(row.sync_rev) || 0
     if (row.trashed_at != null) deletes.push({ id, itemType, baseRev })
-    else upserts.push({ id, itemType, body: bodyFromRow(row), baseRev })
+    else upserts.push({ id, itemType, body: bodyFromRow(row), baseRev, ...restoreFlag(row) })
   }
 
   // Anti-double-sync leak guard. Nodes and time blocks each carry org_id, so the
@@ -422,6 +475,8 @@ export function collectPending(): { upserts: PendingUpsert[]; deletes: PendingDe
     .all(PERSONAL_ORG_ID) as Array<Record<string, unknown>>
   for (const row of rowRows) pushRow(row, 'row')
 
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts).
+  for (const t of pendingTombstones(db, 'personal')) deletes.push({ id: t.id, itemType: t.itemType, baseRev: t.baseRev })
   return { upserts, deletes }
 }
 
@@ -454,7 +509,7 @@ export function collectPendingOrg(orgId: string): {
     // time means a team-shared object is never pushed org-wide first (no leak window).
     const teamId = (row.team_id ?? row.__team_id ?? null) as string | null
     if (row.trashed_at != null) deletes.push({ id, itemType, baseRev })
-    else upserts.push({ id, itemType, body: bodyFromRow(row), baseRev, teamId })
+    else upserts.push({ id, itemType, body: bodyFromRow(row), baseRev, teamId, ...restoreFlag(row) })
   }
 
   // Types that carry org_id directly: filter by the column.
@@ -506,6 +561,8 @@ export function collectPendingOrg(orgId: string): {
     .all(orgId) as Array<Record<string, unknown>>
   for (const row of fileRows) pushRow(row, 'file')
 
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts).
+  for (const t of pendingTombstones(db, 'org', orgId)) deletes.push({ id: t.id, itemType: t.itemType, baseRev: t.baseRev })
   return { upserts, deletes }
 }
 
@@ -538,7 +595,7 @@ export function collectPendingShared(): { upserts: PendingUpsert[]; deletes: Pen
       // directions, or one side silently overwrites the other's choice).
       const body = bodyFromRow(row)
       delete body.archived
-      upserts.push({ id, itemType, body, baseRev, rootId })
+      upserts.push({ id, itemType, body, baseRev, rootId, ...restoreFlag(row) })
     }
   }
 
@@ -556,6 +613,8 @@ export function collectPendingShared(): { upserts: PendingUpsert[]; deletes: Pen
       .all() as Array<Record<string, unknown>>
     for (const row of rows) pushRow(row, itemType)
   }
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts).
+  for (const t of pendingTombstones(db, 'shared')) if (t.rootId) deletes.push({ id: t.id, itemType: t.itemType, baseRev: t.baseRev, rootId: t.rootId })
   return { upserts, deletes }
 }
 
@@ -680,7 +739,14 @@ export function listLocalSharedRoots(): string[] {
 
 export function markPushed(itemType: ItemType, id: string, rev: number): void {
   const db = getDb()
-  db.prepare(`UPDATE ${TABLE[itemType]} SET sync_rev = ?, needs_sync = 0 WHERE id = ?`).run(rev, id)
+  // A restore of something deleted elsewhere is now on the server: the stamp has
+  // done its job (a later delete from elsewhere stamps afresh).
+  db.prepare(
+    `UPDATE ${TABLE[itemType]} SET sync_rev = ?, needs_sync = 0,
+       deleted_elsewhere_at = CASE WHEN trashed_at IS NULL THEN NULL ELSE deleted_elsewhere_at END
+     WHERE id = ?`
+  ).run(rev, id)
+  clearTombstone(db, itemType, id) // a queued tombstone that has now gone up
 }
 
 // ── Apply rows pulled from the server ────────────────────────────────────────
@@ -763,14 +829,57 @@ function emitRemoteChangeEvents(changes: RemoteApplied[], orgId?: string): void 
 // Extracted so the rule can be tested directly: the bug it fixes was invisible
 // in `applyRemote` because the damage happened one layer down, in a trigger.
 export function shouldApplyTombstone(
-  local: { sync_rev: number | null; trashed_at: number | null } | undefined,
+  local:
+    | { sync_rev: number | null; trashed_at: number | null; needs_sync?: number | null; deleted_elsewhere_at?: number | null }
+    | undefined,
   itemRev: number
 ): boolean {
   if (!local) return false // a tombstone for a row this device never had
+  if (isPendingRestore(local)) return false
   // Already trashed at this rev or newer: re-writing it is a no-op UPDATE, and
   // a no-op UPDATE is what marks the row dirty and restarts the push loop.
   if ((local.sync_rev ?? -1) >= itemRev && local.trashed_at != null) return false
   return true
+}
+
+/**
+ * A Restore made here of something deleted elsewhere, not pushed yet. A tombstone
+ * pulled meanwhile (the pull window re-sends what the server holds) must not trash
+ * it again: the restore answers that very delete, and the push settles it at the
+ * server (restoreBeatsTombstone in the renderer).
+ */
+function isPendingRestore(
+  local: { trashed_at: number | null; needs_sync?: number | null; deleted_elsewhere_at?: number | null } | undefined
+): boolean {
+  return !!local && local.trashed_at == null && local.needs_sync === 1 && local.deleted_elsewhere_at != null
+}
+
+// A tombstone written by a pull. When the row was live, the delete was made
+// elsewhere (another device, or a collaborator): it is stamped at the same moment,
+// so the Trash lists it and keeps it 30 days (syncTrash.ts). A row this device had
+// already trashed keeps its own delete, time and all.
+//
+// `by` is who deleted it, by display name, which only an org pull carries. A fresh
+// stamp takes it (or none); a row already stamped from elsewhere (the CRDT channel
+// got there first) gains it; this device's own delete never does.
+function writeTombstone(db: ReturnType<typeof getDb>, table: SyncTable, id: string, rev: number, by: string | null = null): void {
+  db.prepare(
+    `UPDATE ${table} SET trashed_at = COALESCE(trashed_at, @now),
+       deleted_elsewhere_at = CASE WHEN trashed_at IS NULL THEN @now ELSE deleted_elsewhere_at END,
+       deleted_by_name = CASE
+         WHEN trashed_at IS NULL THEN @by
+         WHEN deleted_elsewhere_at IS NOT NULL AND deleted_elsewhere_at >= trashed_at THEN COALESCE(@by, deleted_by_name)
+         ELSE deleted_by_name END,
+       sync_rev = @rev, needs_sync = 0
+     WHERE id = @id`
+  ).run({ now: Date.now(), rev, id, by })
+}
+
+// A display name from the signal, kept as a name and nothing more.
+function deleterName(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.replace(/\s+/g, ' ').trim()
+  return s && !s.includes('@') ? s.slice(0, 80) : null
 }
 
 export function applyRemote(items: RemoteItem[]): { applied: number; failed: number } {
@@ -799,10 +908,21 @@ export function applyRemote(items: RemoteItem[]): { applied: number; failed: num
       // Forward compatibility: an item type this build does not know is
       // skipped, never a crash (a newer device may sync richer types).
       if (!table) continue
+      // A tombstone this device still owes the server for this item (a hard delete,
+      // tombstoneQueue.ts): if the server already deleted it, or holds a newer rev
+      // (restored or edited elsewhere since, which wins), the queued tombstone is
+      // dropped; at the rev we deleted, the row is not brought back.
+      const owed = queuedRev(db, item.itemType, item.id)
+      if (owed !== undefined) {
+        if (item.deleted || item.rev > owed) clearTombstone(db, item.itemType, item.id)
+        else continue
+      }
       if (item.deleted) {
         // Soft-delete locally if the row exists; keep an existing trash timestamp.
-        const local = db.prepare(`SELECT sync_rev, trashed_at FROM ${table} WHERE id = ?`).get(item.id) as
-          | { sync_rev: number | null; trashed_at: number | null }
+        const local = db
+          .prepare(`SELECT sync_rev, trashed_at, needs_sync, deleted_elsewhere_at FROM ${table} WHERE id = ?`)
+          .get(item.id) as
+          | { sync_rev: number | null; trashed_at: number | null; needs_sync: number; deleted_elsewhere_at: number | null }
           | undefined
         // Nothing here to delete: a tombstone for a row this device never had.
         if (!shouldApplyTombstone(local, item.rev)) continue
@@ -825,9 +945,7 @@ export function applyRemote(items: RemoteItem[]): { applied: number; failed: num
         // on the operator's machine before this fix: sync_rev 7,319 on one
         // minimap and 7,214 on one webview, both trashed and still flagged
         // needs_sync = 1, with 136 widgets past rev 1,000.
-        db.prepare(
-          `UPDATE ${table} SET trashed_at = COALESCE(trashed_at, ?), sync_rev = ?, needs_sync = 0 WHERE id = ?`
-        ).run(Date.now(), item.rev, item.id)
+        writeTombstone(db, table, item.id, item.rev)
         applied++
         changes.push({ id: item.id, itemType: item.itemType, deleted: true, deskId: null })
         continue
@@ -989,13 +1107,22 @@ export function applyRemoteOrg(items: RemoteItem[], orgId: string): { applied: n
       // Forward compatibility: an item type this build does not know is skipped,
       // never a crash (a newer device may sync richer types).
       if (!table) continue
+      // A tombstone this device still owes the server for this item (a hard delete,
+      // tombstoneQueue.ts): if the server already deleted it, or holds a newer rev
+      // (restored or edited elsewhere since, which wins), the queued tombstone is
+      // dropped; at the rev we deleted, the row is not brought back.
+      const owed = queuedRev(db, item.itemType, item.id)
+      if (owed !== undefined) {
+        if (item.deleted || item.rev > owed) clearTombstone(db, item.itemType, item.id)
+        else continue
+      }
       if (item.deleted) {
         // Soft-delete locally if the row exists; keep an existing trash timestamp.
-        const exists = db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(item.id)
-        if (exists) {
-          db.prepare(
-            `UPDATE ${table} SET trashed_at = COALESCE(trashed_at, ?), sync_rev = ?, needs_sync = 0 WHERE id = ?`
-          ).run(Date.now(), item.rev, item.id)
+        const exists = db
+          .prepare(`SELECT trashed_at, needs_sync, deleted_elsewhere_at FROM ${table} WHERE id = ?`)
+          .get(item.id) as { trashed_at: number | null; needs_sync: number; deleted_elsewhere_at: number | null } | undefined
+        if (exists && !isPendingRestore(exists)) {
+          writeTombstone(db, table, item.id, item.rev, deleterName(item.deletedByName))
           applied++
           changes.push({ id: item.id, itemType: item.itemType, deleted: true, deskId: null })
         }
@@ -1083,6 +1210,15 @@ export function applyRemoteShared(
     for (const item of ordered) {
       const table = TABLE[item.itemType]
       if (!table) continue
+      // A tombstone this device still owes the server for this item (a hard delete,
+      // tombstoneQueue.ts): if the server already deleted it, or holds a newer rev
+      // (restored or edited elsewhere since, which wins), the queued tombstone is
+      // dropped; at the rev we deleted, the row is not brought back.
+      const owed = queuedRev(db, item.itemType, item.id)
+      if (owed !== undefined) {
+        if (item.deleted || item.rev > owed) clearTombstone(db, item.itemType, item.id)
+        else continue
+      }
       const rootId = item.rootId ?? null
       if (!rootId) continue // a shared item must name its desk
       if (!SHARED_COL_TABLES.has(table)) continue // only desk-content tables carry the column
@@ -1104,10 +1240,15 @@ export function applyRemoteShared(
       if (item.deleted) {
         // Tombstone only when the local row exists AND belongs to this desk AND the
         // delete is not stale (verdict 'apply' encodes all three).
-        if (verdict === 'apply' && localRow) {
-          db.prepare(
-            `UPDATE ${table} SET trashed_at = COALESCE(trashed_at, ?), sync_rev = ?, needs_sync = 0 WHERE id = ?`
-          ).run(Date.now(), item.rev, item.id)
+        const pending = localRow
+          ? (db.prepare(`SELECT trashed_at, needs_sync, deleted_elsewhere_at FROM ${table} WHERE id = ?`).get(item.id) as {
+              trashed_at: number | null
+              needs_sync: number
+              deleted_elsewhere_at: number | null
+            })
+          : undefined
+        if (verdict === 'apply' && localRow && !isPendingRestore(pending)) {
+          writeTombstone(db, table, item.id, item.rev)
           applied++
           changes.push({ id: item.id, itemType: item.itemType, deleted: true, deskId: null })
         }

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { DocType, DocumentMeta, FbDocument } from '@shared/types'
-import { pullCloudDocs, pushCloudDoc, pushCloudDelete } from '../lib/cloudDocsSync'
+import { pullCloudDocs, pushCloudDoc, pushCloudDelete, restoreCloudDoc, purgeCloudDoc } from '../lib/cloudDocsSync'
 import { sameDocBody } from '../lib/docBodyEqual'
 import { useNoticeStore } from './notice'
 import { nudgeSync } from '../lib/syncNudge'
@@ -15,7 +15,9 @@ import { crdtEmitDocumentCreate, crdtEmitDocumentDelete, crdtEmitDocumentAttrs }
 // Deleting is a two-stage affair, mirroring Drive: remove() soft-deletes into
 // the Documents Trash (undoable via the toast and recoverable from the Trash
 // section any time after), and only purge() — the Trash view's "Delete
-// forever" — actually destroys the row and tells the cloud to forget it.
+// forever" — actually destroys the row. The cloud copy of a personal document
+// is deleted at remove() (4.3.55: our server erases what you delete 30 days
+// after you delete it, counted from its tombstone); a restore puts it back.
 
 // Per-document debounce state, keyed by document id. A single module-global timer
 // used to drop a document's pending save when you switched to another document
@@ -480,8 +482,8 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     const meta = get().list.find((d) => d.id === id)
     await window.api.documents.delete(id)
     crdtEmitDocumentDelete(id) // WS01 (flagged): tombstone so the delete converges
-    // No cloud delete here: the document is only in the local Trash. The cloud
-    // copy is forgotten when (and only when) the user purges it.
+    // The cloud copy goes now, so the server's 30 days start now (lib/cloudDocsSync).
+    void pushCloudDelete(id).catch(() => {})
     // Best-effort archive of this doc's chat channel (un-archives if restored+reopened).
     void useMessagingStore.getState().archiveObjectChannel('document', id)
     if (get().active?.id === id) set({ active: null })
@@ -490,10 +492,12 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       label: `Moved "${meta?.title ?? 'document'}" to trash`,
       undo: async () => {
         await window.api.documents.restore(id)
+        void restoreCloudDoc(id).catch(() => {})
         await Promise.all([get().refresh(), get().refreshTrashed()])
       },
       redo: async () => {
         await window.api.documents.delete(id)
+        void pushCloudDelete(id).catch(() => {})
         if (get().active?.id === id) set({ active: null })
         await Promise.all([get().refresh(), get().refreshTrashed()])
       }
@@ -502,12 +506,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   restore: async (id) => {
     await window.api.documents.restore(id)
+    void restoreCloudDoc(id).catch(() => {})
     await Promise.all([get().refresh(), get().refreshTrashed()])
   },
 
   purge: async (id) => {
     await window.api.documents.purge(id)
-    void pushCloudDelete(id).catch(() => {})
+    void purgeCloudDoc(id).catch(() => {})
     await get().refreshTrashed()
   }
 }))

@@ -694,6 +694,8 @@ export interface Widget {
   // tasks). Position / size / which task each copy lives in stay independent.
   // null = standalone (not linked).
   syncGroupId: string | null
+  /** Set only when the widget is in the Trash (epoch ms); absent on a live widget. */
+  trashedAt?: number
 }
 
 export interface WidgetDraft {

@@ -82,3 +82,25 @@ export const EmbedRemoveContext = createContext<EmbedRemover | null>(null)
 export function useEmbedRemover(): EmbedRemover | null {
   return useContext(EmbedRemoveContext)
 }
+
+// Whether the person may change what this widget holds.
+//
+// A viewer provides true: today the widget host's read-only tile (a file
+// opened in PlexiiLite while signed out of Plexii, src/web/widgetHost). There
+// every gesture that could change something is refused before any widget sees
+// it, so a control drawn there is a dead button by definition. Read-only, a
+// widget draws what it holds and nothing that would change it -- no toolbar,
+// no colour dots, no keypad, no "Add" -- and a field it holds is shown
+// read-only, with no placeholder inviting typing. Everywhere else it is false,
+// and nothing changes.
+export const WidgetReadOnlyContext = createContext<boolean>(false)
+
+export function useWidgetReadOnly(): boolean {
+  return useContext(WidgetReadOnlyContext)
+}
+
+// A control that only READS -- copy, switch which slide or sheet is shown --
+// and so still works in a read-only viewer. The widget host's input guard lets
+// a click or Enter on one through (web/widgetHost/inputGuard.ts); every other
+// control is hidden there. Spread it onto the control: <button {...readingControl}>.
+export const readingControl = { 'data-reading-control': '' } as const

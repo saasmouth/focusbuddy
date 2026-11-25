@@ -4,6 +4,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { evaluateArithmetic } from '../../lib/calcExpression'
 import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 const KEYS: Array<{
   label: string
@@ -51,6 +52,8 @@ interface Props {
 export default function CalculatorWidget({ widget, inline = false }: Props): JSX.Element {
   const update = useWidgetStore((s) => s.update)
   const [expr, setExpr] = useState(widget.content || '')
+  // A viewer (read-only, lib/widgetSurface) shows the sum and its answer; no keypad.
+  const readOnly = useWidgetReadOnly()
   const lastSavedRef = useRef(widget.content || '')
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export default function CalculatorWidget({ widget, inline = false }: Props): JSX
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     if (expr === lastSavedRef.current) return
     lastSavedRef.current = expr
     void update(widget.id, { content: expr })
@@ -112,6 +116,7 @@ export default function CalculatorWidget({ widget, inline = false }: Props): JSX
           )}
         </div>
       </div>
+      {!readOnly && (
       <div className="grid grid-cols-4 gap-1">
         {KEYS.map((k) => (
           <button
@@ -133,6 +138,7 @@ export default function CalculatorWidget({ widget, inline = false }: Props): JSX
           </button>
         ))}
       </div>
+      )}
     </div>
   )
 

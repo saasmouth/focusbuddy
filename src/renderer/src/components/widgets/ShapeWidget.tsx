@@ -4,6 +4,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // A vector shape on the canvas — rectangle / ellipse / diamond / triangle /
 // hexagon / star / line / arrow, with fill, stroke and an optional centred
@@ -107,10 +108,16 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
   const update = useWidgetStore((s) => s.update)
   const [data, setData] = useState<ShapeData>(() => parse(widget.content))
   const [editingLabel, setEditingLabel] = useState(false)
+  // A viewer (read-only, lib/widgetSurface): the shape and its label; no
+  // label editing, no hover toolbar.
+  const readOnly = useWidgetReadOnly()
   const lastSaved = useRef(widget.content)
 
   // Debounced persist whenever the shape config changes.
   useEffect(() => {
+    // Read-only (the widget host showing a file it may not change): never
+    // written, not even in this widget's own normalised form.
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     const h = window.setTimeout(() => {
@@ -118,10 +125,11 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
       void update(widget.id, { content: next })
     }, 250)
     return () => window.clearTimeout(h)
-  }, [data, widget.id, update])
+  }, [data, widget.id, update, readOnly])
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     lastSaved.current = next
@@ -165,7 +173,7 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
           )}
         </div>
       )}
-      {!data.label && !editingLabel && (
+      {!readOnly && !data.label && !editingLabel && (
         <button
           onClick={() => setEditingLabel(true)}
           onMouseDown={(e) => e.stopPropagation()}
@@ -174,7 +182,7 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
           <span className="px-2 py-0.5 rounded bg-[color-mix(in_oklab,var(--surface-raised)_70%,transparent)]">+ label</span>
         </button>
       )}
-      {data.label && !editingLabel && (
+      {!readOnly && data.label && !editingLabel && (
         <button
           onClick={() => setEditingLabel(true)}
           onMouseDown={(e) => e.stopPropagation()}
@@ -184,6 +192,7 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
       )}
 
       {/* Hover toolbar: shape picker + fill/stroke */}
+      {!readOnly && (
       <div
         className="absolute top-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full fb-glass-chrome border px-1.5 py-1 shadow-[var(--shadow-cast)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
         onMouseDown={(e) => e.stopPropagation()}
@@ -233,6 +242,7 @@ export default function ShapeWidget({ widget, inline = false }: Props): JSX.Elem
           title="Stroke width"
         />
       </div>
+      )}
     </div>
   )
 

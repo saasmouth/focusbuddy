@@ -51,6 +51,21 @@ npm run web:dev        # vite dev server
 `window.api` path -> IPC channel map, so a channel renamed on the desktop cannot
 silently stop working here.
 
+## Nothing on the visitor's computer
+
+A tab talks to Signal and to the app's own files, and to nothing on the
+computer it runs on. The desktop's local-model client asks an Ollama server on
+`localhost:11434`; the share page asked it from visitors' browsers whenever a
+visitor dragged a work widget such as a calculator onto a desk (search embeds
+the new file). It is swapped out of the browser build (`MODULE_SWAPS`,
+`worker/main/localModel.ts`): a tab has no local model and no client for one.
+
+`npm run test:web` opens a desk link on the built app (`out/web`) with every
+request watched, the Worker's included. It answers the link's three calls to
+Signal itself (preview, visit count, bundle) and refuses everything else. It
+fails on any other request, on any request to port 11434 after a calculator is
+dragged on, and if the build contains an Ollama address.
+
 ## Many tabs, one database
 
 OPFS access handles are exclusive: the tab that opens the workspace holds it,
@@ -379,3 +394,12 @@ undefined" says nothing about which of a hundred calls produced it.
 exist. Both failure modes it guards against were real: serving `ai:status` when
 the channel is `ai:getStatus` (dead code that looks like coverage), and passing
 `snapshots:create` a label where it wanted the widgets to snapshot.
+
+## The widget host
+
+A second entry of this build, `src/web/widgetHost` (`npm run widget-host:build`,
+`npm run test:widget-host`): ONE Plexii widget or Office document from a
+`.plexii-*` file, for PlexiiLite. It reuses everything here except the tab
+coordinator: each page has its own Worker, whose database lives in memory
+(`worker/hostMode.ts`). Its message contract, what it hides and why, and its
+sizes are in `docs/WIDGET-HOST.md`.

@@ -20,7 +20,7 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
  * data layer imports './database' relatively from 50 files, so the swap has to
  * happen after resolution, on the file that resolution arrived at.
  */
-function swapModules(map: Record<string, string>): Plugin {
+export function swapModules(map: Record<string, string>): Plugin {
   const resolved = Object.entries(map).map(([from, to]) => [resolve(__dirname, from), resolve(__dirname, to)] as const)
   return {
     name: 'plexii-swap-modules',
@@ -81,7 +81,17 @@ export const MODULE_SWAPS: Record<string, string> = {
   // Privacy switches live in a JSON file in Electron's userData. Reached through
   // the Background AI gate; it pulled Electron's npm stub (which calls
   // child_process and fs at load) into the Worker.
-  'src/main/privacyPrefs.ts': 'src/web/worker/main/privacyPrefs.ts'
+  'src/main/privacyPrefs.ts': 'src/web/worker/main/privacyPrefs.ts',
+  // The local-model client asks an Ollama server on localhost:11434. From a tab
+  // that is a public page probing the visitor's own computer: the share page
+  // did it when a visitor dragged a calculator onto a desk (search embeds the
+  // new file). The browser has no local model, so it has no client either.
+  'src/main/ai/localModel.ts': 'src/web/worker/main/localModel.ts',
+  // Agentic Ops embeds a console on localhost:8765 and first asks it whether it
+  // is running. PlexiiBrain › Ops is in the share page's side menu, so a visitor
+  // who clicked it had their browser ask their own computer. The browser has no
+  // such console, so it has no client: a page that says where Ops runs.
+  'src/renderer/src/components/views/AgenticOpsView.tsx': 'src/web/views/AgenticOpsView.tsx'
 }
 
 // Path aliases plus the Node-module shims. Exported for the same test.

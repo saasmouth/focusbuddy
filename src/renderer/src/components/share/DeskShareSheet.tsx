@@ -637,7 +637,7 @@ export default function DeskShareSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void revoke(l.id)}
+                      onClick={() => void revoke(l.id).then((r) => setError(r.ok ? null : r.error))}
                       className="icon-btn !h-6 !w-6"
                       title="Stop this link working"
                       data-testid="share-revoke-snapshot"

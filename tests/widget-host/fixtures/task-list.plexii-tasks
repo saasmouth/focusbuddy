@@ -1,0 +1,9 @@
+{
+  "type": "plexii.widget.task-list",
+  "version": 1,
+  "title": "Test task-list",
+  "kind": "task-list",
+  "content": "{\"scope\":\"own\",\"filter\":\"open\",\"items\":[{\"id\":\"4941bd5e-159d-430b-a115-eec2dadfde85\",\"title\":\"Buy milk\",\"done\":false,\"dueAt\":null},{\"id\":\"b52e67ee-8bbb-4172-b152-9f4121a2f179\",\"title\":\"Call the plumber\",\"done\":false,\"dueAt\":null}]}",
+  "color": null,
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

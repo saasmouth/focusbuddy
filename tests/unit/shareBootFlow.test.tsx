@@ -141,6 +141,12 @@ beforeEach(() => {
   worker.calls.length = 0
   routes = {}
   requested = []
+  // The share tracker's visit beacon (api/shareTracking.ts) goes by
+  // navigator.sendBeacon, which happy-dom sends over the real network: to
+  // signal.test, which does not resolve, as 25 unhandled rejections that failed
+  // the run after every test had passed. Faked like fetch, so no test reaches a
+  // server.
+  vi.spyOn(navigator, 'sendBeacon').mockReturnValue(true)
   globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
     const path = new URL(String(url)).pathname
     requested.push(path)

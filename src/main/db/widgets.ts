@@ -6,6 +6,8 @@ import { adoptWidgetAsFile, syncWidgetFileFromInstance } from './widgetFiles'
 import { WIDGET_FILE_GROUP_PREFIX } from '@shared/widgetFiles'
 import { clampToKindMin } from '@shared/widgetSizing'
 import type { Widget, WidgetDraft, WidgetPatch } from '@shared/types'
+import { OWN_TRASH_RETENTION_MS, pastRetentionSql, purgeCutoffs } from './trashRetention'
+import { queueTombstones } from './tombstoneQueue'
 
 interface WidgetRow {
   id: string
@@ -35,6 +37,7 @@ interface WidgetRow {
   updated_at: number
   archived: number | null
   sync_group_id: string | null
+  trashed_at?: number | null
 }
 
 function rowToWidget(row: WidgetRow): Widget {
@@ -65,7 +68,10 @@ function rowToWidget(row: WidgetRow): Widget {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     archived: row.archived === 1,
-    syncGroupId: row.sync_group_id ?? null
+    syncGroupId: row.sync_group_id ?? null,
+    // Only when it is in the Trash, so a live widget's shape (shares, exports,
+    // snapshots) is exactly what it was. crdtSync's stale-delete check reads it.
+    ...(row.trashed_at != null ? { trashedAt: row.trashed_at } : {})
   }
 }
 
@@ -424,18 +430,21 @@ export function restoreWidget(id: string): boolean {
 
 // Permanently remove widgets trashed longer than maxAgeMs (default 7 days). The
 // hard DELETE cascades their links. Runs once per session.
-export function purgeTrashedWidgets(maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
+export function purgeTrashedWidgets(maxAgeMs = OWN_TRASH_RETENTION_MS): void {
   const db = getDb()
-  const cutoff = Date.now() - maxAgeMs
+  // A widget deleted elsewhere is kept 30 days (trashRetention.ts).
+  const [elsewhereCutoff, cutoff] = purgeCutoffs(Date.now(), maxAgeMs)
   // Except the instances a trashed work widget file took with it: restoring the
   // file from Trash puts them back where they were, for as long as the file
   // sits in Trash (documents have no age-out). Purging the file purges them.
-  db.prepare(
-    `DELETE FROM widgets WHERE trashed_at IS NOT NULL AND trashed_at < ?
+  const which = `trashed_at IS NOT NULL AND ${pastRetentionSql()}
        AND NOT (sync_group_id LIKE 'wf:%' AND EXISTS (
          SELECT 1 FROM documents d
           WHERE d.id = substr(widgets.sync_group_id, 4) AND d.trashed_at = widgets.trashed_at))`
-  ).run(cutoff)
+  // A trash whose delete never went up owes the server its tombstone (4.3.55).
+  const ids = (db.prepare(`SELECT id FROM widgets WHERE ${which}`).all(elsewhereCutoff, cutoff) as Array<{ id: string }>).map((r) => r.id)
+  queueTombstones(db, 'widget', ids)
+  db.prepare(`DELETE FROM widgets WHERE ${which}`).run(elsewhereCutoff, cutoff)
 }
 
 export function bringToFront(id: string): Widget | null {

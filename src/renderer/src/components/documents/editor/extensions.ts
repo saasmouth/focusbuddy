@@ -23,6 +23,7 @@ import Superscript from '@tiptap/extension-superscript'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
+import { inWidgetHost } from '../../../lib/widgetHost'
 import CharacterCount from '@tiptap/extension-character-count'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { TableKit } from '@tiptap/extension-table'
@@ -177,7 +178,8 @@ export function buildDocExtensions(opts: BuildOptions = {}): AnyExt[] {
     exts.push(
       ResizableImage.configure({ inline: false, allowBase64: true }) as AnyExt,
       Placeholder.configure({
-        placeholder: 'Write something, press "/" for commands, or use Ask AI…'
+        // The widget host has no AI (lib/widgetHost), so it does not point at one.
+        placeholder: inWidgetHost() ? 'Write something, or press "/" for commands…' : 'Write something, press "/" for commands, or use Ask AI…'
       }),
       CharacterCount as AnyExt,
       SlashCommand as AnyExt,

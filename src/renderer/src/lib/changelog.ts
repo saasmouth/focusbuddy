@@ -38,6 +38,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.56',
+    date: '2026-11-25T10:47:00Z',
+    title: 'PlexiiDesk 4.3.56 — a click into a PDF keeps your typing there',
+    tag: 'fix',
+    summary:
+      'Three fixes: clicking into a PDF on a desk keeps your typing in the PDF, a Plexii link opened while the app is starting now opens, and deleting a desk on a computer that keeps its workspace local turns off the links you made for it while signed in.',
+    highlights: [
+      'Clicking into a PDF on a desk now keeps the keyboard there. Typing, and ⌘Z, go to the PDF instead of the desk.',
+      'A Plexii link opened while the app is still starting, such as a sign-in, a share link or a meeting, now opens. Before, it could do nothing.',
+      'On a computer that keeps its workspace local, deleting a desk now turns off the share links you made for it while signed in.'
+    ]
+  },
+  {
+    version: '4.3.55',
+    date: '2026-11-24T04:10:00Z',
+    title: 'PlexiiDesk 4.3.55 — what is deleted on another device waits in your Trash',
+    tag: 'feature',
+    summary:
+      'When something is deleted on another of your devices, or by someone you work with, it now waits in this device\'s Trash for 30 days, and you can bring it back everywhere.',
+    highlights: [
+      'Trash now lists what was deleted on your other devices or by people you work with: work widgets, tables, rows, time blocks, files and Office documents, with where each one was. It keeps them for 30 days.',
+      'Restore brings it back on all your devices, and for the people you share it with. Delete for good removes only the copy on this device.',
+      'If something on the desk you have open is deleted somewhere else, a short message says so, with Restore, and Trash in the side menu shows a dot until you open it.',
+      'Turning off a share link you made while signed in now really stops it working. Some links you turned off before this update could still be opened: Plexii turns them off the next time you sign in, and tells you if one still works.',
+      'Starting a desk no longer sends it to AI unless Background AI tasks is on.'
+    ]
+  },
+  {
     version: '4.3.54',
     date: '2026-11-20T06:00:00Z',
     title: 'PlexiiDesk 4.3.54 — open Plexii files from Finder, and edits are kept when a work widget closes',

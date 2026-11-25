@@ -66,6 +66,7 @@ import { officeAccepts } from '../../lib/officeSnippets'
 import { pastedSnippet } from '../../lib/clipboardPaste'
 import type { SnippetKind } from '@shared/snippets'
 import { EmbedDisplayWriterContext, EmbedRemoveContext, type EmbedDisplayWriter, type EmbedRemover } from '../../lib/widgetSurface'
+import { readingControl } from '../../lib/widgetSurface'
 
 // PowerPoint-class slides editor on the office shell (SPEC §6.4). The deck is
 // held as v2 (element-based) in local state; legacy decks migrate on mount. The
@@ -1136,6 +1137,8 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             {slides.map((s, i) => (
               <div key={s.id} className="group relative">
                 <button
+                  // Read-only, moving between slides is reading (lib/widgetSurface).
+                  {...(readOnly ? readingControl : {})}
                   onClick={() => { setSel(i); setSelectedIds([]) }}
                   className={`block w-full rounded-md overflow-hidden border-2 ${i === slideIdx ? 'border-accent' : 'border-[var(--edge-soft)]'}`}
                   aria-label={`Slide ${i + 1}`}
@@ -1218,6 +1221,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
             panes={[
               {
                 id: 'ai',
+                ai: true,
                 title: 'PlexiiAssist',
                 icon: 'auto_awesome',
                 testid: 'slides-ai-assistant',
@@ -1225,6 +1229,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               },
               {
                 id: 'generate',
+                ai: true,
                 title: 'Generate deck',
                 icon: 'slideshow',
                 testid: 'slides-ai-generate',
@@ -1372,7 +1377,9 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               a single-slide session: a slide snippet is a fragment of elements
               with nowhere to keep notes, so a notes box there would take text a
               successful Save then drops. */}
-          {!singleSlide && <div className="max-w-3xl mx-auto mt-3">
+          {/* Read-only, a slide's notes are shown when it has some, and nothing
+              invites typing when it has none. */}
+          {!singleSlide && !(readOnly && !slide.notes) && <div className="max-w-3xl mx-auto mt-3">
             <label htmlFor="slides-notes" className="block text-[11px] uppercase tracking-wide text-[var(--ink-40)] mb-1">Speaker notes</label>
             <textarea
               id="slides-notes"
@@ -1382,7 +1389,7 @@ export default function SlidesEditor({ body: rawBody, title, onChange, readOnly 
               onChange={(e) => mutateSlide((s) => ({ ...s, notes: e.target.value }))}
               readOnly={readOnly}
               rows={2}
-              placeholder="What to actually say on this slide"
+              placeholder={readOnly ? undefined : 'What to actually say on this slide'}
               className="fb-field w-full bg-[var(--surface-raised)] px-3 py-2 text-[13px] resize-none"
             />
           </div>}

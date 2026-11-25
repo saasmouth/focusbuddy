@@ -223,6 +223,32 @@ test('FD-4b a moment after a PDF lands on the desk, ⌘Z still belongs to the de
   await expect.poll(async () => (await deskWidgets(window, seed.taskId)).length, { timeout: 5_000 }).toBe(before)
 })
 
+test('FD-4c a click into a loaded PDF gives it the keys, and the guard leaves that alone', async () => {
+  // The guard undoes the focus the PDF viewer takes by itself on load. It told
+  // that apart from a click by the pointer being over the frame, but the PDF
+  // viewer is a frame in its own process and no pointer event over it reaches
+  // the page (1a, PlexiiLite, 24 Nov 2026), so a real click looked like the
+  // viewer's own grab and was undone: typing into a PDF went to the desk.
+  test.setTimeout(90_000)
+  const { window, seed } = await boot()
+  const before = (await deskWidgets(window, seed.taskId)).length
+  await dragRows(window, [seed.ids.pdf], CANVAS_AT)
+  await expect.poll(async () => (await deskWidgets(window, seed.taskId)).length, { timeout: 5_000 }).toBe(before + 1)
+  const frame = window.locator('[data-testid="file-pdf-frame"]')
+  await expect(frame).toBeVisible({ timeout: 10_000 })
+  // Past the viewer's own grab, and past any window the guard allows it.
+  await window.waitForTimeout(2500)
+  const box = (await frame.boundingBox())!
+  await window.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 })
+  await window.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  await window.waitForTimeout(600)
+  expect(await window.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null), 'the PDF keeps the focus it was clicked into').toBe('file-pdf-frame')
+  // And the keys go to it: ⌘Z is the PDF's, not the desk's (the drop stays).
+  await window.keyboard.press('Meta+z')
+  await window.waitForTimeout(800)
+  expect((await deskWidgets(window, seed.taskId)).length).toBe(before + 1)
+})
+
 async function toWorkcentre(window: Page): Promise<void> {
   // Pinned, so the Workcentre starts right of the panel and no tile is under it.
   const pin = window.locator('[data-testid="files-panel-pin"]')

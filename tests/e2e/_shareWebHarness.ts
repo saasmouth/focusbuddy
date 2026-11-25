@@ -84,6 +84,13 @@ export interface Handoff {
   secret?: string
 }
 
+/** A desk share tracker beacon the page sent (src/web/api/shareTracking.ts). */
+export interface Beacon {
+  token: string
+  contentType: string
+  body: { event?: string; visitorId?: string; platform?: string; [k: string]: unknown }
+}
+
 export interface ShareWeb {
   browser: Browser
   context: BrowserContext
@@ -92,6 +99,8 @@ export interface ShareWeb {
   downloads: string[]
   /** Handoffs the page sent Signal (POST and PUT). */
   handoffs: Handoff[]
+  /** The tracker's beacons (POST /share/:token/track). */
+  beacons: Beacon[]
   /** Requests that would have left this machine, refused. */
   escaped: string[]
   /** Page errors (uncaught exceptions). */
@@ -116,7 +125,7 @@ export function assertWebBuild(): void {
     throw new Error('out/web is missing: build the share page first with  VITE_WEB_BASE=/share/ npm run web:build')
   }
   const built = statSync(index).mtimeMs
-  for (const f of ['src/web/boot.tsx', 'src/web/api/readOnly.ts', 'src/web/api/shareGate.ts', 'src/web/api/deskHandoff.ts', 'src/renderer/src/App.tsx']) {
+  for (const f of ['src/web/boot.tsx', 'src/web/api/readOnly.ts', 'src/web/api/shareGate.ts', 'src/web/api/deskHandoff.ts', 'src/web/api/shareTracking.ts', 'src/renderer/src/App.tsx']) {
     const p = join(__dirname, '..', '..', f)
     if (existsSync(p) && statSync(p).mtimeMs > built) {
       throw new Error(`out/web is older than ${f}: rebuild with  VITE_WEB_BASE=/share/ npm run web:build`)
@@ -132,6 +141,8 @@ export async function openShareWeb(opts: {
   liveBundle?: boolean
   /** The desk's workspace: a team's org id, as a desk in a team workspace carries. */
   orgId?: string
+  /** The tracker's endpoint failing: a server error, or no answer at all. */
+  trackFails?: 'error' | 'abort'
 } = {}): Promise<ShareWeb> {
   const browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({
@@ -142,7 +153,7 @@ export async function openShareWeb(opts: {
   })
   const page = await context.newPage()
   const out: ShareWeb = {
-    browser, context, page, downloads: [], handoffs: [], escaped: [], errors: [],
+    browser, context, page, downloads: [], handoffs: [], beacons: [], escaped: [], errors: [],
     close: async () => { await browser.close() },
     bumpLive: (note: string) => {
       live.version += 1000
@@ -211,6 +222,19 @@ export async function openShareWeb(opts: {
       }
       if (url.pathname === '/public/server-features') {
         return json(200, { ok: true, serverFeatures: opts.serverHandoff === false ? [] : ['desk_handoff'] })
+      }
+      const tracked = /^\/share\/([^/]+)\/track$/.exec(url.pathname)
+      if (tracked && req.method() === 'POST') {
+        let body: Beacon['body'] = {}
+        try {
+          body = JSON.parse(req.postData() ?? '{}')
+        } catch {
+          body = { unparsable: req.postData() }
+        }
+        out.beacons.push({ token: decodeURIComponent(tracked[1]), contentType: req.headers()['content-type'] ?? '', body })
+        if (opts.trackFails === 'abort') return route.abort('failed')
+        if (opts.trackFails === 'error') return json(500, { ok: false, error: 'server_error' })
+        return route.fulfill({ status: 204, body: '' })
       }
       if (url.pathname === '/desk-handoffs' && req.method() === 'POST') {
         handoffCount++

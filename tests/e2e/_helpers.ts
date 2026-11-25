@@ -141,6 +141,9 @@ export async function launchApp(opts?: {
   async function dispose(): Promise<void> {
     // What the clipboard guard refused, read while the app is still up.
     const clipboardRefused = guardClipboard ? await clipboardGuardViolations(app) : []
+    // Tell the net guard the app is closing: a request the window makes as it
+    // goes away is teardown, cancelled but not a failure (_netGuardMain.cjs).
+    await app.evaluate(() => (globalThis as { __plexiiNetGuardClosing?: () => boolean }).__plexiiNetGuardClosing?.()).catch(() => undefined)
     // app.close() on Electron 37 / macOS can hang indefinitely when the
     // inspector remains attached. Race it against a 5 s timeout and fall back
     // to SIGKILL so tests don't exhaust the 30 s afterEach budget.

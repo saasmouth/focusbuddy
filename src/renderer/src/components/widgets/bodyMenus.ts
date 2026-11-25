@@ -18,6 +18,7 @@ import type { CtxMenuItem } from '../CanvasContextMenu'
 import { MENU } from '@shared/menus/lexicon'
 import { shortcutLabel, type ShortcutKeys } from '@shared/menus/shortcuts'
 import { FIELD_TYPE_ICONS, FIELD_TYPE_LABELS, type FieldType } from '@shared/fields'
+import { inWidgetHost } from '../../lib/widgetHost'
 
 /** The platform hint formatter's input: `window.api.platform` in the app. */
 export function menuPlatform(): string {
@@ -314,14 +315,18 @@ export function mindMapNodeMenuItems(m: MindMapNodeMenuInput, a: MindMapNodeMenu
   const object: CtxMenuItem[] = [{ label: 'Add child', icon: 'subdirectory_arrow_right', testid: 'mindmap-menu-add-child', onClick: a.addChild }]
   if (!m.isRoot) object.push({ label: 'Add sibling', icon: 'add', testid: 'mindmap-menu-add-sibling', onClick: a.addSibling })
   if (!m.isViewRoot) object.push({ label: 'Zoom into this branch', icon: 'zoom_in', testid: 'mindmap-menu-drill', onClick: a.drillIn })
-  object.push({
-    label: 'Expand with AI',
-    icon: 'auto_awesome',
-    testid: 'mindmap-menu-expand',
-    disabled: m.busy,
-    hint: m.busy ? 'Already working on this map' : undefined,
-    onClick: a.expand
-  })
+  // Not in the widget host (lib/widgetHost): no AI is reachable there, and a
+  // row that cannot work is not offered.
+  if (!inWidgetHost()) {
+    object.push({
+      label: 'Expand with AI',
+      icon: 'auto_awesome',
+      testid: 'mindmap-menu-expand',
+      disabled: m.busy,
+      hint: m.busy ? 'Already working on this map' : undefined,
+      onClick: a.expand
+    })
+  }
   const destructive: CtxMenuItem[] = m.isRoot
     ? []
     : [{ label: MENU.delete.label, icon: 'delete', danger: true, testid: 'mindmap-menu-delete', onClick: a.remove }]

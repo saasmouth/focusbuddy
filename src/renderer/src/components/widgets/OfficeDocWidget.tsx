@@ -12,6 +12,7 @@ import { anchorToPersist } from '../documents/editor/commentWriteBack'
 import DocumentConflictBar from '../documents/DocumentConflictBar'
 import { docTypeForOfficeKind } from '../../lib/officeDocKinds'
 import { sameDocBody } from '../../lib/docBodyEqual'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 import type { MapBody, SheetBody, SlidesBody } from '@shared/types'
 
 // A document / spreadsheet / slide deck living on the canvas as a native widget.
@@ -39,6 +40,8 @@ const TYPE_META: Record<DocType, { label: string; accent: string }> = {
 
 export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.Element {
   const docType: DocType = docTypeForOfficeKind(widget.kind) ?? 'doc'
+  // A viewer (the widget host's read-only tile): each editor's own read-only mode.
+  const readOnly = useWidgetReadOnly()
   const updateWidget = useWidgetStore((s) => s.update)
   const [doc, setDoc] = useState<FbDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -383,6 +386,7 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
         title={doc.title}
         onChange={saveBody}
         documentOps={documentOps}
+        readOnly={readOnly}
       />
     )
   } else if (docType === 'sheet') {
@@ -394,16 +398,17 @@ export default function OfficeDocWidget({ widget, inline = false }: Props): JSX.
         title={doc.title}
         onChange={saveBody}
         documentOps={documentOps}
+        readOnly={readOnly}
       />
     )
   } else if (docType === 'slides') {
-    body = <SlidesEditor onDesk key={`${doc.id}:${bodyEpoch}`} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <SlidesEditor onDesk key={`${doc.id}:${bodyEpoch}`} body={doc.body as SlidesBody} title={doc.title} onChange={saveBody} documentOps={documentOps} readOnly={readOnly} />
   } else if (docType === 'design') {
-    body = <DesignEditor onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <DesignEditor onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} readOnly={readOnly} />
   } else if (docType === 'draw') {
-    body = <DrawStudio onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <DrawStudio onDesk key={`${doc.id}:${bodyEpoch}`} content={doc.body} title={doc.title} onChange={saveBody} documentOps={documentOps} readOnly={readOnly} />
   } else {
-    body = <MapEditor onDesk key={`${doc.id}:${bodyEpoch}`} body={doc.body as MapBody} title={doc.title} onChange={saveBody} documentOps={documentOps} />
+    body = <MapEditor onDesk key={`${doc.id}:${bodyEpoch}`} body={doc.body as MapBody} title={doc.title} onChange={saveBody} documentOps={documentOps} readOnly={readOnly} />
   }
 
   // Stop right-clicks (and the editors' own context menus, e.g. the sheet column

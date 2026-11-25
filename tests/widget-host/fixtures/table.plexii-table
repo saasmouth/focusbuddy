@@ -1,0 +1,36 @@
+{
+  "type": "plexii.widget.table",
+  "version": 1,
+  "title": "Test table",
+  "kind": "table",
+  "content": "",
+  "color": null,
+  "table": {
+    "title": "Prices",
+    "columns": [
+      {
+        "id": "c1",
+        "type": "text-short",
+        "label": "Item",
+        "config": {}
+      },
+      {
+        "id": "c2",
+        "type": "number",
+        "label": "Price",
+        "config": {}
+      }
+    ],
+    "rows": [
+      {
+        "c1": "Tea",
+        "c2": 4
+      },
+      {
+        "c1": "Milk",
+        "c2": 2
+      }
+    ]
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

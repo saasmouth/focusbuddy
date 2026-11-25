@@ -1,0 +1,30 @@
+{
+  "type": "plexii.document.draw",
+  "version": 1,
+  "title": "Test draw",
+  "docType": "draw",
+  "body": {
+    "schemaVersion": 1,
+    "width": 1920,
+    "height": 1080,
+    "background": {
+      "type": "solid",
+      "color": "#ffffff"
+    },
+    "layers": [
+      {
+        "id": "lyr-mwo964le-1",
+        "kind": "vector",
+        "name": "Layer 1",
+        "visible": true,
+        "locked": false,
+        "opacity": 1,
+        "blend": "normal",
+        "objects": []
+      }
+    ],
+    "activeLayerId": "lyr-mwo964le-1",
+    "dpi": 72
+  },
+  "exportedAt": "2026-11-20T00:00:00.000Z"
+}

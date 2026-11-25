@@ -20,6 +20,7 @@ import FontPicker from '../editor/FontPicker'
 import type { SlideElement, SlideTextElement } from '@shared/types'
 import { BASE_LAYER_ID, type DesignBody } from '@shared/design'
 import { LAYOUT_STYLES } from '@shared/designAutoLayout'
+import { offeredHere } from '../../../lib/widgetHost'
 
 // PlexiiDesign's ContextBar tabs (office shell SPEC §2.3, §6.3).
 //
@@ -254,7 +255,7 @@ const insertTab: BarTab<DesignCtx> = {
       <BarGroup label="From a library">
         <BarDialogButton icon="photo_library" label="Stock photos…" onOpen={() => c.cmd.openPanel('stock')} testid="design-stock-btn" />
         <BarDialogButton icon="dashboard_customize" label="Templates…" onOpen={() => c.cmd.openPanel('templates')} testid="design-templates-open" />
-        <BarDialogButton {...barProps(c.cmds.insertSnippet)} onOpen={c.cmds.insertSnippet.run} testid="design-insert-snippet" />
+        {offeredHere(c.cmds.insertSnippet.id) && <BarDialogButton {...barProps(c.cmds.insertSnippet)} onOpen={c.cmds.insertSnippet.run} testid="design-insert-snippet" />}
       </BarGroup>
       <span className="shrink-0 px-1.5 text-[11px] text-[var(--ink-50)]">
         Text, shapes and lines are tools on the left: pick one, then click or drag on the page.
@@ -292,7 +293,7 @@ const arrangeTab: BarTab<DesignCtx> = {
           <BarButton {...barProps(c.cmds.ungroup)} onClick={c.cmds.ungroup.run} testid="design-ungroup" />
           <BarButton {...barProps(c.cmds.bringForward)} onClick={c.cmds.bringForward.run} testid="design-order-forward" />
           <BarButton {...barProps(c.cmds.sendBackward)} onClick={c.cmds.sendBackward.run} testid="design-order-back" />
-          <BarDialogButton {...barProps(c.cmds.saveSnippet)} onOpen={c.cmds.saveSnippet.run} testid="design-save-snippet" />
+          {offeredHere(c.cmds.saveSnippet.id) && <BarDialogButton {...barProps(c.cmds.saveSnippet)} onOpen={c.cmds.saveSnippet.run} testid="design-save-snippet" />}
         </BarGroup>
         <BarSep />
         <BarGroup label="Layer and wrap">

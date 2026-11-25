@@ -63,6 +63,12 @@ export interface NetViolation {
 export interface NetGuard {
   /** Every production contact the guard refused (or, allowlisted, let through). */
   violations: NetViolation[]
+  /**
+   * Renderer requests made as the app was being disposed, from a window already
+   * gone (_netGuardMain.cjs 'teardown'). Cancelled like any other, but not a
+   * failure: the spec's routes could no longer apply to them.
+   */
+  teardown: NetViolation[]
   /** Signed-out boot calls the guard answered locally instead (see LOCAL_SIGNAL). */
   answeredLocally: string[]
   /** True when the spec is in _netGuardAllowlist.ts. */
@@ -174,6 +180,7 @@ export async function launchGuarded(
   const logFile = join(dir, 'main.jsonl')
 
   const violations: NetViolation[] = []
+  const teardown: NetViolation[] = []
   const answeredLocally: string[] = []
   const seen = new Set<string>()
   let reported = 0
@@ -206,8 +213,9 @@ export async function launchGuarded(
     const lines = raw.split('\n')
     for (let i = consumed; i < lines.length - 1; i++) {
       try {
-        const r = JSON.parse(lines[i]) as { stack: string; url: string }
-        report({ stack: r.stack, url: r.url })
+        const r = JSON.parse(lines[i]) as { stack: string; url: string; teardown?: boolean }
+        if (r.teardown) teardown.push({ stack: r.stack, url: r.url })
+        else report({ stack: r.stack, url: r.url })
       } catch {
         /* partial line */
       }
@@ -323,6 +331,7 @@ export async function launchGuarded(
 
   const guard: NetGuard = {
     violations,
+    teardown,
     answeredLocally,
     allowed,
     assertClean: () => {

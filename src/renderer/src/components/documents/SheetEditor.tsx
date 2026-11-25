@@ -104,6 +104,8 @@ import {
   suggestedSheetSnippetName,
   useCellsSnippetTarget
 } from './sheet/cellsSnippets'
+import { inWidgetHost } from '../../lib/widgetHost'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // A work widget dropped on the grid: this wide, as tall as its content.
 const EMBED_BOX = { w: 320, h: 220, maxH: 520 }
@@ -274,6 +276,9 @@ function computeFuncMenu(value: string): FuncMenu | null {
 }
 
 export default function SheetEditor({ body: rawBody, title, onChange, documentOps, readOnly = false, onDesk = false }: Props): JSX.Element {
+  // The widget host's read-only tile (lib/widgetSurface), as opposed to a
+  // co-editor who may only view: no cell can be selected there.
+  const viewer = useWidgetReadOnly()
   const [body, setBody] = useState<SheetBodyV2>(() => normalizeBody(rawBody))
   // Accept live external updates (co-editing): when the body prop changes to a
   // new version, fold it into the grid. We deliberately do NOT touch the active
@@ -1805,7 +1810,7 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
       onAiOpen={setAiPanelOpen}
       renderAssistant={() => <SheetAiPanel ai={sheetAi} onImportSource={importFile} />}
       bottom={
-        <SheetTabStrip body={body} onSwitch={switchTab} onAdd={addTab} onRename={renameTab} onDelete={deleteTab} />
+        <SheetTabStrip body={body} onSwitch={switchTab} onAdd={addTab} onRename={renameTab} onDelete={deleteTab} readOnly={readOnly} />
       }
     >
       {/* The grid. `min-w-0` matters and is not decoration: SPEC §6 wants it
@@ -1833,7 +1838,10 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             />
           </div>
         )}
-        {/* Formula bar */}
+        {/* Formula bar. Read-only it shows the cell and changes nothing; in a
+            viewer (the widget host's read-only tile, where no cell can be
+            selected) it is not drawn at all. */}
+        {!viewer && (
         <div className="flex items-center gap-2 mb-2 shrink-0">
           <span className="text-[11px] font-mono text-[var(--ink-40)] w-12 text-center shrink-0">
             {colLabel(focus.c)}
@@ -1841,19 +1849,24 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
           </span>
           <input
             value={activeRaw}
+            readOnly={readOnly}
             onChange={(e) => mutateTab((t) => setCell(t, focus.r, focus.c, e.target.value))}
-            placeholder="Select a cell. Start with = for a formula, e.g. =SUM(A2:A9)"
+            placeholder={readOnly ? undefined : 'Select a cell. Start with = for a formula, e.g. =SUM(A2:A9)'}
             className="fb-field flex-1 px-3 py-1.5 text-[13px] font-mono"
           />
-          <button
-            onClick={() => setFormulaAiOpen((v) => !v)}
-            data-testid="sheet-formula-ai-btn"
-            title="Ask AI to write a formula"
-            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/[0.06] text-accent px-2.5 py-1.5 text-[12px] hover:bg-accent/[0.12]"
-          >
-            <Icon name="function" size={13} />
-            AI
-          </button>
+          {/* No AI in the widget host (lib/widgetHost). */}
+          {!inWidgetHost() && (
+            <button
+              onClick={() => setFormulaAiOpen((v) => !v)}
+              data-testid="sheet-formula-ai-btn"
+              title="Ask AI to write a formula"
+              className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/[0.06] text-accent px-2.5 py-1.5 text-[12px] hover:bg-accent/[0.12]"
+            >
+              <Icon name="function" size={13} />
+              AI
+            </button>
+          )}
+          {!readOnly && (
           <button
             onClick={openNames}
             data-testid="sheet-names-toggle"
@@ -1867,7 +1880,9 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
             <Icon name="label" size={13} />
             Names
           </button>
+          )}
         </div>
+        )}
 
         {namesOpen && (
           <div
@@ -2337,12 +2352,14 @@ export default function SheetEditor({ body: rawBody, title, onChange, documentOp
           />
         )}
 
-        <button
-          onClick={() => mutateTab((t) => addRow(t))}
-          className="mt-2 text-[12px] text-[var(--ink-50)] hover:text-accent inline-flex items-center gap-1"
-        >
-          <Icon name="add" size={14} /> Add row
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => mutateTab((t) => addRow(t))}
+            className="mt-2 text-[12px] text-[var(--ink-50)] hover:text-accent inline-flex items-center gap-1"
+          >
+            <Icon name="add" size={14} /> Add row
+          </button>
+        )}
 
         {/* Charts */}
         {(tab.charts ?? []).length > 0 && (

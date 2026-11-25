@@ -46,17 +46,25 @@ export function storageMode(): { mode: 'persistent' | 'memory'; reason: string |
  * Load WASM and open the database. Must be awaited once before getDb is
  * reachable -- the Worker entry does this before it will answer any call.
  */
-export async function openWorkspaceDatabase(): Promise<void> {
+export async function openWorkspaceDatabase(opts: { memoryOnly?: boolean } = {}): Promise<void> {
   if (db) return
   await initSqlite()
   let handle: SqliteDb
-  try {
-    handle = await openDatabase(DB_NAME)
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err)
-    console.warn('[sqlite] durable storage refused, opening in memory for this page only:', reason)
+  if (opts.memoryOnly) {
+    // The widget host (worker/hostMode.ts): one file's rows, for this page
+    // only. OPFS is never asked -- not even to fail -- because the file on disk
+    // is the only copy and the browser's storage must not keep another.
     handle = openMemoryDatabase()
-    mode = { mode: 'memory', reason }
+    mode = { mode: 'memory', reason: 'widget host: the file is the only copy' }
+  } else {
+    try {
+      handle = await openDatabase(DB_NAME)
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      console.warn('[sqlite] durable storage refused, opening in memory for this page only:', reason)
+      handle = openMemoryDatabase()
+      mode = { mode: 'memory', reason }
+    }
   }
   handle.pragma('foreign_keys = ON')
   // WAL is deliberately not set: the OPFS pool VFS is single-connection, so WAL

@@ -9,6 +9,7 @@ import MentionText from '../../views/chat/MentionText'
 import type { DocAi } from './useDocAi'
 import AnsweredBy from '../../ai/AnsweredBy'
 import type { SidePane } from '../../office/shell'
+import { offeredHere } from '../../../lib/widgetHost'
 
 // The persistent right-side panel for PlexiDocs. Three tabs share one column:
 //   AI Assistant - a greeting plus quick actions over the real AI hook
@@ -642,6 +643,7 @@ export function docSidePanes(p: Omit<Props, 'tab' | 'onTab' | 'onCollapse'>): Si
   if (p.showAiTab ?? true) {
     panes.push({
       id: 'ai',
+      ai: true,
       title: 'PlexiiAssist',
       icon: 'auto_awesome',
       tabTestid: 'doc-tab-ai',
@@ -652,7 +654,7 @@ export function docSidePanes(p: Omit<Props, 'tab' | 'onTab' | 'onCollapse'>): Si
       )
     })
   }
-  panes.push({
+  if (offeredHere('doc-comments')) panes.push({
     id: 'comments',
     title: 'Comments',
     icon: 'comment',

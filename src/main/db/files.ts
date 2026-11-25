@@ -10,6 +10,8 @@ import type { FbFile, FileEntry } from '@shared/fields'
 // Import cycle by design (widgetFiles files its documents through fileDocument);
 // both sides only call each other at runtime.
 import { updateWidgetFile } from './widgetFiles'
+import { OWN_TRASH_RETENTION_MS, pastRetentionSql, purgeCutoffs } from './trashRetention'
+import { queueTombstones } from './tombstoneQueue'
 
 interface FileRow {
   id: string
@@ -575,6 +577,7 @@ export function purgeEntry(id: string): boolean {
       void fileBlobs.remove(r.id, r.ext)
     }
   }
+  queueTombstones(db, 'file', ids) // a delete that never went up still goes (4.3.55)
   const del = db.prepare('DELETE FROM fb_files WHERE id = ?')
   db.transaction(() => {
     for (const i of ids) del.run(i)
@@ -612,18 +615,20 @@ export function searchEntries(query: string): FileEntry[] {
 
 // Permanently remove entries trashed longer than maxAgeMs (default 7 days),
 // unlinking their stored blobs. Runs once per session on first listing.
-export function purgeOldTrash(maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
+export function purgeOldTrash(maxAgeMs = OWN_TRASH_RETENTION_MS): void {
   const db = getDb()
-  const cutoff = Date.now() - maxAgeMs
+  // A file deleted elsewhere is kept 30 days, its bytes with it (trashRetention.ts).
+  const [elsewhereCutoff, cutoff] = purgeCutoffs(Date.now(), maxAgeMs)
   const rows = db
-    .prepare('SELECT id, kind, ext FROM fb_files WHERE trashed_at IS NOT NULL AND trashed_at < ?')
-    .all(cutoff) as Array<{ id: string; kind: string; ext: string }>
+    .prepare(`SELECT id, kind, ext FROM fb_files WHERE trashed_at IS NOT NULL AND ${pastRetentionSql()}`)
+    .all(elsewhereCutoff, cutoff) as Array<{ id: string; kind: string; ext: string }>
   if (!rows.length) return
   for (const r of rows) {
     if (r.kind === 'file') {
       void fileBlobs.remove(r.id, r.ext)
     }
   }
+  queueTombstones(db, 'file', rows.map((r) => r.id)) // a delete that never went up still goes (4.3.55)
   const del = db.prepare('DELETE FROM fb_files WHERE id = ?')
   db.transaction(() => {
     for (const r of rows) del.run(r.id)

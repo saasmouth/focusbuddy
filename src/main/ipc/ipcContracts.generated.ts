@@ -386,6 +386,8 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'trail:recent': [{ kind: 'string', optional: false, nullable: true }, { kind: 'number', optional: false, nullable: false }, { kind: 'number', optional: false, nullable: false }],
   'trail:record': [{ kind: 'object', optional: false, nullable: false }],
   'trail:summarize': [{ kind: 'string', optional: false, nullable: true }, { kind: 'number', optional: false, nullable: false }],
+  'trash:deleteForeverDeletedElsewhere': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
+  'trash:restoreDeletedElsewhere': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'vault:changeMasterPassword': [{ kind: 'string', optional: false, nullable: false }, { kind: 'string', optional: false, nullable: false }],
   'vault:create': [{ kind: 'string', optional: false, nullable: false }],
   'vault:createEntry': [{ kind: 'object', optional: false, nullable: false }],

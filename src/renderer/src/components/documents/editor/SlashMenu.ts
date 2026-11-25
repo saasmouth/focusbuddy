@@ -8,6 +8,7 @@ import Suggestion from '@tiptap/suggestion'
 import { ReactRenderer } from '@tiptap/react'
 import SlashMenuList from './SlashMenuList'
 import type { SlashItem, SlashListHandle } from './SlashMenuList'
+import { offeredHere } from '../../../lib/widgetHost'
 
 const ITEMS: SlashItem[] = [
   { title: 'Heading 1', subtitle: 'Large section title', icon: 'title', command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 1 }).run() },
@@ -26,6 +27,7 @@ const ITEMS: SlashItem[] = [
   // callbacks (e.g. a headless/preview mount) simply no-ops instead of throwing.
   {
     title: 'Insert work widget from a desk',
+    commandId: 'doc-insert-widget',
     subtitle: 'Embed a live work widget',
     icon: 'widgets',
     command: ({ editor, range }) => {
@@ -35,6 +37,7 @@ const ITEMS: SlashItem[] = [
   },
   {
     title: 'Insert office file',
+    commandId: 'doc-insert-doc',
     subtitle: 'Embed a document, sheet or slides',
     icon: 'description',
     command: ({ editor, range }) => {
@@ -44,6 +47,7 @@ const ITEMS: SlashItem[] = [
   },
   {
     title: 'Insert saved snippet',
+    commandId: 'doc-insert-snippet',
     subtitle: 'A reusable block from your library, as a copy or live',
     icon: 'bookmarks',
     command: ({ editor, range }) => {
@@ -52,6 +56,19 @@ const ITEMS: SlashItem[] = [
     }
   }
 ]
+
+/**
+ * What "/" offers for what has been typed after it. An item that is a ribbon
+ * command is offered only where the ribbon offers it (offeredHere): in the
+ * widget host a saved snippet, a desk's widget or another Office file has
+ * nothing behind it, so "/" does not offer them either.
+ */
+export function slashItems(query: string): SlashItem[] {
+  const q = query.toLowerCase()
+  return ITEMS.filter(
+    (i) => (!i.commandId || offeredHere(i.commandId)) && (i.title.toLowerCase().includes(q) || i.subtitle.toLowerCase().includes(q))
+  )
+}
 
 // Callbacks the host DocEditor registers so the "/" menu can open its React
 // pickers. Null when unset (headless/preview mounts).
@@ -84,12 +101,7 @@ export const SlashCommand = Extension.create({
       Suggestion({
         editor: this.editor,
         ...this.options.suggestion,
-        items: ({ query }: { query: string }): SlashItem[] => {
-          const q = query.toLowerCase()
-          return ITEMS.filter(
-            (i) => i.title.toLowerCase().includes(q) || i.subtitle.toLowerCase().includes(q)
-          )
-        },
+        items: ({ query }: { query: string }): SlashItem[] => slashItems(query),
         render: () => {
           let component: ReactRenderer<SlashListHandle> | null = null
           let popup: HTMLDivElement | null = null

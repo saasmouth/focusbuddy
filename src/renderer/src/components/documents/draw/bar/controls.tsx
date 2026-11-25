@@ -20,6 +20,7 @@ import type { DrawDocPaint as DrawPaint, DrawDoc } from '@shared/draw/model'
 import { commandById } from '../commands/registry'
 import { commandShortcutLabel } from '../commands/keys'
 import type { EditorCtx, EditorState } from '../editor/types'
+import { offeredHere } from '../../../../lib/widgetHost'
 
 /** The editor state, subscribed: a tab re-renders whenever anything it may read changes. */
 export function useEditor(ctx: EditorCtx): EditorState {
@@ -63,7 +64,8 @@ export function offReason(id: string, ctx: EditorCtx): string {
   return c?.pending ?? c?.disabledReason?.(ctx) ?? 'not available for this selection'
 }
 
-export function CmdButton({ ctx, id, icon, label, showLabel, args, readOnlySafe, testid }: CmdProps): JSX.Element {
+export function CmdButton({ ctx, id, icon, label, showLabel, args, readOnlySafe, testid }: CmdProps): JSX.Element | null {
+  if (!offeredHere(id)) return null
   const c = commandById(id)
   const on = canRun(ctx, id)
   return (

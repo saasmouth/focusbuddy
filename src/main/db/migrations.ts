@@ -811,6 +811,29 @@ export function applySchemaAndMigrations(db: Database.Database): NodesKindMigrat
     CREATE INDEX IF NOT EXISTS idx_node_relations_org ON fb_node_relations(org_id);
   `)
   migratePlanFlag(db)
+  // 4.3.55: when a delete arrives by sync (made on another device, or by a
+  // collaborator), the row is stamped, so the Trash can list it, label it and
+  // keep it 30 days (syncTrash.ts). This is this device's knowledge, not the
+  // item's: it never travels (SYNC_COLS in workspaceSync.ts). Additive and
+  // nullable, so no MIGRATION_VERSION bump, as with the columns added since v3.
+  // deleted_by_name: who, when an org pull says (the signal's display name for the
+  // deleter, never an email); also this device's knowledge only.
+  for (const t of ['nodes', 'widgets', 'time_blocks', 'documents', 'fb_tables', 'fb_rows', 'fb_files']) {
+    ensureColumn(db, t, 'deleted_elsewhere_at', 'INTEGER')
+    ensureColumn(db, t, 'deleted_by_name', 'TEXT')
+  }
+  // Tombstones a hard delete still owes the server (tombstoneQueue.ts): the kind,
+  // the id, where it syncs and its rev. Never content.
+  db.exec(`CREATE TABLE IF NOT EXISTS pending_tombstones (
+    item_type TEXT NOT NULL,
+    id TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    org_id TEXT,
+    root_id TEXT,
+    base_rev INTEGER NOT NULL,
+    queued_at INTEGER NOT NULL,
+    PRIMARY KEY (item_type, id)
+  )`)
   // Migrations completed successfully — stamp the version so the next launch
   // knows this database is already at the current schema and skips the
   // pre-upgrade snapshot until MIGRATION_VERSION is bumped again.

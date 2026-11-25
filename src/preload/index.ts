@@ -3,6 +3,7 @@ import type { SharePresentationRequest, SiteShow } from '@shared/sitePresentatio
 import type { WidgetInput } from '@shared/customWidgetSandbox'
 import type { Snippet, SnippetDraft, SnippetPatch, SnippetQuery, SnippetWriteResult } from '@shared/snippets'
 import type { AppClipboardRead } from '@shared/appClipboard'
+import type { DeletedElsewhereEntry, DeletedElsewhereKind, DeletedElsewhereRestore } from '@shared/syncTrash'
 import type { PastedFilesPayload } from '@shared/types'
 import type { XlsxSheetRead } from '@shared/xlsxSheet'
 import type { LiteRoomBegin } from '@shared/liteRoom'
@@ -187,7 +188,7 @@ const api = {
     // Trash surfacing (lifecycle L1): trashed roots + days-remaining, and
     // lossless subtree restore.
     listTrash: (): Promise<
-      Array<{ id: string; kind: string; title: string; trashedAt: number; purgeAt: number }>
+      Array<{ id: string; kind: string; title: string; trashedAt: number; purgeAt: number; deletedElsewhere: boolean; sharedScope: boolean; deletedBy: string | null }>
     > => ipcRenderer.invoke('nodes:listTrash'),
     restoreTree: (rootId: string): Promise<string[]> =>
       ipcRenderer.invoke('nodes:restoreTree', rootId),
@@ -250,6 +251,16 @@ const api = {
     withRisk: (): Promise<Array<{ decision: Decision; atRisk: boolean; riskyObjectIds: string[] }>> =>
       ipcRenderer.invoke('decisions:withRisk'),
     cancel: (id: string): Promise<boolean> => ipcRenderer.invoke('decisions:cancel', id)
+  },
+  // 4.3.55: what was deleted on another device, or by a collaborator, and reached
+  // this device by sync (main/db/syncTrash.ts). Desks and rooms stay in
+  // nodes.listTrash, labelled deletedElsewhere.
+  trash: {
+    listDeletedElsewhere: (): Promise<DeletedElsewhereEntry[]> => ipcRenderer.invoke('trash:listDeletedElsewhere'),
+    restoreDeletedElsewhere: (kind: DeletedElsewhereKind, id: string): Promise<DeletedElsewhereRestore> =>
+      ipcRenderer.invoke('trash:restoreDeletedElsewhere', kind, id),
+    deleteForeverDeletedElsewhere: (kind: DeletedElsewhereKind, id: string): Promise<boolean> =>
+      ipcRenderer.invoke('trash:deleteForeverDeletedElsewhere', kind, id)
   },
   widgets: {
     /**
@@ -2324,7 +2335,8 @@ const api = {
       rev: number
     ): Promise<void> => ipcRenderer.invoke('workspace:advanceBaseRev', itemType, id, rev),
     pending: (): Promise<{
-      upserts: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown>; baseRev: number }>
+      // afterRemoteDelete: a Restore of something deleted elsewhere (main/db/workspaceSync.ts).
+      upserts: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown>; baseRev: number; afterRemoteDelete?: boolean }>
       deletes: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; baseRev: number }>
     }> => ipcRenderer.invoke('workspace:pending'),
     markPushed: (itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file', id: string, rev: number): Promise<void> =>
@@ -2342,7 +2354,7 @@ const api = {
     pendingOrg: (
       orgId: string
     ): Promise<{
-      upserts: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown>; baseRev: number; teamId?: string | null }>
+      upserts: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown>; baseRev: number; teamId?: string | null; afterRemoteDelete?: boolean }>
       deletes: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; baseRev: number }>
     }> => ipcRenderer.invoke('workspace:pendingOrg', orgId),
     applyRemoteOrg: (
@@ -2355,7 +2367,7 @@ const api = {
     // Per-desk shared sync (desks shared with named individuals). One cursor across
     // all such desks; each pending item carries the desk root id it belongs to.
     pendingShared: (): Promise<{
-      upserts: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown>; baseRev: number; rootId?: string | null }>
+      upserts: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; body: Record<string, unknown>; baseRev: number; rootId?: string | null; afterRemoteDelete?: boolean }>
       deletes: Array<{ id: string; itemType: 'node' | 'widget' | 'timeblock' | 'document' | 'table' | 'row' | 'file'; baseRev: number; rootId?: string | null }>
     }> => ipcRenderer.invoke('workspace:pendingShared'),
     applyRemoteShared: (

@@ -31,15 +31,24 @@ function freshDb(): { raw: DatabaseSync; db: LifecycleDb } {
       title TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'open',
       trashed_at INTEGER,
+      deleted_elsewhere_at INTEGER,
+      deleted_by_name TEXT,
       shared_root_id TEXT,
-      updated_at INTEGER NOT NULL DEFAULT 0
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      sync_rev INTEGER NOT NULL DEFAULT 0,
+      needs_sync INTEGER NOT NULL DEFAULT 1,
+      org_id TEXT NOT NULL DEFAULT 'personal'
     );
     CREATE TABLE widgets (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
       title TEXT NOT NULL DEFAULT '',
-      shared_root_id TEXT
+      shared_root_id TEXT,
+      trashed_at INTEGER,
+      sync_rev INTEGER NOT NULL DEFAULT 0,
+      needs_sync INTEGER NOT NULL DEFAULT 1
     );
+    CREATE TABLE pending_tombstones (item_type TEXT NOT NULL, id TEXT NOT NULL, scope TEXT NOT NULL, org_id TEXT, root_id TEXT, base_rev INTEGER NOT NULL, queued_at INTEGER NOT NULL, PRIMARY KEY (item_type, id));
   `)
   const db: LifecycleDb = {
     prepare: (sql) => {
@@ -183,7 +192,7 @@ describe('§2.5.5 — the leaf invariant at parent_id writers', () => {
 describe('trash surfacing (lifecycle L1)', () => {
   it('lists trashed ROOTS only; children travel with their parent; work_items excluded', () => {
     const { raw, db } = freshDb()
-    raw.exec("ALTER TABLE nodes ADD COLUMN org_id TEXT NOT NULL DEFAULT 'personal'")
+    // (org_id is in freshDb's nodes now, as in the real schema.)
     node(raw, 'room', 'folder', null, { trashed_at: 100 })
     node(raw, 'desk', 'task', 'room', { trashed_at: 100 }) // child — not a root
     node(raw, 'live-parent-desk', 'task')

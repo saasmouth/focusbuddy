@@ -56,13 +56,41 @@ export interface AuthHandoff {
   startedHere: boolean
 }
 
-let pending: AuthHandoff | null = null
-// A share deep link (plexii://share?token=...) that arrived before a window was
-// ready. Drained by the renderer on load, same pattern as the auth handoff.
-let pendingShareToken: string | null = null
-// A meeting-join deep link (plexii://meet?room=...) from a meeting invite email,
-// same drain-on-ready pattern.
-let pendingMeetRoom: string | null = null
+// Everything a link hands the window is KEPT here until the window takes it
+// (auth:get-pending, share:get-pending, meet:get-pending, mdext:get-pending,
+// auth:take-notices). The message sent to the window is only a nudge to take it.
+// Up to 4.3.55 an item was kept only when no window existed; with one open it
+// was sent and forgotten, and a window still loading, or between taking what
+// waited and subscribing, has nobody listening: Electron drops the message and
+// the link was lost (the shape 1a found in PlexiiLite, 1dcc8dc). Each kind is a
+// short queue, taken in order, each item once.
+const KEEP_AT_MOST = 20
+function keep<T>(queue: T[], item: T): void {
+  queue.push(item)
+  if (queue.length > KEEP_AT_MOST) queue.shift() // nobody is taking them: the oldest go
+}
+function takeOne<T>(queue: T[]): T | null {
+  return queue.length ? (queue.shift() as T) : null
+}
+/** Nudge every window to take what is waiting on `channel`, and bring it forward. */
+function nudge(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue
+    try {
+      win.webContents.send(channel, payload)
+    } catch {
+      /* gone mid-send: what waits is still kept */
+    }
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+}
+
+const pendingAuth: AuthHandoff[] = []
+// Share deep links (plexii://share?token=...) from the share-notification email.
+const pendingShareTokens: string[] = []
+// Meeting-join deep links (plexii://meet?room=...) from a meeting invite email.
+const pendingMeetRooms: string[] = []
 
 // Auth links are parsed in shared/authLink.ts (a session token, a one-time
 // code, the website's Cancel, or /start). The renderer never sees a code.
@@ -81,28 +109,12 @@ function parseShareUrl(url: string): string | null {
 }
 
 function broadcastShare(shareToken: string) {
-  const wins = BrowserWindow.getAllWindows()
-  if (wins.length === 0) {
-    pendingShareToken = shareToken
-    return
-  }
-  for (const win of wins) {
-    if (!win.isDestroyed()) {
-      try {
-        win.webContents.send('share:incoming-token', shareToken)
-      } catch {
-        /* renderer still loading; it drains via share:get-pending on ready */
-      }
-    }
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  }
+  keep(pendingShareTokens, shareToken)
+  nudge('share:incoming-token', shareToken)
 }
 
 export function consumePendingShareToken(): string | null {
-  const t = pendingShareToken
-  pendingShareToken = null
-  return t
+  return takeOne(pendingShareTokens)
 }
 
 // plexii://meet?room=<roomId> — the "Join the meeting" link from a meeting
@@ -120,7 +132,7 @@ function parseMeetUrl(url: string): string | null {
 // plexii://edit-md?path=<absolute .md path> — open an external markdown
 // document (an ops-console artifact) in the PlexiDocs editor (ws-v-3). The
 // path is only a REQUEST here; the mdext IPC layer enforces the allowed root.
-let pendingMdEditPath: string | null = null
+const pendingMdEditPaths: string[] = []
 
 function parseEditMdUrl(url: string): string | null {
   try {
@@ -133,74 +145,26 @@ function parseEditMdUrl(url: string): string | null {
 }
 
 function broadcastMdEdit(path: string) {
-  const wins = BrowserWindow.getAllWindows()
-  if (wins.length === 0) {
-    pendingMdEditPath = path
-    return
-  }
-  for (const win of wins) {
-    if (!win.isDestroyed()) {
-      try {
-        win.webContents.send('mdext:incoming-path', path)
-      } catch {
-        /* renderer still loading; it drains via mdext:get-pending on ready */
-      }
-    }
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  }
+  keep(pendingMdEditPaths, path)
+  nudge('mdext:incoming-path', path)
 }
 
 export function consumePendingMdEditPath(): string | null {
-  const p = pendingMdEditPath
-  pendingMdEditPath = null
-  return p
+  return takeOne(pendingMdEditPaths)
 }
 
 function broadcastMeet(roomId: string) {
-  const wins = BrowserWindow.getAllWindows()
-  if (wins.length === 0) {
-    pendingMeetRoom = roomId
-    return
-  }
-  for (const win of wins) {
-    if (!win.isDestroyed()) {
-      try {
-        win.webContents.send('meet:incoming-room', roomId)
-      } catch {
-        /* renderer still loading; it drains via meet:get-pending on ready */
-      }
-    }
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  }
+  keep(pendingMeetRooms, roomId)
+  nudge('meet:incoming-room', roomId)
 }
 
 export function consumePendingMeetRoom(): string | null {
-  const r = pendingMeetRoom
-  pendingMeetRoom = null
-  return r
+  return takeOne(pendingMeetRooms)
 }
 
 function broadcast(handoff: AuthHandoff) {
-  const wins = BrowserWindow.getAllWindows()
-  if (wins.length === 0) {
-    // No window yet — stash it; the renderer will pull on ready.
-    pending = handoff
-    return
-  }
-  for (const win of wins) {
-    if (!win.isDestroyed()) {
-      try {
-        win.webContents.send('auth:incoming-token', handoff)
-      } catch {
-        // Renderer might still be loading; the renderer requests
-        // `auth:get-pending` on ready as a fallback.
-      }
-    }
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  }
+  keep(pendingAuth, handoff)
+  nudge('auth:incoming-token', handoff)
 }
 
 // ── Auth step 2 (2026-11-20): one-time codes, Cancel, /start ────────────────
@@ -224,23 +188,8 @@ function rememberFinished(state: string, now: number): void {
 }
 
 function notify(notice: AuthNotice): void {
-  const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
-  if (wins.length === 0) {
-    pendingNotices.push(notice)
-    return
-  }
-  let told = false
-  for (const win of wins) {
-    try {
-      win.webContents.send('auth:notice', notice)
-      told = true
-    } catch {
-      // Still loading: it takes what is waiting (auth:take-notices) when ready.
-    }
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  }
-  if (!told) pendingNotices.push(notice)
+  keep(pendingNotices, notice)
+  nudge('auth:notice', notice)
 }
 
 /** The window takes every notice waiting, once each. */
@@ -299,8 +248,17 @@ export async function handleAuthLink(link: AuthLink, origin: AuthHandoff['origin
 /** Tests: forget waiting notices and the /start cooldown. */
 export function _resetAuthLinksForTests(): void {
   pendingNotices = []
+  pendingAuth.length = 0
+  pendingShareTokens.length = 0
+  pendingMeetRooms.length = 0
+  pendingMdEditPaths.length = 0
   lastStartAt = -Infinity
   finished.clear()
+}
+
+/** Tests: route a deep link exactly as open-url / argv / second-instance do. */
+export function handleDeepLinkUrlForTests(url: string, origin: AuthHandoff['origin']): void {
+  handleAuthUrl(url, origin)
 }
 
 function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
@@ -347,9 +305,7 @@ function handleAuthUrl(url: string, origin: AuthHandoff['origin']) {
 // Called from main/ipc.ts handler so the renderer can drain anything
 // that arrived before the window was ready.
 export function consumePendingAuthHandoff(): AuthHandoff | null {
-  const p = pending
-  pending = null
-  return p
+  return takeOne(pendingAuth)
 }
 
 export function registerDeepLinkProtocol(opts: { claimProtocol?: boolean } = {}) {

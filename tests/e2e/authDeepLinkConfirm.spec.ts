@@ -8,9 +8,10 @@ import { launchApp, waitForReady, type LaunchedApp } from './_helpers'
 // naming the email the LINK claimed, before any server call. That was replaced
 // (authLinkGuard.spec.ts): every link Plexii did not start is checked with the
 // server first, and the question names the account the server says the token
-// is. We drive the real renderer path: the 'auth:incoming-token' IPC event main
-// sends on a live link, with no startedHere (main sets it only for a sign-in
-// this app started).
+// is. We drive the real path: the link reaches main (open-url), main keeps it
+// for the window and nudges it, and the window takes it (since 4.3.56 the
+// nudge's own payload is never used, so the link has to come through main;
+// main sets startedHere only for a sign-in this app started).
 
 let launched: LaunchedApp | null = null
 
@@ -32,14 +33,8 @@ test('a sign-in link the server does not know is refused with a notice, and noth
     await route.fulfill({ status: 401, contentType: 'application/json', body: '{"ok":false}' })
   })
 
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0].webContents.send('auth:incoming-token', {
-      sessionToken: 'e2e-unknown-session-token',
-      email: 'attacker-controlled@example.com',
-      handle: null,
-      origin: 'open-url',
-      startedHere: false
-    })
+  await app.evaluate(({ app: a }) => {
+    a.emit('open-url', { preventDefault: () => undefined }, 'haptyx://auth?token=e2e-unknown-session-token&email=attacker-controlled%40example.com')
   })
 
   const dialog = window.locator('[data-testid="prompt-dialog"]')

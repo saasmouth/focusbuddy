@@ -7,6 +7,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { parseInline } from '../../lib/inlineMarkdown'
 import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // Render the card body's markdown-lite as JSX: **bold**, *italic*, links (both
 // [text](url) and bare URLs) that open in the user's browser, and "- " bullets.
@@ -123,10 +124,16 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
   // The body shows rendered rich text (bold, italic, clickable links, bullets)
   // and flips to a raw textarea while editing. Empty bodies start editable.
   const [bodyEditing, setBodyEditing] = useState(false)
+  // A viewer (read-only, lib/widgetSurface): the title as text, the body
+  // rendered, the icon if it has one; no pickers, nothing to type into.
+  const readOnly = useWidgetReadOnly()
   const bodyRef = useRef<HTMLTextAreaElement | null>(null)
   const lastSaved = useRef(widget.content)
 
   useEffect(() => {
+    // Read-only (the widget host showing a file it may not change): never
+    // written, not even in this widget's own normalised form.
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     const h = window.setTimeout(() => {
@@ -134,10 +141,11 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
       void update(widget.id, { content: next })
     }, 300)
     return () => window.clearTimeout(h)
-  }, [data, widget.id, update])
+  }, [data, widget.id, update, readOnly])
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     lastSaved.current = next
@@ -163,6 +171,14 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
     >
       <div className="h-1.5 w-full shrink-0" style={{ backgroundColor: data.accent }} />
       <div className="flex-1 flex flex-col gap-1.5 p-3">
+        {readOnly ? (
+          (data.icon || data.title) && (
+            <div className="flex items-center gap-1.5">
+              {data.icon && <span className="shrink-0 h-6 w-6 inline-flex items-center justify-center text-[15px] leading-none">{data.icon}</span>}
+              <div className="flex-1 min-w-0 text-[15px] font-semibold text-[var(--ink-100)] break-words">{data.title}</div>
+            </div>
+          )
+        ) : (
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setPickIcon((v) => !v)}
@@ -184,7 +200,8 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
             className="flex-1 bg-transparent text-[15px] font-semibold text-[var(--ink-100)] placeholder:text-[var(--ink-40)]"
           />
         </div>
-        {pickIcon && (
+        )}
+        {pickIcon && !readOnly && (
           <div
             className="fb-card flex flex-wrap gap-1 p-1.5 max-w-[220px]"
             onMouseDown={(e) => e.stopPropagation()}
@@ -204,7 +221,13 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
             ))}
           </div>
         )}
-        {bodyEditing || data.body.trim() === '' ? (
+        {readOnly ? (
+          data.body.trim() !== '' && (
+            <div data-testid="card-body-rendered" className="flex-1 min-h-0 w-full overflow-auto text-[13px] leading-relaxed text-[var(--ink-70)] whitespace-pre-wrap">
+              {renderBody(data.body)}
+            </div>
+          )
+        ) : bodyEditing || data.body.trim() === '' ? (
           <MentionTextarea
             ref={bodyRef}
             value={data.body}
@@ -239,6 +262,7 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
       </div>
 
       {/* Accent picker (hover) */}
+      {!readOnly && (
       <div className="absolute top-2.5 right-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
         <button
           onClick={() => setPickAccent((v) => !v)}
@@ -274,6 +298,7 @@ export default function CardWidget({ widget, inline = false }: Props): JSX.Eleme
           </div>
         )}
       </div>
+      )}
     </div>
   )
 

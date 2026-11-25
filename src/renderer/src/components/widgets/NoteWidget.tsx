@@ -8,6 +8,7 @@ import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { isTextContextTarget } from './bodyMenus'
 import { splitStickyBlocks } from '../../lib/stickyText'
 import { useTextWidgetSnippets } from './useWidgetSnippets'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 interface Props {
   widget: Widget
@@ -38,7 +39,9 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
   // transient empty-mount latch the note into edit mode — only a real click
   // into the note (or a genuinely empty note) opens the textarea.
   const userEditRef = useRef(false)
-  const [editing, setEditing] = useState(widget.content.trim() === '')
+  // A viewer (read-only, lib/widgetSurface) only ever shows the rendered note.
+  const readOnly = useWidgetReadOnly()
+  const [editing, setEditing] = useState(!readOnly && widget.content.trim() === '')
 
   function enterEdit(): void {
     userEditRef.current = true
@@ -68,10 +71,10 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
       // userEditRef and not focus, the empty-then-hydrated mount race resolves to
       // the rendered view instead of getting stuck as a raw textarea.
       if (!userEditRef.current) {
-        setEditing(widget.content.trim() === '')
+        setEditing(!readOnly && widget.content.trim() === '')
       }
     }
-  }, [widget.id, widget.content])
+  }, [widget.id, widget.content, readOnly])
 
   useEffect(() => {
     if (text === lastSavedRef.current) return
@@ -114,13 +117,13 @@ export default function NoteWidget({ widget, inline = false }: Props): JSX.Eleme
 
   const rendered = (
     <div
-      className={`fb-note-rendered w-full h-full whitespace-pre-wrap text-stone-800 leading-relaxed font-serif cursor-text ${
+      className={`fb-note-rendered w-full h-full whitespace-pre-wrap text-stone-800 leading-relaxed font-serif ${readOnly ? 'cursor-default' : 'cursor-text'} ${
         'fb-body'
       }`}
-      onClick={enterEdit}
+      onClick={readOnly ? undefined : enterEdit}
     >
       {text.trim() === '' ? (
-        <span className="text-stone-500/60">Notes, thoughts, anything that doesn’t fit on a sticky…</span>
+        readOnly ? null : <span className="text-stone-500/60">Notes, thoughts, anything that doesn’t fit on a sticky…</span>
       ) : (
         splitStickyBlocks(text).map((block, bi) => {
           if (block.type === 'table') {

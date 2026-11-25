@@ -14,6 +14,7 @@ import {
   TILE,
   type LatLon
 } from '../../lib/slippyMap'
+import { readingControl, useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // A real map of a real place.
 //
@@ -89,6 +90,10 @@ export default function LocationMapWidget({ widget }: { widget: Widget }): JSX.E
   const [box, setBox] = useState({ width: 0, height: 0 })
   const [failedTiles, setFailedTiles] = useState(0)
   const hostRef = useRef<HTMLDivElement | null>(null)
+  // A viewer (read-only, lib/widgetSurface): the place on the map. Looking
+  // around it -- pan, zoom, open it in OpenStreetMap -- is reading (read-only
+  // never saves); searching for another place would change the file.
+  const readOnly = useWidgetReadOnly()
   const abortRef = useRef<AbortController | null>(null)
 
   // The pinned place, and the (possibly panned-away) view centre. Panning moves
@@ -219,6 +224,7 @@ export default function LocationMapWidget({ widget }: { widget: Widget }): JSX.E
       headerAccent="bg-teal-200/50 dark:bg-teal-400/10"
     >
       <div className="flex h-full flex-col bg-[var(--surface)]">
+        {!readOnly && (
         <form
           className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1.5"
           onSubmit={(e) => {
@@ -245,9 +251,11 @@ export default function LocationMapWidget({ widget }: { widget: Widget }): JSX.E
             />
           </button>
         </form>
+        )}
 
         <div
           ref={hostRef}
+          {...(centre ? readingControl : {})}
           className="widget-nodrag relative flex-1 select-none overflow-hidden bg-[var(--surface-sunken)]"
           style={{ cursor: centre ? 'grab' : 'default', touchAction: 'none' }}
           onPointerDown={onPointerDown}
@@ -296,6 +304,7 @@ export default function LocationMapWidget({ widget }: { widget: Widget }): JSX.E
           {pin && pinOffScreen && (
             <button
               type="button"
+              {...readingControl}
               className="widget-nodrag absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-[color-mix(in_oklab,var(--surface)_95%,transparent)] px-2 py-1 text-[10px] text-[var(--ink-70)] shadow ring-1 ring-[var(--line)]"
               onClick={() => setCentre(pin)}
             >
@@ -334,7 +343,7 @@ export default function LocationMapWidget({ widget }: { widget: Widget }): JSX.E
                 </>
               ) : (
                 <span className="text-[11px] text-[var(--ink-45)]">
-                  Search an address to put it on the map.
+                  {readOnly ? 'No place on this map yet.' : 'Search an address to put it on the map.'}
                 </span>
               )}
             </div>
@@ -375,6 +384,7 @@ function MapBtn({
   return (
     <button
       type="button"
+      {...readingControl}
       title={title}
       onClick={(e) => {
         e.stopPropagation()

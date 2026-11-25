@@ -5,6 +5,7 @@ import WidgetFrame from './WidgetFrame'
 import { useWidgetStore } from '../../stores/widgets'
 import { recordAction, recordActionWithToast } from '../../stores/actionHistory'
 import Icon from '../Icon'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // ── Scratchpad widget ───────────────────────────────────────────────────────
 // A freeform sketch surface. Strokes are captured as raw [x, y, pressure]
@@ -68,6 +69,8 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
   const [strokes, setStrokes] = useState<Stroke[]>(initial.strokes)
   const [drawing, setDrawing] = useState<Stroke | null>(null)
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
+  // A viewer (read-only, lib/widgetSurface): the drawing, no tools, no pen.
+  const readOnly = useWidgetReadOnly()
   const [color, setColor] = useState<string>(COLORS[0])
   const [size, setSize] = useState<number>(SIZES[1])
   const surfaceRef = useRef<HTMLDivElement | null>(null)
@@ -196,6 +199,7 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
   const body = (
     <div className="h-full w-full flex flex-col bg-[#fcfbf7] dark:bg-stone-900">
       {/* Toolbar */}
+      {!readOnly && (
       <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-b border-[var(--edge-soft)] bg-[color-mix(in_oklab,var(--surface-sunken)_80%,transparent)]">
         <button
           onClick={() => setTool('pen')}
@@ -245,12 +249,13 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
           <Icon name="delete_sweep" size={16} />
         </button>
       </div>
+      )}
       {/* Drawing surface */}
       <div
         ref={surfaceRef}
         data-testid="scratchpad-surface"
         className="flex-1 min-h-0 relative touch-none"
-        style={{ cursor: tool === 'eraser' ? 'cell' : 'crosshair' }}
+        style={{ cursor: readOnly ? 'default' : tool === 'eraser' ? 'cell' : 'crosshair' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -262,7 +267,7 @@ export default function ScratchpadWidget({ widget, inline = false }: Props): JSX
           ))}
           {drawing && <path d={strokeToPath(drawing.points, drawing.size)} fill={drawing.color} />}
         </svg>
-        {!interactive && (
+        {!interactive && !readOnly && (
           <div className="absolute inset-0 grid place-items-center pointer-events-none">
             <span className="px-2 py-1 rounded-full bg-stone-900/70 text-stone-50 text-[11px] opacity-0 hover:opacity-100">
               Click to draw

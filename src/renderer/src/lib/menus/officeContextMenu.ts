@@ -2,6 +2,7 @@ import type { CtxMenuItem } from '../../components/CanvasContextMenu'
 import { MENU, type MenuAction, type MenuActionId } from '@shared/menus/lexicon'
 import { menuAction } from './menuAction'
 import { ctxRow, type OfficeCommand } from './officeCommand'
+import { offeredHere } from '../widgetHost'
 
 // The two kit right-click shapes of SPEC §9.3, built once so every office app
 // lays them out the same way: the same groups in the same order, the same
@@ -59,7 +60,7 @@ export interface ObjectMenuSpec {
 
 /** Right-click on an object: a shape, an element, a node, a cell (SPEC §9.3). */
 function row(id: MenuActionId, f: Act | undefined, extra: Partial<CtxMenuItem> = {}): CtxMenuItem[] {
-  if (!f) return []
+  if (!f || !offeredHere(id)) return []
   return typeof f === 'function' ? [sharedRow(id, f, extra)] : [ctxRow(f, extra)]
 }
 

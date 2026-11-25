@@ -4,6 +4,7 @@ import Icon from '../../Icon'
 import Tooltip from '../../Tooltip'
 import { SIDE_PANE_DOM_ID } from './layout'
 import { READ_ONLY_REASON } from './primitives'
+import { inWidgetHost } from '../../../lib/widgetHost'
 
 // The office ToolRail: the left strip of tool icons every office app shares
 // (spec: docs/office-shell/SPEC.md §2.1–2.2), extracted from
@@ -90,6 +91,8 @@ interface Slot<C> {
 export function railSlots<C>(items: RailItem<C>[], ctx: C, lastUsed: Record<string, string> = {}): Slot<C>[] {
   const visible = items
     .filter((i) => !pick(i.hidden, ctx))
+    // No AI in the widget host (lib/widgetHost): its rail entries are not offered.
+    .filter((i) => !(i.role === 'ai' && inWidgetHost()))
     .sort((a, b) => Number(!!a.pinned) - Number(!!b.pinned) || a.group - b.group || a.order - b.order || a.id.localeCompare(b.id))
   const slots: Slot<C>[] = []
   const byFlyout = new Map<string, Slot<C>>()

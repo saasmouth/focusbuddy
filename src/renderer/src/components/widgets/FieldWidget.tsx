@@ -14,6 +14,8 @@ import { useWidgetStore } from '../../stores/widgets'
 import Icon from '../Icon'
 import ConnectedToolMenu from '../contextMenu/UnifiedConnectedMenu'
 import { isTextContextTarget } from './bodyMenus'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
+import { fieldValueText } from '../../lib/fieldValueText'
 
 interface Props {
   widget: Widget
@@ -54,10 +56,39 @@ export default function FieldWidget({ widget, inline = false }: Props): JSX.Elem
     parseFieldState(widget.content)
   )
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  // A viewer (read-only, lib/widgetSurface): the label and the value as text;
+  // no type picker, no editor, no option or button setup.
+  const readOnly = useWidgetReadOnly()
 
   useEffect(() => {
     setState(parseFieldState(widget.content))
   }, [widget.content])
+
+  if (readOnly) {
+    const value = state ? fieldValueText(state.def, state.value) : ''
+    const body = (
+      <div className="min-h-full w-full bg-[var(--surface-raised)] p-3 flex flex-col gap-2.5" data-testid="field-read-only">
+        {state ? (
+          <>
+            <div className="flex items-center gap-1.5 pb-1.5 border-b border-[var(--edge-soft)]">
+              <Icon name={FIELD_TYPE_ICONS[state.def.type]} size={15} className="text-accent shrink-0" />
+              <span className="flex-1 min-w-0 text-[13px] font-semibold text-[var(--ink-90)] break-words">{state.def.label}</span>
+              <span className="text-[9px] uppercase tracking-wider text-[var(--ink-40)]">{FIELD_TYPE_LABELS[state.def.type]}</span>
+            </div>
+            <div className="text-[13px] text-[var(--ink-90)] whitespace-pre-wrap break-words">{value}</div>
+          </>
+        ) : (
+          <p className="text-[12px] text-[var(--ink-50)]">This field has no type yet.</p>
+        )}
+      </div>
+    )
+    if (inline) return body
+    return (
+      <WidgetFrame widget={widget} headerLabel={state?.def.label || 'Field'} headerAccent="bg-stone-300/60 dark:bg-white/[0.09]">
+        {body}
+      </WidgetFrame>
+    )
+  }
 
   async function chooseType(type: FieldType): Promise<void> {
     const def: FieldDefinition = {

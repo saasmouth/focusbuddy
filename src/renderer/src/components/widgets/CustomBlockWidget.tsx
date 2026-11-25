@@ -15,6 +15,7 @@ import {
   type BlockFieldType
 } from '../../lib/customBlockTemplates'
 import { useSaveOnUnmount } from '../../lib/useSaveOnUnmount'
+import { useWidgetReadOnly } from '../../lib/widgetSurface'
 
 // Custom Block — a WYSIWYG form/record designer. In DESIGN mode the user drops
 // typed fields and positions/resizes them freely; in USE mode the same block is
@@ -79,9 +80,13 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
   const update = useWidgetStore((s) => s.update)
   const [data, setData] = useState<BlockData>(() => parse(widget.content))
   // A fresh, empty block opens in design mode; an existing one opens in use mode.
-  const [mode, setMode] = useState<'design' | 'use'>(() =>
+  // A viewer (read-only, lib/widgetSurface) sees the filled-in form: never the
+  // designer, no title or mode or template controls, each field's value as text.
+  const readOnly = useWidgetReadOnly()
+  const [modeChosen, setMode] = useState<'design' | 'use'>(() =>
     parse(widget.content).fields.length === 0 ? 'design' : 'use'
   )
+  const mode = readOnly ? 'use' : modeChosen
   const [selected, setSelected] = useState<string | null>(null)
   const [tplMenu, setTplMenu] = useState(false)
   const [, forceTpl] = useState(0)
@@ -94,6 +99,9 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
   useEffect(() => subscribe(() => forceTpl((n) => n + 1)), [])
 
   useEffect(() => {
+    // Read-only (the widget host showing a file it may not change): never
+    // written, not even in this widget's own normalised form.
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     const h = window.setTimeout(() => {
@@ -101,10 +109,11 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
       void update(widget.id, { content: next })
     }, 300)
     return () => window.clearTimeout(h)
-  }, [data, widget.id, update])
+  }, [data, widget.id, update, readOnly])
 
   // Write an edit still waiting for its debounce when the widget goes away (lib/useSaveOnUnmount).
   useSaveOnUnmount(() => {
+    if (readOnly) return
     const next = JSON.stringify(data)
     if (next === lastSaved.current) return
     lastSaved.current = next
@@ -204,6 +213,11 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
   const content = (
     <div className="flex flex-col h-full w-full bg-[var(--surface-raised)]">
       {/* Toolbar */}
+      {readOnly ? (
+        data.title && (
+          <div className="shrink-0 px-2 py-1.5 border-b border-[var(--edge-soft)] text-[13px] font-semibold text-[var(--ink-100)] truncate">{data.title}</div>
+        )
+      ) : (
       <div
         className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-b border-[var(--edge-soft)]"
         onMouseDown={(e) => e.stopPropagation()}
@@ -290,6 +304,7 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
         </div>
       </div>
 
+      )}
       {/* Field palette (design mode) */}
       {mode === 'design' && (
         <div
@@ -411,7 +426,7 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
             )}
 
             <div className={mode === 'design' ? 'p-1.5 pt-4 h-full' : 'h-full'}>
-              <FieldControl field={f} mode={mode} onValue={(v) => patchField(f.id, { value: v })} />
+              {readOnly ? <FieldValue field={f} /> : <FieldControl field={f} mode={mode} onValue={(v) => patchField(f.id, { value: v })} />}
             </div>
 
             {/* Resize handle (design) */}
@@ -436,6 +451,29 @@ export default function CustomBlockWidget({ widget, inline = false }: Props): JS
     <WidgetFrame widget={widget} headerLabel="custom block" headerAccent="bg-stone-200/70 dark:bg-white/[0.07]">
       {content}
     </WidgetFrame>
+  )
+}
+
+// A field as a viewer reads it: its label and its value, as text.
+function FieldValue({ field }: { field: BlockField }): JSX.Element {
+  if (field.type === 'heading') return <div className="text-[15px] font-semibold text-[var(--ink-100)] truncate">{field.label}</div>
+  if (field.type === 'divider') return <div className="h-px w-full bg-[var(--surface-sunken)] mt-1.5" />
+  if (field.type === 'checkbox') {
+    return (
+      <div className="flex items-center gap-2 text-[12px] text-[var(--ink-90)]">
+        <span role="img" aria-label={field.value === true ? 'Ticked' : 'Not ticked'} className="text-[var(--ink-70)]">
+          <Icon name={field.value === true ? 'check_box' : 'check_box_outline_blank'} size={16} />
+        </span>
+        {field.label}
+      </div>
+    )
+  }
+  const value = typeof field.value === 'string' ? field.value : ''
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="text-[10px] uppercase tracking-wide text-[var(--ink-50)] mb-0.5 truncate">{field.label}</div>
+      <div className={`text-[12px] text-[var(--ink-100)] break-words ${field.type === 'textarea' ? 'whitespace-pre-wrap overflow-auto' : 'truncate'}`}>{value}</div>
+    </div>
   )
 }
 

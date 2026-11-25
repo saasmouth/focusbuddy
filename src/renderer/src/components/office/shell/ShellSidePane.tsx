@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import Icon from '../../Icon'
 import { useShellSize } from './OfficeShellLayout'
 import { SIDE_PANE_DOM_ID, SIDE_PANE_WIDTH } from './layout'
+import { inWidgetHost } from '../../../lib/widgetHost'
 
 // The ONE right-hand content pane every office app shares (owner amendment to
 // D1, SPEC §2.5a): panes you READ and TYPE in (comments, outline, the AI
@@ -20,6 +21,8 @@ export interface SidePane {
   badge?: string // e.g. an unread count
   testid?: string // the pane CONTENT keeps its existing testid (doc-comments-tab, sheet-ai-panel…)
   tabTestid?: string // its switcher tab keeps an existing id (doc-tab-comments); default `${testid}-tab-${id}`
+  /** Plexii's AI (PlexiiAssist, AI diagram, Generate deck): not offered in the widget host (lib/widgetHost). */
+  ai?: boolean
 }
 
 export interface ShellSidePaneProps {
@@ -32,7 +35,9 @@ export interface ShellSidePaneProps {
   collapseTestid?: string // keep an existing collapse id (sheet-ai-collapse); default `${testid}-collapse`
 }
 
-export default function ShellSidePane({ panes, activeId, onChange, width = SIDE_PANE_WIDTH, testid, collapseTestid }: ShellSidePaneProps): JSX.Element | null {
+export default function ShellSidePane({ panes: allPanes, activeId, onChange, width = SIDE_PANE_WIDTH, testid, collapseTestid }: ShellSidePaneProps): JSX.Element | null {
+  // No AI in the widget host: its panes are not offered, so neither is their tab.
+  const panes = inWidgetHost() ? allPanes.filter((p) => !p.ai) : allPanes
   const { sheetPanels, pillCorner, raise } = useShellSize()
   const active = panes.find((p) => p.id === activeId) ?? null
   // The edge's expand chevron brings back the pane you last had open.

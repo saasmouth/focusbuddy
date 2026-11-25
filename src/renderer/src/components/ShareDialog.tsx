@@ -8,6 +8,7 @@ import type {
   ShareScope
 } from '@shared/types'
 import { useSharesStore } from '../stores/shares'
+import { useNoticeStore } from '../stores/notice'
 import { useNodeStore } from '../stores/nodes'
 import { useWidgetStore } from '../stores/widgets'
 import { viewerUrlFor } from '../lib/shareTokens'
@@ -528,7 +529,7 @@ export default function ShareDialog({
                       )}
                       {!link.revoked && (
                         <button
-                          onClick={() => void revoke(link.id)}
+                          onClick={() => void revoke(link.id).then((r) => { if (!r.ok) useNoticeStore.getState().show({ text: r.error, icon: 'link' }, 9000) })}
                           className="icon-btn !h-6 !w-6"
                           title="Revoke — link stops working"
                         >
@@ -536,7 +537,7 @@ export default function ShareDialog({
                         </button>
                       )}
                       <button
-                        onClick={() => void remove(link.id)}
+                        onClick={() => void remove(link.id).then((r) => { if (!r.ok) useNoticeStore.getState().show({ text: r.error, icon: 'link' }, 9000) })}
                         className="icon-btn !h-6 !w-6 hover:!text-red-700"
                         title="Delete this link"
                       >
