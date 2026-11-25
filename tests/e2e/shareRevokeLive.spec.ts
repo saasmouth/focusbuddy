@@ -170,3 +170,42 @@ test(`a link made signed out and marked off here: ${RESCUE ? 'the next launch en
     rmSync(profile, { recursive: true, force: true })
   }
 })
+
+// 4.3.56. A computer that keeps its workspace local (Settings: keep this
+// computer's workspace from syncing) sends no delete to the server, so nothing
+// there learns that a deleted desk is gone and its links went on working. The
+// app now ends the desk's links itself (lib/deskLinksEnd), through the same
+// owner-only revoke as above, so on today's server it ends the links made while
+// signed in.
+test('a desk deleted on a computer that keeps its workspace local: its read link stops opening', async () => {
+  test.setTimeout(300_000)
+  const profile = mkdtempSync(join(tmpdir(), 'fb-desk-links-'))
+  let A: Launched | null = await launch('A', profile)
+  try {
+    const w = A.window
+    await dismissOnboarding(w)
+    await signUp(w, `desklinks.${Date.now()}@example.com`, 'Test-Account-123!')
+    await dismissOnboarding(w)
+    await clearScrims(w, 'A')
+    await w.evaluate(() => localStorage.setItem('plexii.sync.localOnly', 'on'))
+    const title = 'Quarterly plan'
+    const token = await makeReadLink(w, title)
+    expect(await w.evaluate(() => localStorage.getItem('plexii.sync.localOnly')), 'still keeping the workspace local').toBe('on')
+    const deskId = await w.evaluate((t) => {
+      const s = (window as unknown as { __fbNodes: { getState: () => { nodes: Array<{ id: string; title: string }> } } }).__fbNodes.getState()
+      return s.nodes.find((n) => n.title === t)?.id ?? null
+    }, title)
+    expect(deskId, 'the desk the link was made from').toBeTruthy()
+    await w.evaluate(async (id) => {
+      const s = (window as unknown as { __fbNodes: { getState: () => { remove: (id: string) => Promise<void> } } }).__fbNodes.getState()
+      await s.remove(id)
+    }, deskId!)
+    await expect
+      .poll(() => opens(token), { message: 'the deleted desk’s link no longer opens', timeout: 30_000 })
+      .toBe(404)
+  } finally {
+    await A?.close().catch(() => undefined)
+    A = null
+    rmSync(profile, { recursive: true, force: true })
+  }
+})
