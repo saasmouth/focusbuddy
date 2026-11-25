@@ -38,6 +38,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '4.3.56',
+    date: '2026-11-25T10:47:00Z',
+    title: 'PlexiiDesk 4.3.56 — a click into a PDF keeps your typing there',
+    tag: 'fix',
+    summary:
+      'Three fixes: clicking into a PDF on a desk keeps your typing in the PDF, a Plexii link opened while the app is starting now opens, and deleting a desk on a computer that keeps its workspace local turns off the links you made for it while signed in.',
+    highlights: [
+      'Clicking into a PDF on a desk now keeps the keyboard there. Typing, and ⌘Z, go to the PDF instead of the desk.',
+      'A Plexii link opened while the app is still starting, such as a sign-in, a share link or a meeting, now opens. Before, it could do nothing.',
+      'On a computer that keeps its workspace local, deleting a desk now turns off the share links you made for it while signed in.'
+    ]
+  },
+  {
     version: '4.3.55',
     date: '2026-11-24T04:10:00Z',
     title: 'PlexiiDesk 4.3.55 — what is deleted on another device waits in your Trash',
