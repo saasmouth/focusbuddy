@@ -225,7 +225,8 @@ describe('the start-up backfill', () => {
   it('uses the cheapest tier THROUGH the router, not a hardcoded id', () => {
     // A hardcoded id escapes both the routing table and the user's model-mode
     // override — and is how the app previously ended up a generation behind.
-    expect(backfill).toContain("resolveModel('title_backfill')")
+    expect(backfill).toContain('resolveModel(TITLE_BACKFILL_PURPOSE)')
+    expect(backfill).toContain("export const TITLE_BACKFILL_PURPOSE = 'title_backfill'")
     expect(backfill).not.toMatch(/model:\s*['"]claude-/)
     expect(read('main/ai/modelRouting.ts')).toContain('title_backfill: HAIKU')
   })
@@ -266,7 +267,7 @@ describe('the start-up backfill', () => {
   it('can never be the reason the app fails to start', () => {
     expect(backfill).toContain('// A repair pass must never be the reason the app fails to start.')
     const main = read('main/index.ts')
-    expect(main).toContain('void runTitleBackfill({ allowModel: backgroundModelAllowed() })')
+    expect(main).toContain('void runTitleBackfill({ allowModel: backgroundModelAllowed(TITLE_BACKFILL_PURPOSE) })')
     expect(main).toContain('.catch((e) => {')
   })
 
@@ -275,7 +276,7 @@ describe('the start-up backfill', () => {
     // would make this pass for the wrong reason.
     const main = read('main/index.ts')
     const backupCall = main.indexOf('  autoBackupOnLaunch()')
-    const backfillCall = main.indexOf('void runTitleBackfill({ allowModel: backgroundModelAllowed() })')
+    const backfillCall = main.indexOf('void runTitleBackfill({ allowModel: backgroundModelAllowed(TITLE_BACKFILL_PURPOSE) })')
     expect(backupCall).toBeGreaterThan(-1)
     expect(backfillCall).toBeGreaterThan(-1)
     expect(backupCall).toBeLessThan(backfillCall)

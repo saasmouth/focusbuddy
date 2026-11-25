@@ -11,7 +11,7 @@ import { composeCustomWidgetDocument, cspFor } from '@shared/customWidgetSandbox
 import { resolveWidgetInputs } from './db/widgetInputs'
 import { clearSessionForNewLaunch, markUiVisible, recordAnonLaunch } from './db/account'
 import { runRetentionSweep } from './db/retention'
-import { runTitleBackfill } from './titleBackfill'
+import { runTitleBackfill, TITLE_BACKFILL_PURPOSE } from './titleBackfill'
 import { backgroundModelAllowed, setLocalRouting } from './backgroundAiGate'
 import { localOnlyActive } from './ai/local/providerRouter'
 import { autoBackupOnLaunch } from './db/backup'
@@ -939,9 +939,11 @@ app.whenReady().then(() => {
       })
   }, 8_000)
   setTimeout(() => {
-    // Free titles always; a model only with Background AI tasks on, or when AI
-    // runs on this device (backgroundAiGate.ts).
-    void runTitleBackfill({ allowModel: backgroundModelAllowed() })
+    // Free titles always; a model only with Background AI tasks on, or when this
+    // pass's own model call runs on this device (backgroundAiGate.ts). Asked for
+    // its purpose: with the source Local, Background tidying routed to a cloud
+    // provider still leaves the computer.
+    void runTitleBackfill({ allowModel: backgroundModelAllowed(TITLE_BACKFILL_PURPOSE) })
       .then((s) => {
         if (s.found > 0) {
           console.log(
