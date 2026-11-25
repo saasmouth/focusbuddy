@@ -36,6 +36,7 @@ import { getModelClient } from './ai/modelClient'
 import { clientForKey } from './ai/local/providerRouter'
 import { resolveModel } from './ai/modelRouting'
 import { deriveTitle, isUntitled, textFromBody } from '@shared/titles'
+import type { AIPurpose } from '@shared/types'
 import { deriveWidgetFileTitle, parseWidgetFileBody, widgetFileTypeLabel } from '@shared/widgetFiles'
 import { widgetFileBodyToText } from '@shared/widgetText'
 import { mainWidgetResolvers } from './ai/widgetSummary'
@@ -225,6 +226,16 @@ export const TITLE_BACKFILL_SYSTEM =
   '{"titles":[{"i":0,"title":"..."}]}'
 
 /** Parse the model's reply into index → title. Throws on unparseable JSON (the caller treats that as "try next launch"). */
+/**
+ * The purpose this pass's one model call runs under. The launch call site asks
+ * the Background AI gate about this same purpose (index.ts:
+ * backgroundModelAllowed(TITLE_BACKFILL_PURPOSE)), because where the call goes
+ * depends on it: under the Local source, "Background tidying" routed to a cloud
+ * provider in Settings › AI sends it there. One constant, so the question the
+ * gate answers and the request that is made cannot drift apart.
+ */
+export const TITLE_BACKFILL_PURPOSE = 'title_backfill' satisfies AIPurpose
+
 export function parseBackfillTitles(text: string): Map<number, string> {
   const parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')) as {
     titles?: Array<{ i?: number; title?: string }>
@@ -326,7 +337,7 @@ export async function runTitleBackfill(
 
   try {
     const resp = await client.messages.create({
-      model: resolveModel('title_backfill'),
+      model: resolveModel(TITLE_BACKFILL_PURPOSE),
       max_tokens: MAX_OUTPUT_TOKENS,
       system: TITLE_BACKFILL_SYSTEM,
       messages: [{ role: 'user', content: JSON.stringify({ items }) }]

@@ -100,7 +100,8 @@ describe('every embedding path in main goes through the gate', () => {
 describe('title backfill', () => {
   it('the launch call site passes the gate’s answer', () => {
     const idx = read('index.ts')
-    expect(idx).toContain('runTitleBackfill({ allowModel: backgroundModelAllowed() })')
+    // Asked for the pass's own purpose (titleBackfillGate.test.ts drives it).
+    expect(idx).toContain('runTitleBackfill({ allowModel: backgroundModelAllowed(TITLE_BACKFILL_PURPOSE) })')
     expect(idx).not.toMatch(/runTitleBackfill\(\)/)
   })
 
