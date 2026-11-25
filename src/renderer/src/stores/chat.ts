@@ -16,6 +16,7 @@ import type {
   ChatQuestion,
   ChatResponse,
   ChatSource,
+  ProactiveWelcomeOpts,
   AnswerGrounding,
   ChatUiBlock,
   AiChatMode,
@@ -258,7 +259,9 @@ interface ChatStore {
    * attachments beside what is open on the desk).
    */
   send: (taskId: string | null, content: string, threadKey?: string, extra?: ChatSendExtra) => Promise<void>
-  sendProactiveWelcome: (taskId: string) => Promise<void>
+  /** The desk hello. `{ asked: true }` only from a click; unasked, main holds it
+   *  back while Background AI tasks is off (main/deskWelcomeGate.ts). */
+  sendProactiveWelcome: (taskId: string, opts?: ProactiveWelcomeOpts) => Promise<void>
   // Push a synthetic assistant message into the conversation. Used by "What was I doing?"
   // and other AI features that produce output without a user prompt.
   pushAssistantMessage: (taskId: string | null, content: string) => void
@@ -1191,11 +1194,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       )
     })
   },
-  sendProactiveWelcome: async (taskId) => {
+  sendProactiveWelcome: async (taskId, opts) => {
     if (get().hasApiKey === false) return
     const existing = get().messagesByTask[taskId] ?? []
     if (existing.length > 0) return // user already in a conversation about this task
-    const resp = await window.api.chat.proactiveWelcome(taskId)
+    const resp = await window.api.chat.proactiveWelcome(taskId, opts)
+    // Background AI tasks is off and nobody asked: no hello, and nothing went
+    // wrong, so there is nothing to show (reason 'background_ai_off').
+    if (resp.reason === 'background_ai_off') return
     if (resp.ok && resp.message) {
       const current = get().messagesByTask[taskId] ?? []
       // Race guard: if the user typed something in the meantime, append after their messages

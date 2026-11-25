@@ -27,6 +27,7 @@ import type {
   ChatRequest,
   ChatResponse,
   ChatMentionResolved,
+  ProactiveWelcomeOpts,
   ChatRetrievalTrace,
   ChatToolTrace,
   ConnectedApp,
@@ -568,8 +569,10 @@ const api = {
     // already arrived — Stop keeps the partial answer, it never discards it.
     cancelStream: (requestId: string): Promise<{ ok: boolean }> =>
       ipcRenderer.invoke('chat:cancelStream', requestId),
-    proactiveWelcome: (taskId: string): Promise<ChatResponse> =>
-      ipcRenderer.invoke('chat:proactiveWelcome', taskId),
+    // Without { asked: true } this is the unasked desk hello, which main holds
+    // back while Background AI tasks is off (main/deskWelcomeGate.ts).
+    proactiveWelcome: (taskId: string, opts?: ProactiveWelcomeOpts): Promise<ChatResponse> =>
+      ipcRenderer.invoke('chat:proactiveWelcome', taskId, opts),
     // Streaming variant — the caller mints a requestId and listens on the
     // per-request channel, so several sends can be in flight without their
     // events crossing. Returns a cleanup function to unsubscribe.

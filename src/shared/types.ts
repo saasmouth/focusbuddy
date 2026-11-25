@@ -995,6 +995,11 @@ export interface ChatResponse {
   message?: ChatMessage
   error?: string
   needsApiKey?: boolean
+  // Why nothing was asked of a model, when that was deliberate rather than a
+  // failure. 'background_ai_off': a request nobody clicked for (the desk hello)
+  // while Background AI tasks is off (backgroundAiGate.ts). Callers drop it
+  // without a word: there is no error to show.
+  reason?: 'background_ai_off'
   // Action proposals returned alongside the text. The assistant declares what
   // it WOULD do; the renderer shows each as a confirmable card and only
   // executes those the user accepts. Empty/undefined for plain chat replies.
@@ -1016,6 +1021,15 @@ export interface ChatResponse {
   // chips, scales, icon rows, cards. Present only when the model emitted valid
   // ones — the renderer never invents interactivity the turn did not carry.
   blocks?: ChatUiBlock[]
+}
+
+/**
+ * chat:proactiveWelcome options. `asked: true` only from a click (the Pre-Task
+ * Bridge's "Have AI suggest the first step"). Without it the desk hello is
+ * background AI and waits for Background AI tasks (main/deskWelcomeGate.ts).
+ */
+export interface ProactiveWelcomeOpts {
+  asked?: boolean
 }
 
 // ── Interactive UI blocks (Plexii P4) ────────────────────────────────────────

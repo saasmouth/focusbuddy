@@ -253,12 +253,14 @@ export default function PrivacyHelpSection(): JSX.Element {
             testId="privacy-background-ai-toggle"
             title="Background AI tasks"
           >
-            Off by default. On, the app sends your content to an AI provider without you asking each time, using your
-            own API key: names for untitled items (up to 40 at each launch, the first 400 characters of each, to
-            Anthropic), and search embeddings (the text of your documents and knowledge entries as they change, and your
-            search questions, to OpenAI). Off, untitled items are named only from their own text and search matches
-            words. Work a local model does on this computer is not affected by this switch; learning from your
-            documents into Memory has its own switch, in Settings › AI › Local.
+            Off by default. On, the app sends your content to an AI provider without you asking each time: names for
+            untitled items (up to 40 at each launch, the first 400 characters of each, to Anthropic with your own API
+            key), search embeddings (the text of your documents and knowledge entries as they change, and your search
+            questions, to OpenAI with your own API key), and a short hello and first step when you start or come back
+            to a desk in progress (its name and what&apos;s on it, to Anthropic, or to OpenAI if PlexiiAssist uses
+            your OpenAI key). Off, untitled items are named only from their own text, search matches words, and a desk
+            opens without a hello unless you ask for one. Work a local model does on this computer is not affected by
+            this switch; learning from your documents into Memory has its own switch, in Settings › AI › Local.
           </Switch>
           <div>
             <Switch

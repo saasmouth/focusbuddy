@@ -21,13 +21,13 @@ out" in practice means the gate itself, or after signing out.
 | Host | Purpose | When | Can the person turn it off? |
 |---|---|---|---|
 | `api.plexiidesk.com` (HTTPS + `wss://…/ws`) | Account, sync, sharing, chat, inbox, capabilities, billing checkout, privacy choices, **opt-in** usage data and crash reports | Signed in; much of it in the background | Sign out. Personal sync: **Keep this device local** in Settings > Data > Privacy. Usage data and crash reports: **off by default**, opt-in in the same place, and the server refuses them without consent |
-| `focusbuddy-signal.fly.dev` | The same server under its old name, used by the main process: AI credits proxy, credit balance, credit checkout, live-desk publishing | Signed in, on AI use / live desks | Use your own key (AI source); don't publish live desks |
+| `focusbuddy-signal.fly.dev` | The same server under its old name, used by the main process: AI credits proxy (the **desk hello** only with Background AI tasks on), credit balance, credit checkout, live-desk publishing | Signed in, on AI use / live desks | Use your own key (AI source); don't publish live desks |
 | `www.plexiidesk.com` | Browser sign-in, help, pricing, download page | Only when the person clicks (opens in the system browser) | Yes (user action) |
 | `view.plexiidesk.com` | Share links point here; the app does not fetch it | Recipients open it | n/a |
 | `dl.plexiidesk.com` | Update feed and the update zip (mac + Windows) | Packaged builds: 30 s after launch, every 6 h, on wake; "Check now" | Yes: **Check for updates automatically** (on by default, disclosed) |
 | `github.com` (releases of `saasmouth/plexii`) | PlexiiOffice update feed, channel `office` | PlexiiOffice packaged builds, same cadence | Yes: same switch |
-| `api.anthropic.com` | AI with your own Anthropic key; the **title backfill** at launch only with Background AI tasks on | Own key: on AI use | Remove the key / use credits. Background: **Background AI tasks** (off by default) |
-| `api.openai.com` | Own OpenAI key: cloud transcription, image generation, key test; embeddings only with Background AI tasks on | On use; embeddings on save, view open, a 5-min sweep and search, **only with Background AI tasks on** | Remove the OpenAI key; **Background AI tasks** (off by default) |
+| `api.anthropic.com` | AI with your own Anthropic key; the **title backfill** at launch and the **desk hello** only with Background AI tasks on | Own key: on AI use | Remove the key / use credits. Background: **Background AI tasks** (off by default) |
+| `api.openai.com` | Own OpenAI key: cloud transcription, image generation, key test; embeddings, and the **desk hello** when PlexiiAssist uses your OpenAI key, only with Background AI tasks on | On use; embeddings on save, view open, a 5-min sweep and search, **only with Background AI tasks on** | Remove the OpenAI key; **Background AI tasks** (off by default) |
 | `html.duckduckgo.com` | Chat web search: the person's chat message | Each chat message of 15+ characters while the globe is on | Yes: globe toggle, **off by default**, last choice remembered |
 | `huggingface.co` (+ its CDN) | Download of the local Whisper speech model (`Xenova/whisper-tiny` / `-base`). Model files only: no audio, transcript or account data is sent | Once, the first time anything is transcribed on this device, then cached, **without asking**. Meeting and call recordings are **always** transcribed on the computer, whatever the AI source, so the first one starts the download. While the AI source is "Local on this device" (where a new install starts when the on-device model is already on the computer), voice notes and hold-to-talk do too | **Only partly, today**: choose a cloud AI source and Cloud transcription in Settings › AI before the first voice note, and don't record or transcribe meetings or calls. A prompt that asks before downloading is planned |
 | `localhost:11434` | Ollama, if the person runs it | Probed every 5 min by the local-AI sweep | Local only; nothing leaves the computer |
@@ -205,6 +205,16 @@ Base URL: `ACTIVE.api` (`src/shared/productDomains.ts:28`, read by
     go to Anthropic in one request (`src/main/index.ts:834`,
     `src/main/titleBackfill.ts:279`, `src/main/backgroundAiGate.ts:48`). Skipped
     items are not marked seen, so turning the switch on names them next launch.
+- **Desk hello**: the first time each session that a desk in progress is open
+  (`src/renderer/src/components/Canvas.tsx:816`), its name and what is on it
+  (`deskBlockForCall`, `src/main/ai/anthropic.ts:588`) go to the model PlexiiAssist
+  uses (Anthropic on your key or on credits, or OpenAI on your key) for a one- or
+  two-sentence hello. Nobody clicks, so it is sent only with **Background AI
+  tasks** on, or when the hello is written on this computer
+  (`src/main/deskWelcomeGate.ts:21`, `backgroundModelAllowed('welcome')` at
+  `src/main/backgroundAiGate.ts:75`). With the source Local, PlexiiAssist on a
+  saved key or a cloud route of its own still counts as leaving. "Have AI suggest
+  the first step" in the Pre-Task Bridge sends the same request on a click.
 - Own OpenAI key: transcription (`src/main/ai/voiceNote.ts:177`), images
   (`src/main/imageGen.ts:50`), key test (`src/main/ipc/index.ts`), all on use.
 - **Embeddings** (document and knowledge text on save, on opening Documents or
@@ -382,7 +392,7 @@ this check), AI providers (no keys), mail and calendars (nothing connected),
 Windows spell-check dictionaries (macOS host). Those rows rest on the code
 references above and on unit tests: the update schedule, switch and stripped
 staging id (`tests/unit/updatePollCadence.test.ts`), the Background AI gate
-(`backgroundAiGate.test.ts`), web search off by default
+(`backgroundAiGate.test.ts`, `deskWelcomeGate.test.ts`), web search off by default
 (`chatWebSearchDefault.test.ts`), the local-only sync pause
 (`localOnlyMode.test.ts`) and consent on every report
 (`telemetryOptIn.test.tsx`, `privacyConsentServer.test.ts`).

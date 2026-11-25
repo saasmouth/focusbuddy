@@ -565,6 +565,8 @@ import { extractMemoryFromDocuments } from '../ai/extractMemory'
 // The question is embedded under the Background AI tasks gate: a cloud embedder
 // only while the person allows it, otherwise a local model or nothing.
 import { gatedEmbedQueryTagged } from '../backgroundAiGate'
+import { proactiveWelcome } from '../deskWelcomeGate'
+import type { ProactiveWelcomeOpts } from '@shared/types'
 import { lookupAnswer, storeAnswer, bumpAnswerCacheVersion } from '../ai/answerCache'
 import type { MemoryKind } from '@shared/types'
 import {
@@ -698,7 +700,6 @@ import {
 import { getRecentActivity, recordActivity } from '../db/activity'
 import {
   generatePresenceNarration,
-  generateProactiveWelcome,
   buildFromPrompt,
   generateResume,
   proposeSmartStacks,
@@ -1948,8 +1949,10 @@ export function registerIpcHandlers(): void {
       }
     }
   )
-  ipcMain.handle('chat:proactiveWelcome', (_e, taskId: string) =>
-    generateProactiveWelcome(taskId)
+  // The desk hello: sent with no click, so it waits for Background AI tasks
+  // unless the person asked for it (deskWelcomeGate.ts).
+  ipcMain.handle('chat:proactiveWelcome', (_e, taskId: string, opts?: ProactiveWelcomeOpts) =>
+    proactiveWelcome(taskId, opts)
   )
   ipcMain.handle('resume:generate', (_e, taskId: string) => {
     recordAiCall()

@@ -792,7 +792,7 @@ export const HANDLER_PARAMS: Readonly<Record<string, readonly string[]>> = {
   'calendar:addMeetingIcs': ['ev'],
   'chat:cancelStream': ['requestId'],
   'chat:hasApiKey': [],
-  'chat:proactiveWelcome': ['taskId'],
+  'chat:proactiveWelcome': ['taskId', 'opts'],
   'chat:send': ['req'],
   'chat:sendStream': ['input'],
   'clusters:delete': ['id'],

@@ -1,6 +1,6 @@
 // The "Background AI tasks" gate (Settings > Data > Privacy, privacyPrefs.ts).
 //
-// Two jobs send the person's own content to an AI provider with no click:
+// Three jobs send the person's own content to an AI provider with no click:
 //
 //   - title backfill (titleBackfill.ts), 12 s after every launch: up to 40
 //     untitled items, 400 characters of each, in one request to Anthropic with
@@ -9,19 +9,28 @@
 //     document and knowledge entry, and a sweep 45 s after launch then every
 //     5 minutes, sent to OpenAI's embeddings API with the person's own key, so
 //     search can match meaning rather than words. Search questions are embedded
-//     the same way.
+//     the same way;
+//   - the desk hello (deskWelcomeGate.ts): the first time each session a desk
+//     is open while in progress, its name and what is on it (deskBlockForCall)
+//     go to wherever PlexiiAssist goes (Anthropic on the person's key or on
+//     Plexii AI credits, or OpenAI) for a one- or two-sentence hello and first
+//     step. The same request from a click ("Have AI suggest the first step" in
+//     the Pre-Task Bridge) is the person asking, and is not gated.
 //
-// Neither may reach a cloud provider unless the person turned Background AI
-// tasks on. Work that stays on this computer is not gated: titles derived from
-// an item's own text, and embeddings from a local model (Ollama today; the
-// the bundled model, see `setLocalRouting`).
+// None may reach a cloud provider unless the person turned Background AI tasks
+// on. Work that stays on this computer is not gated: titles derived from an
+// item's own text, embeddings from a local model (Ollama today; the bundled
+// model, see `setLocalRouting`), and a desk hello the on-device model writes.
 //
-// The gate sits at the call sites (index.ts and the two retrieval modules), not
-// inside src/main/ai/*, which the local-ai branch owns.
+// The gate sits at the call sites (index.ts, ipc/index.ts through
+// deskWelcomeGate.ts, and the two retrieval modules), not inside
+// src/main/ai/*, which the local-ai branch owns.
 
+import type { AIPurpose } from '@shared/types'
 import { backgroundAiEnabled } from './privacyPrefs'
 import { embedTexts, activeEmbedModel, type EmbedResult } from './ai/embeddings'
 import { localEmbed, localModelStatus } from './ai/localModel'
+import { resolveModel } from './ai/modelRouting'
 
 /**
  * How many texts one backfill request carries. localEmbed sends the whole
@@ -52,9 +61,20 @@ export function setLocalRouting(fn: () => boolean): void {
 /**
  * May a background job ask a model to do this? Yes when the person allowed
  * background AI, or when AI runs on this device (nothing is sent anywhere).
+ *
+ * Pass the job's `purpose` whenever the call goes through the routed client
+ * with that purpose. "The AI source is Local" is not enough for such a call:
+ * PlexiiAssist (and so the desk hello) still goes to the cloud while the source
+ * is Local when it has a route of its own in Settings › AI, or when it uses a
+ * saved key under content writing's 'cloud-if-key' (the default; see
+ * providerRouter.contentKeyFor). So with a purpose, the model id that purpose
+ * resolves to right now decides: `local:` runs here, anything else would leave.
+ * If routing was never set up, nothing resolves to `local:` and the answer is
+ * no, which is the safe way round.
  */
-export function backgroundModelAllowed(): boolean {
-  return backgroundAiEnabled() || localRouting()
+export function backgroundModelAllowed(purpose?: AIPurpose): boolean {
+  if (backgroundAiEnabled()) return true
+  return purpose === undefined ? localRouting() : resolveModel(purpose).startsWith('local:')
 }
 
 /** Local-only embedding: the vectors a local model gives, or a plain "off". */
