@@ -96,9 +96,11 @@ export default function PreTaskBridge(): JSX.Element | null {
 
   function handleAIDraft(): void {
     if (!activeTask) return
-    // Reuse the proactive-welcome flow already wired in the chat store
+    // Reuse the proactive-welcome flow already wired in the chat store. This is
+    // a click, so it is the person asking: { asked: true } lets it through with
+    // Background AI tasks off (main/deskWelcomeGate.ts).
     void import('../stores/chat').then((m) => {
-      void m.useChatStore.getState().sendProactiveWelcome(activeTask.id)
+      void m.useChatStore.getState().sendProactiveWelcome(activeTask.id, { asked: true })
     })
     chimeIn()
     close()

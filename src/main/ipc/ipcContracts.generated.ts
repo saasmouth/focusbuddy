@@ -82,7 +82,7 @@ export const IPC_ARG_CONTRACTS: Record<string, readonly ArgSpec[]> = {
   'browserExt:setEnabled': [{ kind: 'string', optional: false, nullable: false }, { kind: 'boolean', optional: false, nullable: false }],
   'calendar:addMeetingIcs': [{ kind: 'object', optional: false, nullable: false }],
   'chat:cancelStream': [{ kind: 'string', optional: false, nullable: false }],
-  'chat:proactiveWelcome': [{ kind: 'string', optional: false, nullable: false }],
+  'chat:proactiveWelcome': [{ kind: 'string', optional: false, nullable: false }, { kind: 'object', optional: true, nullable: false }],
   'chat:send': [{ kind: 'object', optional: false, nullable: false }],
   'clusters:delete': [{ kind: 'string', optional: false, nullable: false }],
   'clusters:list': [{ kind: 'string', optional: false, nullable: false }],

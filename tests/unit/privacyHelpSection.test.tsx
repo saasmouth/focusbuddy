@@ -147,6 +147,11 @@ describe('Privacy settings', () => {
     expect(label).toMatch(/Anthropic/)
     expect(label).toMatch(/OpenAI/)
     expect(label).toMatch(/search questions/)
+    // The third job (4.3.55, main/deskWelcomeGate.ts): the desk hello, which
+    // can go to OpenAI too, and does not happen with the switch off.
+    expect(label).toMatch(/a short hello and first step when you start or come back to a desk in progress/)
+    expect(label).toMatch(/its name and what's on it, to Anthropic, or to OpenAI if PlexiiAssist uses your OpenAI key/)
+    expect(label).toMatch(/a desk opens without a hello unless you ask for one/)
     act(() => b.click())
     await flush()
     expect(api.privacy.setPrefs).toHaveBeenCalledWith({ backgroundAi: true })

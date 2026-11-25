@@ -8,10 +8,13 @@
 //
 //   backgroundAi — let the app send the person's own content to an AI provider
 //     WITHOUT a click: the title backfill (untitled items' text → Anthropic, at
-//     launch) and the embeddings sweep (document and knowledge text → OpenAI,
-//     every 5 minutes). OFF by default. A cloud provider is used only while this
-//     is on; a local model on this computer is not gated, since nothing leaves.
-//     The gate sits at the two call sites in index.ts (backgroundAiGate.ts).
+//     launch), the embeddings sweep (document and knowledge text → OpenAI,
+//     every 5 minutes) and the desk hello (a desk's name and contents → the
+//     model PlexiiAssist uses, when a desk in progress opens). OFF by default.
+//     A cloud provider is used only while this is on; a local model on this
+//     computer is not gated, since nothing leaves. The gate sits at the call
+//     sites: index.ts, the retrieval modules, and deskWelcomeGate.ts behind
+//     chat:proactiveWelcome (backgroundAiGate.ts).
 //
 //   learnFromDocuments — "Learn from my documents automatically" (Settings ›
 //     AI › Local, 4.3.50). ON by default. The local-AI tick extracts durable

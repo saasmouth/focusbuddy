@@ -806,6 +806,8 @@ export default function Canvas(): JSX.Element {
 
   // Proactive welcome: when a task transitions to in_progress for the first time this session,
   // and the user hasn't already started a chat about it, the AI opens with a 1-2 sentence hello + first step.
+  // Nobody clicked, so this never passes { asked: true }: main sends nothing while Background AI tasks
+  // is off, unless the hello is written on this computer (main/deskWelcomeGate.ts).
   useEffect(() => {
     if (!activeTask) return
     if (activeTask.status !== 'in_progress') return
